@@ -1,6 +1,6 @@
 .app-shell {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 286px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--surface);
 }
@@ -8,7 +8,7 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 20px;
   padding: 26px 18px;
   color: var(--sidebar-text);
   background: var(--sidebar);
@@ -17,13 +17,15 @@
 
 .brand,
 .repo-picker,
-.provider-row,
-.settings-button,
 .toolbar,
 .commit-actions,
 .status-bar,
-.capability-list,
-.capability-list span {
+.runtime-status,
+.runtime-status span,
+.message,
+.panel-actions,
+.new-branch,
+.segmented {
   display: flex;
   align-items: center;
 }
@@ -67,9 +69,14 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .repo-picker,
 .nav-list button,
-.settings-button {
+.recent-list button {
   width: 100%;
   gap: 10px;
   border: 1px solid transparent;
@@ -78,14 +85,17 @@ button {
 }
 
 .repo-picker {
-  justify-content: space-between;
   min-height: 44px;
   padding: 0 12px;
   border-color: rgba(148, 163, 184, 0.24);
   border-radius: 8px;
 }
 
-.repo-picker span {
+.repo-picker span,
+.recent-list span,
+.repo-path,
+.file-name,
+.file-state {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -96,53 +106,63 @@ button {
   gap: 6px;
 }
 
-.nav-list button,
-.settings-button {
+.nav-list button {
+  display: grid;
+  grid-template-columns: 18px 1fr;
   min-height: 38px;
+  align-items: center;
   padding: 0 12px;
   border-radius: 8px;
   text-align: left;
 }
 
-.nav-list button {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  align-items: center;
-}
-
 .nav-list button:hover,
 .nav-list button.active,
-.settings-button:hover,
-.repo-picker:hover {
+.repo-picker:hover,
+.recent-list button:hover {
   color: #ffffff;
   background: rgba(148, 163, 184, 0.14);
   border-color: rgba(148, 163, 184, 0.2);
 }
 
-.provider-list {
+.recent-list {
   display: grid;
-  gap: 10px;
-  margin-top: auto;
+  gap: 8px;
+  min-height: 0;
 }
 
-.provider-row {
-  gap: 9px;
-  min-height: 30px;
-  color: var(--sidebar-text);
+.recent-list p {
+  color: var(--sidebar-muted);
+  font-size: 13px;
 }
 
-.provider-row span {
-  flex: 1;
+.recent-list button {
+  display: grid;
+  gap: 3px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
 }
 
-.provider-row em {
+.recent-list strong {
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.recent-list span {
   color: var(--sidebar-muted);
   font-size: 12px;
-  font-style: normal;
 }
 
-.settings-button {
-  justify-content: flex-start;
+.runtime-status {
+  margin-top: auto;
+  color: var(--sidebar-muted);
+  font-size: 12px;
+}
+
+.runtime-status span {
+  gap: 6px;
 }
 
 .workspace {
@@ -154,10 +174,10 @@ button {
 
 .topbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .eyebrow {
@@ -191,13 +211,32 @@ h3 {
   font-size: 15px;
 }
 
-.toolbar {
+.repo-path {
+  max-width: 720px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.toolbar,
+.panel-actions,
+.commit-actions,
+.segmented,
+.new-branch {
   gap: 8px;
 }
 
+.toolbar {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .toolbar button,
+.panel-actions button,
 .commit-actions button,
-.icon-button {
+.empty-state button,
+.new-branch button,
+.segmented button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -211,31 +250,84 @@ h3 {
 }
 
 .toolbar button:hover,
+.panel-actions button:hover,
 .commit-actions button:hover,
-.icon-button:hover {
+.empty-state button:hover,
+.new-branch button:hover,
+.segmented button:hover {
   border-color: #a7b0c0;
   background: #f9fafb;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
+.message {
+  gap: 8px;
+  min-height: 36px;
+  margin-bottom: 10px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #ffffff;
 }
 
-.stat-tile,
+.message.error {
+  color: #991b1b;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.empty-state,
+.single-panel,
 .changes-panel,
 .diff-panel,
+.stat-tile,
 .review-card,
-.commit-box {
+.commit-box,
+.provider-card,
+.quiet-box,
+.diff-empty {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #ffffff;
 }
 
+.empty-state {
+  display: grid;
+  min-height: 380px;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.empty-state h2 {
+  color: var(--text-strong);
+}
+
+.empty-state p {
+  max-width: 520px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin: 8px 0 18px;
+}
+
 .stat-tile {
-  min-height: 76px;
+  min-height: 74px;
   padding: 14px;
 }
 
@@ -257,13 +349,14 @@ h3 {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(340px, 0.8fr) minmax(420px, 1.2fr);
+  grid-template-columns: minmax(360px, 0.8fr) minmax(480px, 1.2fr);
   gap: 18px;
   min-height: 0;
 }
 
 .changes-panel,
-.diff-panel {
+.diff-panel,
+.single-panel {
   min-width: 0;
   padding: 18px;
 }
@@ -282,17 +375,27 @@ h3 {
   font-size: 13px;
 }
 
-.icon-button {
-  width: 36px;
-  padding: 0;
-}
-
-.change-list {
+.change-list,
+.branch-list,
+.conflict-list,
+.review-grid,
+.assistant-grid {
   display: grid;
-  gap: 7px;
+  gap: 10px;
 }
 
 .change-row {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.change-row.selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.change-select {
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr) auto;
   align-items: center;
@@ -300,16 +403,10 @@ h3 {
   width: 100%;
   min-height: 42px;
   padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: 0;
   color: var(--text);
-  background: #f8fafc;
+  background: transparent;
   text-align: left;
-}
-
-.change-row:hover {
-  border-color: #cbd5e1;
-  background: #ffffff;
 }
 
 .file-status {
@@ -324,13 +421,23 @@ h3 {
   font-weight: 800;
 }
 
-.file-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.status-conflicted {
+  color: #991b1b;
+  background: #fee2e2;
 }
 
-.file-delta {
+.status-untracked {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.status-deleted {
+  color: #9f1239;
+  background: #ffe4e6;
+}
+
+.file-state {
+  max-width: 150px;
   color: var(--muted);
   font-size: 12px;
 }
@@ -350,7 +457,8 @@ h3 {
 }
 
 .commit-box input,
-.commit-box textarea {
+.commit-box textarea,
+.new-branch input {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--border);
@@ -359,7 +467,8 @@ h3 {
   background: #ffffff;
 }
 
-.commit-box input {
+.commit-box input,
+.new-branch input {
   height: 38px;
   padding: 0 10px;
 }
@@ -370,34 +479,26 @@ h3 {
   padding: 10px;
 }
 
-.commit-actions {
-  gap: 8px;
-}
-
 .commit-actions button:first-child {
   color: #ffffff;
   border-color: #2563eb;
   background: #2563eb;
 }
 
-.commit-actions button.secondary {
-  color: #1f2937;
+.segmented {
+  margin-bottom: 12px;
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  color: #0369a1;
-  background: #e0f2fe;
-  font-size: 12px;
-  font-weight: 700;
+.segmented button.active {
+  color: #ffffff;
+  border-color: #2563eb;
+  background: #2563eb;
 }
 
 .diff-preview {
-  overflow: hidden;
+  overflow: auto;
+  max-height: calc(100vh - 360px);
+  min-height: 360px;
   margin: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -408,7 +509,7 @@ h3 {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   gap: 10px;
-  min-height: 34px;
+  min-height: 26px;
   align-items: center;
   padding: 0 14px;
   color: #d1d5db;
@@ -426,23 +527,63 @@ h3 {
   background: rgba(153, 27, 27, 0.24);
 }
 
-.review-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+.diff-empty,
+.quiet-box {
+  padding: 18px;
+  color: var(--muted);
 }
 
-.review-card {
-  min-height: 132px;
+.branch-row,
+.conflict-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.branch-row.current {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.branch-row strong,
+.conflict-row strong {
+  display: block;
+  color: var(--text-strong);
+}
+
+.branch-row span,
+.conflict-row span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.review-grid,
+.assistant-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.review-card,
+.provider-card {
+  min-height: 126px;
   padding: 14px;
 }
 
-.review-card svg {
+.review-card svg,
+.provider-card svg {
   color: #2563eb;
 }
 
-.review-card p {
+.review-card p,
+.provider-card span {
+  display: block;
   margin-top: 8px;
   color: var(--muted);
   font-size: 13px;
@@ -451,39 +592,19 @@ h3 {
 .review-card span {
   display: inline-flex;
   margin-top: 12px;
-  color: #166534;
+  color: #92400e;
   font-size: 12px;
   font-weight: 700;
 }
 
-.status-bar {
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: auto;
-  padding-top: 16px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.status-bar > span,
-.capability-list span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.capability-list {
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-@media (max-width: 1120px) {
+@media (max-width: 1180px) {
   .app-shell {
-    grid-template-columns: 230px minmax(0, 1fr);
+    grid-template-columns: 238px minmax(0, 1fr);
   }
 
   .stats-grid,
-  .review-grid {
+  .review-grid,
+  .assistant-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

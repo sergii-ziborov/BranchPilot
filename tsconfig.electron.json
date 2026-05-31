@@ -8,11 +8,11 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "dist-electron",
-    "rootDir": "electron",
+    "rootDir": ".",
     "sourceMap": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["electron/**/*.ts"]
+  "include": ["electron/**/*.ts", "src/shared/**/*.ts"]
 }

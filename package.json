@@ -4,14 +4,15 @@
   "version": "0.0.0",
   "description": "A desktop Git client for local repositories and hosted source providers.",
   "type": "module",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1 --port 5174 --strictPort\" \"wait-on tcp:5174 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5174 npm run electron:dev\"",
     "electron:dev": "tsc -p tsconfig.electron.json && electron .",
     "build": "tsc -b && vite build && tsc -p tsconfig.electron.json",
     "dist": "npm run build && electron-builder",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "build": {
     "appId": "com.branchpilot.app",
@@ -50,6 +51,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
+    "vitest": "^4.1.7",
     "wait-on": "^9.0.10"
   }
 }

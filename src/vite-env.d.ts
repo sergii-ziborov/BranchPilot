@@ -1,8 +1,11 @@
 /// <reference types="vite/client" />
 
-interface Window {
-  branchPilot?: {
-    getVersion: () => Promise<string>
-    chooseRepositoryFolder: () => Promise<string | null>
+import type { BranchPilotApi } from './shared/branchPilot'
+
+declare global {
+  interface Window {
+    branchPilot?: BranchPilotApi
   }
 }
+
+export {}
