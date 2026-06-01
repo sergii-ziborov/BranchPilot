@@ -376,6 +376,7 @@ h3 {
 }
 
 .change-list,
+.history-list,
 .branch-list,
 .conflict-list,
 .review-grid,
@@ -388,6 +389,75 @@ h3 {
   border: 1px solid transparent;
   border-radius: 8px;
   background: #f8fafc;
+}
+
+.history-grid {
+  grid-template-columns: minmax(360px, 0.7fr) minmax(540px, 1.3fr);
+}
+
+.history-row,
+.commit-file-row {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  background: #f8fafc;
+  text-align: left;
+}
+
+.history-row:hover,
+.commit-file-row:hover,
+.history-row.selected,
+.commit-file-row.selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.history-row strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-body {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #f8fafc;
+  white-space: pre-wrap;
+}
+
+.commit-file-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.45fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.commit-file-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.commit-file-row {
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  min-height: 42px;
 }
 
 .change-row.selected {
@@ -564,6 +634,86 @@ h3 {
   font-size: 12px;
 }
 
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.config-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.config-card h3 {
+  margin-bottom: 2px;
+}
+
+.config-card label,
+.info-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.config-card input {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: #ffffff;
+}
+
+.config-card button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.info-row {
+  display: grid;
+  gap: 4px;
+}
+
+.info-row strong {
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+}
+
+.remotes-card {
+  grid-column: 1 / -1;
+}
+
+.remote-row {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.remote-row span,
+.muted-text {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .review-grid,
 .assistant-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -609,6 +759,11 @@ h3 {
   }
 
   .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .commit-file-grid,
+  .config-grid {
     grid-template-columns: 1fr;
   }
 }

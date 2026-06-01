@@ -98,6 +98,60 @@ export interface BranchSummary {
   lastCommitAt?: string
 }
 
+export interface CommitSummary {
+  sha: string
+  shortSha: string
+  subject: string
+  authorName: string
+  authorEmail: string
+  authoredAt: string
+}
+
+export interface CommitFileChange {
+  path: string
+  originalPath?: string
+  status: FileChangeStatus
+  rawStatus: string
+}
+
+export interface CommitDetails extends CommitSummary {
+  body: string
+  files: CommitFileChange[]
+}
+
+export interface CommitDetailsRequest {
+  repoPath: string
+  commitSha: string
+}
+
+export interface CommitFileDiffRequest extends CommitDetailsRequest {
+  filePath: string
+}
+
+export interface RemoteSummary {
+  name: string
+  fetchUrl?: string
+  pushUrl?: string
+}
+
+export interface GitConfigSnapshot {
+  localUserName?: string
+  localUserEmail?: string
+  globalUserName?: string
+  globalUserEmail?: string
+  effectiveUserName?: string
+  effectiveUserEmail?: string
+  commitSigningEnabled?: boolean
+  commitSigningSource: 'local' | 'global' | 'unset'
+  remotes: RemoteSummary[]
+}
+
+export interface GitIdentityUpdate {
+  repoPath: string
+  name: string
+  email: string
+}
+
 export interface DiffRequest {
   repoPath: string
   filePath: string
@@ -173,6 +227,11 @@ export interface BranchPilotApi {
   getRecentRepositories: () => Promise<ApiResult<RecentRepository[]>>
   refreshRepository: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   getDiff: (request: DiffRequest) => Promise<ApiResult<DiffResult>>
+  getHistory: (repoPath: string) => Promise<ApiResult<CommitSummary[]>>
+  getCommitDetails: (request: CommitDetailsRequest) => Promise<ApiResult<CommitDetails>>
+  getCommitFileDiff: (request: CommitFileDiffRequest) => Promise<ApiResult<DiffResult>>
+  getGitConfig: (repoPath: string) => Promise<ApiResult<GitConfigSnapshot>>
+  setLocalGitIdentity: (request: GitIdentityUpdate) => Promise<ApiResult<GitConfigSnapshot>>
   stageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   unstageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   stageAll: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>

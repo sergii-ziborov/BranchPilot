@@ -21,9 +21,11 @@ export function toBranchPilotError(error: unknown): BranchPilotError {
   }
 
   if (error instanceof CommandExecutionError) {
+    const classified = classifyGitError(error.result.stderr || error.result.stdout)
+
     return {
-      code: error.code,
-      message: error.message,
+      code: classified.code,
+      message: classified.message,
       details: [error.result.stderr, error.result.stdout].filter(Boolean).join('\n')
     }
   }
@@ -38,5 +40,49 @@ export function toBranchPilotError(error: unknown): BranchPilotError {
   return {
     code: 'unexpected_error',
     message: 'Unexpected error'
+  }
+}
+
+function classifyGitError(output: string): { code: string; message: string } {
+  const normalized = output.toLowerCase()
+
+  if (normalized.includes('authentication failed') || normalized.includes('could not read username')) {
+    return {
+      code: 'git_auth_failed',
+      message: 'Git authentication failed. Check the remote account or credential manager.'
+    }
+  }
+
+  if (normalized.includes('no upstream branch')) {
+    return {
+      code: 'git_no_upstream',
+      message: 'This branch has no upstream. Publish the branch before pushing normally.'
+    }
+  }
+
+  if (normalized.includes('non-fast-forward') || normalized.includes('fetch first')) {
+    return {
+      code: 'git_non_fast_forward',
+      message: 'Push was rejected because the remote has new commits. Fetch and review before pushing.'
+    }
+  }
+
+  if (normalized.includes('not possible to fast-forward')) {
+    return {
+      code: 'git_pull_not_fast_forward',
+      message: 'Pull could not fast-forward. Fetch and resolve the branch state manually.'
+    }
+  }
+
+  if (normalized.includes('automatic merge failed') || normalized.includes('fix conflicts')) {
+    return {
+      code: 'git_conflict',
+      message: 'Git reported conflicts. Use the Merge view to resolve them.'
+    }
+  }
+
+  return {
+    code: 'git_command_failed',
+    message: 'Git command failed. See details for the original Git output.'
   }
 }

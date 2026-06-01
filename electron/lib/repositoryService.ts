@@ -3,13 +3,21 @@ import os from 'node:os'
 import path from 'node:path'
 import type {
   BranchSummary,
+  CommitDetails,
+  CommitDetailsRequest,
+  CommitFileChange,
+  CommitFileDiffRequest,
   CommitRequest,
+  CommitSummary,
   DiffRequest,
   DiffResult,
   FileActionRequest,
+  GitConfigSnapshot,
+  GitIdentityUpdate,
   MergeState,
   PublishBranchRequest,
   RecentRepository,
+  RemoteSummary,
   RepositorySnapshot,
   RepositoryStatus,
   RepositorySummary
@@ -105,6 +113,104 @@ export class RepositoryService {
       binary,
       tooLarge
     }
+  }
+
+  async getHistory(repoPath: string): Promise<CommitSummary[]> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const result = await this.git(rootPath, [
+      'log',
+      '--max-count=200',
+      '--date=iso-strict',
+      '--pretty=format:%H%x00%h%x00%s%x00%an%x00%ae%x00%ad'
+    ], {
+      allowedExitCodes: [0, 128]
+    })
+
+    if (result.exitCode !== 0 || !result.stdout.trim()) {
+      return []
+    }
+
+    return result.stdout
+      .split('\n')
+      .filter(Boolean)
+      .map(parseCommitSummary)
+  }
+
+  async getCommitDetails(request: CommitDetailsRequest): Promise<CommitDetails> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const commitSha = normalizeCommitSha(request.commitSha)
+    const metadata = await this.git(rootPath, [
+      'show',
+      '-s',
+      '--date=iso-strict',
+      '--format=%H%x00%h%x00%s%x00%b%x00%an%x00%ae%x00%ad',
+      commitSha
+    ])
+    const [sha, shortSha, subject, body, authorName, authorEmail, authoredAt] = metadata.stdout.split('\0')
+
+    return {
+      sha,
+      shortSha,
+      subject,
+      body: body.trim(),
+      authorName,
+      authorEmail,
+      authoredAt: authoredAt.trim(),
+      files: await this.getCommitFiles(rootPath, commitSha)
+    }
+  }
+
+  async getCommitFileDiff(request: CommitFileDiffRequest): Promise<DiffResult> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const commitSha = normalizeCommitSha(request.commitSha)
+    const filePath = normalizeRelativePath(request.filePath)
+    const result = await this.git(rootPath, ['show', '--format=', '--no-ext-diff', commitSha, '--', filePath], {
+      allowedExitCodes: [0, 1]
+    })
+    const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
+    const tooLarge = result.stdout.length > MAX_DIFF_BYTES
+
+    return {
+      filePath,
+      staged: false,
+      text: tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout,
+      binary,
+      tooLarge
+    }
+  }
+
+  async getGitConfig(repoPath: string): Promise<GitConfigSnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const localUserName = await this.getConfig(rootPath, 'user.name', 'local')
+    const localUserEmail = await this.getConfig(rootPath, 'user.email', 'local')
+    const globalUserName = await this.getConfig(rootPath, 'user.name', 'global')
+    const globalUserEmail = await this.getConfig(rootPath, 'user.email', 'global')
+    const localSigning = await this.getConfig(rootPath, 'commit.gpgsign', 'local')
+    const globalSigning = await this.getConfig(rootPath, 'commit.gpgsign', 'global')
+    const signingValue = localSigning ?? globalSigning
+
+    return {
+      localUserName,
+      localUserEmail,
+      globalUserName,
+      globalUserEmail,
+      effectiveUserName: localUserName ?? globalUserName,
+      effectiveUserEmail: localUserEmail ?? globalUserEmail,
+      commitSigningEnabled: signingValue ? signingValue === 'true' : undefined,
+      commitSigningSource: localSigning ? 'local' : globalSigning ? 'global' : 'unset',
+      remotes: await this.listRemotes(rootPath)
+    }
+  }
+
+  async setLocalGitIdentity(request: GitIdentityUpdate): Promise<GitConfigSnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const name = normalizeConfigValue(request.name, 'Name')
+    const email = normalizeConfigValue(request.email, 'Email')
+
+    await this.git(rootPath, ['config', '--local', 'user.name', name])
+    await this.git(rootPath, ['config', '--local', 'user.email', email])
+
+    return this.getGitConfig(rootPath)
   }
 
   async stageFile(request: FileActionRequest): Promise<RepositorySnapshot> {
@@ -308,27 +414,88 @@ export class RepositoryService {
   }
 
   private async getPrimaryRemote(rootPath: string): Promise<{ name: string; url: string } | undefined> {
-    const result = await this.git(rootPath, ['remote', '-v'], { allowedExitCodes: [0, 1] })
-    const firstFetchRemote = result.stdout
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .find((line) => line.endsWith('(fetch)'))
+    const firstFetchRemote = (await this.listRemotes(rootPath)).find((remote) => remote.fetchUrl)
 
     if (!firstFetchRemote) {
       return undefined
     }
 
-    const [name, url] = firstFetchRemote.replace(/\s+\(fetch\)$/, '').split(/\s+/)
-    return name && url ? { name, url } : undefined
+    return {
+      name: firstFetchRemote.name,
+      url: firstFetchRemote.fetchUrl ?? firstFetchRemote.pushUrl ?? ''
+    }
   }
 
-  private async getConfig(rootPath: string, key: string): Promise<string | undefined> {
-    const result = await this.git(rootPath, ['config', '--get', key], {
+  private async getConfig(rootPath: string, key: string, scope?: 'local' | 'global'): Promise<string | undefined> {
+    const args = ['config']
+
+    if (scope) {
+      args.push(`--${scope}`)
+    }
+
+    args.push('--get', key)
+
+    const result = await this.git(rootPath, args, {
       allowedExitCodes: [0, 1]
     })
 
     return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined
+  }
+
+  private async listRemotes(rootPath: string): Promise<RemoteSummary[]> {
+    const result = await this.git(rootPath, ['remote', '-v'], { allowedExitCodes: [0, 1] })
+    const remotes = new Map<string, RemoteSummary>()
+
+    for (const line of result.stdout.split('\n').map((entry) => entry.trim()).filter(Boolean)) {
+      const match = line.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/)
+
+      if (!match) {
+        continue
+      }
+
+      const [, name, url, direction] = match
+      const remote = remotes.get(name) ?? { name }
+
+      if (direction === 'fetch') {
+        remote.fetchUrl = url
+      } else {
+        remote.pushUrl = url
+      }
+
+      remotes.set(name, remote)
+    }
+
+    return [...remotes.values()]
+  }
+
+  private async getCommitFiles(rootPath: string, commitSha: string): Promise<CommitFileChange[]> {
+    const result = await this.git(rootPath, ['diff-tree', '--root', '-r', '--name-status', '-z', '--no-commit-id', commitSha])
+    const records = result.stdout.split('\0').filter(Boolean)
+    const files: CommitFileChange[] = []
+
+    for (let index = 0; index < records.length; index += 1) {
+      const rawStatus = records[index]
+
+      if (rawStatus.startsWith('R') || rawStatus.startsWith('C')) {
+        files.push({
+          rawStatus,
+          status: rawStatus.startsWith('R') ? 'renamed' : 'copied',
+          originalPath: records[index + 1],
+          path: records[index + 2]
+        })
+        index += 2
+        continue
+      }
+
+      files.push({
+        rawStatus,
+        status: mapRawStatus(rawStatus),
+        path: records[index + 1]
+      })
+      index += 1
+    }
+
+    return files
   }
 
   private async getCurrentBranch(rootPath: string): Promise<string> {
@@ -423,6 +590,49 @@ function normalizeBranchName(branchName: string): string {
   }
 
   return trimmed
+}
+
+function normalizeCommitSha(commitSha: string): string {
+  const trimmed = commitSha.trim()
+
+  if (!/^[a-fA-F0-9]{7,40}$/.test(trimmed)) {
+    throw new BranchPilotUserError('invalid_commit', 'Invalid commit identifier.')
+  }
+
+  return trimmed
+}
+
+function normalizeConfigValue(value: string, label: string): string {
+  const trimmed = value.trim()
+
+  if (!trimmed || trimmed.includes('\0')) {
+    throw new BranchPilotUserError('invalid_git_config', `${label} is required.`)
+  }
+
+  return trimmed
+}
+
+function parseCommitSummary(line: string): CommitSummary {
+  const [sha, shortSha, subject, authorName, authorEmail, authoredAt] = line.split('\0')
+
+  return {
+    sha,
+    shortSha,
+    subject,
+    authorName,
+    authorEmail,
+    authoredAt
+  }
+}
+
+function mapRawStatus(rawStatus: string) {
+  if (rawStatus.startsWith('A')) return 'added'
+  if (rawStatus.startsWith('D')) return 'deleted'
+  if (rawStatus.startsWith('R')) return 'renamed'
+  if (rawStatus.startsWith('C')) return 'copied'
+  if (rawStatus.startsWith('M')) return 'modified'
+
+  return 'unknown'
 }
 
 function resolveRepositoryPath(rootPath: string, relativePath: string): string {

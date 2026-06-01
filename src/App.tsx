@@ -4,6 +4,7 @@ import {
   ArrowUpFromLine,
   Bot,
   Check,
+  Clock3,
   Code2,
   FileWarning,
   FolderOpen,
@@ -14,6 +15,8 @@ import {
   Loader2,
   Plus,
   RefreshCcw,
+  Save,
+  Settings,
   ShieldCheck,
   Trash2,
   UploadCloud,
@@ -23,15 +26,19 @@ import type {
   ApiResult,
   AssistantStatus,
   BranchSummary,
+  CommitDetails,
+  CommitFileChange,
+  CommitSummary,
   DiffResult,
   FileChange,
+  GitConfigSnapshot,
   ProviderStatus,
   RecentRepository,
   RepositorySnapshot
 } from './shared/branchPilot'
 import './App.css'
 
-type ViewMode = 'changes' | 'merge' | 'branches' | 'review' | 'providers'
+type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'review' | 'providers'
 type DiffMode = 'unstaged' | 'staged'
 
 const api = window.branchPilot
@@ -45,6 +52,12 @@ function App() {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [diffMode, setDiffMode] = useState<DiffMode>('unstaged')
   const [diff, setDiff] = useState<DiffResult | null>(null)
+  const [history, setHistory] = useState<CommitSummary[]>([])
+  const [selectedCommitSha, setSelectedCommitSha] = useState<string | null>(null)
+  const [commitDetails, setCommitDetails] = useState<CommitDetails | null>(null)
+  const [selectedCommitFilePath, setSelectedCommitFilePath] = useState<string | null>(null)
+  const [commitFileDiff, setCommitFileDiff] = useState<DiffResult | null>(null)
+  const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('changes')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('Open a repository to begin.')
@@ -52,6 +65,8 @@ function App() {
   const [commitTitle, setCommitTitle] = useState('')
   const [commitDescription, setCommitDescription] = useState('')
   const [newBranchName, setNewBranchName] = useState('')
+  const [localUserName, setLocalUserName] = useState('')
+  const [localUserEmail, setLocalUserEmail] = useState('')
 
   const selectedChange = useMemo(
     () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
@@ -90,9 +105,30 @@ function App() {
     void loadDiff(selectedChange, diffMode)
   }, [diffMode, selectedChange, snapshot])
 
+  useEffect(() => {
+    if (!snapshot || viewMode !== 'history') return
+    void loadHistory()
+  }, [snapshot?.summary.rootPath, viewMode])
+
+  useEffect(() => {
+    if (!snapshot || viewMode !== 'history' || !selectedCommitSha) {
+      setCommitDetails(null)
+      setCommitFileDiff(null)
+      return
+    }
+
+    void loadCommitDetails(selectedCommitSha)
+  }, [selectedCommitSha, snapshot?.summary.rootPath, viewMode])
+
+  useEffect(() => {
+    if (!snapshot || viewMode !== 'config') return
+    void loadGitConfig()
+  }, [snapshot?.summary.rootPath, viewMode])
+
   const currentRepoPath = snapshot?.summary.rootPath
   const counts = snapshot?.status.counts
   const mergeState = snapshot?.status.merge
+  const canPublishBranch = Boolean(snapshot && !snapshot.summary.isDetached && !snapshot.summary.upstream && snapshot.summary.remoteName)
 
   async function loadRecentRepositories() {
     if (!api) return
@@ -157,6 +193,65 @@ function App() {
       setDiff(result.data)
     } else {
       setDiff(null)
+      setError(result.error.message)
+    }
+  }
+
+  async function loadHistory() {
+    if (!api || !currentRepoPath) return
+    const result = await api.getHistory(currentRepoPath)
+
+    if (result.ok) {
+      setHistory(result.data)
+      setSelectedCommitSha((currentSha) =>
+        currentSha && result.data.some((commit) => commit.sha === currentSha) ? currentSha : result.data[0]?.sha ?? null
+      )
+    } else {
+      setError(result.error.message)
+    }
+  }
+
+  async function loadCommitDetails(commitSha: string) {
+    if (!api || !currentRepoPath) return
+    const result = await api.getCommitDetails({ repoPath: currentRepoPath, commitSha })
+
+    if (result.ok) {
+      setCommitDetails(result.data)
+      const firstFile = result.data.files[0]
+      setSelectedCommitFilePath(firstFile?.path ?? null)
+
+      if (firstFile) {
+        void loadCommitFileDiff(result.data.sha, firstFile.path)
+      } else {
+        setCommitFileDiff(null)
+      }
+    } else {
+      setError(result.error.message)
+    }
+  }
+
+  async function loadCommitFileDiff(commitSha: string, filePath: string) {
+    if (!api || !currentRepoPath) return
+    const result = await api.getCommitFileDiff({ repoPath: currentRepoPath, commitSha, filePath })
+
+    if (result.ok) {
+      setSelectedCommitFilePath(filePath)
+      setCommitFileDiff(result.data)
+    } else {
+      setCommitFileDiff(null)
+      setError(result.error.message)
+    }
+  }
+
+  async function loadGitConfig() {
+    if (!api || !currentRepoPath) return
+    const result = await api.getGitConfig(currentRepoPath)
+
+    if (result.ok) {
+      setGitConfig(result.data)
+      setLocalUserName(result.data.localUserName ?? result.data.globalUserName ?? '')
+      setLocalUserEmail(result.data.localUserEmail ?? result.data.globalUserEmail ?? '')
+    } else {
       setError(result.error.message)
     }
   }
@@ -232,10 +327,33 @@ function App() {
     setNewBranchName('')
   }
 
+  async function saveLocalGitIdentity() {
+    if (!api || !currentRepoPath) return
+    setBusy(true)
+    setError(null)
+    const result = await api.setLocalGitIdentity({
+      repoPath: currentRepoPath,
+      name: localUserName,
+      email: localUserEmail
+    })
+
+    if (result.ok) {
+      setGitConfig(result.data)
+      setNotice('Local Git identity saved.')
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
   const navigation = [
     { id: 'changes' as const, label: 'Changes', icon: GitCommitHorizontal },
+    { id: 'history' as const, label: 'History', icon: Clock3 },
     { id: 'merge' as const, label: 'Merge', icon: GitMerge },
     { id: 'branches' as const, label: 'Branches', icon: GitBranch },
+    { id: 'config' as const, label: 'Git Config', icon: Settings },
     { id: 'review' as const, label: 'Review', icon: ShieldCheck },
     { id: 'providers' as const, label: 'Providers', icon: GitPullRequest }
   ]
@@ -328,6 +446,16 @@ function App() {
               <ArrowUpFromLine size={17} />
               Push
             </button>
+            {canPublishBranch && (
+              <button
+                type="button"
+                onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({ repoPath: currentRepoPath }))}
+                disabled={!snapshot || busy}
+              >
+                <UploadCloud size={17} />
+                Publish branch
+              </button>
+            )}
           </div>
         </header>
 
@@ -363,8 +491,10 @@ function App() {
             </section>
 
             {viewMode === 'changes' && renderChangesView()}
+            {viewMode === 'history' && renderHistoryView()}
             {viewMode === 'merge' && renderMergeView()}
             {viewMode === 'branches' && renderBranchesView(snapshot.branches)}
+            {viewMode === 'config' && renderConfigView()}
             {viewMode === 'review' && renderReviewView()}
             {viewMode === 'providers' && renderProvidersView()}
           </>
@@ -504,6 +634,150 @@ function App() {
     )
   }
 
+  function renderHistoryView() {
+    return (
+      <section className="content-grid history-grid">
+        <div className="changes-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>History</h2>
+              <p>{history.length} commits on this branch.</p>
+            </div>
+            <button type="button" onClick={loadHistory} disabled={busy}>
+              <RefreshCcw size={17} />
+              Refresh
+            </button>
+          </div>
+
+          <div className="history-list">
+            {history.length === 0 ? (
+              <div className="quiet-box">No commits found.</div>
+            ) : (
+              history.map((commit) => (
+                <button
+                  className={selectedCommitSha === commit.sha ? 'history-row selected' : 'history-row'}
+                  type="button"
+                  key={commit.sha}
+                  onClick={() => setSelectedCommitSha(commit.sha)}
+                >
+                  <strong>{commit.subject || '(no subject)'}</strong>
+                  <span>
+                    {commit.shortSha} · {commit.authorName} · {formatDate(commit.authoredAt)}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="diff-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>{commitDetails?.subject ?? 'Commit details'}</h2>
+              <p>
+                {commitDetails
+                  ? `${commitDetails.shortSha} · ${commitDetails.authorName} · ${formatDate(commitDetails.authoredAt)}`
+                  : 'Select a commit'}
+              </p>
+            </div>
+          </div>
+
+          {commitDetails?.body && <div className="commit-body">{commitDetails.body}</div>}
+
+          <div className="commit-file-grid">
+            <div className="commit-file-list">
+              {commitDetails?.files.length === 0 && <div className="quiet-box">No changed files.</div>}
+              {commitDetails?.files.map((file) => (
+                <button
+                  className={selectedCommitFilePath === file.path ? 'commit-file-row selected' : 'commit-file-row'}
+                  type="button"
+                  key={`${file.rawStatus}-${file.path}-${file.originalPath ?? ''}`}
+                  onClick={() => commitDetails && loadCommitFileDiff(commitDetails.sha, file.path)}
+                >
+                  <span className={`file-status status-${file.status}`}>{commitFileToken(file)}</span>
+                  <span className="file-name">{file.path}</span>
+                </button>
+              ))}
+            </div>
+            <DiffPreview diff={commitFileDiff} />
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  function renderConfigView() {
+    return (
+      <section className="single-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Git Config</h2>
+            <p>Inspect effective Git identity and update repository-local commit identity.</p>
+          </div>
+          <button type="button" onClick={loadGitConfig} disabled={busy}>
+            <RefreshCcw size={17} />
+            Reload
+          </button>
+        </div>
+
+        <div className="config-grid">
+          <section className="config-card">
+            <h3>Local identity</h3>
+            <label htmlFor="local-user-name">Name</label>
+            <input
+              id="local-user-name"
+              value={localUserName}
+              onChange={(event) => setLocalUserName(event.target.value)}
+              placeholder="Repository user.name"
+            />
+            <label htmlFor="local-user-email">Email</label>
+            <input
+              id="local-user-email"
+              value={localUserEmail}
+              onChange={(event) => setLocalUserEmail(event.target.value)}
+              placeholder="Repository user.email"
+            />
+            <button type="button" onClick={saveLocalGitIdentity} disabled={busy || !localUserName.trim() || !localUserEmail.trim()}>
+              <Save size={17} />
+              Save local identity
+            </button>
+          </section>
+
+          <section className="config-card">
+            <h3>Effective identity</h3>
+            <InfoRow label="Name" value={gitConfig?.effectiveUserName ?? 'Unset'} />
+            <InfoRow label="Email" value={gitConfig?.effectiveUserEmail ?? 'Unset'} />
+            <InfoRow label="Global name" value={gitConfig?.globalUserName ?? 'Unset'} />
+            <InfoRow label="Global email" value={gitConfig?.globalUserEmail ?? 'Unset'} />
+            <InfoRow
+              label="Commit signing"
+              value={
+                gitConfig?.commitSigningSource === 'unset'
+                  ? 'Unset'
+                  : `${gitConfig?.commitSigningEnabled ? 'Enabled' : 'Disabled'} (${gitConfig?.commitSigningSource})`
+              }
+            />
+          </section>
+
+          <section className="config-card remotes-card">
+            <h3>Remotes</h3>
+            {gitConfig?.remotes.length === 0 || !gitConfig ? (
+              <p className="muted-text">No remotes configured.</p>
+            ) : (
+              gitConfig.remotes.map((remote) => (
+                <div className="remote-row" key={remote.name}>
+                  <strong>{remote.name}</strong>
+                  <span>fetch: {remote.fetchUrl ?? 'unset'}</span>
+                  <span>push: {remote.pushUrl ?? 'unset'}</span>
+                </div>
+              ))
+            )}
+          </section>
+        </div>
+      </section>
+    )
+  }
+
   function renderMergeView() {
     const hasOperation = mergeState && mergeState.operation !== 'none'
 
@@ -586,9 +860,14 @@ function App() {
             <article className={branch.current ? 'branch-row current' : 'branch-row'} key={branch.name}>
               <div>
                 <strong>{branch.name}</strong>
-                <span>{branch.upstream || 'No upstream'}</span>
+                <span>{branch.upstream || 'No upstream'} · {branch.lastCommitAt ? formatDate(branch.lastCommitAt) : 'No commit date'}</span>
               </div>
               <div className="panel-actions">
+                {branch.current && !branch.upstream && snapshot?.summary.remoteName && (
+                  <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({ repoPath: currentRepoPath, branch: branch.name }))}>
+                    Publish
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={branch.current}
@@ -670,6 +949,15 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   )
 }
 
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="info-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
 function DiffPreview({ diff }: { diff: DiffResult | null }) {
   if (!diff) {
     return <div className="diff-empty">No diff selected.</div>
@@ -723,6 +1011,23 @@ function statusToken(change: FileChange): string {
   if (change.status === 'deleted') return 'D'
   if (change.status === 'added') return 'A'
   return 'M'
+}
+
+function commitFileToken(file: CommitFileChange): string {
+  if (file.status === 'renamed') return 'R'
+  if (file.status === 'copied') return 'C'
+  if (file.status === 'deleted') return 'D'
+  if (file.status === 'added') return 'A'
+  return 'M'
+}
+
+function formatDate(value: string): string {
+  if (!value) return 'Unknown date'
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(new Date(value))
 }
 
 function lineClass(line: string): string {

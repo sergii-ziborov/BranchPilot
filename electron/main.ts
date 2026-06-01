@@ -4,12 +4,15 @@ import { fileURLToPath } from 'node:url'
 import type {
   ApiResult,
   BranchActionRequest,
+  CommitDetailsRequest,
+  CommitFileDiffRequest,
   CommitRequest,
   ConfirmedFileActionRequest,
   DeleteBranchRequest,
   DiffRequest,
   EditorOpenRequest,
   FileActionRequest,
+  GitIdentityUpdate,
   PublishBranchRequest
 } from '../src/shared/branchPilot.js'
 import { listAssistantStatuses } from './assistants/assistantRunner.js'
@@ -93,6 +96,11 @@ function registerIpcHandlers() {
   handle('repository:recent', () => repositoryService.getRecentRepositories())
   handle('repository:refresh', (repoPath: string) => repositoryService.getSnapshot(repoPath))
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
+  handle('repository:history', (repoPath: string) => repositoryService.getHistory(repoPath))
+  handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))
+  handle('repository:commitFileDiff', (request: CommitFileDiffRequest) => repositoryService.getCommitFileDiff(request))
+  handle('repository:gitConfig', (repoPath: string) => repositoryService.getGitConfig(repoPath))
+  handle('repository:setLocalGitIdentity', (request: GitIdentityUpdate) => repositoryService.setLocalGitIdentity(request))
 
   handle('git:stageFile', (request: FileActionRequest) => repositoryService.stageFile(request))
   handle('git:unstageFile', (request: FileActionRequest) => repositoryService.unstageFile(request))
