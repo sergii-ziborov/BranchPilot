@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import type {
   ApiResult,
+  AssistantId,
   AssistantStatus,
   BranchSummary,
   CommitDetails,
@@ -69,6 +70,7 @@ function App() {
   const [newBranchName, setNewBranchName] = useState('')
   const [localUserName, setLocalUserName] = useState('')
   const [localUserEmail, setLocalUserEmail] = useState('')
+  const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
 
   const selectedChange = useMemo(
     () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
@@ -349,6 +351,32 @@ function App() {
     return committed
   }
 
+  async function generateCommitText() {
+    if (!api || !currentRepoPath) return
+
+    if ((commitTitle.trim() || commitDescription.trim()) && !window.confirm('Replace the current commit title and description?')) {
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+    const result = await api.generateCommitMessage({
+      repoPath: currentRepoPath,
+      assistant: selectedAssistant
+    })
+
+    if (result.ok) {
+      setCommitTitle(result.data.title)
+      setCommitDescription(result.data.description)
+      setNotice(`Generated with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated diff' : ''}.`)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
   async function createBranch() {
     if (!api || !currentRepoPath || !newBranchName.trim()) return
     await runSnapshotAction('Branch created.', () =>
@@ -616,6 +644,29 @@ function App() {
           </div>
 
           <div className="commit-box">
+            <div className="assistant-controls">
+              <label htmlFor="assistant-select">Assistant</label>
+              <select
+                id="assistant-select"
+                value={selectedAssistant}
+                onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
+              >
+                <option value="auto">Auto</option>
+                <option value="claude">Claude Code</option>
+                <option value="codex">Codex</option>
+              </select>
+              <button type="button" onClick={generateCommitText} disabled={busy || !counts?.staged}>
+                <Bot size={17} />
+                Generate
+              </button>
+            </div>
+            <div className="assistant-detections">
+              {assistants.map((assistant) => (
+                <span key={assistant.id}>
+                  {assistant.label}: {assistant.detected ? 'detected' : 'not found'}
+                </span>
+              ))}
+            </div>
             <label htmlFor="commit-title">Commit title</label>
             <input
               id="commit-title"
@@ -1088,6 +1139,10 @@ function commitFileToken(file: CommitFileChange): string {
   if (file.status === 'deleted') return 'D'
   if (file.status === 'added') return 'A'
   return 'M'
+}
+
+function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string {
+  return assistant === 'claude' ? 'Claude Code' : 'Codex'
 }
 
 function formatDate(value: string): string {

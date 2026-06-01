@@ -19,6 +19,8 @@
 .repo-picker,
 .toolbar,
 .commit-actions,
+.assistant-controls,
+.assistant-detections,
 .status-bar,
 .runtime-status,
 .runtime-status span,
@@ -545,6 +547,7 @@ h3 {
 
 .commit-box input,
 .commit-box textarea,
+.commit-box select,
 .new-branch input {
   width: 100%;
   box-sizing: border-box;
@@ -555,6 +558,7 @@ h3 {
 }
 
 .commit-box input,
+.commit-box select,
 .new-branch input {
   height: 38px;
   padding: 0 10px;
@@ -570,6 +574,46 @@ h3 {
   color: #ffffff;
   border-color: #2563eb;
   background: #2563eb;
+}
+
+.assistant-controls {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.assistant-controls label {
+  align-self: center;
+}
+
+.assistant-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.assistant-detections {
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.assistant-detections span {
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  background: #ffffff;
+  font-size: 12px;
 }
 
 .segmented {

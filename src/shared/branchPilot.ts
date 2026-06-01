@@ -181,6 +181,21 @@ export interface CommitRequest {
   description: string
 }
 
+export type AssistantId = 'auto' | 'claude' | 'codex'
+export type InstalledAssistantId = Exclude<AssistantId, 'auto'>
+
+export interface CommitMessageGenerationRequest {
+  repoPath: string
+  assistant: AssistantId
+}
+
+export interface GeneratedCommitMessage {
+  title: string
+  description: string
+  assistant: InstalledAssistantId
+  truncated: boolean
+}
+
 export interface GitOperationResult {
   message: string
   stdout?: string
@@ -214,7 +229,7 @@ export interface ProviderStatus {
 }
 
 export interface AssistantStatus {
-  id: 'claude' | 'codex'
+  id: InstalledAssistantId
   label: string
   detected: boolean
   executable?: string
@@ -254,4 +269,5 @@ export interface BranchPilotApi {
   openTerminal: (targetPath: string) => Promise<ApiResult<GitOperationResult>>
   listProviders: () => Promise<ApiResult<ProviderStatus[]>>
   listAssistants: () => Promise<ApiResult<AssistantStatus[]>>
+  generateCommitMessage: (request: CommitMessageGenerationRequest) => Promise<ApiResult<GeneratedCommitMessage>>
 }

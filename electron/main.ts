@@ -6,6 +6,7 @@ import type {
   BranchActionRequest,
   CommitDetailsRequest,
   CommitFileDiffRequest,
+  CommitMessageGenerationRequest,
   CommitRequest,
   ConfirmedFileActionRequest,
   DeleteBranchRequest,
@@ -15,7 +16,7 @@ import type {
   GitIdentityUpdate,
   PublishBranchRequest
 } from '../src/shared/branchPilot.js'
-import { listAssistantStatuses } from './assistants/assistantRunner.js'
+import { generateCommitMessage, listAssistantStatuses } from './assistants/assistantRunner.js'
 import { CommandRunner } from './lib/commandRunner.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { toBranchPilotError } from './lib/errors.js'
@@ -135,6 +136,9 @@ function registerIpcHandlers() {
 
   handle('providers:list', () => listProviderStatuses())
   handle('assistants:list', () => listAssistantStatuses(commandRunner))
+  handle('assistants:generateCommitMessage', (request: CommitMessageGenerationRequest) =>
+    generateCommitMessage(commandRunner, request)
+  )
 }
 
 app.whenReady().then(() => {

@@ -36,7 +36,8 @@ const branchPilot: BranchPilotApi = {
   openInEditor: (request) => invoke('editor:open', request),
   openTerminal: (targetPath) => invoke('terminal:open', targetPath),
   listProviders: () => invoke('providers:list'),
-  listAssistants: () => invoke('assistants:list')
+  listAssistants: () => invoke('assistants:list'),
+  generateCommitMessage: (request) => invoke('assistants:generateCommitMessage', request)
 }
 
 contextBridge.exposeInMainWorld('branchPilot', branchPilot)
