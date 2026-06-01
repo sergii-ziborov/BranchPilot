@@ -196,6 +196,22 @@ export interface GeneratedCommitMessage {
   truncated: boolean
 }
 
+export interface PullRequestTextGenerationRequest {
+  repoPath: string
+  assistant: AssistantId
+  baseBranch?: string
+}
+
+export interface GeneratedPullRequestText {
+  title: string
+  description: string
+  assistant: InstalledAssistantId
+  truncated: boolean
+  baseBranch: string
+  headBranch: string
+  commitCount: number
+}
+
 export interface GitOperationResult {
   message: string
   stdout?: string
@@ -222,10 +238,36 @@ export interface EditorOpenRequest {
   line?: number
 }
 
+export type GitHubCliState = 'missing' | 'unauthenticated' | 'authenticated'
+
+export interface GitHubCliStatus {
+  state: GitHubCliState
+  installed: boolean
+  authenticated: boolean
+  executable?: string
+  username?: string
+  message: string
+}
+
+export interface CreatePullRequestRequest {
+  repoPath: string
+  title: string
+  description: string
+  baseBranch?: string
+  headBranch?: string
+}
+
+export interface CreatedPullRequest {
+  url: string
+  title: string
+  baseBranch: string
+  headBranch: string
+}
+
 export interface ProviderStatus {
   id: 'github' | 'gitlab' | 'bitbucket'
   label: string
-  state: 'planned' | 'available' | 'connected'
+  state: 'planned' | 'available' | 'connected' | 'missing' | 'unauthenticated'
 }
 
 export interface AssistantStatus {
@@ -270,4 +312,7 @@ export interface BranchPilotApi {
   listProviders: () => Promise<ApiResult<ProviderStatus[]>>
   listAssistants: () => Promise<ApiResult<AssistantStatus[]>>
   generateCommitMessage: (request: CommitMessageGenerationRequest) => Promise<ApiResult<GeneratedCommitMessage>>
+  getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
+  generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>
+  createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>
 }

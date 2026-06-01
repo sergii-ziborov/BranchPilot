@@ -9,19 +9,22 @@ import type {
   CommitMessageGenerationRequest,
   CommitRequest,
   ConfirmedFileActionRequest,
+  CreatePullRequestRequest,
   DeleteBranchRequest,
   DiffRequest,
   EditorOpenRequest,
   FileActionRequest,
   GitIdentityUpdate,
+  PullRequestTextGenerationRequest,
   PublishBranchRequest
 } from '../src/shared/branchPilot.js'
-import { generateCommitMessage, listAssistantStatuses } from './assistants/assistantRunner.js'
+import { generateCommitMessage, generatePullRequestText, listAssistantStatuses } from './assistants/assistantRunner.js'
 import { CommandRunner } from './lib/commandRunner.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { toBranchPilotError } from './lib/errors.js'
 import { RepositoryService } from './lib/repositoryService.js'
 import { SettingsStore } from './lib/settingsStore.js'
+import { createGitHubPullRequest, getGitHubCliStatus } from './providers/githubCliService.js'
 import { listProviderStatuses } from './providers/providerAdapter.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -134,10 +137,17 @@ function registerIpcHandlers() {
   handle('editor:open', (request: EditorOpenRequest) => editorService.openInEditor(request.targetPath, request.line))
   handle('terminal:open', (targetPath: string) => editorService.openTerminal(targetPath))
 
-  handle('providers:list', () => listProviderStatuses())
+  handle('providers:list', () => listProviderStatuses(commandRunner))
+  handle('providers:githubCliStatus', (repoPath?: string) => getGitHubCliStatus(commandRunner, repoPath))
+  handle('providers:createGitHubPullRequest', (request: CreatePullRequestRequest) =>
+    createGitHubPullRequest(commandRunner, request)
+  )
   handle('assistants:list', () => listAssistantStatuses(commandRunner))
   handle('assistants:generateCommitMessage', (request: CommitMessageGenerationRequest) =>
     generateCommitMessage(commandRunner, request)
+  )
+  handle('assistants:generatePullRequestText', (request: PullRequestTextGenerationRequest) =>
+    generatePullRequestText(commandRunner, request)
   )
 }
 

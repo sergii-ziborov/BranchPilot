@@ -9,7 +9,7 @@ import {
   type CommandRunResult,
   CommandRunner
 } from '../electron/lib/commandRunner'
-import { generateCommitMessage } from '../electron/assistants/assistantRunner'
+import { generateCommitMessage, generatePullRequestText } from '../electron/assistants/assistantRunner'
 
 const tempRoots: string[] = []
 
@@ -121,6 +121,69 @@ describe('assistant commit message generation', () => {
 
     expect(result.truncated).toBe(true)
     expect(runner.assistantPrompt).toContain('Diff truncated: yes')
+  })
+
+  it('generates pull request text from branch commits and committed diff only', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({
+      available: ['claude'],
+      assistantOutput: '{"title":"Add PR workflow","description":"Summarizes the feature branch."}'
+    })
+
+    git(repoPath, ['switch', '--quiet', '-c', 'feature/pr-text'])
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'feature\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Add feature work'])
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'unstaged\n')
+
+    const result = await generatePullRequestText(runner, { repoPath, assistant: 'auto' })
+
+    expect(result).toMatchObject({
+      title: 'Add PR workflow',
+      description: 'Summarizes the feature branch.',
+      assistant: 'claude',
+      baseBranch: 'main',
+      headBranch: 'feature/pr-text',
+      commitCount: 1
+    })
+    expect(runner.assistantPrompt).toContain('Add feature work')
+    expect(runner.assistantPrompt).toContain('+feature')
+    expect(runner.assistantPrompt).not.toContain('+unstaged')
+  })
+
+  it('uses origin HEAD as the default pull request base when available', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({ available: ['claude'] })
+    const mainSha = git(repoPath, ['rev-parse', 'main'])
+
+    git(repoPath, ['update-ref', 'refs/remotes/origin/trunk', mainSha])
+    git(repoPath, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk'])
+    git(repoPath, ['switch', '--quiet', '-c', 'feature/origin-head'])
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'origin head base\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Use origin head'])
+
+    const result = await generatePullRequestText(runner, { repoPath, assistant: 'auto' })
+
+    expect(result.baseBranch).toBe('trunk')
+    expect(runner.assistantPrompt).toContain('Base branch: trunk')
+  })
+
+  it('returns a parse error for invalid pull request assistant output', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({
+      available: ['claude'],
+      assistantOutput: 'not json'
+    })
+
+    git(repoPath, ['switch', '--quiet', '-c', 'feature/bad-output'])
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'feature\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Feature bad output'])
+
+    await expect(generatePullRequestText(runner, { repoPath, assistant: 'auto' })).rejects.toMatchObject({
+      code: 'assistant_parse_failed'
+    })
   })
 })
 

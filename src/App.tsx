@@ -6,6 +6,7 @@ import {
   Check,
   Clock3,
   Code2,
+  ExternalLink,
   FileWarning,
   FolderOpen,
   GitBranch,
@@ -31,8 +32,10 @@ import type {
   CommitDetails,
   CommitFileChange,
   CommitSummary,
+  CreatedPullRequest,
   DiffResult,
   FileChange,
+  GitHubCliStatus,
   GitConfigSnapshot,
   GitOperationResult,
   ProviderStatus,
@@ -71,6 +74,11 @@ function App() {
   const [localUserName, setLocalUserName] = useState('')
   const [localUserEmail, setLocalUserEmail] = useState('')
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
+  const [githubCliStatus, setGithubCliStatus] = useState<GitHubCliStatus | null>(null)
+  const [prTitle, setPrTitle] = useState('')
+  const [prDescription, setPrDescription] = useState('')
+  const [prBaseBranch, setPrBaseBranch] = useState('')
+  const [createdPullRequest, setCreatedPullRequest] = useState<CreatedPullRequest | null>(null)
 
   const selectedChange = useMemo(
     () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
@@ -129,6 +137,12 @@ function App() {
     void loadGitConfig()
   }, [snapshot?.summary.rootPath, viewMode])
 
+  useEffect(() => {
+    if (viewMode !== 'providers') return
+    void loadProviders()
+    void loadGitHubCliStatus()
+  }, [snapshot?.summary.rootPath, viewMode])
+
   const currentRepoPath = snapshot?.summary.rootPath
   const counts = snapshot?.status.counts
   const mergeState = snapshot?.status.merge
@@ -156,6 +170,17 @@ function App() {
     if (!api) return
     const result = await api.listAssistants()
     if (result.ok) setAssistants(result.data)
+  }
+
+  async function loadGitHubCliStatus() {
+    if (!api) return
+    const result = await api.getGitHubCliStatus(currentRepoPath)
+
+    if (result.ok) {
+      setGithubCliStatus(result.data)
+    } else {
+      setError(result.error.message)
+    }
   }
 
   async function chooseRepository() {
@@ -369,6 +394,59 @@ function App() {
       setCommitTitle(result.data.title)
       setCommitDescription(result.data.description)
       setNotice(`Generated with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated diff' : ''}.`)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
+  async function generatePullRequestText() {
+    if (!api || !currentRepoPath) return
+
+    if ((prTitle.trim() || prDescription.trim()) && !window.confirm('Replace the current pull request title and description?')) {
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+    const result = await api.generatePullRequestText({
+      repoPath: currentRepoPath,
+      assistant: selectedAssistant,
+      baseBranch: prBaseBranch.trim() || undefined
+    })
+
+    if (result.ok) {
+      setPrTitle(result.data.title)
+      setPrDescription(result.data.description)
+      setPrBaseBranch(result.data.baseBranch)
+      setCreatedPullRequest(null)
+      setNotice(`Generated PR text with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated diff' : ''}.`)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
+  async function createPullRequest() {
+    if (!api || !currentRepoPath) return
+    setBusy(true)
+    setError(null)
+    const result = await api.createGitHubPullRequest({
+      repoPath: currentRepoPath,
+      title: prTitle,
+      description: prDescription,
+      baseBranch: prBaseBranch.trim() || undefined
+    })
+
+    if (result.ok) {
+      setCreatedPullRequest(result.data)
+      setNotice('Pull request created.')
+      void loadProviders()
+      void loadGitHubCliStatus()
     } else {
       setError(result.error.message)
       setNotice(result.error.details || result.error.code)
@@ -1038,23 +1116,112 @@ function App() {
   }
 
   function renderProvidersView() {
+    const githubProvider = providers.find((provider) => provider.id === 'github')
+    const canCreatePr = Boolean(snapshot && prTitle.trim() && githubCliStatus?.authenticated && snapshot.summary.upstream)
+
     return (
       <section className="single-panel">
         <div className="panel-heading">
           <div>
             <h2>Providers</h2>
-            <p>Provider adapters are in place; full auth starts after local Git core stabilizes.</p>
+            <p>GitHub uses the local GitHub CLI bridge first; full provider APIs remain later.</p>
           </div>
+          <button type="button" onClick={loadGitHubCliStatus} disabled={busy}>
+            <RefreshCcw size={17} />
+            Refresh
+          </button>
         </div>
         <div className="assistant-grid">
           {providers.map((provider) => (
             <div className="provider-card" key={provider.id}>
               <GitPullRequest size={20} />
               <strong>{provider.label}</strong>
-              <span>{provider.state}</span>
+              <span>{providerStateLabel(provider.state)}</span>
             </div>
           ))}
         </div>
+
+        <section className="pr-panel">
+          <div className="panel-heading">
+            <div>
+              <h3>GitHub pull request</h3>
+              <p>{snapshot ? `${snapshot.summary.currentBranch} → ${prBaseBranch || 'main'}` : 'Open a repository to create pull requests.'}</p>
+            </div>
+            <span className={`github-status status-${githubProvider?.state ?? 'planned'}`}>
+              {githubCliStatus ? githubStatusLabel(githubCliStatus) : 'GitHub CLI unknown'}
+            </span>
+          </div>
+
+          {githubCliStatus?.state === 'unauthenticated' && (
+            <div className="command-hint">Run <code>gh auth login</code> in Terminal, then refresh this panel.</div>
+          )}
+
+          {githubCliStatus?.state === 'missing' && (
+            <div className="command-hint">Install GitHub CLI to create pull requests from BranchPilot.</div>
+          )}
+
+          {snapshot && !snapshot.summary.upstream && (
+            <div className="command-hint">
+              Publish the current branch before creating a pull request.
+              {canPublishBranch && (
+                <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
+                  repoPath: currentRepoPath,
+                  remote: snapshot.summary.remoteName
+                }))}>
+                  Publish branch
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="pr-form">
+            <label htmlFor="pr-base">Base branch</label>
+            <input
+              id="pr-base"
+              value={prBaseBranch}
+              onChange={(event) => setPrBaseBranch(event.target.value)}
+              placeholder="main"
+            />
+            <label htmlFor="pr-title">Title</label>
+            <input
+              id="pr-title"
+              value={prTitle}
+              onChange={(event) => setPrTitle(event.target.value)}
+              placeholder="Summarize branch changes"
+            />
+            <label htmlFor="pr-description">Description</label>
+            <textarea
+              id="pr-description"
+              value={prDescription}
+              onChange={(event) => setPrDescription(event.target.value)}
+              placeholder="Describe changes, testing, and risk"
+            />
+            <div className="commit-actions">
+              <button type="button" onClick={generatePullRequestText} disabled={!snapshot || busy}>
+                <Bot size={17} />
+                Generate PR text
+              </button>
+              <button type="button" onClick={createPullRequest} disabled={!canCreatePr || busy}>
+                <GitPullRequest size={17} />
+                Create PR
+              </button>
+              {createdPullRequest && (
+                <button type="button" className="secondary" onClick={() => window.open(createdPullRequest.url, '_blank', 'noopener,noreferrer')}>
+                  <ExternalLink size={17} />
+                  Open PR
+                </button>
+              )}
+            </div>
+          </div>
+
+          {createdPullRequest && (
+            <div className="created-pr">
+              <strong>{createdPullRequest.title}</strong>
+              <span>{createdPullRequest.baseBranch} ← {createdPullRequest.headBranch}</span>
+              <span>{createdPullRequest.url}</span>
+            </div>
+          )}
+        </section>
       </section>
     )
   }
@@ -1143,6 +1310,25 @@ function commitFileToken(file: CommitFileChange): string {
 
 function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string {
   return assistant === 'claude' ? 'Claude Code' : 'Codex'
+}
+
+function providerStateLabel(state: ProviderStatus['state']): string {
+  if (state === 'connected') return 'connected'
+  if (state === 'unauthenticated') return 'gh login required'
+  if (state === 'missing') return 'gh missing'
+  return state
+}
+
+function githubStatusLabel(status: GitHubCliStatus): string {
+  if (status.state === 'authenticated') {
+    return status.username ? `Authenticated as ${status.username}` : 'Authenticated'
+  }
+
+  if (status.state === 'unauthenticated') {
+    return 'gh auth required'
+  }
+
+  return 'gh missing'
 }
 
 function formatDate(value: string): string {

@@ -37,7 +37,10 @@ const branchPilot: BranchPilotApi = {
   openTerminal: (targetPath) => invoke('terminal:open', targetPath),
   listProviders: () => invoke('providers:list'),
   listAssistants: () => invoke('assistants:list'),
-  generateCommitMessage: (request) => invoke('assistants:generateCommitMessage', request)
+  generateCommitMessage: (request) => invoke('assistants:generateCommitMessage', request),
+  getGitHubCliStatus: (repoPath) => invoke('providers:githubCliStatus', repoPath),
+  generatePullRequestText: (request) => invoke('assistants:generatePullRequestText', request),
+  createGitHubPullRequest: (request) => invoke('providers:createGitHubPullRequest', request)
 }
 
 contextBridge.exposeInMainWorld('branchPilot', branchPilot)
