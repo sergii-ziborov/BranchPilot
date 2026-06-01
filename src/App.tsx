@@ -18,6 +18,7 @@ import {
   Save,
   Settings,
   ShieldCheck,
+  Terminal,
   Trash2,
   UploadCloud,
   X
@@ -32,6 +33,7 @@ import type {
   DiffResult,
   FileChange,
   GitConfigSnapshot,
+  GitOperationResult,
   ProviderStatus,
   RecentRepository,
   RepositorySnapshot
@@ -108,7 +110,7 @@ function App() {
   useEffect(() => {
     if (!snapshot || viewMode !== 'history') return
     void loadHistory()
-  }, [snapshot?.summary.rootPath, viewMode])
+  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
   useEffect(() => {
     if (!snapshot || viewMode !== 'history' || !selectedCommitSha) {
@@ -128,7 +130,13 @@ function App() {
   const currentRepoPath = snapshot?.summary.rootPath
   const counts = snapshot?.status.counts
   const mergeState = snapshot?.status.merge
+  const hasRemote = Boolean(snapshot?.summary.remoteName)
+  const hasUpstream = Boolean(snapshot?.summary.upstream)
+  const canFetch = Boolean(snapshot && hasRemote)
+  const canPull = Boolean(snapshot && !snapshot.summary.isDetached && hasUpstream)
+  const canPush = Boolean(snapshot && !snapshot.summary.isDetached && hasUpstream)
   const canPublishBranch = Boolean(snapshot && !snapshot.summary.isDetached && !snapshot.summary.upstream && snapshot.summary.remoteName)
+  const selectedFileTarget = currentRepoPath && selectedChange ? `${currentRepoPath}/${selectedChange.path}` : null
 
   async function loadRecentRepositories() {
     if (!api) return
@@ -256,11 +264,28 @@ function App() {
     }
   }
 
-  async function runSnapshotAction(label: string, action: () => Promise<ApiResult<RepositorySnapshot>>) {
+  async function runSnapshotAction(label: string, action: () => Promise<ApiResult<RepositorySnapshot>>): Promise<boolean> {
     setBusy(true)
     setError(null)
     const result = await action()
     applySnapshotResult(result, label)
+    setBusy(false)
+    return result.ok
+  }
+
+  async function runOperationAction(label: string, action: () => Promise<ApiResult<GitOperationResult>>) {
+    setBusy(true)
+    setError(null)
+    const result = await action()
+
+    if (result.ok) {
+      setNotice(result.data.message || label)
+      setError(null)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
     setBusy(false)
   }
 
@@ -306,17 +331,22 @@ function App() {
     )
   }
 
-  async function commitChanges() {
-    if (!api || !currentRepoPath) return
-    await runSnapshotAction('Commit created.', () =>
+  async function commitChanges(): Promise<boolean> {
+    if (!api || !currentRepoPath) return false
+    const committed = await runSnapshotAction('Commit created.', () =>
       api.commit({
         repoPath: currentRepoPath,
         title: commitTitle,
         description: commitDescription
       })
     )
-    setCommitTitle('')
-    setCommitDescription('')
+
+    if (committed) {
+      setCommitTitle('')
+      setCommitDescription('')
+    }
+
+    return committed
   }
 
   async function createBranch() {
@@ -346,6 +376,21 @@ function App() {
     }
 
     setBusy(false)
+  }
+
+  async function openRepoInEditor() {
+    if (!api || !currentRepoPath) return
+    await runOperationAction('Repository opened in editor.', () => api.openInEditor({ targetPath: currentRepoPath }))
+  }
+
+  async function openSelectedFileInEditor() {
+    if (!api || !selectedFileTarget) return
+    await runOperationAction('File opened in editor.', () => api.openInEditor({ targetPath: selectedFileTarget }))
+  }
+
+  async function openRepositoryTerminal() {
+    if (!api || !currentRepoPath) return
+    await runOperationAction('Terminal opened.', () => api.openTerminal(currentRepoPath))
   }
 
   const navigation = [
@@ -416,8 +461,28 @@ function App() {
             <p className="eyebrow">Repository workspace</p>
             <h1>{snapshot?.summary.currentBranch ?? 'No repository selected'}</h1>
             <p className="repo-path">{snapshot?.summary.rootPath ?? 'Open a Git repository to inspect real changes.'}</p>
+            {snapshot && (
+              <div className="repo-meta" aria-label="Repository sync state">
+                <span>{snapshot.summary.isDetached ? 'Detached HEAD' : snapshot.summary.upstream ?? 'No upstream'}</span>
+                <span>{hasRemote ? `Remote: ${snapshot.summary.remoteName}` : 'No remote'}</span>
+                <span>{snapshot.summary.ahead} ahead</span>
+                <span>{snapshot.summary.behind} behind</span>
+              </div>
+            )}
           </div>
           <div className="toolbar" aria-label="Repository actions">
+            <button type="button" onClick={openRepoInEditor} disabled={!snapshot || busy}>
+              <Code2 size={17} />
+              Open repo
+            </button>
+            <button type="button" onClick={openSelectedFileInEditor} disabled={!selectedFileTarget || busy}>
+              <Code2 size={17} />
+              Open file
+            </button>
+            <button type="button" onClick={openRepositoryTerminal} disabled={!snapshot || busy}>
+              <Terminal size={17} />
+              Terminal
+            </button>
             <button type="button" onClick={() => refreshRepository()} disabled={!snapshot || busy}>
               <RefreshCcw size={17} />
               Refresh
@@ -425,7 +490,7 @@ function App() {
             <button
               type="button"
               onClick={() => currentRepoPath && runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath))}
-              disabled={!snapshot || busy}
+              disabled={!canFetch || busy}
             >
               <ArrowDownToLine size={17} />
               Fetch
@@ -433,7 +498,7 @@ function App() {
             <button
               type="button"
               onClick={() => currentRepoPath && runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath))}
-              disabled={!snapshot || busy}
+              disabled={!canPull || busy}
             >
               <ArrowDownToLine size={17} />
               Pull
@@ -441,7 +506,7 @@ function App() {
             <button
               type="button"
               onClick={() => currentRepoPath && runSnapshotAction('Push complete.', () => api!.push(currentRepoPath))}
-              disabled={!snapshot || busy}
+              disabled={!canPush || busy}
             >
               <ArrowUpFromLine size={17} />
               Push
@@ -449,7 +514,10 @@ function App() {
             {canPublishBranch && (
               <button
                 type="button"
-                onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({ repoPath: currentRepoPath }))}
+                onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
+                  repoPath: currentRepoPath,
+                  remote: snapshot.summary.remoteName
+                }))}
                 disabled={!snapshot || busy}
               >
                 <UploadCloud size={17} />
@@ -571,12 +639,12 @@ function App() {
                 type="button"
                 className="secondary"
                 onClick={async () => {
-                  await commitChanges()
-                  if (currentRepoPath) {
+                  const committed = await commitChanges()
+                  if (committed && currentRepoPath) {
                     await runSnapshotAction('Push complete.', () => api!.push(currentRepoPath))
                   }
                 }}
-                disabled={busy || !counts?.staged}
+                disabled={busy || !counts?.staged || !canPush}
               >
                 <UploadCloud size={17} />
                 Commit & push
@@ -809,10 +877,7 @@ function App() {
                   <span>{file.type}</span>
                 </div>
                 <div className="panel-actions">
-                  <button type="button" onClick={() => api && runSnapshotAction('Opened in editor.', async () => {
-                    await api.openInEditor({ targetPath: `${currentRepoPath}/${file.path}` })
-                    return api.refreshRepository(currentRepoPath!)
-                  })}>
+                  <button type="button" onClick={() => api && currentRepoPath && runOperationAction('Opened in editor.', () => api.openInEditor({ targetPath: `${currentRepoPath}/${file.path}` }))}>
                     <Code2 size={17} />
                     Editor
                   </button>
@@ -864,7 +929,11 @@ function App() {
               </div>
               <div className="panel-actions">
                 {branch.current && !branch.upstream && snapshot?.summary.remoteName && (
-                  <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({ repoPath: currentRepoPath, branch: branch.name }))}>
+                  <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
+                    repoPath: currentRepoPath,
+                    branch: branch.name,
+                    remote: snapshot.summary.remoteName
+                  }))}>
                     Publish
                   </button>
                 )}

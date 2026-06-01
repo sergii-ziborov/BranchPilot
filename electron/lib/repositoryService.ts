@@ -289,31 +289,40 @@ export class RepositoryService {
 
   async fetch(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
-    await this.git(rootPath, ['fetch', '--prune'], { timeoutMs: 120_000 })
+    await this.assertHasAnyRemote(rootPath)
+    await this.git(rootPath, ['fetch', '--all', '--prune'], { timeoutMs: 120_000 })
     return this.getSnapshot(rootPath)
   }
 
   async pull(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
+    await this.assertCurrentBranch(rootPath, 'pull')
+    await this.assertHasAnyRemote(rootPath)
+    await this.assertHasUpstream(rootPath, 'pulling')
     await this.git(rootPath, ['pull', '--ff-only'], { timeoutMs: 120_000 })
     return this.getSnapshot(rootPath)
   }
 
   async push(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
+    await this.assertCurrentBranch(rootPath, 'push')
+    await this.assertHasAnyRemote(rootPath)
+    await this.assertHasUpstream(rootPath, 'pushing')
     await this.git(rootPath, ['push'], { timeoutMs: 120_000 })
     return this.getSnapshot(rootPath)
   }
 
   async publishBranch(request: PublishBranchRequest): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const branch = request.branch || (await this.getCurrentBranch(rootPath))
+    const currentBranch = await this.assertCurrentBranch(rootPath, 'publish')
+    const branch = normalizeBranchName(request.branch || currentBranch)
+    const remote = await this.assertRemoteExists(rootPath, request.remote || DEFAULT_REMOTE)
 
-    if (!branch || branch === 'Detached HEAD') {
-      throw new BranchPilotUserError('invalid_branch', 'Cannot publish a detached HEAD.')
+    if (branch !== currentBranch) {
+      throw new BranchPilotUserError('invalid_branch', 'Only the checked-out branch can be published.')
     }
 
-    await this.git(rootPath, ['push', '-u', request.remote || DEFAULT_REMOTE, branch], {
+    await this.git(rootPath, ['push', '-u', remote, branch], {
       timeoutMs: 120_000
     })
 
@@ -335,7 +344,14 @@ export class RepositoryService {
 
   async deleteBranch(repoPath: string, branchName: string, force: boolean): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
-    await this.git(rootPath, ['branch', force ? '-D' : '-d', normalizeBranchName(branchName)])
+    const normalizedName = normalizeBranchName(branchName)
+    const currentBranch = await this.getCurrentBranch(rootPath)
+
+    if (currentBranch === normalizedName) {
+      throw new BranchPilotUserError('git_current_branch', 'Cannot delete the checked-out branch. Switch branches first.')
+    }
+
+    await this.git(rootPath, ['branch', force ? '-D' : '-d', normalizedName])
     return this.getSnapshot(rootPath)
   }
 
@@ -504,6 +520,48 @@ export class RepositoryService {
     })
 
     return result.stdout.trim()
+  }
+
+  private async assertCurrentBranch(rootPath: string, action: string): Promise<string> {
+    const branch = await this.getCurrentBranch(rootPath)
+
+    if (!branch) {
+      throw new BranchPilotUserError('git_detached_head', `Cannot ${action} from a detached HEAD. Switch to a branch first.`)
+    }
+
+    return branch
+  }
+
+  private async assertHasAnyRemote(rootPath: string): Promise<void> {
+    const remotes = await this.listRemotes(rootPath)
+
+    if (remotes.length === 0) {
+      throw new BranchPilotUserError('git_no_remote', 'This repository has no remotes configured.')
+    }
+  }
+
+  private async assertRemoteExists(rootPath: string, remoteName: string): Promise<string> {
+    const remotes = await this.listRemotes(rootPath)
+
+    if (remotes.length === 0) {
+      throw new BranchPilotUserError('git_no_remote', 'This repository has no remotes configured.')
+    }
+
+    if (!remotes.some((remote) => remote.name === remoteName)) {
+      throw new BranchPilotUserError('git_no_remote', `Remote "${remoteName}" is not configured for this repository.`)
+    }
+
+    return remoteName
+  }
+
+  private async assertHasUpstream(rootPath: string, action: string): Promise<void> {
+    const upstream = await this.git(rootPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], {
+      allowedExitCodes: [0, 128]
+    })
+
+    if (upstream.exitCode !== 0 || !upstream.stdout.trim()) {
+      throw new BranchPilotUserError('git_no_upstream', `Publish this branch before ${action}.`)
+    }
   }
 
   private async getMergeState(rootPath: string, conflictFiles: MergeState['files']): Promise<MergeState> {

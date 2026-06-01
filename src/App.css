@@ -218,6 +218,23 @@ h3 {
   font-size: 13px;
 }
 
+.repo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.repo-meta span {
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  background: #ffffff;
+  font-size: 12px;
+}
+
 .toolbar,
 .panel-actions,
 .commit-actions,

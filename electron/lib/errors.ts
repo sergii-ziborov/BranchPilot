@@ -60,6 +60,13 @@ function classifyGitError(output: string): { code: string; message: string } {
     }
   }
 
+  if (normalized.includes('no remote repository specified')) {
+    return {
+      code: 'git_no_remote',
+      message: 'This repository has no remotes configured.'
+    }
+  }
+
   if (normalized.includes('non-fast-forward') || normalized.includes('fetch first')) {
     return {
       code: 'git_non_fast_forward',
@@ -67,10 +74,31 @@ function classifyGitError(output: string): { code: string; message: string } {
     }
   }
 
-  if (normalized.includes('not possible to fast-forward')) {
+  if (normalized.includes('not possible to fast-forward') || normalized.includes('divergent branches')) {
     return {
       code: 'git_pull_not_fast_forward',
       message: 'Pull could not fast-forward. Fetch and resolve the branch state manually.'
+    }
+  }
+
+  if (normalized.includes('would be overwritten by checkout') || normalized.includes('please commit your changes or stash them')) {
+    return {
+      code: 'git_dirty_worktree',
+      message: 'Local changes would be overwritten. Commit, discard, or stash them before switching.'
+    }
+  }
+
+  if (normalized.includes('not fully merged')) {
+    return {
+      code: 'git_branch_not_merged',
+      message: 'Git refused to delete this branch because it is not fully merged.'
+    }
+  }
+
+  if (normalized.includes('cannot delete branch') && normalized.includes('checked out')) {
+    return {
+      code: 'git_current_branch',
+      message: 'Cannot delete the checked-out branch. Switch branches first.'
     }
   }
 

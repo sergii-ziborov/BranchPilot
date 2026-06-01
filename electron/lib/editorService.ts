@@ -1,5 +1,6 @@
 import type { GitOperationResult } from '../../src/shared/branchPilot.js'
 import { CommandRunner } from './commandRunner.js'
+import { BranchPilotUserError } from './errors.js'
 
 export class ExternalEditorService {
   constructor(private readonly runner: CommandRunner) {}
@@ -18,17 +19,33 @@ export class ExternalEditorService {
       return { message: 'Opened in Cursor' }
     }
 
-    await this.runner.run('/usr/bin/open', ['-a', 'Visual Studio Code', targetPath], {
-      timeoutMs: 10_000
-    })
+    try {
+      await this.runner.run('/usr/bin/open', ['-a', 'Visual Studio Code', targetPath], {
+        timeoutMs: 10_000
+      })
+    } catch (error) {
+      throw new BranchPilotUserError(
+        'editor_open_failed',
+        'Could not open Visual Studio Code or Cursor.',
+        error instanceof Error ? error.message : undefined
+      )
+    }
 
     return { message: 'Opened in Visual Studio Code' }
   }
 
   async openTerminal(targetPath: string): Promise<GitOperationResult> {
-    await this.runner.run('/usr/bin/open', ['-a', 'Terminal', targetPath], {
-      timeoutMs: 10_000
-    })
+    try {
+      await this.runner.run('/usr/bin/open', ['-a', 'Terminal', targetPath], {
+        timeoutMs: 10_000
+      })
+    } catch (error) {
+      throw new BranchPilotUserError(
+        'terminal_open_failed',
+        'Could not open Terminal at this path.',
+        error instanceof Error ? error.message : undefined
+      )
+    }
 
     return { message: 'Opened Terminal' }
   }

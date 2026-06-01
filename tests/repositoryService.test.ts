@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { CommandRunner } from '../electron/lib/commandRunner'
+import { toBranchPilotError } from '../electron/lib/errors'
 import { RepositoryService } from '../electron/lib/repositoryService'
 import { SettingsStore } from '../electron/lib/settingsStore'
 
@@ -132,6 +133,122 @@ describe('RepositoryService', () => {
     expect(theirs.status.counts.conflicted).toBe(0)
     expect(readFileSync(path.join(theirsRepo, 'conflict.txt'), 'utf8')).toBe('feature\n')
   })
+
+  it('publishes a branch and sets upstream against a bare remote', async () => {
+    const { repoPath, remotePath } = createRemoteBackedRepository()
+    const service = createService()
+
+    const snapshot = await service.publishBranch({ repoPath })
+
+    expect(snapshot.summary.upstream).toBe('origin/main')
+    expect(git(repoPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])).toBe('origin/main')
+    expect(git(remotePath, ['log', '-1', '--pretty=%s', 'main'])).toBe('Initial commit')
+  })
+
+  it('blocks branch sync operations from detached HEAD', async () => {
+    const { repoPath } = createRemoteBackedRepository()
+    const service = createService()
+
+    git(repoPath, ['checkout', '--quiet', '--detach', 'HEAD'])
+
+    await expect(service.publishBranch({ repoPath, branch: 'main' })).rejects.toMatchObject({ code: 'git_detached_head' })
+    await expect(service.pull(repoPath)).rejects.toMatchObject({ code: 'git_detached_head' })
+    await expect(service.push(repoPath)).rejects.toMatchObject({ code: 'git_detached_head' })
+  })
+
+  it('pushes commits when upstream exists and blocks push before publish', async () => {
+    const { repoPath, remotePath } = createRemoteBackedRepository()
+    const service = createService()
+
+    await expect(service.push(repoPath)).rejects.toMatchObject({ code: 'git_no_upstream' })
+    await service.publishBranch({ repoPath })
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'pushed\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Push update'])
+
+    const snapshot = await service.push(repoPath)
+
+    expect(snapshot.summary.ahead).toBe(0)
+    expect(git(remotePath, ['log', '-1', '--pretty=%s', 'main'])).toBe('Push update')
+  })
+
+  it('fetches and pulls fast-forward changes from upstream', async () => {
+    const { repoPath, remotePath } = createRemoteBackedRepository()
+    const service = createService()
+
+    await service.publishBranch({ repoPath })
+    const clonePath = cloneRemote(remotePath)
+    writeFileSync(path.join(clonePath, 'tracked.txt'), 'remote\n')
+    git(clonePath, ['add', 'tracked.txt'])
+    git(clonePath, ['commit', '-m', 'Remote update'])
+    git(clonePath, ['push', '--quiet'])
+
+    const fetched = await service.fetch(repoPath)
+    expect(fetched.summary.behind).toBe(1)
+
+    const pulled = await service.pull(repoPath)
+
+    expect(pulled.summary.behind).toBe(0)
+    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('remote\n')
+  })
+
+  it('reports a clean user-facing error when pull cannot fast-forward', async () => {
+    const { repoPath, remotePath } = createRemoteBackedRepository()
+    const service = createService()
+
+    await service.publishBranch({ repoPath })
+    const clonePath = cloneRemote(remotePath)
+    writeFileSync(path.join(clonePath, 'tracked.txt'), 'remote\n')
+    git(clonePath, ['add', 'tracked.txt'])
+    git(clonePath, ['commit', '-m', 'Remote update'])
+    git(clonePath, ['push', '--quiet'])
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'local\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Local update'])
+
+    try {
+      await service.pull(repoPath)
+      throw new Error('Expected pull to fail')
+    } catch (error) {
+      expect(toBranchPilotError(error).code).toBe('git_pull_not_fast_forward')
+    }
+  })
+
+  it('creates, switches, and safely deletes local branches', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    const created = await service.createBranch(repoPath, 'feature/work')
+    expect(created.summary.currentBranch).toBe('feature/work')
+
+    const switched = await service.switchBranch(repoPath, 'main')
+    expect(switched.summary.currentBranch).toBe('main')
+
+    const deleted = await service.deleteBranch(repoPath, 'feature/work', false)
+    expect(deleted.branches.map((branch) => branch.name)).not.toContain('feature/work')
+  })
+
+  it('blocks deleting the current branch and reports unmerged safe-delete failures', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    await expect(service.deleteBranch(repoPath, 'main', false)).rejects.toMatchObject({ code: 'git_current_branch' })
+
+    await service.createBranch(repoPath, 'feature/unmerged')
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'unmerged\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Unmerged work'])
+    await service.switchBranch(repoPath, 'main')
+
+    try {
+      await service.deleteBranch(repoPath, 'feature/unmerged', false)
+      throw new Error('Expected delete to fail')
+    } catch (error) {
+      expect(toBranchPilotError(error).code).toBe('git_branch_not_merged')
+    }
+  })
 })
 
 function createTempRepository() {
@@ -169,6 +286,28 @@ function createConflictedRepository() {
   expect(merge.status).toBe(1)
 
   return repoPath
+}
+
+function createRemoteBackedRepository() {
+  const repoPath = createTempRepository()
+  const remotePath = mkdtempSync(path.join(tmpdir(), 'branchpilot-remote-test-'))
+  tempRoots.push(remotePath)
+
+  git(remotePath, ['init', '--bare'])
+  git(repoPath, ['remote', 'add', 'origin', remotePath])
+
+  return { repoPath, remotePath }
+}
+
+function cloneRemote(remotePath: string) {
+  const clonePath = mkdtempSync(path.join(tmpdir(), 'branchpilot-clone-test-'))
+  tempRoots.push(clonePath)
+
+  git(tmpdir(), ['clone', '--quiet', '--branch', 'main', remotePath, clonePath])
+  git(clonePath, ['config', 'user.name', 'BranchPilot Clone'])
+  git(clonePath, ['config', 'user.email', 'clone@example.com'])
+
+  return clonePath
 }
 
 function createService() {
