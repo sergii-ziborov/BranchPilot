@@ -15,6 +15,7 @@ import type {
   EditorOpenRequest,
   FileActionRequest,
   GitIdentityUpdate,
+  HunkActionRequest,
   PullRequestTextGenerationRequest,
   PublishBranchRequest,
   ReviewReportRequest
@@ -109,6 +110,8 @@ function registerIpcHandlers() {
 
   handle('git:stageFile', (request: FileActionRequest) => repositoryService.stageFile(request))
   handle('git:unstageFile', (request: FileActionRequest) => repositoryService.unstageFile(request))
+  handle('git:stageHunk', (request: HunkActionRequest) => repositoryService.stageHunk(request))
+  handle('git:unstageHunk', (request: HunkActionRequest) => repositoryService.unstageHunk(request))
   handle('git:stageAll', (repoPath: string) => repositoryService.stageAll(repoPath))
   handle('git:unstageAll', (repoPath: string) => repositoryService.unstageAll(repoPath))
   handle('git:discardFile', (request: ConfirmedFileActionRequest) => repositoryService.discardFile(request))

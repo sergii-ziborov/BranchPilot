@@ -14,6 +14,7 @@ import type {
   FileActionRequest,
   GitConfigSnapshot,
   GitIdentityUpdate,
+  HunkActionRequest,
   MergeState,
   PublishBranchRequest,
   RecentRepository,
@@ -23,6 +24,7 @@ import type {
   RepositorySummary
 } from '../../src/shared/branchPilot.js'
 import { CommandRunner } from './commandRunner.js'
+import { parseUnifiedDiff } from './diffParser.js'
 import { BranchPilotUserError } from './errors.js'
 import { parseGitStatus } from './gitStatusParser.js'
 import { SettingsStore } from './settingsStore.js'
@@ -94,7 +96,7 @@ export class RepositoryService {
       return this.getUntrackedFilePreview(rootPath, relativePath)
     }
 
-    const args = ['diff', '--no-ext-diff']
+    const args = ['diff', '--no-ext-diff', '--unified=3']
 
     if (request.staged) {
       args.push('--cached')
@@ -106,12 +108,15 @@ export class RepositoryService {
     const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
     const tooLarge = result.stdout.length > MAX_DIFF_BYTES
 
+    const text = tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout
+
     return {
       filePath: relativePath,
       staged: request.staged,
-      text: tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout,
+      text,
       binary,
-      tooLarge
+      tooLarge,
+      files: binary || tooLarge ? [] : parseUnifiedDiff(text)
     }
   }
 
@@ -170,12 +175,15 @@ export class RepositoryService {
     const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
     const tooLarge = result.stdout.length > MAX_DIFF_BYTES
 
+    const text = tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout
+
     return {
       filePath,
       staged: false,
-      text: tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout,
+      text,
       binary,
-      tooLarge
+      tooLarge,
+      files: binary || tooLarge ? [] : parseUnifiedDiff(text)
     }
   }
 
@@ -222,6 +230,32 @@ export class RepositoryService {
   async unstageFile(request: FileActionRequest): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     await this.git(rootPath, ['restore', '--staged', '--', normalizeRelativePath(request.filePath)])
+    return this.getSnapshot(rootPath)
+  }
+
+  async stageHunk(request: HunkActionRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const filePath = normalizeRelativePath(request.filePath)
+    const patch = normalizeHunkPatch(request.patch, filePath)
+
+    await this.git(rootPath, ['apply', '--cached', '--whitespace=nowarn'], {
+      input: patch,
+      timeoutMs: 30_000
+    })
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async unstageHunk(request: HunkActionRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const filePath = normalizeRelativePath(request.filePath)
+    const patch = normalizeHunkPatch(request.patch, filePath)
+
+    await this.git(rootPath, ['apply', '--reverse', '--cached', '--whitespace=nowarn'], {
+      input: patch,
+      timeoutMs: 30_000
+    })
+
     return this.getSnapshot(rootPath)
   }
 
@@ -615,21 +649,45 @@ export class RepositoryService {
       staged: false,
       text,
       binary,
-      tooLarge
+      tooLarge,
+      files: []
     }
   }
 
   private async git(
     cwd: string,
     args: string[],
-    options: { allowedExitCodes?: number[]; timeoutMs?: number } = {}
+    options: { allowedExitCodes?: number[]; input?: string; timeoutMs?: number } = {}
   ) {
     return this.runner.run('/usr/bin/git', args, {
       cwd,
       allowedExitCodes: options.allowedExitCodes,
+      input: options.input,
       timeoutMs: options.timeoutMs
     })
   }
+}
+
+function normalizeHunkPatch(patch: string, filePath: string): string {
+  if (!patch.trim() || patch.includes('\0')) {
+    throw new BranchPilotUserError('invalid_hunk_patch', 'Hunk patch is invalid.')
+  }
+
+  const files = parseUnifiedDiff(patch)
+
+  if (files.length !== 1 || files[0].hunks.length !== 1) {
+    throw new BranchPilotUserError('invalid_hunk_patch', 'Hunk patch must contain exactly one file hunk.')
+  }
+
+  const paths = [files[0].oldPath, files[0].newPath]
+    .filter((candidate): candidate is string => Boolean(candidate) && candidate !== '/dev/null')
+    .map((candidate) => normalizeRelativePath(candidate))
+
+  if (!paths.includes(filePath)) {
+    throw new BranchPilotUserError('invalid_hunk_patch', 'Hunk patch does not match the selected file.')
+  }
+
+  return patch.endsWith('\n') ? patch : `${patch}\n`
 }
 
 function normalizeRelativePath(filePath: string): string {

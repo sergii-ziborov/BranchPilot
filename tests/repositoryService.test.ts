@@ -52,6 +52,91 @@ describe('RepositoryService', () => {
     expect(subject).toBe('Update tracked file')
   })
 
+  it('stages and unstages individual hunks', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), [
+      'line 1',
+      'line 2',
+      'line 3',
+      'line 4',
+      'line 5',
+      'line 6',
+      'line 7',
+      'line 8',
+      'line 9',
+      'line 10',
+      'line 11',
+      'line 12',
+      ''
+    ].join('\n'))
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Expand tracked fixture'])
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), [
+      'line 1',
+      'line 2 changed',
+      'line 3',
+      'line 4',
+      'line 5',
+      'line 6',
+      'line 7',
+      'line 8',
+      'line 9',
+      'line 10 changed',
+      'line 11',
+      'line 12',
+      ''
+    ].join('\n'))
+
+    const unstagedDiff = await service.getDiff({ repoPath, filePath: 'tracked.txt', staged: false })
+    expect(unstagedDiff.files[0].hunks).toHaveLength(2)
+
+    await service.stageHunk({
+      repoPath,
+      filePath: 'tracked.txt',
+      patch: unstagedDiff.files[0].hunks[0].patch
+    })
+
+    const cachedAfterStage = git(repoPath, ['diff', '--cached', '--', 'tracked.txt'])
+    const unstagedAfterStage = git(repoPath, ['diff', '--', 'tracked.txt'])
+
+    expect(cachedAfterStage).toContain('line 2 changed')
+    expect(cachedAfterStage).not.toContain('line 10 changed')
+    expect(unstagedAfterStage).toContain('line 10 changed')
+    expect(unstagedAfterStage).not.toContain('line 2 changed')
+
+    const stagedDiff = await service.getDiff({ repoPath, filePath: 'tracked.txt', staged: true })
+    await service.unstageHunk({
+      repoPath,
+      filePath: 'tracked.txt',
+      patch: stagedDiff.files[0].hunks[0].patch
+    })
+
+    expect(git(repoPath, ['diff', '--cached', '--', 'tracked.txt'])).toBe('')
+    expect(git(repoPath, ['diff', '--', 'tracked.txt'])).toContain('line 2 changed')
+    expect(git(repoPath, ['diff', '--', 'tracked.txt'])).toContain('line 10 changed')
+  })
+
+  it('reports stale hunk patches as readable Git patch failures', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'initial\nchanged\n')
+    const diff = await service.getDiff({ repoPath, filePath: 'tracked.txt', staged: false })
+    const patch = diff.files[0].hunks[0].patch
+
+    await service.stageHunk({ repoPath, filePath: 'tracked.txt', patch })
+
+    try {
+      await service.stageHunk({ repoPath, filePath: 'tracked.txt', patch })
+      throw new Error('Expected stale hunk patch to fail')
+    } catch (error) {
+      expect(toBranchPilotError(error).code).toBe('git_patch_failed')
+    }
+  })
+
   it('reads commit history, commit details, and commit file diffs', async () => {
     const repoPath = createTempRepository()
     const service = createService()

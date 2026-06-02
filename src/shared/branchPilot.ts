@@ -158,12 +158,44 @@ export interface DiffRequest {
   staged: boolean
 }
 
+export type DiffLineType = 'context' | 'add' | 'remove' | 'meta'
+
+export interface DiffLine {
+  type: DiffLineType
+  content: string
+  oldLineNumber?: number
+  newLineNumber?: number
+}
+
+export interface DiffHunk {
+  header: string
+  oldStart: number
+  oldLines: number
+  newStart: number
+  newLines: number
+  lines: DiffLine[]
+  patch: string
+}
+
+export interface DiffFile {
+  oldPath?: string
+  newPath: string
+  hunks: DiffHunk[]
+}
+
 export interface DiffResult {
   filePath: string
   staged: boolean
   text: string
   binary: boolean
   tooLarge: boolean
+  files: DiffFile[]
+}
+
+export interface HunkActionRequest {
+  repoPath: string
+  filePath: string
+  patch: string
 }
 
 export interface FileActionRequest {
@@ -320,6 +352,8 @@ export interface BranchPilotApi {
   setLocalGitIdentity: (request: GitIdentityUpdate) => Promise<ApiResult<GitConfigSnapshot>>
   stageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   unstageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
+  stageHunk: (request: HunkActionRequest) => Promise<ApiResult<RepositorySnapshot>>
+  unstageHunk: (request: HunkActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   stageAll: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   unstageAll: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   discardFile: (request: ConfirmedFileActionRequest) => Promise<ApiResult<RepositorySnapshot>>

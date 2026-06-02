@@ -797,6 +797,119 @@ h3 {
   background: rgba(153, 27, 27, 0.24);
 }
 
+.structured-diff {
+  overflow: auto;
+  max-height: calc(100vh - 360px);
+  min-height: 360px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+}
+
+.diff-file {
+  display: grid;
+  gap: 0;
+}
+
+.diff-file-heading,
+.diff-hunk-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.diff-file-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #111827;
+}
+
+.diff-file-heading strong {
+  overflow-wrap: anywhere;
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.diff-file-heading span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.diff-hunk-heading {
+  background: #1e293b;
+}
+
+.diff-hunk-heading code {
+  overflow: hidden;
+  color: #bfdbfe;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-hunk-heading button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 6px;
+  color: #e5e7eb;
+  background: rgba(15, 23, 42, 0.86);
+  font-size: 12px;
+}
+
+.diff-lines {
+  display: grid;
+}
+
+.diff-line {
+  display: grid;
+  grid-template-columns: 48px 48px 22px minmax(0, 1fr);
+  min-height: 24px;
+  align-items: center;
+  color: #d1d5db;
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.diff-line .line-number,
+.diff-line .line-marker {
+  color: #94a3b8;
+  text-align: right;
+  user-select: none;
+}
+
+.diff-line .line-marker {
+  padding-right: 8px;
+}
+
+.diff-line .line-content {
+  overflow: visible;
+}
+
+.diff-line.line-add {
+  color: #bbf7d0;
+  background: rgba(22, 101, 52, 0.24);
+}
+
+.diff-line.line-remove {
+  color: #fecaca;
+  background: rgba(153, 27, 27, 0.24);
+}
+
+.diff-line.line-meta {
+  color: #94a3b8;
+}
+
 .diff-empty,
 .quiet-box {
   padding: 18px;

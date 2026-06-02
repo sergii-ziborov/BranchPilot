@@ -109,6 +109,13 @@ function classifyGitError(output: string): { code: string; message: string } {
     }
   }
 
+  if (normalized.includes('patch does not apply') || normalized.includes('patch failed')) {
+    return {
+      code: 'git_patch_failed',
+      message: 'The hunk could not be applied. Refresh the repository and try again.'
+    }
+  }
+
   return {
     code: 'git_command_failed',
     message: 'Git command failed. See details for the original Git output.'

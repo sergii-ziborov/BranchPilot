@@ -32,6 +32,8 @@ import type {
   CommitDetails,
   CommitFileChange,
   CommitSummary,
+  DiffHunk,
+  DiffLine,
   CreatedPullRequest,
   DiffResult,
   FileChange,
@@ -376,6 +378,28 @@ function App() {
     if (!api || !currentRepoPath || !selectedChange) return
     await runSnapshotAction('File unstaged.', () =>
       api.unstageFile({ repoPath: currentRepoPath, filePath: selectedChange.path })
+    )
+  }
+
+  async function stageSelectedHunk(hunk: DiffHunk) {
+    if (!api || !currentRepoPath || !selectedChange) return
+    await runSnapshotAction('Hunk staged.', () =>
+      api.stageHunk({
+        repoPath: currentRepoPath,
+        filePath: selectedChange.path,
+        patch: hunk.patch
+      })
+    )
+  }
+
+  async function unstageSelectedHunk(hunk: DiffHunk) {
+    if (!api || !currentRepoPath || !selectedChange) return
+    await runSnapshotAction('Hunk unstaged.', () =>
+      api.unstageHunk({
+        repoPath: currentRepoPath,
+        filePath: selectedChange.path,
+        patch: hunk.patch
+      })
     )
   }
 
@@ -950,7 +974,13 @@ function App() {
             </div>
           )}
 
-          <DiffPreview diff={diff} />
+          <DiffPreview
+            diff={diff}
+            mode={diffMode}
+            busy={busy}
+            onStageHunk={stageSelectedHunk}
+            onUnstageHunk={unstageSelectedHunk}
+          />
         </div>
       </section>
     )
@@ -1563,7 +1593,19 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function DiffPreview({ diff }: { diff: DiffResult | null }) {
+function DiffPreview({
+  diff,
+  mode,
+  busy = false,
+  onStageHunk,
+  onUnstageHunk
+}: {
+  diff: DiffResult | null
+  mode?: DiffMode
+  busy?: boolean
+  onStageHunk?: (hunk: DiffHunk) => void
+  onUnstageHunk?: (hunk: DiffHunk) => void
+}) {
   if (!diff) {
     return <div className="diff-empty">No diff selected.</div>
   }
@@ -1576,6 +1618,54 @@ function DiffPreview({ diff }: { diff: DiffResult | null }) {
     return <div className="diff-empty">No textual diff for this selection.</div>
   }
 
+  if (diff.tooLarge || diff.files.length === 0) {
+    return <RawDiffPreview diff={diff} />
+  }
+
+  return (
+    <div className="structured-diff">
+      {diff.files.map((file) => (
+        <section className="diff-file" key={`${file.oldPath ?? 'none'}-${file.newPath}`}>
+          <div className="diff-file-heading">
+            <strong>{file.newPath}</strong>
+            {file.oldPath && file.oldPath !== file.newPath && <span>from {file.oldPath}</span>}
+          </div>
+          {file.hunks.map((hunk, index) => (
+            <article className="diff-hunk" key={`${hunk.header}-${index}`}>
+              <div className="diff-hunk-heading">
+                <code>{hunk.header}</code>
+                {mode === 'unstaged' && onStageHunk && (
+                  <button type="button" onClick={() => onStageHunk(hunk)} disabled={busy}>
+                    <Plus size={15} />
+                    Stage hunk
+                  </button>
+                )}
+                {mode === 'staged' && onUnstageHunk && (
+                  <button type="button" onClick={() => onUnstageHunk(hunk)} disabled={busy}>
+                    <X size={15} />
+                    Unstage hunk
+                  </button>
+                )}
+              </div>
+              <div className="diff-lines">
+                {hunk.lines.map((line, lineIndex) => (
+                  <code className={`diff-line line-${line.type}`} key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}>
+                    <span className="line-number">{formatLineNumber(line.oldLineNumber)}</span>
+                    <span className="line-number">{formatLineNumber(line.newLineNumber)}</span>
+                    <span className="line-marker">{diffLinePrefix(line)}</span>
+                    <span className="line-content">{line.content}</span>
+                  </code>
+                ))}
+              </div>
+            </article>
+          ))}
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function RawDiffPreview({ diff }: { diff: DiffResult }) {
   return (
     <pre className="diff-preview">
       {diff.tooLarge && <code className="line marker-base">Diff truncated for performance.</code>}
@@ -1679,6 +1769,17 @@ function linePrefix(line: string): string {
   if (line.startsWith('+') && !line.startsWith('+++')) return '+'
   if (line.startsWith('-') && !line.startsWith('---')) return '-'
   return ' '
+}
+
+function diffLinePrefix(line: DiffLine): string {
+  if (line.type === 'add') return '+'
+  if (line.type === 'remove') return '-'
+  if (line.type === 'meta') return '\\'
+  return ' '
+}
+
+function formatLineNumber(lineNumber?: number): string {
+  return lineNumber ? String(lineNumber) : ''
 }
 
 export default App
