@@ -49,6 +49,9 @@ const branchPilot: BranchPilotApi = {
   getGitHubCliStatus: (repoPath) => invoke('providers:githubCliStatus', repoPath),
   generatePullRequestText: (request) => invoke('assistants:generatePullRequestText', request),
   createGitHubPullRequest: (request) => invoke('providers:createGitHubPullRequest', request),
+  getCurrentBranchPullRequest: (repoPath) => invoke('providers:currentGitHubPullRequest', repoPath),
+  listGitHubPullRequests: (repoPath) => invoke('providers:listGitHubPullRequests', repoPath),
+  checkoutGitHubPullRequest: (request) => invoke('providers:checkoutGitHubPullRequest', request),
   generateReviewReport: (request) => invoke('assistants:generateReviewReport', request)
 }
 

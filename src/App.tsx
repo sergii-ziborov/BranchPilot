@@ -38,6 +38,7 @@ import type {
   DiffResult,
   FileChange,
   GitHubCliStatus,
+  GitHubPullRequest,
   GitConfigSnapshot,
   GitOperationResult,
   ProviderStatus,
@@ -89,6 +90,8 @@ function App() {
   const [localUserEmail, setLocalUserEmail] = useState('')
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
   const [githubCliStatus, setGithubCliStatus] = useState<GitHubCliStatus | null>(null)
+  const [currentPullRequest, setCurrentPullRequest] = useState<GitHubPullRequest | null>(null)
+  const [pullRequests, setPullRequests] = useState<GitHubPullRequest[]>([])
   const [prTitle, setPrTitle] = useState('')
   const [prDescription, setPrDescription] = useState('')
   const [prBaseBranch, setPrBaseBranch] = useState('')
@@ -187,8 +190,7 @@ function App() {
 
   useEffect(() => {
     if (viewMode !== 'providers') return
-    void loadProviders()
-    void loadGitHubCliStatus()
+    void refreshProvidersPanel()
   }, [snapshot?.summary.rootPath, viewMode])
 
   const currentRepoPath = snapshot?.summary.rootPath
@@ -231,14 +233,55 @@ function App() {
     if (result.ok) setAssistants(result.data)
   }
 
-  async function loadGitHubCliStatus() {
-    if (!api) return
+  async function loadGitHubCliStatus(): Promise<GitHubCliStatus | null> {
+    if (!api) return null
     const result = await api.getGitHubCliStatus(currentRepoPath)
 
     if (result.ok) {
       setGithubCliStatus(result.data)
+      return result.data
     } else {
       setError(result.error.message)
+      return null
+    }
+  }
+
+  async function loadGitHubPullRequests() {
+    if (!api || !currentRepoPath) {
+      setCurrentPullRequest(null)
+      setPullRequests([])
+      return
+    }
+
+    const [currentResult, listResult] = await Promise.all([
+      api.getCurrentBranchPullRequest(currentRepoPath),
+      api.listGitHubPullRequests(currentRepoPath)
+    ])
+
+    if (currentResult.ok) {
+      setCurrentPullRequest(currentResult.data)
+    } else {
+      setCurrentPullRequest(null)
+      setError(currentResult.error.message)
+    }
+
+    if (listResult.ok) {
+      setPullRequests(listResult.data)
+    } else {
+      setPullRequests([])
+      setError(listResult.error.message)
+    }
+  }
+
+  async function refreshProvidersPanel() {
+    void loadProviders()
+    const status = await loadGitHubCliStatus()
+
+    if (status?.authenticated && currentRepoPath) {
+      await loadGitHubPullRequests()
+    } else {
+      setCurrentPullRequest(null)
+      setPullRequests([])
     }
   }
 
@@ -645,14 +688,31 @@ function App() {
     if (result.ok) {
       setCreatedPullRequest(result.data)
       setNotice('Pull request created.')
-      void loadProviders()
-      void loadGitHubCliStatus()
+      void refreshProvidersPanel()
     } else {
       setError(result.error.message)
       setNotice(result.error.details || result.error.code)
     }
 
     setBusy(false)
+  }
+
+  async function checkoutPullRequest(pullRequest: GitHubPullRequest) {
+    if (!api || !currentRepoPath) return
+
+    const checkedOut = await runSnapshotAction(`Checked out PR #${pullRequest.number}.`, () =>
+      api.checkoutGitHubPullRequest({
+        repoPath: currentRepoPath,
+        prNumber: pullRequest.number
+      })
+    )
+
+    if (checkedOut) {
+      setViewMode('changes')
+      setCreatedPullRequest(null)
+      void loadHistory()
+      void refreshProvidersPanel()
+    }
   }
 
   async function runReviewReport() {
@@ -1726,7 +1786,14 @@ function App() {
 
   function renderProvidersView() {
     const githubProvider = providers.find((provider) => provider.id === 'github')
-    const canCreatePr = Boolean(snapshot && prTitle.trim() && githubCliStatus?.authenticated && snapshot.summary.upstream)
+    const canCreatePr = Boolean(
+      snapshot &&
+      !snapshot.summary.isDetached &&
+      prTitle.trim() &&
+      githubCliStatus?.authenticated &&
+      snapshot.summary.upstream &&
+      !currentPullRequest
+    )
 
     return (
       <section className="single-panel">
@@ -1735,7 +1802,7 @@ function App() {
             <h2>Providers</h2>
             <p>GitHub uses the local GitHub CLI bridge first; full provider APIs remain later.</p>
           </div>
-          <button type="button" onClick={loadGitHubCliStatus} disabled={busy}>
+          <button type="button" onClick={refreshProvidersPanel} disabled={busy}>
             <RefreshCcw size={17} />
             Refresh
           </button>
@@ -1783,6 +1850,25 @@ function App() {
             </div>
           )}
 
+          {currentPullRequest && (
+            <article className="current-pr">
+              <div>
+                <span className="pr-number">#{currentPullRequest.number}</span>
+                <strong>{currentPullRequest.title}</strong>
+                <span>
+                  {currentPullRequest.baseBranch} ← {currentPullRequest.headBranch} · {currentPullRequest.state}
+                  {currentPullRequest.draft ? ' · draft' : ''}
+                </span>
+              </div>
+              <div className="pr-actions">
+                <button type="button" className="secondary" onClick={() => window.open(currentPullRequest.url, '_blank', 'noopener,noreferrer')}>
+                  <ExternalLink size={17} />
+                  Open PR
+                </button>
+              </div>
+            </article>
+          )}
+
           <div className="pr-form">
             <label htmlFor="pr-base">Base branch</label>
             <input
@@ -1810,10 +1896,17 @@ function App() {
                 <Bot size={17} />
                 Generate PR text
               </button>
-              <button type="button" onClick={createPullRequest} disabled={!canCreatePr || busy}>
-                <GitPullRequest size={17} />
-                Create PR
-              </button>
+              {currentPullRequest ? (
+                <button type="button" onClick={() => window.open(currentPullRequest.url, '_blank', 'noopener,noreferrer')} disabled={busy}>
+                  <ExternalLink size={17} />
+                  Open current PR
+                </button>
+              ) : (
+                <button type="button" onClick={createPullRequest} disabled={!canCreatePr || busy}>
+                  <GitPullRequest size={17} />
+                  Create PR
+                </button>
+              )}
               {createdPullRequest && (
                 <button type="button" className="secondary" onClick={() => window.open(createdPullRequest.url, '_blank', 'noopener,noreferrer')}>
                   <ExternalLink size={17} />
@@ -1830,6 +1923,57 @@ function App() {
               <span>{createdPullRequest.url}</span>
             </div>
           )}
+
+          <section className="pr-list-panel">
+            <div className="panel-heading compact-heading">
+              <div>
+                <h3>Pull requests</h3>
+                <p>{pullRequests.length} recent pull request{pullRequests.length === 1 ? '' : 's'} from GitHub CLI.</p>
+              </div>
+              <button type="button" className="secondary" onClick={loadGitHubPullRequests} disabled={busy || !githubCliStatus?.authenticated || !snapshot}>
+                <RefreshCcw size={17} />
+                Refresh PRs
+              </button>
+            </div>
+
+            {githubCliStatus?.authenticated && pullRequests.length === 0 ? (
+              <div className="quiet-box">No open pull requests found.</div>
+            ) : (
+              <div className="pr-list">
+                {pullRequests.map((pullRequest) => {
+                  const isCurrent = currentPullRequest?.number === pullRequest.number ||
+                    pullRequest.headBranch === snapshot?.summary.currentBranch
+
+                  return (
+                    <article className={isCurrent ? 'pr-row current' : 'pr-row'} key={pullRequest.number}>
+                      <div>
+                        <span className="pr-number">#{pullRequest.number}</span>
+                        <strong>{pullRequest.title}</strong>
+                        <span>
+                          {pullRequest.baseBranch} ← {pullRequest.headBranch} · {pullRequest.state}
+                          {pullRequest.draft ? ' · draft' : ''}
+                        </span>
+                      </div>
+                      <div className="pr-actions">
+                        {isCurrent ? (
+                          <span className="pr-current-badge">Current branch</span>
+                        ) : (
+                          <button type="button" onClick={() => checkoutPullRequest(pullRequest)} disabled={busy}>
+                            <GitPullRequest size={17} />
+                            Checkout
+                          </button>
+                        )}
+                        <button type="button" className="secondary" onClick={() => window.open(pullRequest.url, '_blank', 'noopener,noreferrer')}>
+                          <ExternalLink size={17} />
+                          Open
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </section>
         </section>
       </section>
     )

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import type {
   ApiResult,
   BranchActionRequest,
+  CheckoutPullRequestRequest,
   CommitDetailsRequest,
   CommitFileDiffRequest,
   CommitMessageGenerationRequest,
@@ -30,7 +31,13 @@ import { ExternalEditorService } from './lib/editorService.js'
 import { toBranchPilotError } from './lib/errors.js'
 import { RepositoryService } from './lib/repositoryService.js'
 import { SettingsStore } from './lib/settingsStore.js'
-import { createGitHubPullRequest, getGitHubCliStatus } from './providers/githubCliService.js'
+import {
+  checkoutGitHubPullRequest,
+  createGitHubPullRequest,
+  getCurrentBranchPullRequest,
+  getGitHubCliStatus,
+  listGitHubPullRequests
+} from './providers/githubCliService.js'
 import { listProviderStatuses } from './providers/providerAdapter.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -156,6 +163,16 @@ function registerIpcHandlers() {
   handle('providers:createGitHubPullRequest', (request: CreatePullRequestRequest) =>
     createGitHubPullRequest(commandRunner, request)
   )
+  handle('providers:currentGitHubPullRequest', (repoPath: string) =>
+    getCurrentBranchPullRequest(commandRunner, repoPath)
+  )
+  handle('providers:listGitHubPullRequests', (repoPath: string) =>
+    listGitHubPullRequests(commandRunner, repoPath)
+  )
+  handle('providers:checkoutGitHubPullRequest', async (request: CheckoutPullRequestRequest) => {
+    const rootPath = await checkoutGitHubPullRequest(commandRunner, request)
+    return repositoryService.getSnapshot(rootPath)
+  })
   handle('assistants:list', () => listAssistantStatuses(commandRunner))
   handle('assistants:generateCommitMessage', (request: CommitMessageGenerationRequest) =>
     generateCommitMessage(commandRunner, request)

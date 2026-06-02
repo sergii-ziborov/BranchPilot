@@ -6,9 +6,13 @@ import {
   CommandRunner
 } from '../electron/lib/commandRunner'
 import {
+  checkoutGitHubPullRequest,
   createGitHubPullRequest,
-  getGitHubCliStatus
+  getCurrentBranchPullRequest,
+  getGitHubCliStatus,
+  listGitHubPullRequests
 } from '../electron/providers/githubCliService'
+import type { GitHubPullRequest } from '../src/shared/branchPilot'
 
 describe('GitHub CLI bridge', () => {
   it('detects missing, unauthenticated, and authenticated gh states', async () => {
@@ -81,6 +85,49 @@ describe('GitHub CLI bridge', () => {
     })
   })
 
+  it('reads the current branch pull request and recent pull requests', async () => {
+    const currentPullRequest = makePullRequest({
+      number: 7,
+      title: 'Add PR workflow',
+      headBranch: 'feature/pr-workflow',
+      baseBranch: 'main',
+      draft: true
+    })
+    const pullRequests = [
+      currentPullRequest,
+      makePullRequest({
+        number: 8,
+        title: 'Tighten branch sync',
+        headBranch: 'feature/sync'
+      })
+    ]
+    const runner = new GitHubCliTestRunner({
+      currentBranch: 'feature/pr-workflow',
+      currentPullRequest,
+      pullRequests
+    })
+
+    await expect(getCurrentBranchPullRequest(runner, '/repo')).resolves.toEqual(currentPullRequest)
+    await expect(listGitHubPullRequests(runner, '/repo')).resolves.toEqual(pullRequests)
+  })
+
+  it('returns null when the current branch has no pull request', async () => {
+    const runner = new GitHubCliTestRunner({ currentPullRequest: null })
+
+    await expect(getCurrentBranchPullRequest(runner, '/repo')).resolves.toBeNull()
+  })
+
+  it('checks out a pull request through argv-only gh checkout', async () => {
+    const runner = new GitHubCliTestRunner()
+
+    await expect(checkoutGitHubPullRequest(runner, {
+      repoPath: '/repo',
+      prNumber: 42
+    })).resolves.toBe('/repo')
+
+    expect(runner.ghPrCheckoutArgs).toEqual(['pr', 'checkout', '42'])
+  })
+
   it('blocks pull request creation when gh is unauthenticated', async () => {
     const runner = new GitHubCliTestRunner({ ghAuthenticated: false })
 
@@ -118,6 +165,27 @@ describe('GitHub CLI bridge', () => {
       description: ''
     })).rejects.toMatchObject({ code: 'git_no_upstream' })
   })
+
+  it('blocks pull request list, view, and checkout when GitHub CLI preconditions fail', async () => {
+    await expect(listGitHubPullRequests(new GitHubCliTestRunner({ ghAuthenticated: false }), '/repo'))
+      .rejects.toMatchObject({ code: 'github_cli_unauthenticated' })
+
+    await expect(getCurrentBranchPullRequest(new GitHubCliTestRunner({ remoteUrl: 'https://gitlab.com/example/project.git' }), '/repo'))
+      .rejects.toMatchObject({ code: 'github_remote_missing' })
+
+    await expect(checkoutGitHubPullRequest(new GitHubCliTestRunner(), {
+      repoPath: '/repo',
+      prNumber: 0
+    })).rejects.toMatchObject({ code: 'invalid_pr_number' })
+  })
+
+  it('rejects malformed pull request JSON from GitHub CLI', async () => {
+    await expect(getCurrentBranchPullRequest(new GitHubCliTestRunner({ prViewOutput: '{' }), '/repo'))
+      .rejects.toMatchObject({ code: 'github_pr_parse_failed' })
+
+    await expect(listGitHubPullRequests(new GitHubCliTestRunner({ prListOutput: 'not-json' }), '/repo'))
+      .rejects.toMatchObject({ code: 'github_pr_parse_failed' })
+  })
 })
 
 interface GitHubCliTestRunnerOptions {
@@ -127,10 +195,15 @@ interface GitHubCliTestRunnerOptions {
   currentBranch?: string
   upstream?: string
   originHead?: string
+  currentPullRequest?: GitHubPullRequest | null
+  pullRequests?: GitHubPullRequest[]
+  prViewOutput?: string
+  prListOutput?: string
 }
 
 class GitHubCliTestRunner extends CommandRunner {
   ghPrCreateArgs: string[] = []
+  ghPrCheckoutArgs: string[] = []
 
   constructor(private readonly options: GitHubCliTestRunnerOptions = {}) {
     super()
@@ -159,6 +232,46 @@ class GitHubCliTestRunner extends CommandRunner {
     if (command === '/tmp/branchpilot-gh' && args[0] === 'pr' && args[1] === 'create') {
       this.ghPrCreateArgs = args
       return this.complete(command, args, 0, 'https://github.com/example/project/pull/42\n', '', options)
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'pr' && args[1] === 'view') {
+      if (this.options.currentPullRequest === null) {
+        return this.complete(command, args, 1, '', 'no pull requests found for branch', options)
+      }
+
+      if (this.options.prViewOutput) {
+        return this.complete(command, args, 0, this.options.prViewOutput, '', options)
+      }
+
+      return this.complete(
+        command,
+        args,
+        0,
+        `${JSON.stringify(toGhPullRequestJson(this.options.currentPullRequest ?? makePullRequest()))}\n`,
+        '',
+        options
+      )
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'pr' && args[1] === 'list') {
+      if (this.options.prListOutput) {
+        return this.complete(command, args, 0, this.options.prListOutput, '', options)
+      }
+
+      const pullRequests = this.options.pullRequests ?? [makePullRequest()]
+      return this.complete(
+        command,
+        args,
+        0,
+        `${JSON.stringify(pullRequests.map(toGhPullRequestJson))}\n`,
+        '',
+        options
+      )
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'pr' && args[1] === 'checkout') {
+      this.ghPrCheckoutArgs = args
+      return this.complete(command, args, 0, `Switched to branch '${args[2]}'\n`, '', options)
     }
 
     return super.run(command, args, options)
@@ -214,5 +327,30 @@ class GitHubCliTestRunner extends CommandRunner {
     }
 
     return result
+  }
+}
+
+function makePullRequest(overrides: Partial<GitHubPullRequest> = {}): GitHubPullRequest {
+  return {
+    number: 42,
+    title: 'Add provider bridge',
+    url: `https://github.com/example/project/pull/${overrides.number ?? 42}`,
+    state: 'OPEN',
+    headBranch: 'feature/test',
+    baseBranch: 'main',
+    draft: false,
+    ...overrides
+  }
+}
+
+function toGhPullRequestJson(pullRequest: GitHubPullRequest) {
+  return {
+    number: pullRequest.number,
+    title: pullRequest.title,
+    url: pullRequest.url,
+    state: pullRequest.state,
+    headRefName: pullRequest.headBranch,
+    baseRefName: pullRequest.baseBranch,
+    isDraft: pullRequest.draft
   }
 }

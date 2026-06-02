@@ -352,6 +352,21 @@ export interface CreatedPullRequest {
   headBranch: string
 }
 
+export interface GitHubPullRequest {
+  number: number
+  title: string
+  url: string
+  state: string
+  headBranch: string
+  baseBranch: string
+  draft: boolean
+}
+
+export interface CheckoutPullRequestRequest {
+  repoPath: string
+  prNumber: number
+}
+
 export interface ProviderStatus {
   id: 'github' | 'gitlab' | 'bitbucket'
   label: string
@@ -411,5 +426,8 @@ export interface BranchPilotApi {
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>
   createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>
+  getCurrentBranchPullRequest: (repoPath: string) => Promise<ApiResult<GitHubPullRequest | null>>
+  listGitHubPullRequests: (repoPath: string) => Promise<ApiResult<GitHubPullRequest[]>>
+  checkoutGitHubPullRequest: (request: CheckoutPullRequestRequest) => Promise<ApiResult<RepositorySnapshot>>
   generateReviewReport: (request: ReviewReportRequest) => Promise<ApiResult<ReviewReport>>
 }

@@ -2,9 +2,11 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type {
+  CheckoutPullRequestRequest,
   CreatePullRequestRequest,
   CreatedPullRequest,
-  GitHubCliStatus
+  GitHubCliStatus,
+  GitHubPullRequest
 } from '../../src/shared/branchPilot.js'
 import { CommandRunner } from '../lib/commandRunner.js'
 import { BranchPilotUserError } from '../lib/errors.js'
@@ -54,17 +56,7 @@ export async function createGitHubPullRequest(
   request: CreatePullRequestRequest
 ): Promise<CreatedPullRequest> {
   const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
-  const status = await getGitHubCliStatus(runner, rootPath)
-
-  if (status.state === 'missing') {
-    throw new BranchPilotUserError('github_cli_missing', 'GitHub CLI is not installed.')
-  }
-
-  if (status.state !== 'authenticated' || !status.executable) {
-    throw new BranchPilotUserError('github_cli_unauthenticated', 'Run gh auth login before creating a pull request.')
-  }
-
-  await getGitHubRemoteUrl(runner, rootPath)
+  const status = await assertGitHubCliReady(runner, rootPath)
   const currentBranch = await getCurrentBranch(runner, rootPath)
   const headBranch = normalizeBranchName(request.headBranch || currentBranch, 'Head branch')
 
@@ -113,6 +105,68 @@ export async function createGitHubPullRequest(
   }
 }
 
+export async function getCurrentBranchPullRequest(
+  runner: CommandRunner,
+  repoPath: string
+): Promise<GitHubPullRequest | null> {
+  const rootPath = await resolveRepositoryRoot(runner, repoPath)
+  const status = await assertGitHubCliReady(runner, rootPath)
+
+  const result = await runner.run(status.executable, [
+    'pr',
+    'view',
+    '--json',
+    PR_JSON_FIELDS
+  ], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1],
+    timeoutMs: 30_000
+  })
+
+  if (result.exitCode !== 0 || !result.stdout.trim()) {
+    return null
+  }
+
+  return parseGitHubPullRequest(result.stdout)
+}
+
+export async function listGitHubPullRequests(
+  runner: CommandRunner,
+  repoPath: string
+): Promise<GitHubPullRequest[]> {
+  const rootPath = await resolveRepositoryRoot(runner, repoPath)
+  const status = await assertGitHubCliReady(runner, rootPath)
+  const result = await runner.run(status.executable, [
+    'pr',
+    'list',
+    '--json',
+    PR_JSON_FIELDS,
+    '--limit',
+    '30'
+  ], {
+    cwd: rootPath,
+    timeoutMs: 30_000
+  })
+
+  return parseGitHubPullRequestList(result.stdout)
+}
+
+export async function checkoutGitHubPullRequest(
+  runner: CommandRunner,
+  request: CheckoutPullRequestRequest
+): Promise<string> {
+  const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
+  const status = await assertGitHubCliReady(runner, rootPath)
+  const prNumber = normalizePullRequestNumber(request.prNumber)
+
+  await runner.run(status.executable, ['pr', 'checkout', String(prNumber)], {
+    cwd: rootPath,
+    timeoutMs: 120_000
+  })
+
+  return rootPath
+}
+
 export async function isGitHubRepository(runner: CommandRunner, repoPath: string): Promise<boolean> {
   try {
     await getGitHubRemoteUrl(runner, await resolveRepositoryRoot(runner, repoPath))
@@ -131,6 +185,25 @@ async function resolveGhExecutable(runner: CommandRunner): Promise<string | unde
     return result.stdout.trim() || 'gh'
   } catch {
     return undefined
+  }
+}
+
+async function assertGitHubCliReady(runner: CommandRunner, rootPath: string): Promise<GitHubCliStatus & { executable: string }> {
+  const status = await getGitHubCliStatus(runner, rootPath)
+
+  if (status.state === 'missing') {
+    throw new BranchPilotUserError('github_cli_missing', 'GitHub CLI is not installed.')
+  }
+
+  if (status.state !== 'authenticated' || !status.executable) {
+    throw new BranchPilotUserError('github_cli_unauthenticated', 'Run gh auth login before creating a pull request.')
+  }
+
+  await getGitHubRemoteUrl(runner, rootPath)
+
+  return {
+    ...status,
+    executable: status.executable
   }
 }
 
@@ -221,4 +294,68 @@ function parsePullRequestUrl(output: string): string {
   }
 
   return url
+}
+
+const PR_JSON_FIELDS = 'number,title,url,state,headRefName,baseRefName,isDraft'
+
+function normalizePullRequestNumber(prNumber: number): number {
+  if (!Number.isInteger(prNumber) || prNumber <= 0) {
+    throw new BranchPilotUserError('invalid_pr_number', 'Pull request number is invalid.')
+  }
+
+  return prNumber
+}
+
+function parseGitHubPullRequestList(output: string): GitHubPullRequest[] {
+  if (!output.trim()) {
+    return []
+  }
+
+  const parsed = parseGitHubJson(output)
+
+  if (!Array.isArray(parsed)) {
+    throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub CLI did not return a pull request list.', output)
+  }
+
+  return parsed.map((value) => normalizeGitHubPullRequest(value))
+}
+
+function parseGitHubPullRequest(output: string): GitHubPullRequest {
+  return normalizeGitHubPullRequest(parseGitHubJson(output))
+}
+
+function parseGitHubJson(output: string): unknown {
+  try {
+    return JSON.parse(output) as unknown
+  } catch {
+    throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub CLI returned invalid pull request JSON.', output)
+  }
+}
+
+function normalizeGitHubPullRequest(value: unknown): GitHubPullRequest {
+  if (!value || typeof value !== 'object') {
+    throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub CLI returned an invalid pull request.')
+  }
+
+  const record = value as Record<string, unknown>
+  const number = Number(record.number)
+  const title = typeof record.title === 'string' ? record.title : ''
+  const url = typeof record.url === 'string' ? record.url : ''
+  const state = typeof record.state === 'string' ? record.state : ''
+  const headBranch = typeof record.headRefName === 'string' ? record.headRefName : ''
+  const baseBranch = typeof record.baseRefName === 'string' ? record.baseRefName : ''
+
+  if (!Number.isInteger(number) || number <= 0 || !title || !url || !state || !headBranch || !baseBranch) {
+    throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub CLI returned an incomplete pull request.')
+  }
+
+  return {
+    number,
+    title,
+    url,
+    state,
+    headBranch,
+    baseBranch,
+    draft: Boolean(record.isDraft)
+  }
 }
