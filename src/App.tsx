@@ -47,11 +47,12 @@ import type {
   ReviewMode,
   ReviewReport,
   ReviewScope,
-  ReviewSeverity
+  ReviewSeverity,
+  StashEntry
 } from './shared/branchPilot'
 import './App.css'
 
-type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'review' | 'providers'
+type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers'
 type DiffMode = 'unstaged' | 'staged'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 
@@ -81,6 +82,8 @@ function App() {
   const [commitTitle, setCommitTitle] = useState('')
   const [commitDescription, setCommitDescription] = useState('')
   const [newBranchName, setNewBranchName] = useState('')
+  const [stashMessage, setStashMessage] = useState('')
+  const [stashes, setStashes] = useState<StashEntry[]>([])
   const [localUserName, setLocalUserName] = useState('')
   const [localUserEmail, setLocalUserEmail] = useState('')
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
@@ -167,6 +170,11 @@ function App() {
   }, [snapshot?.summary.rootPath, viewMode])
 
   useEffect(() => {
+    if (!snapshot || viewMode !== 'stash') return
+    void loadStashes()
+  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, viewMode])
+
+  useEffect(() => {
     if (viewMode !== 'providers') return
     void loadProviders()
     void loadGitHubCliStatus()
@@ -193,6 +201,17 @@ function App() {
     if (!api) return
     const result = await api.listProviders()
     if (result.ok) setProviders(result.data)
+  }
+
+  async function loadStashes(repoPath = currentRepoPath) {
+    if (!api || !repoPath) return
+    const result = await api.listStashes(repoPath)
+
+    if (result.ok) {
+      setStashes(result.data)
+    } else {
+      setError(result.error.message)
+    }
   }
 
   async function loadAssistants() {
@@ -360,11 +379,25 @@ function App() {
     setRecentRepositories(nextSnapshot.recentRepositories)
     setNotice(successMessage)
     setError(null)
+
+    if (viewMode === 'stash') {
+      void loadStashes(nextSnapshot.summary.rootPath)
+    }
   }
 
   function resetPreCommitReview() {
     setPreCommitReports([])
     setPreCommitRunningMode(null)
+  }
+
+  function defaultStashMessage(): string {
+    const branch = snapshot?.summary.currentBranch || 'detached'
+    const timestamp = new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'short',
+      timeStyle: 'short'
+    }).format(new Date())
+
+    return `WIP on ${branch} at ${timestamp}`
   }
 
   async function stageSelected() {
@@ -432,6 +465,74 @@ function App() {
     }
 
     return committed
+  }
+
+  async function createStash(message = stashMessage.trim() || defaultStashMessage()) {
+    if (!api || !currentRepoPath) return
+    const created = await runSnapshotAction('Changes stashed.', () =>
+      api.createStash({
+        repoPath: currentRepoPath,
+        message,
+        includeUntracked: true
+      })
+    )
+
+    if (created) {
+      setStashMessage('')
+      await loadStashes(currentRepoPath)
+    }
+  }
+
+  async function createQuickStash() {
+    if (!counts?.changed) return
+    const message = window.prompt('Stash message', defaultStashMessage())
+
+    if (!message) return
+
+    await createStash(message)
+  }
+
+  async function applyStash(stash: StashEntry) {
+    if (!api || !currentRepoPath) return
+    const applied = await runSnapshotAction('Stash applied.', () =>
+      api.applyStash({
+        repoPath: currentRepoPath,
+        stashRef: stash.ref
+      })
+    )
+
+    if (applied) {
+      await loadStashes(currentRepoPath)
+    } else {
+      const refreshed = await api.refreshRepository(currentRepoPath)
+
+      if (refreshed.ok) {
+        resetPreCommitReview()
+        setSnapshot(refreshed.data)
+        setRecentRepositories(refreshed.data.recentRepositories)
+      }
+
+      await loadStashes(currentRepoPath)
+    }
+  }
+
+  async function dropStash(stash: StashEntry) {
+    if (!api || !currentRepoPath) return
+    const confirmed = window.confirm(`Drop ${stash.ref}? This cannot be undone.`)
+
+    if (!confirmed) return
+
+    const dropped = await runSnapshotAction('Stash dropped.', () =>
+      api.dropStash({
+        repoPath: currentRepoPath,
+        stashRef: stash.ref,
+        confirmed
+      })
+    )
+
+    if (dropped) {
+      await loadStashes(currentRepoPath)
+    }
   }
 
   async function generateCommitText() {
@@ -653,6 +754,7 @@ function App() {
     { id: 'merge' as const, label: 'Merge', icon: GitMerge },
     { id: 'branches' as const, label: 'Branches', icon: GitBranch },
     { id: 'config' as const, label: 'Git Config', icon: Settings },
+    { id: 'stash' as const, label: 'Stash', icon: Save },
     { id: 'review' as const, label: 'Review', icon: ShieldCheck },
     { id: 'providers' as const, label: 'Providers', icon: GitPullRequest }
   ]
@@ -817,6 +919,7 @@ function App() {
             {viewMode === 'merge' && renderMergeView()}
             {viewMode === 'branches' && renderBranchesView(snapshot.branches)}
             {viewMode === 'config' && renderConfigView()}
+            {viewMode === 'stash' && renderStashView()}
             {viewMode === 'review' && renderReviewView()}
             {viewMode === 'providers' && renderProvidersView()}
           </>
@@ -835,6 +938,10 @@ function App() {
               <p>Real status from system Git.</p>
             </div>
             <div className="panel-actions">
+              <button type="button" onClick={createQuickStash} disabled={busy || !counts?.changed}>
+                <Save size={17} />
+                Stash changes
+              </button>
               <button type="button" onClick={() => currentRepoPath && runSnapshotAction('All changes staged.', () => api!.stageAll(currentRepoPath))}>
                 <Plus size={17} />
                 Stage all
@@ -1214,6 +1321,68 @@ function App() {
                   <span>fetch: {remote.fetchUrl ?? 'unset'}</span>
                   <span>push: {remote.pushUrl ?? 'unset'}</span>
                 </div>
+              ))
+            )}
+          </section>
+        </div>
+      </section>
+    )
+  }
+
+  function renderStashView() {
+    return (
+      <section className="single-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Stash</h2>
+            <p>Store unfinished tracked and untracked work without committing.</p>
+          </div>
+          <button type="button" onClick={() => loadStashes()} disabled={busy}>
+            <RefreshCcw size={17} />
+            Refresh
+          </button>
+        </div>
+
+        <div className="stash-workspace">
+          <section className="stash-create">
+            <div>
+              <h3>Create stash</h3>
+              <p>Includes tracked and untracked changes. Ignored files stay untouched.</p>
+            </div>
+            <input
+              id="stash-message"
+              value={stashMessage}
+              onChange={(event) => setStashMessage(event.target.value)}
+              placeholder={defaultStashMessage()}
+            />
+            <button type="button" onClick={() => createStash()} disabled={busy || !counts?.changed}>
+              <Save size={17} />
+              Stash changes
+            </button>
+          </section>
+
+          <section className="stash-list">
+            {stashes.length === 0 ? (
+              <div className="quiet-box">No stashes for this repository.</div>
+            ) : (
+              stashes.map((stash) => (
+                <article className="stash-row" key={stash.ref}>
+                  <div>
+                    <span>{stash.ref} · {stash.createdAtLabel}</span>
+                    <strong>{stash.message}</strong>
+                    <code>{stash.sha.slice(0, 12)}</code>
+                  </div>
+                  <div className="stash-actions">
+                    <button type="button" onClick={() => applyStash(stash)} disabled={busy}>
+                      <ArrowDownToLine size={17} />
+                      Apply
+                    </button>
+                    <button type="button" onClick={() => dropStash(stash)} disabled={busy}>
+                      <Trash2 size={17} />
+                      Drop
+                    </button>
+                  </div>
+                </article>
               ))
             )}
           </section>

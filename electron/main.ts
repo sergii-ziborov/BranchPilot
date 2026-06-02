@@ -8,7 +8,9 @@ import type {
   CommitFileDiffRequest,
   CommitMessageGenerationRequest,
   CommitRequest,
+  ConfirmedStashActionRequest,
   ConfirmedFileActionRequest,
+  CreateStashRequest,
   CreatePullRequestRequest,
   DeleteBranchRequest,
   DiffRequest,
@@ -18,7 +20,8 @@ import type {
   HunkActionRequest,
   PullRequestTextGenerationRequest,
   PublishBranchRequest,
-  ReviewReportRequest
+  ReviewReportRequest,
+  StashActionRequest
 } from '../src/shared/branchPilot.js'
 import { generateCommitMessage, generatePullRequestText, generateReviewReport, listAssistantStatuses } from './assistants/assistantRunner.js'
 import { CommandRunner } from './lib/commandRunner.js'
@@ -119,6 +122,10 @@ function registerIpcHandlers() {
     repositoryService.deleteUntrackedFile(request)
   )
   handle('git:commit', (request: CommitRequest) => repositoryService.commit(request))
+  handle('stash:list', (repoPath: string) => repositoryService.listStashes(repoPath))
+  handle('stash:create', (request: CreateStashRequest) => repositoryService.createStash(request))
+  handle('stash:apply', (request: StashActionRequest) => repositoryService.applyStash(request))
+  handle('stash:drop', (request: ConfirmedStashActionRequest) => repositoryService.dropStash(request))
   handle('git:fetch', (repoPath: string) => repositoryService.fetch(repoPath))
   handle('git:pull', (repoPath: string) => repositoryService.pull(repoPath))
   handle('git:push', (repoPath: string) => repositoryService.push(repoPath))

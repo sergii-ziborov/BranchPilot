@@ -7,7 +7,9 @@ import type {
   CommitDetailsRequest,
   CommitFileChange,
   CommitFileDiffRequest,
+  ConfirmedStashActionRequest,
   CommitRequest,
+  CreateStashRequest,
   CommitSummary,
   DiffRequest,
   DiffResult,
@@ -21,7 +23,9 @@ import type {
   RemoteSummary,
   RepositorySnapshot,
   RepositoryStatus,
-  RepositorySummary
+  RepositorySummary,
+  StashActionRequest,
+  StashEntry
 } from '../../src/shared/branchPilot.js'
 import { CommandRunner } from './commandRunner.js'
 import { parseUnifiedDiff } from './diffParser.js'
@@ -317,6 +321,57 @@ export class RepositoryService {
     } finally {
       await fs.rm(messageFile, { force: true })
     }
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async listStashes(repoPath: string): Promise<StashEntry[]> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const result = await this.git(rootPath, ['stash', 'list', '--format=%gd%x00%H%x00%cr%x00%gs'], {
+      allowedExitCodes: [0]
+    })
+
+    return result.stdout
+      .split('\n')
+      .filter(Boolean)
+      .map(parseStashEntry)
+  }
+
+  async createStash(request: CreateStashRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const snapshot = await this.getSnapshot(rootPath)
+
+    if (snapshot.status.counts.changed === 0) {
+      throw new BranchPilotUserError('nothing_to_stash', 'No local changes to stash.')
+    }
+
+    const args = ['stash', 'push']
+
+    if (request.includeUntracked) {
+      args.push('-u')
+    }
+
+    args.push('-m', normalizeStashMessage(request.message))
+
+    await this.git(rootPath, args, { timeoutMs: 120_000 })
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async applyStash(request: StashActionRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    await this.git(rootPath, ['stash', 'apply', normalizeStashRef(request.stashRef)], { timeoutMs: 120_000 })
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async dropStash(request: ConfirmedStashActionRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Dropping a stash requires explicit confirmation.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    await this.git(rootPath, ['stash', 'drop', normalizeStashRef(request.stashRef)], { timeoutMs: 120_000 })
 
     return this.getSnapshot(rootPath)
   }
@@ -728,6 +783,26 @@ function normalizeConfigValue(value: string, label: string): string {
   return trimmed
 }
 
+function normalizeStashMessage(message: string): string {
+  const trimmed = message.trim()
+
+  if (!trimmed || trimmed.includes('\0')) {
+    throw new BranchPilotUserError('invalid_stash_message', 'Stash message is required.')
+  }
+
+  return trimmed
+}
+
+function normalizeStashRef(stashRef: string): string {
+  const trimmed = stashRef.trim()
+
+  if (!/^stash@\{\d+\}$/.test(trimmed)) {
+    throw new BranchPilotUserError('invalid_stash_ref', 'Invalid stash reference.')
+  }
+
+  return trimmed
+}
+
 function parseCommitSummary(line: string): CommitSummary {
   const [sha, shortSha, subject, authorName, authorEmail, authoredAt] = line.split('\0')
 
@@ -738,6 +813,17 @@ function parseCommitSummary(line: string): CommitSummary {
     authorName,
     authorEmail,
     authoredAt
+  }
+}
+
+function parseStashEntry(line: string): StashEntry {
+  const [ref, sha, createdAtLabel, message] = line.split('\0')
+
+  return {
+    ref,
+    sha,
+    createdAtLabel,
+    message
   }
 }
 

@@ -1027,6 +1027,76 @@ h3 {
   font-size: 13px;
 }
 
+.stash-workspace,
+.stash-list {
+  display: grid;
+  gap: 12px;
+}
+
+.stash-create,
+.stash-row {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.stash-create {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(240px, 1fr) auto;
+  align-items: end;
+}
+
+.stash-create p,
+.stash-row span,
+.stash-row code {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stash-create input {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: #ffffff;
+}
+
+.stash-create button,
+.stash-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.stash-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  background: #ffffff;
+}
+
+.stash-row strong {
+  display: block;
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+}
+
+.stash-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .review-grid,
 .assistant-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1395,6 +1465,8 @@ h3 {
   .commit-file-grid,
   .config-grid,
   .review-controls,
+  .stash-create,
+  .stash-row,
   .severity-strip {
     grid-template-columns: 1fr;
   }

@@ -213,6 +213,28 @@ export interface CommitRequest {
   description: string
 }
 
+export interface StashEntry {
+  ref: string
+  sha: string
+  message: string
+  createdAtLabel: string
+}
+
+export interface CreateStashRequest {
+  repoPath: string
+  message: string
+  includeUntracked: boolean
+}
+
+export interface StashActionRequest {
+  repoPath: string
+  stashRef: string
+}
+
+export interface ConfirmedStashActionRequest extends StashActionRequest {
+  confirmed: boolean
+}
+
 export type AssistantId = 'auto' | 'claude' | 'codex'
 export type InstalledAssistantId = Exclude<AssistantId, 'auto'>
 
@@ -359,6 +381,10 @@ export interface BranchPilotApi {
   discardFile: (request: ConfirmedFileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   deleteUntrackedFile: (request: ConfirmedFileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   commit: (request: CommitRequest) => Promise<ApiResult<RepositorySnapshot>>
+  listStashes: (repoPath: string) => Promise<ApiResult<StashEntry[]>>
+  createStash: (request: CreateStashRequest) => Promise<ApiResult<RepositorySnapshot>>
+  applyStash: (request: StashActionRequest) => Promise<ApiResult<RepositorySnapshot>>
+  dropStash: (request: ConfirmedStashActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   fetch: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   pull: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   push: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>

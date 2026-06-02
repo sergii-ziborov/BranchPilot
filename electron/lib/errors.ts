@@ -102,7 +102,7 @@ function classifyGitError(output: string): { code: string; message: string } {
     }
   }
 
-  if (normalized.includes('automatic merge failed') || normalized.includes('fix conflicts')) {
+  if (normalized.includes('automatic merge failed') || normalized.includes('fix conflicts') || normalized.includes('merge conflict')) {
     return {
       code: 'git_conflict',
       message: 'Git reported conflicts. Use the Merge view to resolve them.'

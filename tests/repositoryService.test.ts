@@ -137,6 +137,69 @@ describe('RepositoryService', () => {
     }
   })
 
+  it('creates, lists, applies, and drops stashes with untracked files', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'stashed tracked\n')
+    writeFileSync(path.join(repoPath, 'untracked.txt'), 'stashed untracked\n')
+
+    const stashed = await service.createStash({
+      repoPath,
+      message: 'Save WIP fixture',
+      includeUntracked: true
+    })
+
+    expect(stashed.status.counts.changed).toBe(0)
+    expect(git(repoPath, ['status', '--porcelain'])).toBe('')
+
+    const stashes = await service.listStashes(repoPath)
+    expect(stashes[0].ref).toBe('stash@{0}')
+    expect(stashes[0].message).toContain('Save WIP fixture')
+
+    const applied = await service.applyStash({ repoPath, stashRef: stashes[0].ref })
+    expect(applied.status.counts.changed).toBe(2)
+    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('stashed tracked\n')
+    expect(readFileSync(path.join(repoPath, 'untracked.txt'), 'utf8')).toBe('stashed untracked\n')
+
+    await expect(service.dropStash({
+      repoPath,
+      stashRef: stashes[0].ref,
+      confirmed: false
+    })).rejects.toMatchObject({ code: 'confirmation_required' })
+
+    await service.dropStash({
+      repoPath,
+      stashRef: stashes[0].ref,
+      confirmed: true
+    })
+
+    expect(await service.listStashes(repoPath)).toEqual([])
+  })
+
+  it('reports conflicts when applying a stash over incompatible work', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'stashed\n')
+    await service.createStash({
+      repoPath,
+      message: 'Conflicting stash',
+      includeUntracked: true
+    })
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'committed local\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Conflicting local change'])
+
+    try {
+      await service.applyStash({ repoPath, stashRef: 'stash@{0}' })
+      throw new Error('Expected stash apply to conflict')
+    } catch (error) {
+      expect(toBranchPilotError(error).code).toBe('git_conflict')
+    }
+  })
+
   it('reads commit history, commit details, and commit file diffs', async () => {
     const repoPath = createTempRepository()
     const service = createService()
