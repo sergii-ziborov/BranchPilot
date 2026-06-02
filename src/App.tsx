@@ -51,8 +51,11 @@ import './App.css'
 
 type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'review' | 'providers'
 type DiffMode = 'unstaged' | 'staged'
+type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 
 const api = window.branchPilot
+const reviewModes: ReviewMode[] = ['consistency', 'security', 'quality']
+const reviewSeverities: ReviewSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
@@ -87,11 +90,27 @@ function App() {
   const [reviewMode, setReviewMode] = useState<ReviewMode>('consistency')
   const [reviewScope, setReviewScope] = useState<ReviewScope>('staged')
   const [reviewReport, setReviewReport] = useState<ReviewReport | null>(null)
+  const [preCommitReviewModes, setPreCommitReviewModes] = useState<ReviewMode[]>(reviewModes)
+  const [preCommitReports, setPreCommitReports] = useState<ReviewReport[]>([])
+  const [preCommitRunningMode, setPreCommitRunningMode] = useState<ReviewMode | null>(null)
 
   const selectedChange = useMemo(
     () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
     [selectedFilePath, snapshot]
   )
+
+  const preCommitFindings = useMemo<PreCommitFinding[]>(
+    () =>
+      preCommitReports.flatMap((report) =>
+        report.findings.map((finding) => ({
+          ...finding,
+          mode: report.mode
+        }))
+      ),
+    [preCommitReports]
+  )
+
+  const preCommitFindingsBySeverity = useMemo(() => groupFindingsBySeverity(preCommitFindings), [preCommitFindings])
 
   useEffect(() => {
     if (!api) {
@@ -334,10 +353,16 @@ function App() {
   }
 
   function applySnapshot(nextSnapshot: RepositorySnapshot, successMessage: string) {
+    resetPreCommitReview()
     setSnapshot(nextSnapshot)
     setRecentRepositories(nextSnapshot.recentRepositories)
     setNotice(successMessage)
     setError(null)
+  }
+
+  function resetPreCommitReview() {
+    setPreCommitReports([])
+    setPreCommitRunningMode(null)
   }
 
   async function stageSelected() {
@@ -379,6 +404,7 @@ function App() {
     if (committed) {
       setCommitTitle('')
       setCommitDescription('')
+      resetPreCommitReview()
     }
 
     return committed
@@ -484,6 +510,73 @@ function App() {
     }
 
     setBusy(false)
+  }
+
+  async function runPreCommitReview() {
+    if (!api || !currentRepoPath || !counts?.staged || preCommitReviewModes.length === 0) return
+
+    setBusy(true)
+    setError(null)
+    setPreCommitReports([])
+
+    const reports: ReviewReport[] = []
+
+    for (const mode of preCommitReviewModes) {
+      setPreCommitRunningMode(mode)
+      const result = await api.generateReviewReport({
+        repoPath: currentRepoPath,
+        assistant: selectedAssistant,
+        mode,
+        scope: 'staged'
+      })
+
+      if (!result.ok) {
+        setError(result.error.message)
+        setNotice(result.error.details || result.error.code)
+        setPreCommitReports(reports)
+        setPreCommitRunningMode(null)
+        setBusy(false)
+        return
+      }
+
+      reports.push(result.data)
+      setPreCommitReports([...reports])
+    }
+
+    const lastReport = reports.at(-1)
+
+    if (lastReport) {
+      setReviewMode(lastReport.mode)
+      setReviewScope('staged')
+      setReviewReport(lastReport)
+      setNotice(`Pre-commit review complete with ${assistantLabel(lastReport.assistant)}${lastReport.truncated ? ' from truncated diff' : ''}.`)
+    }
+
+    setPreCommitRunningMode(null)
+    setBusy(false)
+  }
+
+  function togglePreCommitReviewMode(mode: ReviewMode) {
+    setPreCommitReviewModes((currentModes) => {
+      const nextModes = currentModes.includes(mode)
+        ? currentModes.filter((currentMode) => currentMode !== mode)
+        : reviewModes.filter((candidate) => candidate === mode || currentModes.includes(candidate))
+
+      return nextModes
+    })
+    resetPreCommitReview()
+  }
+
+  function openPreCommitReviewDetails() {
+    const lastReport = preCommitReports.at(-1)
+
+    if (lastReport) {
+      setReviewMode(lastReport.mode)
+      setReviewScope('staged')
+      setReviewReport(lastReport)
+    }
+
+    setViewMode('review')
   }
 
   async function createBranch() {
@@ -790,6 +883,7 @@ function App() {
               onChange={(event) => setCommitDescription(event.target.value)}
               placeholder="Optional commit body"
             />
+            {renderPreCommitReviewPanel()}
             <div className="commit-actions">
               <button type="button" onClick={commitChanges} disabled={busy || !counts?.staged}>
                 <GitCommitHorizontal size={17} />
@@ -858,6 +952,98 @@ function App() {
 
           <DiffPreview diff={diff} />
         </div>
+      </section>
+    )
+  }
+
+  function renderPreCommitReviewPanel() {
+    const selectedModeLabels = preCommitReviewModes.map(reviewModeLabel).join(', ')
+    const displayedFindings = preCommitFindings.slice(0, 5)
+    const hiddenFindingCount = Math.max(0, preCommitFindings.length - displayedFindings.length)
+    const hasHighRiskFindings = preCommitFindingsBySeverity.critical.length > 0 || preCommitFindingsBySeverity.high.length > 0
+    const isRunning = Boolean(preCommitRunningMode)
+
+    return (
+      <section className={`precommit-review ${hasHighRiskFindings ? 'has-risk' : ''}`}>
+        <div className="precommit-heading">
+          <div>
+            <h3>Pre-commit review</h3>
+            <p>Optional staged diff review before committing.</p>
+          </div>
+          <span>Staged only</span>
+        </div>
+
+        <div className="precommit-controls">
+          <div className="segmented precommit-modes" aria-label="Pre-commit review modes">
+            {reviewModes.map((mode) => (
+              <button
+                aria-pressed={preCommitReviewModes.includes(mode)}
+                className={preCommitReviewModes.includes(mode) ? 'active' : ''}
+                type="button"
+                key={mode}
+                onClick={() => togglePreCommitReviewMode(mode)}
+                disabled={busy}
+              >
+                {reviewModeLabel(mode)}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={runPreCommitReview} disabled={busy || !counts?.staged || preCommitReviewModes.length === 0}>
+            {isRunning ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />}
+            {isRunning ? `Reviewing ${reviewModeLabel(preCommitRunningMode!)}` : 'Review staged diff'}
+          </button>
+        </div>
+
+        {!counts?.staged ? (
+          <div className="precommit-empty">Stage files to review the exact diff that will be committed.</div>
+        ) : preCommitReviewModes.length === 0 ? (
+          <div className="precommit-empty">Select at least one review mode.</div>
+        ) : isRunning && preCommitReports.length === 0 ? (
+          <div className="precommit-empty">Running {reviewModeLabel(preCommitRunningMode!)} review for {selectedModeLabels}.</div>
+        ) : preCommitReports.length === 0 ? (
+          <div className="precommit-empty">Review staged diff before committing. Commit stays available either way.</div>
+        ) : (
+          <div className="precommit-results">
+            <div className="precommit-summary">
+              <strong>{preCommitFindings.length === 0 ? 'No actionable findings in staged diff.' : `${preCommitFindings.length} findings in staged diff.`}</strong>
+              <span>{preCommitReports.length} mode{preCommitReports.length === 1 ? '' : 's'} reviewed{preCommitReports.some((report) => report.truncated) ? ' / truncated' : ''}</span>
+            </div>
+
+            <div className="severity-strip precommit-severity">
+              {reviewSeverities.map((severity) => (
+                <div className={`severity-count severity-${severity}`} key={severity}>
+                  <span>{severity}</span>
+                  <strong>{preCommitFindingsBySeverity[severity].length}</strong>
+                </div>
+              ))}
+            </div>
+
+            {hasHighRiskFindings && (
+              <div className="precommit-warning">High-risk findings found. Commit is still available.</div>
+            )}
+
+            {displayedFindings.length > 0 && (
+              <div className="precommit-finding-list">
+                {displayedFindings.map((finding, index) => (
+                  <article className={`finding-card compact severity-${finding.severity}`} key={`${finding.mode}-${finding.severity}-${finding.title}-${index}`}>
+                    <div className="finding-heading">
+                      <span>{finding.severity}</span>
+                      <strong>{finding.title}</strong>
+                    </div>
+                    <code>{reviewModeLabel(finding.mode)}{finding.filePath ? ` / ${finding.filePath}${finding.line ? `:${finding.line}` : ''}` : ''}</code>
+                    <p>{finding.details}</p>
+                  </article>
+                ))}
+                {hiddenFindingCount > 0 && <div className="precommit-empty">{hiddenFindingCount} more findings in the full review.</div>}
+              </div>
+            )}
+
+            <button type="button" className="secondary precommit-details" onClick={openPreCommitReviewDetails}>
+              <ExternalLink size={17} />
+              Open full review
+            </button>
+          </div>
+        )}
       </section>
     )
   }

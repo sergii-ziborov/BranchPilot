@@ -620,6 +620,141 @@ h3 {
   font-size: 12px;
 }
 
+.precommit-review {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.precommit-review.has-risk {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.precommit-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.precommit-heading h3 {
+  font-size: 14px;
+}
+
+.precommit-heading p,
+.precommit-heading span,
+.precommit-summary span,
+.precommit-empty,
+.precommit-warning {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.precommit-heading span {
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.precommit-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.precommit-controls button,
+.precommit-details {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.precommit-modes {
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.precommit-modes button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.precommit-empty,
+.precommit-warning {
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.precommit-warning {
+  color: #9a3412;
+  border-color: #fed7aa;
+  background: #ffedd5;
+  font-weight: 700;
+}
+
+.precommit-results,
+.precommit-finding-list {
+  display: grid;
+  gap: 9px;
+}
+
+.precommit-summary {
+  display: grid;
+  gap: 3px;
+}
+
+.precommit-summary strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.precommit-severity {
+  grid-template-columns: repeat(5, minmax(48px, 1fr));
+  gap: 6px;
+}
+
+.precommit-severity .severity-count {
+  padding: 7px;
+}
+
+.precommit-severity .severity-count span {
+  font-size: 10px;
+}
+
+.precommit-severity .severity-count strong {
+  font-size: 16px;
+}
+
+.finding-card.compact {
+  gap: 6px;
+  padding: 9px;
+}
+
+.finding-card.compact p {
+  font-size: 12px;
+}
+
 .segmented {
   margin-bottom: 12px;
 }
