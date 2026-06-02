@@ -16,9 +16,10 @@ import type {
   FileActionRequest,
   GitIdentityUpdate,
   PullRequestTextGenerationRequest,
-  PublishBranchRequest
+  PublishBranchRequest,
+  ReviewReportRequest
 } from '../src/shared/branchPilot.js'
-import { generateCommitMessage, generatePullRequestText, listAssistantStatuses } from './assistants/assistantRunner.js'
+import { generateCommitMessage, generatePullRequestText, generateReviewReport, listAssistantStatuses } from './assistants/assistantRunner.js'
 import { CommandRunner } from './lib/commandRunner.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { toBranchPilotError } from './lib/errors.js'
@@ -148,6 +149,9 @@ function registerIpcHandlers() {
   )
   handle('assistants:generatePullRequestText', (request: PullRequestTextGenerationRequest) =>
     generatePullRequestText(commandRunner, request)
+  )
+  handle('assistants:generateReviewReport', (request: ReviewReportRequest) =>
+    generateReviewReport(commandRunner, request)
   )
 }
 

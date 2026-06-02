@@ -8,7 +8,13 @@ import type {
   GeneratedCommitMessage,
   GeneratedPullRequestText,
   InstalledAssistantId,
-  PullRequestTextGenerationRequest
+  PullRequestTextGenerationRequest,
+  ReviewFinding,
+  ReviewMode,
+  ReviewReport,
+  ReviewReportRequest,
+  ReviewScope,
+  ReviewSeverity
 } from '../../src/shared/branchPilot.js'
 import { CommandExecutionError, CommandRunner } from '../lib/commandRunner.js'
 import { BranchPilotUserError } from '../lib/errors.js'
@@ -25,8 +31,9 @@ interface ResolvedAssistantRunner extends AssistantRunner {
 
 const MAX_ASSISTANT_DIFF_BYTES = 80_000
 const MAX_ASSISTANT_PR_DIFF_BYTES = 120_000
+const MAX_ASSISTANT_REVIEW_DIFF_BYTES = 120_000
 
-const GENERATED_TEXT_SCHEMA = {
+const GENERATED_TEXT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
   required: ['title'],
@@ -37,6 +44,46 @@ const GENERATED_TEXT_SCHEMA = {
     },
     description: {
       type: 'string'
+    }
+  }
+}
+
+const REVIEW_REPORT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['summary', 'findings'],
+  properties: {
+    summary: {
+      type: 'string'
+    },
+    findings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['severity', 'title', 'details'],
+        properties: {
+          severity: {
+            type: 'string',
+            enum: ['critical', 'high', 'medium', 'low', 'info']
+          },
+          title: {
+            type: 'string'
+          },
+          details: {
+            type: 'string'
+          },
+          filePath: {
+            type: 'string'
+          },
+          line: {
+            type: 'number'
+          },
+          recommendation: {
+            type: 'string'
+          }
+        }
+      }
     }
   }
 }
@@ -160,6 +207,41 @@ export async function generatePullRequestText(
   }
 }
 
+export async function generateReviewReport(
+  runner: CommandRunner,
+  request: ReviewReportRequest
+): Promise<ReviewReport> {
+  const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
+  const context = await buildReviewContext(runner, rootPath, request.scope)
+
+  if (!context.diff.trim()) {
+    throw new BranchPilotUserError('no_review_changes', `No ${request.scope} changes found to review.`)
+  }
+
+  const assistant = await resolveAssistant(runner, request.assistant)
+  const prompt = buildReviewPrompt({
+    mode: request.mode,
+    scope: request.scope,
+    branch: context.branch,
+    baseBranch: context.baseBranch,
+    status: context.status,
+    commits: context.commits,
+    diff: context.diff,
+    truncated: context.truncated
+  })
+  const output = await runAssistant(runner, assistant, prompt, REVIEW_REPORT_SCHEMA)
+  const parsed = parseReviewReport(output)
+
+  return {
+    summary: parsed.summary,
+    findings: parsed.findings,
+    mode: request.mode,
+    scope: request.scope,
+    assistant: assistant.id,
+    truncated: context.truncated
+  }
+}
+
 async function resolveRepositoryRoot(runner: CommandRunner, repoPath: string): Promise<string> {
   const result = await runner.run('/usr/bin/git', ['rev-parse', '--show-toplevel'], {
     cwd: repoPath,
@@ -182,6 +264,105 @@ async function getCurrentBranch(runner: CommandRunner, rootPath: string): Promis
   }
 
   return branch
+}
+
+async function getBranchLabel(runner: CommandRunner, rootPath: string): Promise<string> {
+  const result = await runner.run('/usr/bin/git', ['branch', '--show-current'], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1],
+    timeoutMs: 10_000
+  })
+
+  return result.stdout.trim() || 'Detached HEAD'
+}
+
+async function buildReviewContext(
+  runner: CommandRunner,
+  rootPath: string,
+  scope: ReviewScope
+): Promise<{
+  branch: string
+  baseBranch?: string
+  status: string
+  commits: string
+  diff: string
+  truncated: boolean
+}> {
+  const branch = await getBranchLabel(runner, rootPath)
+  const status = await runner.run('/usr/bin/git', ['status', '--short'], {
+    cwd: rootPath,
+    timeoutMs: 10_000
+  })
+  const recentCommits = await runner.run('/usr/bin/git', [
+    'log',
+    '--max-count=5',
+    '--pretty=format:%h%x00%s%x00%an'
+  ], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 128],
+    timeoutMs: 30_000
+  })
+
+  if (scope === 'staged') {
+    const diff = await runner.run('/usr/bin/git', ['diff', '--cached', '--no-ext-diff'], {
+      cwd: rootPath,
+      allowedExitCodes: [0, 1],
+      timeoutMs: 30_000
+    })
+    const truncated = truncateText(diff.stdout, MAX_ASSISTANT_REVIEW_DIFF_BYTES)
+
+    return {
+      branch,
+      status: status.stdout,
+      commits: recentCommits.stdout,
+      diff: truncated.text,
+      truncated: truncated.truncated
+    }
+  }
+
+  if (scope === 'unstaged') {
+    const diff = await runner.run('/usr/bin/git', ['diff', '--no-ext-diff'], {
+      cwd: rootPath,
+      allowedExitCodes: [0, 1],
+      timeoutMs: 30_000
+    })
+    const truncated = truncateText(diff.stdout, MAX_ASSISTANT_REVIEW_DIFF_BYTES)
+
+    return {
+      branch,
+      status: status.stdout,
+      commits: recentCommits.stdout,
+      diff: truncated.text,
+      truncated: truncated.truncated
+    }
+  }
+
+  const base = await resolveDefaultBaseRef(runner, rootPath)
+  const commits = await runner.run('/usr/bin/git', [
+    'log',
+    '--max-count=50',
+    '--pretty=format:%h%x00%s%x00%an',
+    `${base.baseRef}..HEAD`
+  ], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 128],
+    timeoutMs: 30_000
+  })
+  const diff = await runner.run('/usr/bin/git', ['diff', '--no-ext-diff', `${base.baseRef}...HEAD`], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1],
+    timeoutMs: 30_000
+  })
+  const truncated = truncateText(diff.stdout, MAX_ASSISTANT_REVIEW_DIFF_BYTES)
+
+  return {
+    branch,
+    baseBranch: base.baseBranch,
+    status: status.stdout,
+    commits: commits.stdout,
+    diff: truncated.text,
+    truncated: truncated.truncated
+  }
 }
 
 async function resolveDefaultBaseRef(
@@ -277,7 +458,8 @@ async function resolveExecutablePath(runner: CommandRunner, executable: string):
 async function runAssistant(
   runner: CommandRunner,
   assistant: ResolvedAssistantRunner,
-  prompt: string
+  prompt: string,
+  outputSchema = GENERATED_TEXT_SCHEMA
 ): Promise<string> {
   try {
     if (assistant.id === 'claude') {
@@ -301,7 +483,7 @@ async function runAssistant(
       return result.stdout
     }
 
-    return await runCodex(runner, assistant.executablePath, prompt)
+    return await runCodex(runner, assistant.executablePath, prompt, outputSchema)
   } catch (error) {
     if (error instanceof BranchPilotUserError) {
       throw error
@@ -319,12 +501,17 @@ async function runAssistant(
   }
 }
 
-async function runCodex(runner: CommandRunner, executablePath: string, prompt: string): Promise<string> {
+async function runCodex(
+  runner: CommandRunner,
+  executablePath: string,
+  prompt: string,
+  outputSchema: Record<string, unknown>
+): Promise<string> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'branchpilot-assistant-'))
   const schemaPath = path.join(tempDir, 'commit-message.schema.json')
 
   try {
-    await fs.writeFile(schemaPath, JSON.stringify(GENERATED_TEXT_SCHEMA), 'utf8')
+    await fs.writeFile(schemaPath, JSON.stringify(outputSchema), 'utf8')
     const result = await runner.run(executablePath, [
       'exec',
       '--sandbox',
@@ -348,6 +535,62 @@ async function runCodex(runner: CommandRunner, executablePath: string, prompt: s
   } finally {
     await fs.rm(tempDir, { force: true, recursive: true })
   }
+}
+
+function buildReviewPrompt(context: {
+  mode: ReviewMode
+  scope: ReviewScope
+  branch: string
+  baseBranch?: string
+  status: string
+  commits: string
+  diff: string
+  truncated: boolean
+}): string {
+  return [
+    `Run a ${reviewModeLabel(context.mode)} review for the ${context.scope} changes below.`,
+    'Use only the provided Git context. This is report-only: do not suggest applying changes automatically.',
+    'Return JSON only with this shape: {"summary":"...","findings":[{"severity":"medium","title":"...","details":"...","filePath":"optional","line":1,"recommendation":"optional"}]}',
+    'Rules:',
+    '- severity must be one of critical, high, medium, low, info;',
+    '- include only actionable findings; use an empty findings array when there are no issues;',
+    '- do not wrap the JSON in markdown fences;',
+    '- do not mention that you are an AI assistant.',
+    '',
+    'Review focus:',
+    reviewFocus(context.mode),
+    '',
+    `Branch: ${context.branch}`,
+    context.baseBranch ? `Base branch: ${context.baseBranch}` : 'Base branch: n/a',
+    `Diff truncated: ${context.truncated ? 'yes' : 'no'}`,
+    '',
+    'Git status:',
+    context.status || '(clean)',
+    '',
+    'Relevant commits:',
+    context.commits || '(none)',
+    '',
+    'Diff:',
+    context.diff
+  ].join('\n')
+}
+
+function reviewModeLabel(mode: ReviewMode): string {
+  if (mode === 'security') return 'security'
+  if (mode === 'quality') return 'change quality'
+  return 'consistency'
+}
+
+function reviewFocus(mode: ReviewMode): string {
+  if (mode === 'security') {
+    return 'Look for secrets, token leakage, unsafe shell/process execution, auth risks, destructive operations, and permission expansion.'
+  }
+
+  if (mode === 'quality') {
+    return 'Look for likely bugs, edge cases, regressions, confusing behavior, compatibility issues, and missing validation.'
+  }
+
+  return 'Look for architecture boundary issues, naming problems, duplicated logic, missing tests, unrelated changes, and risky refactors.'
 }
 
 function buildPullRequestPrompt(context: {
@@ -430,6 +673,61 @@ function parseGeneratedText(output: string, titleLabel: string): { title: string
     title,
     description
   }
+}
+
+function parseReviewReport(output: string): { summary: string; findings: ReviewFinding[] } {
+  const parsed = normalizeAssistantPayload(parseJsonLike(output))
+  const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : ''
+  const rawFindings = Array.isArray(parsed.findings) ? parsed.findings : []
+
+  if (!summary) {
+    throw new BranchPilotUserError(
+      'assistant_parse_failed',
+      'Assistant did not return a valid review summary.',
+      output.slice(0, 2_000)
+    )
+  }
+
+  return {
+    summary,
+    findings: rawFindings
+      .map(normalizeReviewFinding)
+      .filter((finding): finding is ReviewFinding => Boolean(finding))
+  }
+}
+
+function normalizeReviewFinding(value: unknown): ReviewFinding | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined
+  }
+
+  const candidate = value as Record<string, unknown>
+  const severity = normalizeSeverity(candidate.severity)
+  const title = typeof candidate.title === 'string' ? candidate.title.trim() : ''
+  const details = typeof candidate.details === 'string' ? candidate.details.trim() : ''
+
+  if (!severity || !title || !details) {
+    return undefined
+  }
+
+  return {
+    severity,
+    title,
+    details,
+    filePath: typeof candidate.filePath === 'string' && candidate.filePath.trim() ? candidate.filePath.trim() : undefined,
+    line: typeof candidate.line === 'number' && Number.isFinite(candidate.line) ? candidate.line : undefined,
+    recommendation: typeof candidate.recommendation === 'string' && candidate.recommendation.trim()
+      ? candidate.recommendation.trim()
+      : undefined
+  }
+}
+
+function normalizeSeverity(value: unknown): ReviewSeverity | undefined {
+  if (value === 'critical' || value === 'high' || value === 'medium' || value === 'low' || value === 'info') {
+    return value
+  }
+
+  return undefined
 }
 
 function normalizeBranchName(branchName: string, label: string): string {

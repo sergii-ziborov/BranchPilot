@@ -40,7 +40,12 @@ import type {
   GitOperationResult,
   ProviderStatus,
   RecentRepository,
-  RepositorySnapshot
+  RepositorySnapshot,
+  ReviewFinding,
+  ReviewMode,
+  ReviewReport,
+  ReviewScope,
+  ReviewSeverity
 } from './shared/branchPilot'
 import './App.css'
 
@@ -79,6 +84,9 @@ function App() {
   const [prDescription, setPrDescription] = useState('')
   const [prBaseBranch, setPrBaseBranch] = useState('')
   const [createdPullRequest, setCreatedPullRequest] = useState<CreatedPullRequest | null>(null)
+  const [reviewMode, setReviewMode] = useState<ReviewMode>('consistency')
+  const [reviewScope, setReviewScope] = useState<ReviewScope>('staged')
+  const [reviewReport, setReviewReport] = useState<ReviewReport | null>(null)
 
   const selectedChange = useMemo(
     () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
@@ -450,6 +458,29 @@ function App() {
     } else {
       setError(result.error.message)
       setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
+  async function runReviewReport() {
+    if (!api || !currentRepoPath) return
+    setBusy(true)
+    setError(null)
+    const result = await api.generateReviewReport({
+      repoPath: currentRepoPath,
+      assistant: selectedAssistant,
+      mode: reviewMode,
+      scope: reviewScope
+    })
+
+    if (result.ok) {
+      setReviewReport(result.data)
+      setNotice(`Review complete with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated diff' : ''}.`)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+      setReviewReport(null)
     }
 
     setBusy(false)
@@ -1089,19 +1120,120 @@ function App() {
   }
 
   function renderReviewView() {
+    const findings = reviewReport?.findings ?? []
+    const findingsBySeverity = groupFindingsBySeverity(findings)
+
     return (
       <section className="single-panel">
         <div className="panel-heading">
           <div>
             <h2>Review modes</h2>
-            <p>Report-only review flows are scaffolded for the local assistant layer.</p>
+            <p>Run local assistant reviews on staged, unstaged, or branch changes.</p>
           </div>
+          <button type="button" onClick={runReviewReport} disabled={!snapshot || busy}>
+            <ShieldCheck size={17} />
+            Run review
+          </button>
         </div>
-        <div className="review-grid">
-          <ReviewCard title="Consistency" description="Architecture, naming, tests, and unrelated-change checks." />
-          <ReviewCard title="Security" description="Secrets, shell execution, dependency and auth-risk checks." />
-          <ReviewCard title="Daily review" description="Daily commits, branches, pending changes, and next-action summary." />
+
+        <div className="review-workspace">
+          <section className="review-controls">
+            <div className="control-group">
+              <span>Mode</span>
+              <div className="segmented">
+                {(['consistency', 'security', 'quality'] as ReviewMode[]).map((mode) => (
+                  <button
+                    className={reviewMode === mode ? 'active' : ''}
+                    type="button"
+                    key={mode}
+                    onClick={() => setReviewMode(mode)}
+                  >
+                    {reviewModeLabel(mode)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="control-group">
+              <span>Scope</span>
+              <div className="segmented">
+                {(['staged', 'unstaged', 'branch'] as ReviewScope[]).map((scope) => (
+                  <button
+                    className={reviewScope === scope ? 'active' : ''}
+                    type="button"
+                    key={scope}
+                    onClick={() => setReviewScope(scope)}
+                  >
+                    {reviewScopeLabel(scope)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="control-group">
+              <label htmlFor="review-assistant">Assistant</label>
+              <select
+                id="review-assistant"
+                value={selectedAssistant}
+                onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
+              >
+                <option value="auto">Auto</option>
+                <option value="claude">Claude Code</option>
+                <option value="codex">Codex</option>
+              </select>
+            </div>
+          </section>
+
+          {!snapshot ? (
+            <div className="quiet-box">Open a repository before running a review.</div>
+          ) : !reviewReport ? (
+            <div className="review-empty">
+              <ShieldCheck size={24} />
+              <strong>{reviewModeLabel(reviewMode)} review</strong>
+              <span>{reviewScopeLabel(reviewScope)} changes will be sent as explicit context to the selected local assistant.</span>
+            </div>
+          ) : (
+            <section className="review-results">
+              <div className="review-summary">
+                <div>
+                  <span>{reviewModeLabel(reviewReport.mode)} / {reviewScopeLabel(reviewReport.scope)}</span>
+                  <strong>{reviewReport.summary}</strong>
+                </div>
+                <span>{reviewReport.findings.length} findings{reviewReport.truncated ? ' / truncated' : ''}</span>
+              </div>
+
+              <div className="severity-strip">
+                {(['critical', 'high', 'medium', 'low', 'info'] as ReviewSeverity[]).map((severity) => (
+                  <div className={`severity-count severity-${severity}`} key={severity}>
+                    <span>{severity}</span>
+                    <strong>{findingsBySeverity[severity].length}</strong>
+                  </div>
+                ))}
+              </div>
+
+              {findings.length === 0 ? (
+                <div className="quiet-box">No actionable findings for this review.</div>
+              ) : (
+                <div className="finding-list">
+                  {findings.map((finding, index) => (
+                    <article className={`finding-card severity-${finding.severity}`} key={`${finding.severity}-${finding.title}-${index}`}>
+                      <div className="finding-heading">
+                        <span>{finding.severity}</span>
+                        <strong>{finding.title}</strong>
+                      </div>
+                      {(finding.filePath || finding.line) && (
+                        <code>{finding.filePath ?? 'Unknown file'}{finding.line ? `:${finding.line}` : ''}</code>
+                      )}
+                      <p>{finding.details}</p>
+                      {finding.recommendation && <p className="finding-recommendation">{finding.recommendation}</p>}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </div>
+
         <div className="assistant-grid">
           {assistants.map((assistant) => (
             <div className="provider-card" key={assistant.id}>
@@ -1271,17 +1403,6 @@ function DiffPreview({ diff }: { diff: DiffResult | null }) {
   )
 }
 
-function ReviewCard({ title, description }: { title: string; description: string }) {
-  return (
-    <article className="review-card">
-      <ShieldCheck size={20} />
-      <h3>{title}</h3>
-      <p>{description}</p>
-      <span>Planned</span>
-    </article>
-  )
-}
-
 function changeLabel(change: FileChange): string {
   const parts = []
   if (change.staged) parts.push('staged')
@@ -1310,6 +1431,28 @@ function commitFileToken(file: CommitFileChange): string {
 
 function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string {
   return assistant === 'claude' ? 'Claude Code' : 'Codex'
+}
+
+function reviewModeLabel(mode: ReviewMode): string {
+  if (mode === 'security') return 'Security'
+  if (mode === 'quality') return 'Quality'
+  return 'Consistency'
+}
+
+function reviewScopeLabel(scope: ReviewScope): string {
+  if (scope === 'unstaged') return 'Unstaged'
+  if (scope === 'branch') return 'Branch'
+  return 'Staged'
+}
+
+function groupFindingsBySeverity(findings: ReviewFinding[]): Record<ReviewSeverity, ReviewFinding[]> {
+  return {
+    critical: findings.filter((finding) => finding.severity === 'critical'),
+    high: findings.filter((finding) => finding.severity === 'high'),
+    medium: findings.filter((finding) => finding.severity === 'medium'),
+    low: findings.filter((finding) => finding.severity === 'low'),
+    info: findings.filter((finding) => finding.severity === 'info')
+  }
 }
 
 function providerStateLabel(state: ProviderStatus['state']): string {

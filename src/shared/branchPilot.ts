@@ -212,6 +212,35 @@ export interface GeneratedPullRequestText {
   commitCount: number
 }
 
+export type ReviewMode = 'consistency' | 'security' | 'quality'
+export type ReviewScope = 'staged' | 'unstaged' | 'branch'
+export type ReviewSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
+
+export interface ReviewFinding {
+  severity: ReviewSeverity
+  title: string
+  details: string
+  filePath?: string
+  line?: number
+  recommendation?: string
+}
+
+export interface ReviewReport {
+  summary: string
+  findings: ReviewFinding[]
+  mode: ReviewMode
+  scope: ReviewScope
+  assistant: InstalledAssistantId
+  truncated: boolean
+}
+
+export interface ReviewReportRequest {
+  repoPath: string
+  assistant: AssistantId
+  mode: ReviewMode
+  scope: ReviewScope
+}
+
 export interface GitOperationResult {
   message: string
   stdout?: string
@@ -315,4 +344,5 @@ export interface BranchPilotApi {
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>
   createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>
+  generateReviewReport: (request: ReviewReportRequest) => Promise<ApiResult<ReviewReport>>
 }
