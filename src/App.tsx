@@ -82,6 +82,7 @@ function App() {
   const [commitTitle, setCommitTitle] = useState('')
   const [commitDescription, setCommitDescription] = useState('')
   const [newBranchName, setNewBranchName] = useState('')
+  const [selectedMergeBranch, setSelectedMergeBranch] = useState('')
   const [stashMessage, setStashMessage] = useState('')
   const [stashes, setStashes] = useState<StashEntry[]>([])
   const [localUserName, setLocalUserName] = useState('')
@@ -168,6 +169,16 @@ function App() {
     if (!snapshot || viewMode !== 'config') return
     void loadGitConfig()
   }, [snapshot?.summary.rootPath, viewMode])
+
+  useEffect(() => {
+    if (!snapshot) return
+
+    const mergeCandidates = snapshot.branches.filter((branch) => !branch.current)
+
+    if (!selectedMergeBranch || !mergeCandidates.some((branch) => branch.name === selectedMergeBranch)) {
+      setSelectedMergeBranch(mergeCandidates[0]?.name ?? '')
+    }
+  }, [selectedMergeBranch, snapshot])
 
   useEffect(() => {
     if (!snapshot || viewMode !== 'stash') return
@@ -532,6 +543,36 @@ function App() {
 
     if (dropped) {
       await loadStashes(currentRepoPath)
+    }
+  }
+
+  async function mergeSelectedBranch() {
+    if (!api || !currentRepoPath || !selectedMergeBranch) return
+    setBusy(true)
+    setError(null)
+    const result = await api.mergeBranch({
+      repoPath: currentRepoPath,
+      branchName: selectedMergeBranch
+    })
+
+    if (result.ok) {
+      applySnapshot(result.data, result.data.status.merge.operation === 'none' ? 'Merge complete.' : 'Merge has conflicts.')
+      setViewMode('merge')
+      void loadHistory()
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
+  async function continueMergeOperation() {
+    if (!api || !currentRepoPath) return
+    const continued = await runSnapshotAction('Operation continued.', () => api.continueMergeOperation(currentRepoPath))
+
+    if (continued) {
+      void loadHistory()
     }
   }
 
@@ -1393,6 +1434,9 @@ function App() {
 
   function renderMergeView() {
     const hasOperation = mergeState && mergeState.operation !== 'none'
+    const mergeCandidates = snapshot?.branches.filter((branch) => !branch.current) ?? []
+    const hasDirtyWorktree = Boolean(counts?.changed)
+    const canContinueOperation = Boolean(hasOperation && mergeState.files.length === 0)
 
     return (
       <section className="single-panel">
@@ -1401,15 +1445,63 @@ function App() {
             <h2>Merge window</h2>
             <p>{hasOperation ? `${mergeState.operation} in progress` : 'No merge, rebase, or cherry-pick operation is active.'}</p>
           </div>
-          <button
-            type="button"
-            disabled={!hasOperation}
-            onClick={() => currentRepoPath && window.confirm('Abort the current Git operation?') && runSnapshotAction('Operation aborted.', () => api!.abortMergeOperation(currentRepoPath))}
-          >
-            <X size={17} />
-            Abort
-          </button>
+          <div className="panel-actions">
+            <button type="button" disabled={!canContinueOperation || busy} onClick={continueMergeOperation}>
+              <Check size={17} />
+              Continue
+            </button>
+            <button
+              type="button"
+              disabled={!hasOperation || busy}
+              onClick={() => currentRepoPath && window.confirm('Abort the current Git operation?') && runSnapshotAction('Operation aborted.', () => api!.abortMergeOperation(currentRepoPath))}
+            >
+              <X size={17} />
+              Abort
+            </button>
+          </div>
         </div>
+
+        {!hasOperation && (
+          <section className="merge-start">
+            <div>
+              <h3>Start merge</h3>
+              <p>Merge a local branch into {snapshot?.summary.currentBranch ?? 'the current branch'}.</p>
+            </div>
+            <select
+              value={selectedMergeBranch}
+              onChange={(event) => setSelectedMergeBranch(event.target.value)}
+              disabled={busy || mergeCandidates.length === 0}
+            >
+              {mergeCandidates.length === 0 ? (
+                <option value="">No branches available</option>
+              ) : (
+                mergeCandidates.map((branch) => (
+                  <option value={branch.name} key={branch.name}>
+                    {branch.name}
+                  </option>
+                ))
+              )}
+            </select>
+            <button
+              type="button"
+              onClick={mergeSelectedBranch}
+              disabled={busy || !selectedMergeBranch || mergeCandidates.length === 0 || hasDirtyWorktree}
+            >
+              <GitMerge size={17} />
+              Merge into {snapshot?.summary.currentBranch ?? 'current'}
+            </button>
+          </section>
+        )}
+
+        {!hasOperation && hasDirtyWorktree && (
+          <div className="command-hint">
+            Stash or commit local changes before starting a merge.
+            <button type="button" onClick={createQuickStash} disabled={busy}>
+              <Save size={17} />
+              Stash changes
+            </button>
+          </div>
+        )}
 
         {!hasOperation || mergeState.files.length === 0 ? (
           <div className="quiet-box">Conflict list is empty.</div>

@@ -17,6 +17,7 @@ import type {
   GitConfigSnapshot,
   GitIdentityUpdate,
   HunkActionRequest,
+  MergeBranchRequest,
   MergeState,
   PublishBranchRequest,
   RecentRepository,
@@ -27,7 +28,7 @@ import type {
   StashActionRequest,
   StashEntry
 } from '../../src/shared/branchPilot.js'
-import { CommandRunner } from './commandRunner.js'
+import { CommandExecutionError, CommandRunner } from './commandRunner.js'
 import { parseUnifiedDiff } from './diffParser.js'
 import { BranchPilotUserError } from './errors.js'
 import { parseGitStatus } from './gitStatusParser.js'
@@ -466,6 +467,53 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async mergeBranch(request: MergeBranchRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const currentBranch = await this.assertCurrentBranch(rootPath, 'merge')
+    const branchName = normalizeBranchName(request.branchName)
+
+    if (branchName === currentBranch) {
+      throw new BranchPilotUserError('invalid_branch', 'Cannot merge the current branch into itself.')
+    }
+
+    await this.assertNoActiveOperation(rootPath)
+
+    const result = await this.git(rootPath, ['merge', branchName], {
+      allowedExitCodes: [0, 1],
+      timeoutMs: 120_000
+    })
+
+    if (result.exitCode === 0) {
+      return this.getSnapshot(rootPath)
+    }
+
+    const snapshot = await this.getSnapshot(rootPath)
+    const output = [result.stderr, result.stdout].filter(Boolean).join('\n')
+
+    if (snapshot.status.merge.operation !== 'none' || isConflictOutput(output)) {
+      return snapshot
+    }
+
+    throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
+  }
+
+  async continueMergeOperation(repoPath: string): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const mergeState = await this.getMergeState(rootPath, [])
+
+    if (mergeState.operation === 'merge') {
+      await this.git(rootPath, ['-c', 'core.editor=true', 'merge', '--continue'], { timeoutMs: 120_000 })
+    } else if (mergeState.operation === 'rebase') {
+      await this.git(rootPath, ['-c', 'core.editor=true', 'rebase', '--continue'], { timeoutMs: 120_000 })
+    } else if (mergeState.operation === 'cherry-pick') {
+      await this.git(rootPath, ['-c', 'core.editor=true', 'cherry-pick', '--continue'], { timeoutMs: 120_000 })
+    } else {
+      throw new BranchPilotUserError('no_merge_operation', 'No merge, rebase, or cherry-pick operation is in progress.')
+    }
+
+    return this.getSnapshot(rootPath)
+  }
+
   async abortMergeOperation(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const mergeState = await this.getMergeState(rootPath, [])
@@ -653,6 +701,14 @@ export class RepositoryService {
     }
   }
 
+  private async assertNoActiveOperation(rootPath: string): Promise<void> {
+    const mergeState = await this.getMergeState(rootPath, [])
+
+    if (mergeState.operation !== 'none') {
+      throw new BranchPilotUserError('git_operation_active', `A ${mergeState.operation} operation is already in progress.`)
+    }
+  }
+
   private async getMergeState(rootPath: string, conflictFiles: MergeState['files']): Promise<MergeState> {
     const gitDirResult = await this.git(rootPath, ['rev-parse', '--git-dir'])
     const gitDir = path.isAbsolute(gitDirResult.stdout.trim())
@@ -801,6 +857,15 @@ function normalizeStashRef(stashRef: string): string {
   }
 
   return trimmed
+}
+
+function isConflictOutput(output: string): boolean {
+  const normalized = output.toLowerCase()
+
+  return normalized.includes('automatic merge failed')
+    || normalized.includes('fix conflicts')
+    || normalized.includes('merge conflict')
+    || normalized.includes('conflict (')
 }
 
 function parseCommitSummary(line: string): CommitSummary {

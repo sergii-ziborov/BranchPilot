@@ -282,6 +282,89 @@ describe('RepositoryService', () => {
     expect(readFileSync(path.join(theirsRepo, 'conflict.txt'), 'utf8')).toBe('feature\n')
   })
 
+  it('merges a clean local branch into the current branch', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    git(repoPath, ['switch', '--quiet', '-c', 'feature/clean-merge'])
+    writeFileSync(path.join(repoPath, 'feature.txt'), 'feature\n')
+    git(repoPath, ['add', 'feature.txt'])
+    git(repoPath, ['commit', '-m', 'Feature clean merge'])
+    git(repoPath, ['switch', '--quiet', 'main'])
+
+    const merged = await service.mergeBranch({
+      repoPath,
+      branchName: 'feature/clean-merge'
+    })
+
+    expect(merged.status.merge.operation).toBe('none')
+    expect(merged.status.counts.changed).toBe(0)
+    expect(readFileSync(path.join(repoPath, 'feature.txt'), 'utf8')).toBe('feature\n')
+  })
+
+  it('returns a refreshed snapshot when merge creates conflicts', async () => {
+    const repoPath = createMergeConflictReadyRepository()
+    const service = createService()
+
+    const conflicted = await service.mergeBranch({
+      repoPath,
+      branchName: 'feature/conflict'
+    })
+
+    expect(conflicted.status.merge.operation).toBe('merge')
+    expect(conflicted.status.counts.conflicted).toBe(1)
+    expect(conflicted.status.merge.files[0].path).toBe('tracked.txt')
+  })
+
+  it('continues a merge after conflicts are resolved', async () => {
+    const repoPath = createMergeConflictReadyRepository()
+    const service = createService()
+
+    await service.mergeBranch({
+      repoPath,
+      branchName: 'feature/conflict'
+    })
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'resolved\n')
+    await service.markResolved({ repoPath, filePath: 'tracked.txt' })
+
+    const continued = await service.continueMergeOperation(repoPath)
+
+    expect(continued.status.merge.operation).toBe('none')
+    expect(continued.status.counts.changed).toBe(0)
+    expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toContain('feature/conflict')
+  })
+
+  it('blocks invalid merge starts and continue without active operations', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    git(repoPath, ['branch', 'feature/blocked'])
+
+    await expect(service.mergeBranch({
+      repoPath,
+      branchName: 'main'
+    })).rejects.toMatchObject({ code: 'invalid_branch' })
+
+    git(repoPath, ['checkout', '--quiet', '--detach', 'HEAD'])
+    await expect(service.mergeBranch({
+      repoPath,
+      branchName: 'feature/blocked'
+    })).rejects.toMatchObject({ code: 'git_detached_head' })
+
+    git(repoPath, ['switch', '--quiet', 'main'])
+    await expect(service.continueMergeOperation(repoPath)).rejects.toMatchObject({ code: 'no_merge_operation' })
+  })
+
+  it('blocks starting a merge while another operation is active', async () => {
+    const repoPath = createConflictedRepository()
+    const service = createService()
+
+    await expect(service.mergeBranch({
+      repoPath,
+      branchName: 'feature'
+    })).rejects.toMatchObject({ code: 'git_operation_active' })
+  })
+
   it('publishes a branch and sets upstream against a bare remote', async () => {
     const { repoPath, remotePath } = createRemoteBackedRepository()
     const service = createService()
@@ -432,6 +515,22 @@ function createConflictedRepository() {
   })
 
   expect(merge.status).toBe(1)
+
+  return repoPath
+}
+
+function createMergeConflictReadyRepository() {
+  const repoPath = createTempRepository()
+
+  git(repoPath, ['switch', '--quiet', '-c', 'feature/conflict'])
+  writeFileSync(path.join(repoPath, 'tracked.txt'), 'feature\n')
+  git(repoPath, ['add', 'tracked.txt'])
+  git(repoPath, ['commit', '-m', 'Feature conflict change'])
+
+  git(repoPath, ['switch', '--quiet', 'main'])
+  writeFileSync(path.join(repoPath, 'tracked.txt'), 'main\n')
+  git(repoPath, ['add', 'tracked.txt'])
+  git(repoPath, ['commit', '-m', 'Main conflict change'])
 
   return repoPath
 }

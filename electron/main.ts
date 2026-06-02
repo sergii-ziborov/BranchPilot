@@ -18,6 +18,7 @@ import type {
   FileActionRequest,
   GitIdentityUpdate,
   HunkActionRequest,
+  MergeBranchRequest,
   PullRequestTextGenerationRequest,
   PublishBranchRequest,
   ReviewReportRequest,
@@ -143,6 +144,8 @@ function registerIpcHandlers() {
   handle('merge:acceptOurs', (request: FileActionRequest) => repositoryService.acceptOurs(request))
   handle('merge:acceptTheirs', (request: FileActionRequest) => repositoryService.acceptTheirs(request))
   handle('merge:markResolved', (request: FileActionRequest) => repositoryService.markResolved(request))
+  handle('merge:start', (request: MergeBranchRequest) => repositoryService.mergeBranch(request))
+  handle('merge:continue', (repoPath: string) => repositoryService.continueMergeOperation(repoPath))
   handle('merge:abort', (repoPath: string) => repositoryService.abortMergeOperation(repoPath))
 
   handle('editor:open', (request: EditorOpenRequest) => editorService.openInEditor(request.targetPath, request.line))

@@ -235,6 +235,11 @@ export interface ConfirmedStashActionRequest extends StashActionRequest {
   confirmed: boolean
 }
 
+export interface MergeBranchRequest {
+  repoPath: string
+  branchName: string
+}
+
 export type AssistantId = 'auto' | 'claude' | 'codex'
 export type InstalledAssistantId = Exclude<AssistantId, 'auto'>
 
@@ -395,6 +400,8 @@ export interface BranchPilotApi {
   acceptOurs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   acceptTheirs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   markResolved: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
+  mergeBranch: (request: MergeBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
+  continueMergeOperation: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   abortMergeOperation: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   openInEditor: (request: EditorOpenRequest) => Promise<ApiResult<GitOperationResult>>
   openTerminal: (targetPath: string) => Promise<ApiResult<GitOperationResult>>
