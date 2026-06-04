@@ -179,6 +179,7 @@ export interface ProjectMemoryScanResult {
 export interface ProjectMemoryMcpConfig {
   memoryDir: string
   activityDir: string
+  wikiDir: string
   serverPath: string
   repoPath: string
   codexCommand: string
@@ -186,10 +187,39 @@ export interface ProjectMemoryMcpConfig {
   serverExists: boolean
 }
 
+export type ProjectWikiPageId =
+  | 'overview'
+  | 'module_map'
+  | 'important_symbols'
+  | 'workflows'
+  | 'assistant_policy'
+  | 'recent_timeline'
+
+export interface ProjectWikiPage {
+  id: ProjectWikiPageId
+  title: string
+  summary: string
+  markdown: string
+}
+
+export interface ProjectWikiSnapshot {
+  version: 1
+  generatedAt: string
+  sourceMemoryScannedAt: string
+  repository: ProjectMemoryRepository
+  pages: ProjectWikiPage[]
+}
+
+export interface ProjectWikiGenerationResult {
+  wiki: ProjectWikiSnapshot
+  memory: ProjectMemoryScanResult
+}
+
 export type ActivityLogEventType =
   | 'repository_opened'
   | 'repository_refreshed'
   | 'project_memory_scanned'
+  | 'project_wiki_generated'
   | 'commit_created'
   | 'branch_created'
   | 'branch_switched'
@@ -619,6 +649,8 @@ export interface BranchPilotApi {
   getProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemorySnapshot | null>>
   scanProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemoryScanResult>>
   getProjectMemoryMcpConfig: (repoPath: string) => Promise<ApiResult<ProjectMemoryMcpConfig>>
+  getProjectWiki: (repoPath: string) => Promise<ApiResult<ProjectWikiSnapshot | null>>
+  generateProjectWiki: (repoPath: string) => Promise<ApiResult<ProjectWikiGenerationResult>>
   getActivityLog: (query: ActivityLogQuery) => Promise<ApiResult<ActivityLogSnapshot>>
   clearActivityLog: (repoPath: string, confirmed: boolean) => Promise<ApiResult<ActivityLogSnapshot>>
   generateDailyReview: (request: DailyReviewRequest) => Promise<ApiResult<DailyReviewReport>>

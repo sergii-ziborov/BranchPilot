@@ -9,13 +9,17 @@ import type {
   ProjectMemoryImport,
   ProjectMemorySnapshot,
   ProjectMemorySymbol,
-  ProjectMemorySymbolKind
+  ProjectMemorySymbolKind,
+  ProjectWikiPageId,
+  ProjectWikiSnapshot
 } from '../../src/shared/branchPilot.js'
 import { ActivityLogService } from '../lib/activityLogService.js'
+import { ProjectWikiStore } from '../lib/projectWikiService.js'
 
 export interface MemoryQueryOptions {
   memoryDir: string
   activityDir?: string
+  wikiDir?: string
   repoPath?: string
 }
 
@@ -55,12 +59,17 @@ export interface AgentActivityOptions extends MemoryQueryOptions {
   limit?: number
 }
 
+export interface WikiPageOptions extends MemoryQueryOptions {
+  pageId: ProjectWikiPageId
+}
+
 export const MCP_RESOURCE_URIS = [
   'branchpilot://repo/current/summary',
   'branchpilot://repo/current/tree',
   'branchpilot://repo/current/symbols',
   'branchpilot://repo/current/commits',
-  'branchpilot://repo/current/activity'
+  'branchpilot://repo/current/activity',
+  'branchpilot://repo/current/wiki'
 ] as const
 
 const DEFAULT_LIMIT = 25
@@ -103,6 +112,22 @@ export async function loadProjectMemorySnapshot(options: MemoryQueryOptions): Pr
   return latest
 }
 
+export async function loadProjectWikiSnapshot(options: MemoryQueryOptions): Promise<ProjectWikiSnapshot> {
+  const snapshot = await loadProjectMemorySnapshot(options)
+
+  if (!options.wikiDir?.trim()) {
+    throw new Error('Project Wiki directory is required. Recopy the BranchPilot MCP config from Memory > Codex MCP setup.')
+  }
+
+  const wiki = await new ProjectWikiStore(options.wikiDir).read(snapshot.repository.rootPath)
+
+  if (!wiki) {
+    throw new Error('No Project Wiki snapshot found. Open the repository in BranchPilot and run Memory > Generate wiki.')
+  }
+
+  return wiki
+}
+
 export async function getProjectSummary(options: MemoryQueryOptions) {
   const snapshot = await loadProjectMemorySnapshot(options)
   const activity = await getAgentActivity({ ...options, limit: 10 })
@@ -120,6 +145,37 @@ export async function getProjectSummary(options: MemoryQueryOptions) {
     stackHints: snapshot.stackHints,
     recentCommits: snapshot.recentCommits.slice(0, 10),
     recentActivity: activity.entries
+  }
+}
+
+export async function getProjectWiki(options: MemoryQueryOptions) {
+  const wiki = await loadProjectWikiSnapshot(options)
+
+  return {
+    generatedAt: wiki.generatedAt,
+    sourceMemoryScannedAt: wiki.sourceMemoryScannedAt,
+    repository: wiki.repository,
+    pages: wiki.pages.map((page) => ({
+      id: page.id,
+      title: page.title,
+      summary: page.summary
+    }))
+  }
+}
+
+export async function getWikiPage(options: WikiPageOptions) {
+  const wiki = await loadProjectWikiSnapshot(options)
+  const page = wiki.pages.find((candidate) => candidate.id === options.pageId)
+
+  if (!page) {
+    throw new Error(`Project Wiki page "${options.pageId}" was not found.`)
+  }
+
+  return {
+    generatedAt: wiki.generatedAt,
+    sourceMemoryScannedAt: wiki.sourceMemoryScannedAt,
+    repository: wiki.repository,
+    page
   }
 }
 
@@ -281,6 +337,10 @@ export async function getResourcePayload(options: MemoryQueryOptions, uri: strin
     return getAgentActivity({ ...options, limit: 100 })
   }
 
+  if (uri === 'branchpilot://repo/current/wiki') {
+    return loadProjectWikiSnapshot(options)
+  }
+
   throw new Error(`Unknown BranchPilot resource: ${uri}`)
 }
 
@@ -398,6 +458,8 @@ export type BranchPilotMcpToolName =
   | 'get_recent_commits'
   | 'get_current_git_state'
   | 'get_agent_activity'
+  | 'get_project_wiki'
+  | 'get_wiki_page'
 
 export interface BranchPilotMcpToolDefinition {
   name: BranchPilotMcpToolName
@@ -436,6 +498,14 @@ export const BRANCHPILOT_MCP_TOOLS: BranchPilotMcpToolDefinition[] = [
   {
     name: 'get_agent_activity',
     description: 'Return recent BranchPilot activity for this repository from the local Activity Log.'
+  },
+  {
+    name: 'get_project_wiki',
+    description: 'Return Project Wiki page summaries generated locally by BranchPilot.'
+  },
+  {
+    name: 'get_wiki_page',
+    description: 'Return one generated Project Wiki page by page id.'
   }
 ]
 

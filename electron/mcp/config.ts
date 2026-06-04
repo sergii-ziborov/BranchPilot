@@ -4,6 +4,7 @@ import type { ProjectMemoryMcpConfig } from '../../src/shared/branchPilot.js'
 interface ProjectMemoryMcpConfigInput {
   memoryDir: string
   activityDir: string
+  wikiDir: string
   repoPath: string
   serverPath: string
 }
@@ -15,6 +16,8 @@ export async function createProjectMemoryMcpConfig(input: ProjectMemoryMcpConfig
     input.memoryDir,
     '--activity-dir',
     input.activityDir,
+    '--wiki-dir',
+    input.wikiDir,
     '--repo',
     input.repoPath
   ]
@@ -22,6 +25,7 @@ export async function createProjectMemoryMcpConfig(input: ProjectMemoryMcpConfig
   return {
     memoryDir: input.memoryDir,
     activityDir: input.activityDir,
+    wikiDir: input.wikiDir,
     serverPath: input.serverPath,
     repoPath: input.repoPath,
     codexCommand: [

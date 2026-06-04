@@ -56,6 +56,9 @@ import type {
   ProjectMemoryFile,
   ProjectMemoryMcpConfig,
   ProjectMemorySnapshot,
+  ProjectWikiPage,
+  ProjectWikiPageId,
+  ProjectWikiSnapshot,
   RecentRepository,
   RepositorySnapshot,
   ReviewFinding,
@@ -93,6 +96,9 @@ function App() {
   const [commitFileDiff, setCommitFileDiff] = useState<DiffResult | null>(null)
   const [projectMemory, setProjectMemory] = useState<ProjectMemorySnapshot | null>(null)
   const [projectMemoryMcpConfig, setProjectMemoryMcpConfig] = useState<ProjectMemoryMcpConfig | null>(null)
+  const [projectWiki, setProjectWiki] = useState<ProjectWikiSnapshot | null>(null)
+  const [selectedProjectWikiPageId, setSelectedProjectWikiPageId] = useState<ProjectWikiPageId>('overview')
+  const [wikiLoading, setWikiLoading] = useState(false)
   const [activityLog, setActivityLog] = useState<ActivityLogSnapshot | null>(null)
   const [activityCategory, setActivityCategory] = useState<ActivityCategory>('all')
   const [memoryLoading, setMemoryLoading] = useState(false)
@@ -184,6 +190,10 @@ function App() {
     () => projectMemory?.imports.filter((entry) => entry.path === selectedMemoryFilePath) ?? [],
     [projectMemory, selectedMemoryFilePath]
   )
+  const selectedProjectWikiPage = useMemo(
+    () => projectWiki?.pages.find((page) => page.id === selectedProjectWikiPageId) ?? projectWiki?.pages[0] ?? null,
+    [projectWiki, selectedProjectWikiPageId]
+  )
 
   const filteredActivityEntries = useMemo(
     () => (activityLog?.entries ?? []).filter((entry) => activityCategory === 'all' || activityEntryCategory(entry) === activityCategory),
@@ -246,6 +256,14 @@ function App() {
       setSelectedMemoryFilePath(projectMemory.files[0]?.path ?? null)
     }
   }, [projectMemory, selectedMemoryFilePath])
+
+  useEffect(() => {
+    if (!projectWiki) return
+
+    if (!projectWiki.pages.some((page) => page.id === selectedProjectWikiPageId)) {
+      setSelectedProjectWikiPageId(projectWiki.pages[0]?.id ?? 'overview')
+    }
+  }, [projectWiki, selectedProjectWikiPageId])
 
   useEffect(() => {
     if (!snapshot || viewMode !== 'history' || !selectedCommitSha) {
@@ -515,9 +533,10 @@ function App() {
   async function loadProjectMemory(repoPath = currentRepoPath) {
     if (!api || !repoPath) return
     setMemoryLoading(true)
-    const [memoryResult, mcpConfigResult, activityResult] = await Promise.all([
+    const [memoryResult, mcpConfigResult, wikiResult, activityResult] = await Promise.all([
       api.getProjectMemory(repoPath),
       api.getProjectMemoryMcpConfig(repoPath),
+      api.getProjectWiki(repoPath),
       api.getActivityLog({ repoPath, limit: 120 })
     ])
 
@@ -535,6 +554,13 @@ function App() {
       setError(mcpConfigResult.error.message)
     }
 
+    if (wikiResult.ok) {
+      setProjectWiki(wikiResult.data)
+    } else {
+      setProjectWiki(null)
+      setError(wikiResult.error.message)
+    }
+
     if (activityResult.ok) {
       setActivityLog(activityResult.data)
     } else {
@@ -543,6 +569,26 @@ function App() {
     }
 
     setMemoryLoading(false)
+  }
+
+  async function generateProjectWiki() {
+    if (!api || !currentRepoPath) return
+    setWikiLoading(true)
+    setError(null)
+    const result = await api.generateProjectWiki(currentRepoPath)
+
+    if (result.ok) {
+      setProjectMemory(result.data.memory.snapshot)
+      setProjectWiki(result.data.wiki)
+      setSelectedProjectWikiPageId(result.data.wiki.pages[0]?.id ?? 'overview')
+      setNotice(`Project Wiki generated with ${result.data.wiki.pages.length} pages.`)
+      void loadProjectMemory(currentRepoPath)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setWikiLoading(false)
   }
 
   async function scanProjectMemory() {
@@ -570,6 +616,11 @@ function App() {
     } catch {
       setError('Clipboard is not available in this runtime.')
     }
+  }
+
+  async function copyProjectWikiPage(page: ProjectWikiPage | null) {
+    if (!page) return
+    await copyProjectMemoryText(page.markdown, `${page.title} wiki page`)
   }
 
   async function clearActivityLog() {
@@ -1712,6 +1763,7 @@ function App() {
                 </div>
                 <InfoRow label="Memory dir" value={projectMemoryMcpConfig.memoryDir} />
                 <InfoRow label="Activity dir" value={projectMemoryMcpConfig.activityDir} />
+                <InfoRow label="Wiki dir" value={projectMemoryMcpConfig.wikiDir} />
                 <InfoRow label="Server path" value={projectMemoryMcpConfig.serverPath} />
                 <div className="memory-mcp-snippet">
                   <div className="memory-section-heading compact">
@@ -1735,6 +1787,71 @@ function App() {
                 </div>
               </section>
             )}
+
+            <section className="project-wiki-card">
+              <div className="memory-section-heading">
+                <div>
+                  <h3>Project Wiki</h3>
+                  <span>
+                    {projectWiki
+                      ? `${projectWiki.pages.length} pages · generated ${formatDate(projectWiki.generatedAt)}`
+                      : 'Generate a local private wiki from Project Memory'}
+                  </span>
+                </div>
+                <div className="panel-actions">
+                  <button type="button" onClick={() => loadProjectMemory()} disabled={memoryLoading || wikiLoading}>
+                    <RefreshCcw size={15} />
+                    Reload
+                  </button>
+                  <button type="button" onClick={generateProjectWiki} disabled={memoryLoading || wikiLoading}>
+                    {wikiLoading ? <Loader2 className="spin" size={15} /> : <Database size={15} />}
+                    Generate wiki
+                  </button>
+                </div>
+              </div>
+
+              {!projectWiki ? (
+                <div className="quiet-box">
+                  {wikiLoading ? 'Generating Project Wiki.' : 'No Project Wiki generated yet.'}
+                </div>
+              ) : (
+                <>
+                  <section className="memory-meta">
+                    <InfoRow label="Generated" value={formatDate(projectWiki.generatedAt)} />
+                    <InfoRow label="Source scan" value={formatDate(projectWiki.sourceMemoryScannedAt)} />
+                    <InfoRow label="Repository" value={projectWiki.repository.name} />
+                    <InfoRow label="Branch" value={projectWiki.repository.currentBranch} />
+                  </section>
+
+                  <div className="project-wiki-grid">
+                    <div className="project-wiki-pages">
+                      {projectWiki.pages.map((page) => (
+                        <button
+                          className={selectedProjectWikiPage?.id === page.id ? 'project-wiki-page selected' : 'project-wiki-page'}
+                          type="button"
+                          key={page.id}
+                          onClick={() => setSelectedProjectWikiPageId(page.id)}
+                        >
+                          <strong>{page.title}</strong>
+                          <span>{page.summary}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="project-wiki-preview">
+                      <div className="memory-section-heading compact">
+                        <h3>{selectedProjectWikiPage?.title ?? 'Wiki page'}</h3>
+                        <button type="button" onClick={() => copyProjectWikiPage(selectedProjectWikiPage)}>
+                          <Copy size={15} />
+                          Copy Markdown
+                        </button>
+                      </div>
+                      <pre><code>{selectedProjectWikiPage?.markdown ?? 'Select a wiki page.'}</code></pre>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
 
             <section className="memory-activity-card">
               <div className="memory-section-heading">
@@ -2945,7 +3062,12 @@ function memoryFileMeta(file: ProjectMemoryFile): string {
 function activityEntryCategory(entry: ActivityLogEntry): ActivityCategory {
   if (entry.actor === 'assistant') return 'assistant'
   if (entry.actor === 'provider') return 'provider'
-  if (entry.type === 'project_memory_scanned' || entry.type === 'repository_opened' || entry.type === 'repository_refreshed') {
+  if (
+    entry.type === 'project_memory_scanned' ||
+    entry.type === 'project_wiki_generated' ||
+    entry.type === 'repository_opened' ||
+    entry.type === 'repository_refreshed'
+  ) {
     return 'memory'
   }
 

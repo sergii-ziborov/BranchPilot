@@ -40,6 +40,7 @@ import { DailyReviewService } from './lib/dailyReviewService.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { toBranchPilotError } from './lib/errors.js'
 import { ProjectMemoryService, ProjectMemoryStore } from './lib/projectMemoryService.js'
+import { ProjectWikiService, ProjectWikiStore } from './lib/projectWikiService.js'
 import { RepositoryService } from './lib/repositoryService.js'
 import { SettingsStore } from './lib/settingsStore.js'
 import { createProjectMemoryMcpConfig } from './mcp/config.js'
@@ -59,6 +60,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const commandRunner = new CommandRunner()
 const projectMemoryDir = path.join(app.getPath('userData'), 'project-memory')
+const projectWikiDir = path.join(app.getPath('userData'), 'project-wiki')
 const activityLogDir = path.join(app.getPath('userData'), 'activity-log')
 const settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'branchpilot-settings.json'))
 const repositoryService = new RepositoryService(commandRunner, settingsStore)
@@ -67,6 +69,11 @@ const activityLogService = new ActivityLogService(activityLogDir)
 const projectMemoryService = new ProjectMemoryService(
   commandRunner,
   new ProjectMemoryStore(projectMemoryDir)
+)
+const projectWikiService = new ProjectWikiService(
+  projectMemoryService,
+  activityLogService,
+  new ProjectWikiStore(projectWikiDir)
 )
 const dailyReviewService = new DailyReviewService(repositoryService, activityLogService)
 
@@ -253,6 +260,7 @@ function registerIpcHandlers() {
   handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))
   handle('repository:commitFileDiff', (request: CommitFileDiffRequest) => repositoryService.getCommitFileDiff(request))
   handle('repository:projectMemory', (repoPath: string) => projectMemoryService.getProjectMemory(repoPath))
+  handle('repository:projectWiki', (repoPath: string) => projectWikiService.getProjectWiki(repoPath))
   handleLogged('repository:scanProjectMemory', {
     type: 'project_memory_scanned',
     actor: 'branchpilot',
@@ -267,10 +275,24 @@ function registerIpcHandlers() {
   }, (repoPath: string): Promise<ProjectMemoryScanResult> =>
     projectMemoryService.scanProjectMemory(repoPath)
   )
+  handleLogged('repository:generateProjectWiki', {
+    type: 'project_wiki_generated',
+    actor: 'branchpilot',
+    title: 'Project Wiki generated',
+    repoPath: repoPathArg,
+    metadata: (_args, result) => result ? {
+      pages: result.wiki.pages.length,
+      scanned_files: result.memory.scannedFileCount,
+      source_memory_scanned_at: result.wiki.sourceMemoryScannedAt
+    } : undefined
+  }, (repoPath: string) =>
+    projectWikiService.generateProjectWiki(repoPath)
+  )
   handle('repository:projectMemoryMcpConfig', (repoPath: string) =>
     createProjectMemoryMcpConfig({
       memoryDir: projectMemoryDir,
       activityDir: activityLogDir,
+      wikiDir: projectWikiDir,
       repoPath,
       serverPath: path.join(__dirname, 'mcp/server.js')
     })

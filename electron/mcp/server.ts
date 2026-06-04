@@ -10,10 +10,12 @@ import {
   getFileOutline,
   getAgentActivity,
   getProjectSummary,
+  getProjectWiki,
   getPromptText,
   getRecentCommits,
   getResourcePayload,
   getSymbolContext,
+  getWikiPage,
   searchFiles,
   searchSymbols,
   toJsonText
@@ -41,6 +43,7 @@ const activityTypes = [
   'repository_opened',
   'repository_refreshed',
   'project_memory_scanned',
+  'project_wiki_generated',
   'commit_created',
   'branch_created',
   'branch_switched',
@@ -59,12 +62,21 @@ const activityTypes = [
   'assistant_commit_generated',
   'assistant_pr_generated',
   'assistant_review_generated',
+  'daily_review_generated',
   'github_pr_created',
   'github_pr_checked_out',
   'github_pr_details_loaded'
 ] as const
 const activityActors = ['user', 'branchpilot', 'assistant', 'provider'] as const
 const activityStatuses = ['success', 'failure'] as const
+const wikiPageIds = [
+  'overview',
+  'module_map',
+  'important_symbols',
+  'workflows',
+  'assistant_policy',
+  'recent_timeline'
+] as const
 
 export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServer {
   const server = new McpServer({
@@ -150,6 +162,21 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     annotations: readOnlyAnnotations()
   }, async (args) => toolJson(await getAgentActivity({ ...options, ...args })))
 
+  server.registerTool('get_project_wiki', {
+    title: 'Get Project Wiki',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_project_wiki')?.description,
+    annotations: readOnlyAnnotations()
+  }, async () => toolJson(await getProjectWiki(options)))
+
+  server.registerTool('get_wiki_page', {
+    title: 'Get Wiki Page',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_wiki_page')?.description,
+    inputSchema: {
+      pageId: z.enum(wikiPageIds).describe('Project Wiki page id.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getWikiPage({ ...options, pageId: args.pageId })))
+
   for (const uri of MCP_RESOURCE_URIS) {
     server.registerResource(resourceName(uri), uri, {
       title: resourceTitle(uri),
@@ -185,6 +212,7 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
 export function parseMcpServerArgs(argv: string[]): MemoryQueryOptions {
   const memoryDir = readFlag(argv, '--memory-dir')
   const activityDir = readFlag(argv, '--activity-dir')
+  const wikiDir = readFlag(argv, '--wiki-dir')
   const repoPath = readFlag(argv, '--repo')
 
   if (!memoryDir) {
@@ -194,6 +222,7 @@ export function parseMcpServerArgs(argv: string[]): MemoryQueryOptions {
   return {
     memoryDir,
     activityDir,
+    wikiDir,
     repoPath
   }
 }

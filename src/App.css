@@ -1043,6 +1043,90 @@ h3 {
   white-space: pre;
 }
 
+.project-wiki-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.project-wiki-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.42fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.project-wiki-pages {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.project-wiki-page {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #f8fafc;
+  text-align: left;
+}
+
+.project-wiki-page.selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.project-wiki-page strong {
+  color: var(--text-strong);
+}
+
+.project-wiki-page span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.project-wiki-preview {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-wiki-preview button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.project-wiki-preview pre {
+  overflow: auto;
+  max-height: 520px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+}
+
+.project-wiki-preview code {
+  color: #d1d5db;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
 .memory-activity-card {
   display: grid;
   gap: 12px;
@@ -2171,6 +2255,7 @@ h3 {
   .config-grid,
   .memory-grid,
   .memory-meta,
+  .project-wiki-grid,
   .activity-row,
   .daily-workspace,
   .review-controls,

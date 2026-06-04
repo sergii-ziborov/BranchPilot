@@ -8,16 +8,19 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
 import { ActivityLogService } from '../electron/lib/activityLogService'
 import { ProjectMemoryStore } from '../electron/lib/projectMemoryService'
+import { ProjectWikiStore } from '../electron/lib/projectWikiService'
 import { createProjectMemoryMcpConfig } from '../electron/mcp/config'
 import {
   getAgentActivity,
   getFileOutline,
+  getProjectWiki,
+  getWikiPage,
   loadProjectMemorySnapshot,
   searchFiles,
   searchSymbols
 } from '../electron/mcp/memoryQueries'
 import { createBranchPilotMcpServer, parseMcpServerArgs } from '../electron/mcp/server'
-import type { ProjectMemorySnapshot } from '../src/shared/branchPilot'
+import type { ProjectMemorySnapshot, ProjectWikiSnapshot } from '../src/shared/branchPilot'
 
 const tempRoots: string[] = []
 
@@ -74,6 +77,7 @@ describe('BranchPilot MCP Project Memory bridge', () => {
     const config = await createProjectMemoryMcpConfig({
       memoryDir: '/Users/example/Library/Application Support/BranchPilot/project-memory',
       activityDir: '/Users/example/Library/Application Support/BranchPilot/activity-log',
+      wikiDir: '/Users/example/Library/Application Support/BranchPilot/project-wiki',
       repoPath: '/Users/example/dev/BranchPilot',
       serverPath: '/Users/example/dev/BranchPilot/dist-electron/electron/mcp/server.js'
     })
@@ -81,14 +85,17 @@ describe('BranchPilot MCP Project Memory bridge', () => {
     expect(config.codexCommand).toContain('codex mcp add branchpilot -- node')
     expect(config.codexCommand).toContain('--memory-dir')
     expect(config.codexCommand).toContain('--activity-dir')
+    expect(config.codexCommand).toContain('--wiki-dir')
+    expect(config.wikiDir).toContain('/project-wiki')
     expect(config.codexToml).toContain('[mcp_servers.branchpilot]')
+    expect(config.codexToml).toContain('--wiki-dir')
     expect(config.codexToml).toContain('default_tools_approval_mode = "auto"')
     expect(config.serverExists).toBe(false)
   })
 
   it('registers read-only MCP tools, resources, prompts, and serves project_summary', async () => {
-    const { memoryDir, activityDir, repoPath } = await createStoredSnapshot()
-    const server = createBranchPilotMcpServer({ memoryDir, activityDir, repoPath })
+    const { memoryDir, activityDir, wikiDir, repoPath } = await createStoredSnapshot()
+    const server = createBranchPilotMcpServer({ memoryDir, activityDir, wikiDir, repoPath })
     const client = new Client({
       name: 'branchpilot-test-client',
       version: '0.0.0'
@@ -109,7 +116,9 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       'get_symbol_context',
       'get_recent_commits',
       'get_current_git_state',
-      'get_agent_activity'
+      'get_agent_activity',
+      'get_project_wiki',
+      'get_wiki_page'
     ]))
     expect(tools.tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true)
     expect(tools.tools.every((tool) => tool.annotations?.destructiveHint === false)).toBe(true)
@@ -120,7 +129,8 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       'branchpilot://repo/current/tree',
       'branchpilot://repo/current/symbols',
       'branchpilot://repo/current/commits',
-      'branchpilot://repo/current/activity'
+      'branchpilot://repo/current/activity',
+      'branchpilot://repo/current/wiki'
     ]))
 
     const prompts = await client.listPrompts()
@@ -157,15 +167,38 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       ]
     })
 
+    const wikiResult = await client.callTool({ name: 'get_project_wiki', arguments: {} })
+    expect(JSON.parse(getTextResult(wikiResult))).toMatchObject({
+      pages: expect.arrayContaining([
+        expect.objectContaining({ id: 'overview', title: 'Overview' })
+      ])
+    })
+
+    const wikiPageResult = await client.callTool({ name: 'get_wiki_page', arguments: { pageId: 'overview' } })
+    expect(JSON.parse(getTextResult(wikiPageResult))).toMatchObject({
+      page: {
+        id: 'overview',
+        markdown: expect.stringContaining('# Overview')
+      }
+    })
+
     await client.close()
     await server.close()
   })
 
+  it('reports missing Project Wiki snapshots clearly', async () => {
+    const { memoryDir, repoPath } = await createStoredSnapshot()
+    const wikiDir = createTempDirectory('branchpilot-mcp-empty-wiki-test-')
+
+    await expect(getProjectWiki({ memoryDir, wikiDir, repoPath })).rejects.toThrow('No Project Wiki snapshot found')
+  })
+
   it('requires --memory-dir when parsing server args', () => {
     expect(() => parseMcpServerArgs(['--repo', '/repo'])).toThrow('Missing required --memory-dir')
-    expect(parseMcpServerArgs(['--memory-dir', '/memory', '--activity-dir', '/activity', '--repo', '/repo'])).toEqual({
+    expect(parseMcpServerArgs(['--memory-dir', '/memory', '--activity-dir', '/activity', '--wiki-dir', '/wiki', '--repo', '/repo'])).toEqual({
       memoryDir: '/memory',
       activityDir: '/activity',
+      wikiDir: '/wiki',
       repoPath: '/repo'
     })
   })
@@ -174,8 +207,10 @@ describe('BranchPilot MCP Project Memory bridge', () => {
 async function createStoredSnapshot(memoryDir = createTempDirectory('branchpilot-mcp-memory-test-')) {
   const repoPath = createTempDirectory('branchpilot-mcp-repo-test-')
   const activityDir = createTempDirectory('branchpilot-mcp-activity-test-')
+  const wikiDir = createTempDirectory('branchpilot-mcp-wiki-test-')
   const snapshot = makeSnapshot(repoPath)
   await new ProjectMemoryStore(memoryDir).write(snapshot)
+  await new ProjectWikiStore(wikiDir).write(makeWikiSnapshot(snapshot))
   await new ActivityLogService(activityDir).append({
     repoPath,
     type: 'assistant_review_generated',
@@ -191,12 +226,41 @@ async function createStoredSnapshot(memoryDir = createTempDirectory('branchpilot
   await expect(getAgentActivity({ memoryDir, activityDir, repoPath })).resolves.toMatchObject({
     totalCount: 1
   })
+  await expect(getWikiPage({ memoryDir, wikiDir, repoPath, pageId: 'overview' })).resolves.toMatchObject({
+    page: {
+      id: 'overview'
+    }
+  })
 
   return {
     memoryDir,
     activityDir,
+    wikiDir,
     repoPath,
     snapshot
+  }
+}
+
+function makeWikiSnapshot(snapshot: ProjectMemorySnapshot): ProjectWikiSnapshot {
+  return {
+    version: 1,
+    generatedAt: '2026-06-04T09:00:00.000Z',
+    sourceMemoryScannedAt: snapshot.scannedAt,
+    repository: snapshot.repository,
+    pages: [
+      {
+        id: 'overview',
+        title: 'Overview',
+        summary: 'Repository overview.',
+        markdown: '# Overview\n\n- BranchPilot MCP wiki fixture.'
+      },
+      {
+        id: 'module_map',
+        title: 'Module Map',
+        summary: 'Module map.',
+        markdown: '# Module Map'
+      }
+    ]
   }
 }
 
