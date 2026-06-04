@@ -1,0 +1,410 @@
+import { createHash } from 'node:crypto'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import type {
+  ProjectMemoryFile,
+  ProjectMemoryImport,
+  ProjectMemorySnapshot,
+  ProjectMemorySymbol,
+  ProjectMemorySymbolKind
+} from '../../src/shared/branchPilot.js'
+
+export interface MemoryQueryOptions {
+  memoryDir: string
+  repoPath?: string
+}
+
+export interface SearchFilesOptions extends MemoryQueryOptions {
+  query?: string
+  language?: string
+  limit?: number
+}
+
+export interface SearchSymbolsOptions extends MemoryQueryOptions {
+  query?: string
+  kind?: ProjectMemorySymbolKind
+  path?: string
+  limit?: number
+}
+
+export interface FileOutlineOptions extends MemoryQueryOptions {
+  path: string
+}
+
+export interface SymbolContextOptions extends MemoryQueryOptions {
+  symbolId?: string
+  name?: string
+  path?: string
+}
+
+export interface RecentCommitsOptions extends MemoryQueryOptions {
+  limit?: number
+}
+
+export type CurrentGitStateOptions = MemoryQueryOptions
+
+export const MCP_RESOURCE_URIS = [
+  'branchpilot://repo/current/summary',
+  'branchpilot://repo/current/tree',
+  'branchpilot://repo/current/symbols',
+  'branchpilot://repo/current/commits'
+] as const
+
+const DEFAULT_LIMIT = 25
+const MAX_LIMIT = 100
+const MAX_RESOURCE_ITEMS = 500
+const SNAPSHOT_VERSION = 1
+
+export async function loadProjectMemorySnapshot(options: MemoryQueryOptions): Promise<ProjectMemorySnapshot> {
+  if (!options.memoryDir.trim()) {
+    throw new Error('Project Memory directory is required.')
+  }
+
+  if (options.repoPath) {
+    return readSnapshot(path.join(options.memoryDir, `${repositoryId(options.repoPath)}.json`))
+  }
+
+  const entries = await fs.readdir(options.memoryDir, { withFileTypes: true }).catch(() => [])
+  const snapshots: ProjectMemorySnapshot[] = []
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) {
+      continue
+    }
+
+    try {
+      snapshots.push(await readSnapshot(path.join(options.memoryDir, entry.name)))
+    } catch {
+      continue
+    }
+  }
+
+  snapshots.sort((left, right) => right.scannedAt.localeCompare(left.scannedAt))
+
+  const latest = snapshots[0]
+
+  if (!latest) {
+    throw new Error('No Project Memory snapshot found. Open the repository in BranchPilot and run Memory > Rescan.')
+  }
+
+  return latest
+}
+
+export async function getProjectSummary(options: MemoryQueryOptions) {
+  const snapshot = await loadProjectMemorySnapshot(options)
+
+  return {
+    scannedAt: snapshot.scannedAt,
+    repository: snapshot.repository,
+    counts: {
+      files: snapshot.files.length,
+      symbols: snapshot.symbols.length,
+      imports: snapshot.imports.length,
+      recentCommits: snapshot.recentCommits.length
+    },
+    stackHints: snapshot.stackHints,
+    recentCommits: snapshot.recentCommits.slice(0, 10)
+  }
+}
+
+export async function searchFiles(options: SearchFilesOptions) {
+  const snapshot = await loadProjectMemorySnapshot(options)
+  const query = normalizeQuery(options.query)
+  const language = normalizeQuery(options.language)
+
+  const files = snapshot.files
+    .filter((file) => matchesQuery(file.path, query) || matchesQuery(file.language, query))
+    .filter((file) => !language || matchesQuery(file.language, language) || matchesQuery(file.extension, language))
+    .slice(0, normalizeLimit(options.limit))
+
+  return {
+    scannedAt: snapshot.scannedAt,
+    repository: snapshot.repository,
+    files
+  }
+}
+
+export async function searchSymbols(options: SearchSymbolsOptions) {
+  const snapshot = await loadProjectMemorySnapshot(options)
+  const query = normalizeQuery(options.query)
+  const pathQuery = normalizeQuery(options.path)
+
+  const symbols = snapshot.symbols
+    .filter((symbol) => matchesQuery(symbol.name, query) || matchesQuery(symbol.parentName, query))
+    .filter((symbol) => !options.kind || symbol.kind === options.kind)
+    .filter((symbol) => !pathQuery || matchesQuery(symbol.path, pathQuery))
+    .slice(0, normalizeLimit(options.limit))
+
+  return {
+    scannedAt: snapshot.scannedAt,
+    repository: snapshot.repository,
+    symbols
+  }
+}
+
+export async function getFileOutline(options: FileOutlineOptions) {
+  const snapshot = await loadProjectMemorySnapshot(options)
+  const file = snapshot.files.find((candidate) => candidate.path === options.path)
+
+  if (!file) {
+    throw new Error(`File "${options.path}" is not indexed in Project Memory.`)
+  }
+
+  return {
+    scannedAt: snapshot.scannedAt,
+    repository: snapshot.repository,
+    file,
+    symbols: snapshot.symbols.filter((symbol) => symbol.path === file.path),
+    imports: snapshot.imports.filter((entry) => entry.path === file.path)
+  }
+}
+
+export async function getSymbolContext(options: SymbolContextOptions) {
+  const snapshot = await loadProjectMemorySnapshot(options)
+  const symbol = findSymbol(snapshot.symbols, options)
+
+  if (!symbol) {
+    throw new Error('Symbol was not found in Project Memory.')
+  }
+
+  const sameFileSymbols = snapshot.symbols.filter((candidate) => candidate.path === symbol.path)
+  const index = sameFileSymbols.findIndex((candidate) => candidate.id === symbol.id)
+  const nearbySymbols = sameFileSymbols.slice(Math.max(0, index - 5), index + 6)
+  const imports = snapshot.imports.filter((entry) => entry.path === symbol.path)
+
+  return {
+    scannedAt: snapshot.scannedAt,
+    repository: snapshot.repository,
+    symbol,
+    file: snapshot.files.find((file) => file.path === symbol.path),
+    imports,
+    nearbySymbols
+  }
+}
+
+export async function getRecentCommits(options: RecentCommitsOptions) {
+  const snapshot = await loadProjectMemorySnapshot(options)
+
+  return {
+    scannedAt: snapshot.scannedAt,
+    repository: snapshot.repository,
+    commits: snapshot.recentCommits.slice(0, normalizeLimit(options.limit))
+  }
+}
+
+export async function getCurrentGitState(options: CurrentGitStateOptions) {
+  const snapshot = await loadProjectMemorySnapshot(options)
+
+  return {
+    scannedAt: snapshot.scannedAt,
+    indexedState: true,
+    repository: snapshot.repository
+  }
+}
+
+export async function getResourcePayload(options: MemoryQueryOptions, uri: string): Promise<unknown> {
+  const snapshot = await loadProjectMemorySnapshot(options)
+
+  if (uri === 'branchpilot://repo/current/summary') {
+    return getProjectSummaryFromSnapshot(snapshot)
+  }
+
+  if (uri === 'branchpilot://repo/current/tree') {
+    return {
+      scannedAt: snapshot.scannedAt,
+      repository: snapshot.repository,
+      files: snapshot.files.slice(0, MAX_RESOURCE_ITEMS)
+    }
+  }
+
+  if (uri === 'branchpilot://repo/current/symbols') {
+    return {
+      scannedAt: snapshot.scannedAt,
+      repository: snapshot.repository,
+      symbols: snapshot.symbols.slice(0, MAX_RESOURCE_ITEMS)
+    }
+  }
+
+  if (uri === 'branchpilot://repo/current/commits') {
+    return {
+      scannedAt: snapshot.scannedAt,
+      repository: snapshot.repository,
+      commits: snapshot.recentCommits
+    }
+  }
+
+  throw new Error(`Unknown BranchPilot resource: ${uri}`)
+}
+
+export function getPromptText(name: string): string {
+  if (name === 'review-current-work') {
+    return [
+      'Use BranchPilot Project Memory to understand the repository structure before reviewing changes.',
+      'Start with project_summary, then search_symbols/search_files for affected modules.',
+      'Focus on consistency, security, correctness, and maintainability. Do not mutate files from MCP.'
+    ].join('\n')
+  }
+
+  if (name === 'prepare-change-plan') {
+    return [
+      'Use BranchPilot Project Memory to map relevant files, symbols, imports, and recent commits.',
+      'Return a concise implementation plan with risks, tests, and files likely to change.',
+      'Use shell/git separately only when live state is needed.'
+    ].join('\n')
+  }
+
+  if (name === 'explain-module') {
+    return [
+      'Use get_file_outline and search_symbols to explain the requested module.',
+      'Summarize responsibilities, important symbols, dependencies, and likely extension points.',
+      'Mention Project Memory scannedAt so the user understands freshness.'
+    ].join('\n')
+  }
+
+  if (name === 'summarize-recent-work') {
+    return [
+      'Use get_recent_commits and project_summary to summarize recent project work.',
+      'Group changes by theme and identify follow-up work. Do not invent commits not present in Project Memory.'
+    ].join('\n')
+  }
+
+  throw new Error(`Unknown BranchPilot prompt: ${name}`)
+}
+
+export function toJsonText(payload: unknown): string {
+  return JSON.stringify(payload, null, 2)
+}
+
+async function readSnapshot(filePath: string): Promise<ProjectMemorySnapshot> {
+  let raw: string
+
+  try {
+    raw = await fs.readFile(filePath, 'utf8')
+  } catch {
+    throw new Error('No Project Memory snapshot found. Open the repository in BranchPilot and run Memory > Rescan.')
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as ProjectMemorySnapshot
+
+    if (parsed.version !== SNAPSHOT_VERSION || !parsed.repository?.rootPath || !Array.isArray(parsed.files)) {
+      throw new Error('Invalid Project Memory snapshot.')
+    }
+
+    return parsed
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Invalid Project Memory snapshot.') {
+      throw error
+    }
+
+    throw new Error('Project Memory snapshot is malformed. Run Memory > Rescan in BranchPilot.', {
+      cause: error
+    })
+  }
+}
+
+function getProjectSummaryFromSnapshot(snapshot: ProjectMemorySnapshot) {
+  return {
+    scannedAt: snapshot.scannedAt,
+    repository: snapshot.repository,
+    counts: {
+      files: snapshot.files.length,
+      symbols: snapshot.symbols.length,
+      imports: snapshot.imports.length,
+      recentCommits: snapshot.recentCommits.length
+    },
+    stackHints: snapshot.stackHints,
+    recentCommits: snapshot.recentCommits.slice(0, 10)
+  }
+}
+
+function findSymbol(symbols: ProjectMemorySymbol[], options: SymbolContextOptions): ProjectMemorySymbol | undefined {
+  if (options.symbolId) {
+    return symbols.find((symbol) => symbol.id === options.symbolId)
+  }
+
+  const query = normalizeQuery(options.name)
+  const pathQuery = normalizeQuery(options.path)
+
+  return symbols.find((symbol) =>
+    (matchesQuery(symbol.name, query) || matchesQuery(symbol.parentName, query)) &&
+    (!pathQuery || matchesQuery(symbol.path, pathQuery))
+  )
+}
+
+function matchesQuery(value: string | undefined, query: string): boolean {
+  if (!query) {
+    return true
+  }
+
+  return normalizeQuery(value).includes(query)
+}
+
+function normalizeQuery(value: string | undefined): string {
+  return (value ?? '').trim().toLowerCase()
+}
+
+function normalizeLimit(limit: number | undefined): number {
+  if (!limit || !Number.isFinite(limit)) {
+    return DEFAULT_LIMIT
+  }
+
+  return Math.min(MAX_LIMIT, Math.max(1, Math.floor(limit)))
+}
+
+function repositoryId(rootPath: string): string {
+  return createHash('sha256').update(rootPath).digest('hex').slice(0, 16)
+}
+
+export type BranchPilotMcpToolName =
+  | 'project_summary'
+  | 'search_files'
+  | 'search_symbols'
+  | 'get_file_outline'
+  | 'get_symbol_context'
+  | 'get_recent_commits'
+  | 'get_current_git_state'
+
+export interface BranchPilotMcpToolDefinition {
+  name: BranchPilotMcpToolName
+  description: string
+}
+
+export const BRANCHPILOT_MCP_TOOLS: BranchPilotMcpToolDefinition[] = [
+  {
+    name: 'project_summary',
+    description: 'Return repository identity, stack hints, counts, and recent commit summary from Project Memory.'
+  },
+  {
+    name: 'search_files',
+    description: 'Search indexed Project Memory files by path, language, or extension.'
+  },
+  {
+    name: 'search_symbols',
+    description: 'Search indexed functions, classes, methods, components, types, interfaces, and exports.'
+  },
+  {
+    name: 'get_file_outline',
+    description: 'Return symbols and imports for one indexed file path.'
+  },
+  {
+    name: 'get_symbol_context',
+    description: 'Return one symbol plus nearby symbols and imports from the same file.'
+  },
+  {
+    name: 'get_recent_commits',
+    description: 'Return recent commits stored in Project Memory.'
+  },
+  {
+    name: 'get_current_git_state',
+    description: 'Return branch and remote state from the latest Project Memory snapshot.'
+  }
+]
+
+export function sortFilesForDisplay(files: ProjectMemoryFile[]): ProjectMemoryFile[] {
+  return [...files].sort((left, right) => left.path.localeCompare(right.path))
+}
+
+export function sortImportsForDisplay(imports: ProjectMemoryImport[]): ProjectMemoryImport[] {
+  return [...imports].sort((left, right) => left.path.localeCompare(right.path) || left.line - right.line)
+}

@@ -35,6 +35,7 @@ import { toBranchPilotError } from './lib/errors.js'
 import { ProjectMemoryService, ProjectMemoryStore } from './lib/projectMemoryService.js'
 import { RepositoryService } from './lib/repositoryService.js'
 import { SettingsStore } from './lib/settingsStore.js'
+import { createProjectMemoryMcpConfig } from './mcp/config.js'
 import {
   checkoutGitHubPullRequest,
   createGitHubPullRequest,
@@ -50,12 +51,13 @@ import { listProviderStatuses } from './providers/providerAdapter.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const commandRunner = new CommandRunner()
+const projectMemoryDir = path.join(app.getPath('userData'), 'project-memory')
 const settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'branchpilot-settings.json'))
 const repositoryService = new RepositoryService(commandRunner, settingsStore)
 const editorService = new ExternalEditorService(commandRunner)
 const projectMemoryService = new ProjectMemoryService(
   commandRunner,
-  new ProjectMemoryStore(path.join(app.getPath('userData'), 'project-memory'))
+  new ProjectMemoryStore(projectMemoryDir)
 )
 
 function createMainWindow() {
@@ -132,6 +134,13 @@ function registerIpcHandlers() {
   handle('repository:projectMemory', (repoPath: string) => projectMemoryService.getProjectMemory(repoPath))
   handle('repository:scanProjectMemory', (repoPath: string): Promise<ProjectMemoryScanResult> =>
     projectMemoryService.scanProjectMemory(repoPath)
+  )
+  handle('repository:projectMemoryMcpConfig', (repoPath: string) =>
+    createProjectMemoryMcpConfig({
+      memoryDir: projectMemoryDir,
+      repoPath,
+      serverPath: path.join(__dirname, 'mcp/server.js')
+    })
   )
   handle('repository:gitConfig', (repoPath: string) => repositoryService.getGitConfig(repoPath))
   handle('repository:setLocalGitIdentity', (request: GitIdentityUpdate) => repositoryService.setLocalGitIdentity(request))

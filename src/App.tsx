@@ -6,6 +6,7 @@ import {
   Check,
   Clock3,
   Code2,
+  Copy,
   Database,
   ExternalLink,
   FileWarning,
@@ -48,6 +49,7 @@ import type {
   GitOperationResult,
   ProviderStatus,
   ProjectMemoryFile,
+  ProjectMemoryMcpConfig,
   ProjectMemorySnapshot,
   RecentRepository,
   RepositorySnapshot,
@@ -83,6 +85,7 @@ function App() {
   const [selectedCommitFilePath, setSelectedCommitFilePath] = useState<string | null>(null)
   const [commitFileDiff, setCommitFileDiff] = useState<DiffResult | null>(null)
   const [projectMemory, setProjectMemory] = useState<ProjectMemorySnapshot | null>(null)
+  const [projectMemoryMcpConfig, setProjectMemoryMcpConfig] = useState<ProjectMemoryMcpConfig | null>(null)
   const [memoryLoading, setMemoryLoading] = useState(false)
   const [selectedMemoryFilePath, setSelectedMemoryFilePath] = useState<string | null>(null)
   const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
@@ -491,13 +494,23 @@ function App() {
   async function loadProjectMemory(repoPath = currentRepoPath) {
     if (!api || !repoPath) return
     setMemoryLoading(true)
-    const result = await api.getProjectMemory(repoPath)
+    const [memoryResult, mcpConfigResult] = await Promise.all([
+      api.getProjectMemory(repoPath),
+      api.getProjectMemoryMcpConfig(repoPath)
+    ])
 
-    if (result.ok) {
-      setProjectMemory(result.data)
+    if (memoryResult.ok) {
+      setProjectMemory(memoryResult.data)
     } else {
       setProjectMemory(null)
-      setError(result.error.message)
+      setError(memoryResult.error.message)
+    }
+
+    if (mcpConfigResult.ok) {
+      setProjectMemoryMcpConfig(mcpConfigResult.data)
+    } else {
+      setProjectMemoryMcpConfig(null)
+      setError(mcpConfigResult.error.message)
     }
 
     setMemoryLoading(false)
@@ -512,12 +525,22 @@ function App() {
     if (result.ok) {
       setProjectMemory(result.data.snapshot)
       setNotice(`Project Memory scanned ${result.data.scannedFileCount} files in ${result.data.durationMs}ms.`)
+      void loadProjectMemory(currentRepoPath)
     } else {
       setError(result.error.message)
       setNotice(result.error.details || result.error.code)
     }
 
     setMemoryLoading(false)
+  }
+
+  async function copyProjectMemoryText(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      setNotice(`${label} copied.`)
+    } catch {
+      setError('Clipboard is not available in this runtime.')
+    }
   }
 
   async function loadCommitDetails(commitSha: string) {
@@ -1593,6 +1616,39 @@ function App() {
                 ))
               )}
             </section>
+
+            {projectMemoryMcpConfig && (
+              <section className="memory-mcp-card">
+                <div className="memory-section-heading">
+                  <div>
+                    <h3>Codex MCP setup</h3>
+                    <span>{projectMemoryMcpConfig.serverExists ? 'Server build found' : 'Run npm run build before connecting'}</span>
+                  </div>
+                </div>
+                <InfoRow label="Memory dir" value={projectMemoryMcpConfig.memoryDir} />
+                <InfoRow label="Server path" value={projectMemoryMcpConfig.serverPath} />
+                <div className="memory-mcp-snippet">
+                  <div className="memory-section-heading compact">
+                    <h3>CLI command</h3>
+                    <button type="button" onClick={() => copyProjectMemoryText(projectMemoryMcpConfig.codexCommand, 'Codex MCP command')}>
+                      <Copy size={15} />
+                      Copy
+                    </button>
+                  </div>
+                  <pre><code>{projectMemoryMcpConfig.codexCommand}</code></pre>
+                </div>
+                <div className="memory-mcp-snippet">
+                  <div className="memory-section-heading compact">
+                    <h3>config.toml</h3>
+                    <button type="button" onClick={() => copyProjectMemoryText(projectMemoryMcpConfig.codexToml, 'Codex MCP TOML')}>
+                      <Copy size={15} />
+                      Copy
+                    </button>
+                  </div>
+                  <pre><code>{projectMemoryMcpConfig.codexToml}</code></pre>
+                </div>
+              </section>
+            )}
 
             <section className="memory-grid">
               <div className="memory-list">

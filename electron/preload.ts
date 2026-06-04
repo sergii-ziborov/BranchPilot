@@ -15,6 +15,7 @@ const branchPilot: BranchPilotApi = {
   getCommitFileDiff: (request) => invoke('repository:commitFileDiff', request),
   getProjectMemory: (repoPath) => invoke('repository:projectMemory', repoPath),
   scanProjectMemory: (repoPath) => invoke('repository:scanProjectMemory', repoPath),
+  getProjectMemoryMcpConfig: (repoPath) => invoke('repository:projectMemoryMcpConfig', repoPath),
   getGitConfig: (repoPath) => invoke('repository:gitConfig', repoPath),
   setLocalGitIdentity: (request) => invoke('repository:setLocalGitIdentity', request),
   stageFile: (request) => invoke('git:stageFile', request),

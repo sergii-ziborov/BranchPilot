@@ -991,6 +991,52 @@ h3 {
   font-weight: 700;
 }
 
+.memory-mcp-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.memory-mcp-card > .info-row {
+  min-width: 0;
+}
+
+.memory-mcp-snippet {
+  display: grid;
+  gap: 8px;
+}
+
+.memory-mcp-snippet button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.memory-mcp-snippet pre {
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+}
+
+.memory-mcp-snippet code {
+  color: #d1d5db;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
 .memory-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.62fr) minmax(360px, 1fr) minmax(260px, 0.58fr);

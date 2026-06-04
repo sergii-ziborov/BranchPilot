@@ -176,6 +176,15 @@ export interface ProjectMemoryScanResult {
   skippedFileCount: number
 }
 
+export interface ProjectMemoryMcpConfig {
+  memoryDir: string
+  serverPath: string
+  repoPath: string
+  codexCommand: string
+  codexToml: string
+  serverExists: boolean
+}
+
 export interface CommitFileChange {
   path: string
   originalPath?: string
@@ -507,6 +516,7 @@ export interface BranchPilotApi {
   getCommitFileDiff: (request: CommitFileDiffRequest) => Promise<ApiResult<DiffResult>>
   getProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemorySnapshot | null>>
   scanProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemoryScanResult>>
+  getProjectMemoryMcpConfig: (repoPath: string) => Promise<ApiResult<ProjectMemoryMcpConfig>>
   getGitConfig: (repoPath: string) => Promise<ApiResult<GitConfigSnapshot>>
   setLocalGitIdentity: (request: GitIdentityUpdate) => Promise<ApiResult<GitConfigSnapshot>>
   stageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
