@@ -10,9 +10,12 @@ import {
   createGitHubPullRequest,
   getCurrentBranchPullRequest,
   getGitHubCliStatus,
+  getGitHubPullRequestChecks,
+  getGitHubPullRequestDetails,
+  getGitHubPullRequestDiff,
   listGitHubPullRequests
 } from '../electron/providers/githubCliService'
-import type { GitHubPullRequest } from '../src/shared/branchPilot'
+import type { GitHubPullRequest, GitHubPullRequestCheck, GitHubPullRequestDetails } from '../src/shared/branchPilot'
 
 describe('GitHub CLI bridge', () => {
   it('detects missing, unauthenticated, and authenticated gh states', async () => {
@@ -128,6 +131,65 @@ describe('GitHub CLI bridge', () => {
     expect(runner.ghPrCheckoutArgs).toEqual(['pr', 'checkout', '42'])
   })
 
+  it('reads pull request details, checks, and patch diff', async () => {
+    const details = makePullRequestDetails({
+      number: 7,
+      title: 'Add PR details',
+      body: 'Adds details, checks, and diff.',
+      changedFiles: 1,
+      additions: 1,
+      deletions: 1
+    })
+    const checks = [
+      makePullRequestCheck({ name: 'lint', bucket: 'pass', state: 'SUCCESS' }),
+      makePullRequestCheck({ name: 'build', bucket: 'pending', state: 'PENDING' })
+    ]
+    const runner = new GitHubCliTestRunner({
+      pullRequestDetails: details,
+      pullRequestChecks: checks,
+      prChecksExitCode: 8,
+      prDiffOutput: [
+        'diff --git a/src/App.tsx b/src/App.tsx',
+        'index 1111111..2222222 100644',
+        '--- a/src/App.tsx',
+        '+++ b/src/App.tsx',
+        '@@ -1,3 +1,3 @@',
+        ' import React from "react"',
+        '-const title = "Old"',
+        '+const title = "New"',
+        ' export default title',
+        ''
+      ].join('\n')
+    })
+
+    await expect(getGitHubPullRequestDetails(runner, {
+      repoPath: '/repo',
+      prNumber: 7
+    })).resolves.toEqual(details)
+    await expect(getGitHubPullRequestChecks(runner, {
+      repoPath: '/repo',
+      prNumber: 7
+    })).resolves.toEqual(checks)
+
+    const diff = await getGitHubPullRequestDiff(runner, {
+      repoPath: '/repo',
+      prNumber: 7
+    })
+
+    expect(diff.prNumber).toBe(7)
+    expect(diff.files).toHaveLength(1)
+    expect(diff.files[0]).toMatchObject({
+      path: 'src/App.tsx',
+      status: 'modified',
+      additions: 1,
+      deletions: 1
+    })
+    expect(diff.files[0].hunks[0].lines).toHaveLength(4)
+    expect(runner.ghPrDetailsArgs).toEqual(expect.arrayContaining(['pr', 'view', '7', '--json']))
+    expect(runner.ghPrChecksArgs).toEqual(expect.arrayContaining(['pr', 'checks', '7', '--json']))
+    expect(runner.ghPrDiffArgs).toEqual(['pr', 'diff', '7', '--patch'])
+  })
+
   it('blocks pull request creation when gh is unauthenticated', async () => {
     const runner = new GitHubCliTestRunner({ ghAuthenticated: false })
 
@@ -177,6 +239,11 @@ describe('GitHub CLI bridge', () => {
       repoPath: '/repo',
       prNumber: 0
     })).rejects.toMatchObject({ code: 'invalid_pr_number' })
+
+    await expect(getGitHubPullRequestDetails(new GitHubCliTestRunner(), {
+      repoPath: '/repo',
+      prNumber: 0
+    })).rejects.toMatchObject({ code: 'invalid_pr_number' })
   })
 
   it('rejects malformed pull request JSON from GitHub CLI', async () => {
@@ -185,6 +252,16 @@ describe('GitHub CLI bridge', () => {
 
     await expect(listGitHubPullRequests(new GitHubCliTestRunner({ prListOutput: 'not-json' }), '/repo'))
       .rejects.toMatchObject({ code: 'github_pr_parse_failed' })
+
+    await expect(getGitHubPullRequestDetails(new GitHubCliTestRunner({ prDetailsOutput: '{' }), {
+      repoPath: '/repo',
+      prNumber: 7
+    })).rejects.toMatchObject({ code: 'github_pr_parse_failed' })
+
+    await expect(getGitHubPullRequestChecks(new GitHubCliTestRunner({ prChecksOutput: 'not-json' }), {
+      repoPath: '/repo',
+      prNumber: 7
+    })).rejects.toMatchObject({ code: 'github_pr_parse_failed' })
   })
 })
 
@@ -199,11 +276,20 @@ interface GitHubCliTestRunnerOptions {
   pullRequests?: GitHubPullRequest[]
   prViewOutput?: string
   prListOutput?: string
+  pullRequestDetails?: GitHubPullRequestDetails
+  pullRequestChecks?: GitHubPullRequestCheck[]
+  prDetailsOutput?: string
+  prChecksOutput?: string
+  prChecksExitCode?: number
+  prDiffOutput?: string
 }
 
 class GitHubCliTestRunner extends CommandRunner {
   ghPrCreateArgs: string[] = []
   ghPrCheckoutArgs: string[] = []
+  ghPrDetailsArgs: string[] = []
+  ghPrChecksArgs: string[] = []
+  ghPrDiffArgs: string[] = []
 
   constructor(private readonly options: GitHubCliTestRunnerOptions = {}) {
     super()
@@ -235,6 +321,23 @@ class GitHubCliTestRunner extends CommandRunner {
     }
 
     if (command === '/tmp/branchpilot-gh' && args[0] === 'pr' && args[1] === 'view') {
+      if (args[2] && args[2] !== '--json') {
+        this.ghPrDetailsArgs = args
+
+        if (this.options.prDetailsOutput) {
+          return this.complete(command, args, 0, this.options.prDetailsOutput, '', options)
+        }
+
+        return this.complete(
+          command,
+          args,
+          0,
+          `${JSON.stringify(toGhPullRequestDetailsJson(this.options.pullRequestDetails ?? makePullRequestDetails()))}\n`,
+          '',
+          options
+        )
+      }
+
       if (this.options.currentPullRequest === null) {
         return this.complete(command, args, 1, '', 'no pull requests found for branch', options)
       }
@@ -272,6 +375,29 @@ class GitHubCliTestRunner extends CommandRunner {
     if (command === '/tmp/branchpilot-gh' && args[0] === 'pr' && args[1] === 'checkout') {
       this.ghPrCheckoutArgs = args
       return this.complete(command, args, 0, `Switched to branch '${args[2]}'\n`, '', options)
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'pr' && args[1] === 'checks') {
+      this.ghPrChecksArgs = args
+
+      if (this.options.prChecksOutput) {
+        return this.complete(command, args, this.options.prChecksExitCode ?? 0, this.options.prChecksOutput, '', options)
+      }
+
+      const checks = this.options.pullRequestChecks ?? [makePullRequestCheck()]
+      return this.complete(
+        command,
+        args,
+        this.options.prChecksExitCode ?? 0,
+        `${JSON.stringify(checks.map(toGhPullRequestCheckJson))}\n`,
+        '',
+        options
+      )
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'pr' && args[1] === 'diff') {
+      this.ghPrDiffArgs = args
+      return this.complete(command, args, 0, this.options.prDiffOutput ?? '', '', options)
     }
 
     return super.run(command, args, options)
@@ -317,8 +443,8 @@ class GitHubCliTestRunner extends CommandRunner {
       args,
       cwd: options.cwd,
       exitCode,
-      stdout: exitCode === 0 ? stdout : '',
-      stderr: exitCode === 0 ? '' : stderr,
+      stdout,
+      stderr,
       durationMs: 1
     }
 
@@ -343,6 +469,38 @@ function makePullRequest(overrides: Partial<GitHubPullRequest> = {}): GitHubPull
   }
 }
 
+function makePullRequestDetails(overrides: Partial<GitHubPullRequestDetails> = {}): GitHubPullRequestDetails {
+  return {
+    ...makePullRequest(overrides),
+    body: 'Adds provider bridge details.',
+    author: {
+      login: 'branchpilot-user',
+      name: 'Branch Pilot',
+      url: 'https://github.com/branchpilot-user'
+    },
+    createdAt: '2026-06-01T10:00:00Z',
+    updatedAt: '2026-06-02T10:00:00Z',
+    additions: 10,
+    deletions: 2,
+    changedFiles: 3,
+    ...overrides
+  }
+}
+
+function makePullRequestCheck(overrides: Partial<GitHubPullRequestCheck> = {}): GitHubPullRequestCheck {
+  return {
+    name: 'build',
+    state: 'SUCCESS',
+    bucket: 'pass',
+    workflow: 'CI',
+    description: 'Build completed',
+    link: 'https://github.com/example/project/actions/runs/1',
+    startedAt: '2026-06-02T10:00:00Z',
+    completedAt: '2026-06-02T10:01:00Z',
+    ...overrides
+  }
+}
+
 function toGhPullRequestJson(pullRequest: GitHubPullRequest) {
   return {
     number: pullRequest.number,
@@ -352,5 +510,31 @@ function toGhPullRequestJson(pullRequest: GitHubPullRequest) {
     headRefName: pullRequest.headBranch,
     baseRefName: pullRequest.baseBranch,
     isDraft: pullRequest.draft
+  }
+}
+
+function toGhPullRequestDetailsJson(pullRequest: GitHubPullRequestDetails) {
+  return {
+    ...toGhPullRequestJson(pullRequest),
+    body: pullRequest.body,
+    author: pullRequest.author,
+    createdAt: pullRequest.createdAt,
+    updatedAt: pullRequest.updatedAt,
+    additions: pullRequest.additions,
+    deletions: pullRequest.deletions,
+    changedFiles: pullRequest.changedFiles
+  }
+}
+
+function toGhPullRequestCheckJson(check: GitHubPullRequestCheck) {
+  return {
+    name: check.name,
+    state: check.state,
+    bucket: check.bucket,
+    workflow: check.workflow,
+    description: check.description,
+    link: check.link,
+    startedAt: check.startedAt,
+    completedAt: check.completedAt
   }
 }

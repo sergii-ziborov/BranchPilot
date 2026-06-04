@@ -20,6 +20,7 @@ import type {
   GitIdentityUpdate,
   HunkActionRequest,
   MergeBranchRequest,
+  PullRequestDetailsRequest,
   PullRequestTextGenerationRequest,
   PublishBranchRequest,
   ReviewReportRequest,
@@ -36,6 +37,9 @@ import {
   createGitHubPullRequest,
   getCurrentBranchPullRequest,
   getGitHubCliStatus,
+  getGitHubPullRequestChecks,
+  getGitHubPullRequestDetails,
+  getGitHubPullRequestDiff,
   listGitHubPullRequests
 } from './providers/githubCliService.js'
 import { listProviderStatuses } from './providers/providerAdapter.js'
@@ -168,6 +172,15 @@ function registerIpcHandlers() {
   )
   handle('providers:listGitHubPullRequests', (repoPath: string) =>
     listGitHubPullRequests(commandRunner, repoPath)
+  )
+  handle('providers:getGitHubPullRequestDetails', (request: PullRequestDetailsRequest) =>
+    getGitHubPullRequestDetails(commandRunner, request)
+  )
+  handle('providers:getGitHubPullRequestChecks', (request: PullRequestDetailsRequest) =>
+    getGitHubPullRequestChecks(commandRunner, request)
+  )
+  handle('providers:getGitHubPullRequestDiff', (request: PullRequestDetailsRequest) =>
+    getGitHubPullRequestDiff(commandRunner, request)
   )
   handle('providers:checkoutGitHubPullRequest', async (request: CheckoutPullRequestRequest) => {
     const rootPath = await checkoutGitHubPullRequest(commandRunner, request)

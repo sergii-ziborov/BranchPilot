@@ -51,6 +51,9 @@ const branchPilot: BranchPilotApi = {
   createGitHubPullRequest: (request) => invoke('providers:createGitHubPullRequest', request),
   getCurrentBranchPullRequest: (repoPath) => invoke('providers:currentGitHubPullRequest', repoPath),
   listGitHubPullRequests: (repoPath) => invoke('providers:listGitHubPullRequests', repoPath),
+  getGitHubPullRequestDetails: (request) => invoke('providers:getGitHubPullRequestDetails', request),
+  getGitHubPullRequestChecks: (request) => invoke('providers:getGitHubPullRequestChecks', request),
+  getGitHubPullRequestDiff: (request) => invoke('providers:getGitHubPullRequestDiff', request),
   checkoutGitHubPullRequest: (request) => invoke('providers:checkoutGitHubPullRequest', request),
   generateReviewReport: (request) => invoke('assistants:generateReviewReport', request)
 }

@@ -362,6 +362,52 @@ export interface GitHubPullRequest {
   draft: boolean
 }
 
+export interface GitHubPullRequestAuthor {
+  login: string
+  name?: string
+  url?: string
+}
+
+export interface GitHubPullRequestDetails extends GitHubPullRequest {
+  body: string
+  author?: GitHubPullRequestAuthor
+  createdAt: string
+  updatedAt: string
+  additions: number
+  deletions: number
+  changedFiles: number
+}
+
+export interface GitHubPullRequestCheck {
+  name: string
+  state: string
+  bucket: string
+  workflow?: string
+  description?: string
+  link?: string
+  startedAt?: string
+  completedAt?: string
+}
+
+export interface GitHubPullRequestDiffFile extends DiffFile {
+  path: string
+  text: string
+  status: FileChangeStatus
+  additions: number
+  deletions: number
+}
+
+export interface GitHubPullRequestDiff {
+  prNumber: number
+  text: string
+  files: GitHubPullRequestDiffFile[]
+}
+
+export interface PullRequestDetailsRequest {
+  repoPath: string
+  prNumber: number
+}
+
 export interface CheckoutPullRequestRequest {
   repoPath: string
   prNumber: number
@@ -428,6 +474,9 @@ export interface BranchPilotApi {
   createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>
   getCurrentBranchPullRequest: (repoPath: string) => Promise<ApiResult<GitHubPullRequest | null>>
   listGitHubPullRequests: (repoPath: string) => Promise<ApiResult<GitHubPullRequest[]>>
+  getGitHubPullRequestDetails: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestDetails>>
+  getGitHubPullRequestChecks: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestCheck[]>>
+  getGitHubPullRequestDiff: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestDiff>>
   checkoutGitHubPullRequest: (request: CheckoutPullRequestRequest) => Promise<ApiResult<RepositorySnapshot>>
   generateReviewReport: (request: ReviewReportRequest) => Promise<ApiResult<ReviewReport>>
 }

@@ -39,6 +39,10 @@ import type {
   FileChange,
   GitHubCliStatus,
   GitHubPullRequest,
+  GitHubPullRequestCheck,
+  GitHubPullRequestDetails,
+  GitHubPullRequestDiff,
+  GitHubPullRequestDiffFile,
   GitConfigSnapshot,
   GitOperationResult,
   ProviderStatus,
@@ -92,6 +96,12 @@ function App() {
   const [githubCliStatus, setGithubCliStatus] = useState<GitHubCliStatus | null>(null)
   const [currentPullRequest, setCurrentPullRequest] = useState<GitHubPullRequest | null>(null)
   const [pullRequests, setPullRequests] = useState<GitHubPullRequest[]>([])
+  const [selectedPullRequestNumber, setSelectedPullRequestNumber] = useState<number | null>(null)
+  const [selectedPullRequestDetails, setSelectedPullRequestDetails] = useState<GitHubPullRequestDetails | null>(null)
+  const [selectedPullRequestChecks, setSelectedPullRequestChecks] = useState<GitHubPullRequestCheck[]>([])
+  const [selectedPullRequestDiff, setSelectedPullRequestDiff] = useState<GitHubPullRequestDiff | null>(null)
+  const [selectedPullRequestFilePath, setSelectedPullRequestFilePath] = useState<string | null>(null)
+  const [pullRequestDetailsLoading, setPullRequestDetailsLoading] = useState(false)
   const [prTitle, setPrTitle] = useState('')
   const [prDescription, setPrDescription] = useState('')
   const [prBaseBranch, setPrBaseBranch] = useState('')
@@ -120,6 +130,24 @@ function App() {
   )
 
   const preCommitFindingsBySeverity = useMemo(() => groupFindingsBySeverity(preCommitFindings), [preCommitFindings])
+
+  const selectedPullRequestFile = useMemo(
+    () => selectedPullRequestDiff?.files.find((file) => file.path === selectedPullRequestFilePath) ?? null,
+    [selectedPullRequestDiff, selectedPullRequestFilePath]
+  )
+
+  const selectedPullRequestDiffResult = useMemo<DiffResult | null>(() => {
+    if (!selectedPullRequestFile) return null
+
+    return {
+      filePath: selectedPullRequestFile.path,
+      staged: false,
+      text: selectedPullRequestFile.text,
+      binary: selectedPullRequestFile.hunks.length === 0 && /Binary files/i.test(selectedPullRequestFile.text),
+      tooLarge: false,
+      files: [selectedPullRequestFile]
+    }
+  }, [selectedPullRequestFile])
 
   useEffect(() => {
     if (!api) {
@@ -193,6 +221,18 @@ function App() {
     void refreshProvidersPanel()
   }, [snapshot?.summary.rootPath, viewMode])
 
+  useEffect(() => {
+    if (viewMode !== 'providers' || !selectedPullRequestNumber || !githubCliStatus?.authenticated) {
+      setSelectedPullRequestDetails(null)
+      setSelectedPullRequestChecks([])
+      setSelectedPullRequestDiff(null)
+      setSelectedPullRequestFilePath(null)
+      return
+    }
+
+    void loadPullRequestDetails(selectedPullRequestNumber)
+  }, [githubCliStatus?.authenticated, selectedPullRequestNumber, snapshot?.summary.rootPath, viewMode])
+
   const currentRepoPath = snapshot?.summary.rootPath
   const counts = snapshot?.status.counts
   const mergeState = snapshot?.status.merge
@@ -250,6 +290,7 @@ function App() {
     if (!api || !currentRepoPath) {
       setCurrentPullRequest(null)
       setPullRequests([])
+      setSelectedPullRequestNumber(null)
       return
     }
 
@@ -267,8 +308,18 @@ function App() {
 
     if (listResult.ok) {
       setPullRequests(listResult.data)
+      setSelectedPullRequestNumber((currentNumber) => {
+        if (currentNumber && listResult.data.some((pullRequest) => pullRequest.number === currentNumber)) {
+          return currentNumber
+        }
+
+        return currentResult.ok && currentResult.data
+          ? currentResult.data.number
+          : listResult.data[0]?.number ?? null
+      })
     } else {
       setPullRequests([])
+      setSelectedPullRequestNumber(null)
       setError(listResult.error.message)
     }
   }
@@ -282,7 +333,59 @@ function App() {
     } else {
       setCurrentPullRequest(null)
       setPullRequests([])
+      setSelectedPullRequestNumber(null)
     }
+  }
+
+  async function loadPullRequestDetails(prNumber: number) {
+    if (!api || !currentRepoPath) return
+    setPullRequestDetailsLoading(true)
+    setError(null)
+    setSelectedPullRequestDetails((currentDetails) => currentDetails?.number === prNumber ? currentDetails : null)
+    setSelectedPullRequestChecks([])
+    setSelectedPullRequestDiff((currentDiff) => currentDiff?.prNumber === prNumber ? currentDiff : null)
+    setSelectedPullRequestFilePath((currentPath) =>
+      selectedPullRequestDiff?.prNumber === prNumber ? currentPath : null
+    )
+
+    const request = {
+      repoPath: currentRepoPath,
+      prNumber
+    }
+    const [detailsResult, checksResult, diffResult] = await Promise.all([
+      api.getGitHubPullRequestDetails(request),
+      api.getGitHubPullRequestChecks(request),
+      api.getGitHubPullRequestDiff(request)
+    ])
+
+    if (detailsResult.ok) {
+      setSelectedPullRequestDetails(detailsResult.data)
+    } else {
+      setSelectedPullRequestDetails(null)
+      setError(detailsResult.error.message)
+    }
+
+    if (checksResult.ok) {
+      setSelectedPullRequestChecks(checksResult.data)
+    } else {
+      setSelectedPullRequestChecks([])
+      setError(checksResult.error.message)
+    }
+
+    if (diffResult.ok) {
+      setSelectedPullRequestDiff(diffResult.data)
+      setSelectedPullRequestFilePath((currentPath) =>
+        currentPath && diffResult.data.files.some((file) => file.path === currentPath)
+          ? currentPath
+          : diffResult.data.files[0]?.path ?? null
+      )
+    } else {
+      setSelectedPullRequestDiff(null)
+      setSelectedPullRequestFilePath(null)
+      setError(diffResult.error.message)
+    }
+
+    setPullRequestDetailsLoading(false)
   }
 
   async function chooseRepository() {
@@ -713,6 +816,10 @@ function App() {
       void loadHistory()
       void refreshProvidersPanel()
     }
+  }
+
+  function selectPullRequest(pullRequest: GitHubPullRequest) {
+    setSelectedPullRequestNumber(pullRequest.number)
   }
 
   async function runReviewReport() {
@@ -1861,6 +1968,10 @@ function App() {
                 </span>
               </div>
               <div className="pr-actions">
+                <button type="button" onClick={() => selectPullRequest(currentPullRequest)} disabled={busy}>
+                  <GitPullRequest size={17} />
+                  Details
+                </button>
                 <button type="button" className="secondary" onClick={() => window.open(currentPullRequest.url, '_blank', 'noopener,noreferrer')}>
                   <ExternalLink size={17} />
                   Open PR
@@ -1943,9 +2054,26 @@ function App() {
                 {pullRequests.map((pullRequest) => {
                   const isCurrent = currentPullRequest?.number === pullRequest.number ||
                     pullRequest.headBranch === snapshot?.summary.currentBranch
+                  const isSelected = selectedPullRequestNumber === pullRequest.number
 
                   return (
-                    <article className={isCurrent ? 'pr-row current' : 'pr-row'} key={pullRequest.number}>
+                    <article
+                      className={[
+                        'pr-row',
+                        isCurrent ? 'current' : '',
+                        isSelected ? 'selected' : ''
+                      ].filter(Boolean).join(' ')}
+                      key={pullRequest.number}
+                      onClick={() => selectPullRequest(pullRequest)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          selectPullRequest(pullRequest)
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <div>
                         <span className="pr-number">#{pullRequest.number}</span>
                         <strong>{pullRequest.title}</strong>
@@ -1958,12 +2086,27 @@ function App() {
                         {isCurrent ? (
                           <span className="pr-current-badge">Current branch</span>
                         ) : (
-                          <button type="button" onClick={() => checkoutPullRequest(pullRequest)} disabled={busy}>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void checkoutPullRequest(pullRequest)
+                            }}
+                            disabled={busy}
+                          >
                             <GitPullRequest size={17} />
                             Checkout
                           </button>
                         )}
-                        <button type="button" className="secondary" onClick={() => window.open(pullRequest.url, '_blank', 'noopener,noreferrer')}>
+                        {isSelected && <span className="pr-current-badge selected-badge">Selected</span>}
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            window.open(pullRequest.url, '_blank', 'noopener,noreferrer')
+                          }}
+                        >
                           <ExternalLink size={17} />
                           Open
                         </button>
@@ -1974,7 +2117,121 @@ function App() {
               </div>
             )}
           </section>
+
+          {renderPullRequestDetailsPanel()}
         </section>
+      </section>
+    )
+  }
+
+  function renderPullRequestDetailsPanel() {
+    const details = selectedPullRequestDetails
+    const checks = selectedPullRequestChecks
+    const diffFiles = selectedPullRequestDiff?.files ?? []
+    const passedChecks = checks.filter((check) => check.bucket === 'pass').length
+    const failedChecks = checks.filter((check) => check.bucket === 'fail').length
+    const pendingChecks = checks.filter((check) => check.bucket === 'pending').length
+
+    return (
+      <section className="pr-details-panel">
+        <div className="panel-heading compact-heading">
+          <div>
+            <h3>{details ? `#${details.number} ${details.title}` : 'Pull request details'}</h3>
+            <p>
+              {details
+                ? `${details.baseBranch} ← ${details.headBranch} · ${details.state}${details.draft ? ' · draft' : ''}`
+                : selectedPullRequestNumber
+                  ? `Loading PR #${selectedPullRequestNumber}`
+                  : 'Select a pull request to inspect details, checks, and diff.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              if (selectedPullRequestNumber) {
+                void loadPullRequestDetails(selectedPullRequestNumber)
+              }
+            }}
+            disabled={busy || pullRequestDetailsLoading || !selectedPullRequestNumber}
+          >
+            {pullRequestDetailsLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
+            Refresh details
+          </button>
+        </div>
+
+        {!selectedPullRequestNumber ? (
+          <div className="quiet-box">Select a pull request from the list.</div>
+        ) : pullRequestDetailsLoading && !details ? (
+          <div className="quiet-box">Loading pull request details.</div>
+        ) : details ? (
+          <>
+            <div className="pr-details-meta">
+              <InfoRow label="Author" value={details.author?.login ?? 'Unknown'} />
+              <InfoRow label="Updated" value={formatDate(details.updatedAt)} />
+              <InfoRow label="Changed files" value={String(details.changedFiles)} />
+              <InfoRow label="Additions / deletions" value={`+${details.additions} / -${details.deletions}`} />
+            </div>
+
+            <div className="pr-body">
+              {details.body.trim() ? details.body : 'No pull request description.'}
+            </div>
+
+            <section className="pr-checks-panel">
+              <div className="pr-check-summary">
+                <span className="check-bucket bucket-pass">{passedChecks} pass</span>
+                <span className="check-bucket bucket-fail">{failedChecks} fail</span>
+                <span className="check-bucket bucket-pending">{pendingChecks} pending</span>
+                <span className="check-bucket bucket-other">{checks.length} total</span>
+              </div>
+              {checks.length === 0 ? (
+                <div className="quiet-box">No checks reported by GitHub CLI.</div>
+              ) : (
+                <div className="pr-check-list">
+                  {checks.map((check) => (
+                    <article className="pr-check-row" key={`${check.workflow ?? 'workflow'}-${check.name}`}>
+                      <span className={`check-bucket bucket-${checkBucketClass(check.bucket)}`}>{check.bucket || check.state}</span>
+                      <div>
+                        <strong>{check.name}</strong>
+                        <span>{check.workflow ?? check.description ?? check.state}</span>
+                      </div>
+                      {check.link && (
+                        <button type="button" className="secondary" onClick={() => window.open(check.link, '_blank', 'noopener,noreferrer')}>
+                          <ExternalLink size={15} />
+                          Open
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="pr-diff-panel">
+              <div className="pr-file-list">
+                {diffFiles.length === 0 ? (
+                  <div className="quiet-box">No diff files returned.</div>
+                ) : (
+                  diffFiles.map((file) => (
+                    <button
+                      className={selectedPullRequestFilePath === file.path ? 'pr-file-row selected' : 'pr-file-row'}
+                      type="button"
+                      key={`${file.status}-${file.path}`}
+                      onClick={() => setSelectedPullRequestFilePath(file.path)}
+                    >
+                      <span className={`file-status status-${file.status}`}>{diffFileToken(file)}</span>
+                      <span className="file-name">{file.path}</span>
+                      <span className="file-state">+{file.additions} / -{file.deletions}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+              <DiffPreview diff={selectedPullRequestDiffResult} />
+            </section>
+          </>
+        ) : (
+          <div className="quiet-box">Pull request details are not available.</div>
+        )}
       </section>
     )
   }
@@ -2108,6 +2365,22 @@ function commitFileToken(file: CommitFileChange): string {
   if (file.status === 'deleted') return 'D'
   if (file.status === 'added') return 'A'
   return 'M'
+}
+
+function diffFileToken(file: GitHubPullRequestDiffFile): string {
+  if (file.status === 'renamed') return 'R'
+  if (file.status === 'deleted') return 'D'
+  if (file.status === 'added') return 'A'
+  return 'M'
+}
+
+function checkBucketClass(bucket: string): string {
+  if (bucket === 'pass') return 'pass'
+  if (bucket === 'fail') return 'fail'
+  if (bucket === 'pending') return 'pending'
+  if (bucket === 'skipping') return 'skipping'
+  if (bucket === 'cancel') return 'cancel'
+  return 'other'
 }
 
 function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string {
