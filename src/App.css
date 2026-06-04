@@ -953,6 +953,180 @@ h3 {
   gap: 14px;
 }
 
+.memory-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.memory-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.memory-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.memory-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.memory-stack span {
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.memory-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.62fr) minmax(360px, 1fr) minmax(260px, 0.58fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.memory-list,
+.memory-details {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.memory-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.memory-section-heading.compact {
+  margin-top: 8px;
+}
+
+.memory-section-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.memory-file-row,
+.memory-symbol-row,
+.memory-commit-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.memory-file-row {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  min-height: 50px;
+  padding: 9px 10px;
+  color: var(--text);
+  text-align: left;
+}
+
+.memory-file-row:hover,
+.memory-file-row.selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.memory-file-row strong,
+.memory-commit-row strong,
+.memory-section-heading h3 {
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-file-row span,
+.memory-commit-row span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-outline,
+.memory-imports,
+.recent-memory-commits {
+  max-height: calc(100vh - 430px);
+  overflow: auto;
+}
+
+.memory-outline,
+.memory-imports {
+  display: grid;
+  gap: 8px;
+}
+
+.memory-symbol-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 4px 10px;
+  min-height: 48px;
+  padding: 9px 10px;
+}
+
+.memory-symbol-row span {
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.memory-symbol-row strong {
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+}
+
+.memory-symbol-row code {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-imports code {
+  overflow: hidden;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #ffffff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-commit-row {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+}
+
 .config-card {
   display: grid;
   gap: 10px;

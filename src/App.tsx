@@ -6,6 +6,7 @@ import {
   Check,
   Clock3,
   Code2,
+  Database,
   ExternalLink,
   FileWarning,
   FolderOpen,
@@ -46,6 +47,8 @@ import type {
   GitConfigSnapshot,
   GitOperationResult,
   ProviderStatus,
+  ProjectMemoryFile,
+  ProjectMemorySnapshot,
   RecentRepository,
   RepositorySnapshot,
   ReviewFinding,
@@ -57,7 +60,7 @@ import type {
 } from './shared/branchPilot'
 import './App.css'
 
-type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers'
+type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory'
 type DiffMode = 'unstaged' | 'staged'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 
@@ -79,6 +82,9 @@ function App() {
   const [commitDetails, setCommitDetails] = useState<CommitDetails | null>(null)
   const [selectedCommitFilePath, setSelectedCommitFilePath] = useState<string | null>(null)
   const [commitFileDiff, setCommitFileDiff] = useState<DiffResult | null>(null)
+  const [projectMemory, setProjectMemory] = useState<ProjectMemorySnapshot | null>(null)
+  const [memoryLoading, setMemoryLoading] = useState(false)
+  const [selectedMemoryFilePath, setSelectedMemoryFilePath] = useState<string | null>(null)
   const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('changes')
   const [busy, setBusy] = useState(false)
@@ -149,6 +155,21 @@ function App() {
     }
   }, [selectedPullRequestFile])
 
+  const selectedMemoryFile = useMemo(
+    () => projectMemory?.files.find((file) => file.path === selectedMemoryFilePath) ?? null,
+    [projectMemory, selectedMemoryFilePath]
+  )
+
+  const selectedMemorySymbols = useMemo(
+    () => projectMemory?.symbols.filter((symbol) => symbol.path === selectedMemoryFilePath) ?? [],
+    [projectMemory, selectedMemoryFilePath]
+  )
+
+  const selectedMemoryImports = useMemo(
+    () => projectMemory?.imports.filter((entry) => entry.path === selectedMemoryFilePath) ?? [],
+    [projectMemory, selectedMemoryFilePath]
+  )
+
   useEffect(() => {
     if (!api) {
       setError('BranchPilot desktop runtime is not available. Open the Electron app to use Git features.')
@@ -185,6 +206,22 @@ function App() {
     if (!snapshot || viewMode !== 'history') return
     void loadHistory()
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
+
+  useEffect(() => {
+    if (!snapshot || viewMode !== 'memory') return
+    void loadProjectMemory()
+  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
+
+  useEffect(() => {
+    if (!projectMemory) {
+      setSelectedMemoryFilePath(null)
+      return
+    }
+
+    if (!selectedMemoryFilePath || !projectMemory.files.some((file) => file.path === selectedMemoryFilePath)) {
+      setSelectedMemoryFilePath(projectMemory.files[0]?.path ?? null)
+    }
+  }, [projectMemory, selectedMemoryFilePath])
 
   useEffect(() => {
     if (!snapshot || viewMode !== 'history' || !selectedCommitSha) {
@@ -451,6 +488,38 @@ function App() {
     }
   }
 
+  async function loadProjectMemory(repoPath = currentRepoPath) {
+    if (!api || !repoPath) return
+    setMemoryLoading(true)
+    const result = await api.getProjectMemory(repoPath)
+
+    if (result.ok) {
+      setProjectMemory(result.data)
+    } else {
+      setProjectMemory(null)
+      setError(result.error.message)
+    }
+
+    setMemoryLoading(false)
+  }
+
+  async function scanProjectMemory() {
+    if (!api || !currentRepoPath) return
+    setMemoryLoading(true)
+    setError(null)
+    const result = await api.scanProjectMemory(currentRepoPath)
+
+    if (result.ok) {
+      setProjectMemory(result.data.snapshot)
+      setNotice(`Project Memory scanned ${result.data.scannedFileCount} files in ${result.data.durationMs}ms.`)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setMemoryLoading(false)
+  }
+
   async function loadCommitDetails(commitSha: string) {
     if (!api || !currentRepoPath) return
     const result = await api.getCommitDetails({ repoPath: currentRepoPath, commitSha })
@@ -539,6 +608,10 @@ function App() {
 
     if (viewMode === 'stash') {
       void loadStashes(nextSnapshot.summary.rootPath)
+    }
+
+    if (viewMode === 'memory') {
+      void loadProjectMemory(nextSnapshot.summary.rootPath)
     }
   }
 
@@ -964,7 +1037,8 @@ function App() {
     { id: 'config' as const, label: 'Git Config', icon: Settings },
     { id: 'stash' as const, label: 'Stash', icon: Save },
     { id: 'review' as const, label: 'Review', icon: ShieldCheck },
-    { id: 'providers' as const, label: 'Providers', icon: GitPullRequest }
+    { id: 'providers' as const, label: 'Providers', icon: GitPullRequest },
+    { id: 'memory' as const, label: 'Memory', icon: Database }
   ]
 
   return (
@@ -1130,6 +1204,7 @@ function App() {
             {viewMode === 'stash' && renderStashView()}
             {viewMode === 'review' && renderReviewView()}
             {viewMode === 'providers' && renderProvidersView()}
+            {viewMode === 'memory' && renderMemoryView()}
           </>
         )}
       </section>
@@ -1461,6 +1536,149 @@ function App() {
             <DiffPreview diff={commitFileDiff} />
           </div>
         </div>
+      </section>
+    )
+  }
+
+  function renderMemoryView() {
+    const files = projectMemory?.files ?? []
+    const symbols = projectMemory?.symbols ?? []
+    const commits = projectMemory?.recentCommits ?? []
+
+    return (
+      <section className="single-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Project Memory</h2>
+            <p>Local project context index for assistant workflows.</p>
+          </div>
+          <div className="panel-actions">
+            <button type="button" onClick={() => loadProjectMemory()} disabled={memoryLoading}>
+              <RefreshCcw size={17} />
+              Reload
+            </button>
+            <button type="button" onClick={scanProjectMemory} disabled={memoryLoading}>
+              {memoryLoading ? <Loader2 className="spin" size={17} /> : <Database size={17} />}
+              Rescan
+            </button>
+          </div>
+        </div>
+
+        {!projectMemory ? (
+          <div className="quiet-box">
+            {memoryLoading ? 'Scanning Project Memory.' : 'No Project Memory snapshot yet.'}
+          </div>
+        ) : (
+          <div className="memory-workspace">
+            <section className="memory-summary-grid">
+              <Stat label="Indexed files" value={files.length} />
+              <Stat label="Symbols" value={symbols.length} />
+              <Stat label="Imports" value={projectMemory.imports.length} />
+              <Stat label="Recent commits" value={commits.length} />
+            </section>
+
+            <section className="memory-meta">
+              <InfoRow label="Last scan" value={formatDate(projectMemory.scannedAt)} />
+              <InfoRow label="Branch" value={projectMemory.repository.currentBranch} />
+              <InfoRow label="Remote" value={projectMemory.repository.remoteName ?? 'None'} />
+              <InfoRow label="Repository ID" value={projectMemory.repository.id} />
+            </section>
+
+            <section className="memory-stack">
+              {projectMemory.stackHints.length === 0 ? (
+                <div className="quiet-box">No stack hints detected.</div>
+              ) : (
+                projectMemory.stackHints.map((hint) => (
+                  <span key={hint.id} title={hint.source}>{hint.label}</span>
+                ))
+              )}
+            </section>
+
+            <section className="memory-grid">
+              <div className="memory-list">
+                <div className="memory-section-heading">
+                  <h3>Files</h3>
+                  <span>{files.length}</span>
+                </div>
+                {files.length === 0 ? (
+                  <div className="quiet-box">No indexed files.</div>
+                ) : (
+                  files.slice(0, 250).map((file) => (
+                    <button
+                      className={selectedMemoryFilePath === file.path ? 'memory-file-row selected' : 'memory-file-row'}
+                      type="button"
+                      key={file.path}
+                      onClick={() => setSelectedMemoryFilePath(file.path)}
+                    >
+                      <strong>{file.path}</strong>
+                      <span>{memoryFileMeta(file)}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+
+              <div className="memory-details">
+                <div className="memory-section-heading">
+                  <h3>{selectedMemoryFile?.path ?? 'File outline'}</h3>
+                  <span>{selectedMemorySymbols.length} symbols</span>
+                </div>
+
+                {!selectedMemoryFile ? (
+                  <div className="quiet-box">Select an indexed file.</div>
+                ) : (
+                  <>
+                    <div className="memory-outline">
+                      {selectedMemorySymbols.length === 0 ? (
+                        <div className="quiet-box">No symbols detected in this file.</div>
+                      ) : (
+                        selectedMemorySymbols.map((symbol) => (
+                          <article className="memory-symbol-row" key={symbol.id}>
+                            <span>{symbol.kind}</span>
+                            <strong>{symbol.parentName ? `${symbol.parentName}.${symbol.name}` : symbol.name}</strong>
+                            <code>{symbol.exported ? 'exported' : 'local'} · line {symbol.line}</code>
+                          </article>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="memory-section-heading compact">
+                      <h3>Imports</h3>
+                      <span>{selectedMemoryImports.length}</span>
+                    </div>
+                    <div className="memory-imports">
+                      {selectedMemoryImports.length === 0 ? (
+                        <div className="quiet-box">No imports detected.</div>
+                      ) : (
+                        selectedMemoryImports.map((entry) => (
+                          <code key={`${entry.path}-${entry.line}-${entry.source}`}>
+                            {entry.source}{entry.specifiers.length > 0 ? ` · ${entry.specifiers.join(', ')}` : ''} · line {entry.line}
+                          </code>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="memory-list recent-memory-commits">
+                <div className="memory-section-heading">
+                  <h3>Recent commits</h3>
+                  <span>{commits.length}</span>
+                </div>
+                {commits.length === 0 ? (
+                  <div className="quiet-box">No commits indexed.</div>
+                ) : (
+                  commits.slice(0, 12).map((commit) => (
+                    <article className="memory-commit-row" key={commit.sha}>
+                      <strong>{commit.subject || '(no subject)'}</strong>
+                      <span>{commit.shortSha} · {formatDate(commit.authoredAt)}</span>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+          </div>
+        )}
       </section>
     )
   }
@@ -2426,6 +2644,26 @@ function githubStatusLabel(status: GitHubCliStatus): string {
   }
 
   return 'gh missing'
+}
+
+function memoryFileMeta(file: ProjectMemoryFile): string {
+  const parts = [
+    (file.language ?? file.extension) || 'file',
+    formatBytes(file.sizeBytes),
+    `${file.symbolCount} symbols`
+  ]
+
+  if (file.importCount > 0) {
+    parts.push(`${file.importCount} imports`)
+  }
+
+  return parts.join(' · ')
+}
+
+function formatBytes(sizeBytes: number): string {
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function formatDate(value: string): string {

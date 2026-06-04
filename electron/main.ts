@@ -20,9 +20,11 @@ import type {
   GitIdentityUpdate,
   HunkActionRequest,
   MergeBranchRequest,
+  ProjectMemoryScanResult,
   PullRequestDetailsRequest,
   PullRequestTextGenerationRequest,
   PublishBranchRequest,
+  RepositorySnapshot,
   ReviewReportRequest,
   StashActionRequest
 } from '../src/shared/branchPilot.js'
@@ -30,6 +32,7 @@ import { generateCommitMessage, generatePullRequestText, generateReviewReport, l
 import { CommandRunner } from './lib/commandRunner.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { toBranchPilotError } from './lib/errors.js'
+import { ProjectMemoryService, ProjectMemoryStore } from './lib/projectMemoryService.js'
 import { RepositoryService } from './lib/repositoryService.js'
 import { SettingsStore } from './lib/settingsStore.js'
 import {
@@ -50,6 +53,10 @@ const commandRunner = new CommandRunner()
 const settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'branchpilot-settings.json'))
 const repositoryService = new RepositoryService(commandRunner, settingsStore)
 const editorService = new ExternalEditorService(commandRunner)
+const projectMemoryService = new ProjectMemoryService(
+  commandRunner,
+  new ProjectMemoryStore(path.join(app.getPath('userData'), 'project-memory'))
+)
 
 function createMainWindow() {
   const window = new BrowserWindow({
@@ -110,16 +117,22 @@ function registerIpcHandlers() {
       return null
     }
 
-    return repositoryService.openRepository(result.filePaths[0])
+    return withProjectMemoryRefresh(await repositoryService.openRepository(result.filePaths[0]))
   })
 
-  handle('repository:open', (repoPath: string) => repositoryService.openRepository(repoPath))
+  handle('repository:open', async (repoPath: string) =>
+    withProjectMemoryRefresh(await repositoryService.openRepository(repoPath))
+  )
   handle('repository:recent', () => repositoryService.getRecentRepositories())
   handle('repository:refresh', (repoPath: string) => repositoryService.getSnapshot(repoPath))
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
   handle('repository:history', (repoPath: string) => repositoryService.getHistory(repoPath))
   handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))
   handle('repository:commitFileDiff', (request: CommitFileDiffRequest) => repositoryService.getCommitFileDiff(request))
+  handle('repository:projectMemory', (repoPath: string) => projectMemoryService.getProjectMemory(repoPath))
+  handle('repository:scanProjectMemory', (repoPath: string): Promise<ProjectMemoryScanResult> =>
+    projectMemoryService.scanProjectMemory(repoPath)
+  )
   handle('repository:gitConfig', (repoPath: string) => repositoryService.getGitConfig(repoPath))
   handle('repository:setLocalGitIdentity', (request: GitIdentityUpdate) => repositoryService.setLocalGitIdentity(request))
 
@@ -133,7 +146,9 @@ function registerIpcHandlers() {
   handle('git:deleteUntrackedFile', (request: ConfirmedFileActionRequest) =>
     repositoryService.deleteUntrackedFile(request)
   )
-  handle('git:commit', (request: CommitRequest) => repositoryService.commit(request))
+  handle('git:commit', async (request: CommitRequest) =>
+    withProjectMemoryRefresh(await repositoryService.commit(request))
+  )
   handle('stash:list', (repoPath: string) => repositoryService.listStashes(repoPath))
   handle('stash:create', (request: CreateStashRequest) => repositoryService.createStash(request))
   handle('stash:apply', (request: StashActionRequest) => repositoryService.applyStash(request))
@@ -196,6 +211,14 @@ function registerIpcHandlers() {
   handle('assistants:generateReviewReport', (request: ReviewReportRequest) =>
     generateReviewReport(commandRunner, request)
   )
+}
+
+function withProjectMemoryRefresh(snapshot: RepositorySnapshot): RepositorySnapshot {
+  void projectMemoryService.scanProjectMemory(snapshot.summary.rootPath).catch((error: unknown) => {
+    console.error('Project Memory refresh failed', error)
+  })
+
+  return snapshot
 }
 
 app.whenReady().then(() => {
