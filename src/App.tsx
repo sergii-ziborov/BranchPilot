@@ -27,6 +27,9 @@ import {
   X
 } from 'lucide-react'
 import type {
+  ActivityLogEntry,
+  ActivityLogEventType,
+  ActivityLogSnapshot,
   ApiResult,
   AssistantId,
   AssistantStatus,
@@ -65,10 +68,12 @@ import './App.css'
 type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory'
 type DiffMode = 'unstaged' | 'staged'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
+type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
 
 const api = window.branchPilot
 const reviewModes: ReviewMode[] = ['consistency', 'security', 'quality']
 const reviewSeverities: ReviewSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
+const activityCategories: ActivityCategory[] = ['all', 'git', 'assistant', 'provider', 'memory']
 
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
@@ -86,6 +91,8 @@ function App() {
   const [commitFileDiff, setCommitFileDiff] = useState<DiffResult | null>(null)
   const [projectMemory, setProjectMemory] = useState<ProjectMemorySnapshot | null>(null)
   const [projectMemoryMcpConfig, setProjectMemoryMcpConfig] = useState<ProjectMemoryMcpConfig | null>(null)
+  const [activityLog, setActivityLog] = useState<ActivityLogSnapshot | null>(null)
+  const [activityCategory, setActivityCategory] = useState<ActivityCategory>('all')
   const [memoryLoading, setMemoryLoading] = useState(false)
   const [selectedMemoryFilePath, setSelectedMemoryFilePath] = useState<string | null>(null)
   const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
@@ -171,6 +178,11 @@ function App() {
   const selectedMemoryImports = useMemo(
     () => projectMemory?.imports.filter((entry) => entry.path === selectedMemoryFilePath) ?? [],
     [projectMemory, selectedMemoryFilePath]
+  )
+
+  const filteredActivityEntries = useMemo(
+    () => (activityLog?.entries ?? []).filter((entry) => activityCategory === 'all' || activityEntryCategory(entry) === activityCategory),
+    [activityCategory, activityLog]
   )
 
   useEffect(() => {
@@ -494,9 +506,10 @@ function App() {
   async function loadProjectMemory(repoPath = currentRepoPath) {
     if (!api || !repoPath) return
     setMemoryLoading(true)
-    const [memoryResult, mcpConfigResult] = await Promise.all([
+    const [memoryResult, mcpConfigResult, activityResult] = await Promise.all([
       api.getProjectMemory(repoPath),
-      api.getProjectMemoryMcpConfig(repoPath)
+      api.getProjectMemoryMcpConfig(repoPath),
+      api.getActivityLog({ repoPath, limit: 120 })
     ])
 
     if (memoryResult.ok) {
@@ -511,6 +524,13 @@ function App() {
     } else {
       setProjectMemoryMcpConfig(null)
       setError(mcpConfigResult.error.message)
+    }
+
+    if (activityResult.ok) {
+      setActivityLog(activityResult.data)
+    } else {
+      setActivityLog(null)
+      setError(activityResult.error.message)
     }
 
     setMemoryLoading(false)
@@ -541,6 +561,26 @@ function App() {
     } catch {
       setError('Clipboard is not available in this runtime.')
     }
+  }
+
+  async function clearActivityLog() {
+    if (!api || !currentRepoPath) return
+    const confirmed = window.confirm('Clear BranchPilot activity for this repository? This cannot be undone.')
+
+    if (!confirmed) return
+
+    setMemoryLoading(true)
+    const result = await api.clearActivityLog(currentRepoPath, confirmed)
+
+    if (result.ok) {
+      setActivityLog(result.data)
+      setNotice('Activity Log cleared.')
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setMemoryLoading(false)
   }
 
   async function loadCommitDetails(commitSha: string) {
@@ -1598,6 +1638,7 @@ function App() {
               <Stat label="Symbols" value={symbols.length} />
               <Stat label="Imports" value={projectMemory.imports.length} />
               <Stat label="Recent commits" value={commits.length} />
+              <Stat label="Activity events" value={activityLog?.totalCount ?? 0} />
             </section>
 
             <section className="memory-meta">
@@ -1626,6 +1667,7 @@ function App() {
                   </div>
                 </div>
                 <InfoRow label="Memory dir" value={projectMemoryMcpConfig.memoryDir} />
+                <InfoRow label="Activity dir" value={projectMemoryMcpConfig.activityDir} />
                 <InfoRow label="Server path" value={projectMemoryMcpConfig.serverPath} />
                 <div className="memory-mcp-snippet">
                   <div className="memory-section-heading compact">
@@ -1649,6 +1691,52 @@ function App() {
                 </div>
               </section>
             )}
+
+            <section className="memory-activity-card">
+              <div className="memory-section-heading">
+                <div>
+                  <h3>Activity Log</h3>
+                  <span>{activityLog?.totalCount ?? 0} events stored locally</span>
+                </div>
+                <div className="panel-actions">
+                  <button type="button" onClick={() => loadProjectMemory()} disabled={memoryLoading}>
+                    <RefreshCcw size={15} />
+                    Reload
+                  </button>
+                  <button type="button" onClick={clearActivityLog} disabled={memoryLoading || !activityLog?.totalCount}>
+                    <Trash2 size={15} />
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="segmented memory-activity-filters" aria-label="Activity filters">
+                {activityCategories.map((category) => (
+                  <button
+                    className={activityCategory === category ? 'active' : ''}
+                    type="button"
+                    key={category}
+                    onClick={() => setActivityCategory(category)}
+                  >
+                    {activityCategoryLabel(category)}
+                  </button>
+                ))}
+              </div>
+              <div className="memory-activity-list">
+                {filteredActivityEntries.length === 0 ? (
+                  <div className="quiet-box">No activity for this filter.</div>
+                ) : (
+                  filteredActivityEntries.slice(0, 40).map((entry) => (
+                    <article className={`activity-row activity-${entry.status}`} key={entry.id}>
+                      <div>
+                        <strong>{activityTypeLabel(entry.type)}</strong>
+                        <span>{entry.actor} · {entry.status} · {formatDate(entry.createdAt)}</span>
+                      </div>
+                      <code>{activityMetadataLabel(entry)}</code>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
 
             <section className="memory-grid">
               <div className="memory-list">
@@ -2714,6 +2802,40 @@ function memoryFileMeta(file: ProjectMemoryFile): string {
   }
 
   return parts.join(' · ')
+}
+
+function activityEntryCategory(entry: ActivityLogEntry): ActivityCategory {
+  if (entry.actor === 'assistant') return 'assistant'
+  if (entry.actor === 'provider') return 'provider'
+  if (entry.type === 'project_memory_scanned' || entry.type === 'repository_opened' || entry.type === 'repository_refreshed') {
+    return 'memory'
+  }
+
+  return 'git'
+}
+
+function activityCategoryLabel(category: ActivityCategory): string {
+  if (category === 'git') return 'Git'
+  if (category === 'assistant') return 'Assistant'
+  if (category === 'provider') return 'Provider'
+  if (category === 'memory') return 'Memory'
+  return 'All'
+}
+
+function activityTypeLabel(type: ActivityLogEventType): string {
+  return type
+    .split('_')
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(' ')
+}
+
+function activityMetadataLabel(entry: ActivityLogEntry): string {
+  const parts = Object.entries(entry.metadata)
+    .filter(([, value]) => value !== '' && value !== null)
+    .slice(0, 4)
+    .map(([key, value]) => `${key}: ${String(value)}`)
+
+  return parts.length > 0 ? parts.join(' · ') : entry.title
 }
 
 function formatBytes(sizeBytes: number): string {

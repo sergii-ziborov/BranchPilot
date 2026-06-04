@@ -8,6 +8,7 @@ import {
   type MemoryQueryOptions,
   getCurrentGitState,
   getFileOutline,
+  getAgentActivity,
   getProjectSummary,
   getPromptText,
   getRecentCommits,
@@ -36,6 +37,34 @@ const symbolKinds = [
   'interface',
   'export'
 ] as const
+const activityTypes = [
+  'repository_opened',
+  'repository_refreshed',
+  'project_memory_scanned',
+  'commit_created',
+  'branch_created',
+  'branch_switched',
+  'branch_deleted',
+  'git_fetched',
+  'git_pulled',
+  'git_pushed',
+  'branch_published',
+  'stash_created',
+  'stash_applied',
+  'stash_dropped',
+  'merge_started',
+  'merge_continued',
+  'merge_aborted',
+  'merge_resolved',
+  'assistant_commit_generated',
+  'assistant_pr_generated',
+  'assistant_review_generated',
+  'github_pr_created',
+  'github_pr_checked_out',
+  'github_pr_details_loaded'
+] as const
+const activityActors = ['user', 'branchpilot', 'assistant', 'provider'] as const
+const activityStatuses = ['success', 'failure'] as const
 
 export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServer {
   const server = new McpServer({
@@ -109,6 +138,18 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     annotations: readOnlyAnnotations()
   }, async () => toolJson(await getCurrentGitState(options)))
 
+  server.registerTool('get_agent_activity', {
+    title: 'Get Agent Activity',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_agent_activity')?.description,
+    inputSchema: {
+      types: z.array(z.enum(activityTypes)).optional().describe('Optional event type filters.'),
+      actor: z.enum(activityActors).optional().describe('Optional actor filter.'),
+      status: z.enum(activityStatuses).optional().describe('Optional success/failure filter.'),
+      limit: z.number().int().min(1).max(100).optional().describe('Maximum number of activity entries to return.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getAgentActivity({ ...options, ...args })))
+
   for (const uri of MCP_RESOURCE_URIS) {
     server.registerResource(resourceName(uri), uri, {
       title: resourceTitle(uri),
@@ -143,6 +184,7 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
 
 export function parseMcpServerArgs(argv: string[]): MemoryQueryOptions {
   const memoryDir = readFlag(argv, '--memory-dir')
+  const activityDir = readFlag(argv, '--activity-dir')
   const repoPath = readFlag(argv, '--repo')
 
   if (!memoryDir) {
@@ -151,6 +193,7 @@ export function parseMcpServerArgs(argv: string[]): MemoryQueryOptions {
 
   return {
     memoryDir,
+    activityDir,
     repoPath
   }
 }

@@ -178,11 +178,68 @@ export interface ProjectMemoryScanResult {
 
 export interface ProjectMemoryMcpConfig {
   memoryDir: string
+  activityDir: string
   serverPath: string
   repoPath: string
   codexCommand: string
   codexToml: string
   serverExists: boolean
+}
+
+export type ActivityLogEventType =
+  | 'repository_opened'
+  | 'repository_refreshed'
+  | 'project_memory_scanned'
+  | 'commit_created'
+  | 'branch_created'
+  | 'branch_switched'
+  | 'branch_deleted'
+  | 'git_fetched'
+  | 'git_pulled'
+  | 'git_pushed'
+  | 'branch_published'
+  | 'stash_created'
+  | 'stash_applied'
+  | 'stash_dropped'
+  | 'merge_started'
+  | 'merge_continued'
+  | 'merge_aborted'
+  | 'merge_resolved'
+  | 'assistant_commit_generated'
+  | 'assistant_pr_generated'
+  | 'assistant_review_generated'
+  | 'github_pr_created'
+  | 'github_pr_checked_out'
+  | 'github_pr_details_loaded'
+
+export type ActivityLogActor = 'user' | 'branchpilot' | 'assistant' | 'provider'
+export type ActivityLogStatus = 'success' | 'failure'
+export type ActivityLogMetadataValue = string | number | boolean | null
+export type ActivityLogMetadata = Record<string, ActivityLogMetadataValue>
+
+export interface ActivityLogEntry {
+  id: string
+  repoPath: string
+  type: ActivityLogEventType
+  actor: ActivityLogActor
+  status: ActivityLogStatus
+  title: string
+  createdAt: string
+  metadata: ActivityLogMetadata
+}
+
+export interface ActivityLogQuery {
+  repoPath: string
+  types?: ActivityLogEventType[]
+  actor?: ActivityLogActor
+  status?: ActivityLogStatus
+  limit?: number
+}
+
+export interface ActivityLogSnapshot {
+  repoPath: string
+  entries: ActivityLogEntry[]
+  totalCount: number
 }
 
 export interface CommitFileChange {
@@ -517,6 +574,8 @@ export interface BranchPilotApi {
   getProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemorySnapshot | null>>
   scanProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemoryScanResult>>
   getProjectMemoryMcpConfig: (repoPath: string) => Promise<ApiResult<ProjectMemoryMcpConfig>>
+  getActivityLog: (query: ActivityLogQuery) => Promise<ApiResult<ActivityLogSnapshot>>
+  clearActivityLog: (repoPath: string, confirmed: boolean) => Promise<ApiResult<ActivityLogSnapshot>>
   getGitConfig: (repoPath: string) => Promise<ApiResult<GitConfigSnapshot>>
   setLocalGitIdentity: (request: GitIdentityUpdate) => Promise<ApiResult<GitConfigSnapshot>>
   stageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>

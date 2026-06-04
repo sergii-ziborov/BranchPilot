@@ -3,6 +3,7 @@ import type { ProjectMemoryMcpConfig } from '../../src/shared/branchPilot.js'
 
 interface ProjectMemoryMcpConfigInput {
   memoryDir: string
+  activityDir: string
   repoPath: string
   serverPath: string
 }
@@ -12,12 +13,15 @@ export async function createProjectMemoryMcpConfig(input: ProjectMemoryMcpConfig
     input.serverPath,
     '--memory-dir',
     input.memoryDir,
+    '--activity-dir',
+    input.activityDir,
     '--repo',
     input.repoPath
   ]
 
   return {
     memoryDir: input.memoryDir,
+    activityDir: input.activityDir,
     serverPath: input.serverPath,
     repoPath: input.repoPath,
     codexCommand: [

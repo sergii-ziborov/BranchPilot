@@ -6,9 +6,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
+import { ActivityLogService } from '../electron/lib/activityLogService'
 import { ProjectMemoryStore } from '../electron/lib/projectMemoryService'
 import { createProjectMemoryMcpConfig } from '../electron/mcp/config'
 import {
+  getAgentActivity,
   getFileOutline,
   loadProjectMemorySnapshot,
   searchFiles,
@@ -71,20 +73,22 @@ describe('BranchPilot MCP Project Memory bridge', () => {
   it('creates a Codex MCP command and TOML config without mutating Codex settings', async () => {
     const config = await createProjectMemoryMcpConfig({
       memoryDir: '/Users/example/Library/Application Support/BranchPilot/project-memory',
+      activityDir: '/Users/example/Library/Application Support/BranchPilot/activity-log',
       repoPath: '/Users/example/dev/BranchPilot',
       serverPath: '/Users/example/dev/BranchPilot/dist-electron/electron/mcp/server.js'
     })
 
     expect(config.codexCommand).toContain('codex mcp add branchpilot -- node')
     expect(config.codexCommand).toContain('--memory-dir')
+    expect(config.codexCommand).toContain('--activity-dir')
     expect(config.codexToml).toContain('[mcp_servers.branchpilot]')
     expect(config.codexToml).toContain('default_tools_approval_mode = "auto"')
     expect(config.serverExists).toBe(false)
   })
 
   it('registers read-only MCP tools, resources, prompts, and serves project_summary', async () => {
-    const { memoryDir, repoPath } = await createStoredSnapshot()
-    const server = createBranchPilotMcpServer({ memoryDir, repoPath })
+    const { memoryDir, activityDir, repoPath } = await createStoredSnapshot()
+    const server = createBranchPilotMcpServer({ memoryDir, activityDir, repoPath })
     const client = new Client({
       name: 'branchpilot-test-client',
       version: '0.0.0'
@@ -104,7 +108,8 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       'get_file_outline',
       'get_symbol_context',
       'get_recent_commits',
-      'get_current_git_state'
+      'get_current_git_state',
+      'get_agent_activity'
     ]))
     expect(tools.tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true)
     expect(tools.tools.every((tool) => tool.annotations?.destructiveHint === false)).toBe(true)
@@ -114,7 +119,8 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       'branchpilot://repo/current/summary',
       'branchpilot://repo/current/tree',
       'branchpilot://repo/current/symbols',
-      'branchpilot://repo/current/commits'
+      'branchpilot://repo/current/commits',
+      'branchpilot://repo/current/activity'
     ]))
 
     const prompts = await client.listPrompts()
@@ -135,8 +141,20 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       },
       counts: {
         files: 2,
-        symbols: 4
+        symbols: 4,
+        recentActivity: 1
       }
+    })
+
+    const activityResult = await client.callTool({ name: 'get_agent_activity', arguments: { limit: 10 } })
+    expect(JSON.parse(getTextResult(activityResult))).toMatchObject({
+      totalCount: 1,
+      entries: [
+        expect.objectContaining({
+          type: 'assistant_review_generated',
+          actor: 'assistant'
+        })
+      ]
     })
 
     await client.close()
@@ -145,8 +163,9 @@ describe('BranchPilot MCP Project Memory bridge', () => {
 
   it('requires --memory-dir when parsing server args', () => {
     expect(() => parseMcpServerArgs(['--repo', '/repo'])).toThrow('Missing required --memory-dir')
-    expect(parseMcpServerArgs(['--memory-dir', '/memory', '--repo', '/repo'])).toEqual({
+    expect(parseMcpServerArgs(['--memory-dir', '/memory', '--activity-dir', '/activity', '--repo', '/repo'])).toEqual({
       memoryDir: '/memory',
+      activityDir: '/activity',
       repoPath: '/repo'
     })
   })
@@ -154,11 +173,28 @@ describe('BranchPilot MCP Project Memory bridge', () => {
 
 async function createStoredSnapshot(memoryDir = createTempDirectory('branchpilot-mcp-memory-test-')) {
   const repoPath = createTempDirectory('branchpilot-mcp-repo-test-')
+  const activityDir = createTempDirectory('branchpilot-mcp-activity-test-')
   const snapshot = makeSnapshot(repoPath)
   await new ProjectMemoryStore(memoryDir).write(snapshot)
+  await new ActivityLogService(activityDir).append({
+    repoPath,
+    type: 'assistant_review_generated',
+    actor: 'assistant',
+    status: 'success',
+    title: 'Assistant review generated',
+    metadata: {
+      mode: 'security',
+      findings: 2
+    }
+  })
+
+  await expect(getAgentActivity({ memoryDir, activityDir, repoPath })).resolves.toMatchObject({
+    totalCount: 1
+  })
 
   return {
     memoryDir,
+    activityDir,
     repoPath,
     snapshot
   }

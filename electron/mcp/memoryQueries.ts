@@ -2,15 +2,20 @@ import { createHash } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import type {
+  ActivityLogActor,
+  ActivityLogEventType,
+  ActivityLogStatus,
   ProjectMemoryFile,
   ProjectMemoryImport,
   ProjectMemorySnapshot,
   ProjectMemorySymbol,
   ProjectMemorySymbolKind
 } from '../../src/shared/branchPilot.js'
+import { ActivityLogService } from '../lib/activityLogService.js'
 
 export interface MemoryQueryOptions {
   memoryDir: string
+  activityDir?: string
   repoPath?: string
 }
 
@@ -43,11 +48,19 @@ export interface RecentCommitsOptions extends MemoryQueryOptions {
 
 export type CurrentGitStateOptions = MemoryQueryOptions
 
+export interface AgentActivityOptions extends MemoryQueryOptions {
+  types?: ActivityLogEventType[]
+  actor?: ActivityLogActor
+  status?: ActivityLogStatus
+  limit?: number
+}
+
 export const MCP_RESOURCE_URIS = [
   'branchpilot://repo/current/summary',
   'branchpilot://repo/current/tree',
   'branchpilot://repo/current/symbols',
-  'branchpilot://repo/current/commits'
+  'branchpilot://repo/current/commits',
+  'branchpilot://repo/current/activity'
 ] as const
 
 const DEFAULT_LIMIT = 25
@@ -92,6 +105,7 @@ export async function loadProjectMemorySnapshot(options: MemoryQueryOptions): Pr
 
 export async function getProjectSummary(options: MemoryQueryOptions) {
   const snapshot = await loadProjectMemorySnapshot(options)
+  const activity = await getAgentActivity({ ...options, limit: 10 })
 
   return {
     scannedAt: snapshot.scannedAt,
@@ -100,10 +114,12 @@ export async function getProjectSummary(options: MemoryQueryOptions) {
       files: snapshot.files.length,
       symbols: snapshot.symbols.length,
       imports: snapshot.imports.length,
-      recentCommits: snapshot.recentCommits.length
+      recentCommits: snapshot.recentCommits.length,
+      recentActivity: activity.totalCount
     },
     stackHints: snapshot.stackHints,
-    recentCommits: snapshot.recentCommits.slice(0, 10)
+    recentCommits: snapshot.recentCommits.slice(0, 10),
+    recentActivity: activity.entries
   }
 }
 
@@ -202,11 +218,39 @@ export async function getCurrentGitState(options: CurrentGitStateOptions) {
   }
 }
 
+export async function getAgentActivity(options: AgentActivityOptions) {
+  const snapshot = await loadProjectMemorySnapshot(options)
+
+  if (!options.activityDir) {
+    return {
+      scannedAt: snapshot.scannedAt,
+      repository: snapshot.repository,
+      totalCount: 0,
+      entries: []
+    }
+  }
+
+  const activity = await new ActivityLogService(options.activityDir).getActivityLog({
+    repoPath: snapshot.repository.rootPath,
+    types: options.types,
+    actor: options.actor,
+    status: options.status,
+    limit: normalizeLimit(options.limit)
+  })
+
+  return {
+    scannedAt: snapshot.scannedAt,
+    repository: snapshot.repository,
+    totalCount: activity.totalCount,
+    entries: activity.entries
+  }
+}
+
 export async function getResourcePayload(options: MemoryQueryOptions, uri: string): Promise<unknown> {
   const snapshot = await loadProjectMemorySnapshot(options)
 
   if (uri === 'branchpilot://repo/current/summary') {
-    return getProjectSummaryFromSnapshot(snapshot)
+    return getProjectSummary(options)
   }
 
   if (uri === 'branchpilot://repo/current/tree') {
@@ -231,6 +275,10 @@ export async function getResourcePayload(options: MemoryQueryOptions, uri: strin
       repository: snapshot.repository,
       commits: snapshot.recentCommits
     }
+  }
+
+  if (uri === 'branchpilot://repo/current/activity') {
+    return getAgentActivity({ ...options, limit: 100 })
   }
 
   throw new Error(`Unknown BranchPilot resource: ${uri}`)
@@ -303,21 +351,6 @@ async function readSnapshot(filePath: string): Promise<ProjectMemorySnapshot> {
   }
 }
 
-function getProjectSummaryFromSnapshot(snapshot: ProjectMemorySnapshot) {
-  return {
-    scannedAt: snapshot.scannedAt,
-    repository: snapshot.repository,
-    counts: {
-      files: snapshot.files.length,
-      symbols: snapshot.symbols.length,
-      imports: snapshot.imports.length,
-      recentCommits: snapshot.recentCommits.length
-    },
-    stackHints: snapshot.stackHints,
-    recentCommits: snapshot.recentCommits.slice(0, 10)
-  }
-}
-
 function findSymbol(symbols: ProjectMemorySymbol[], options: SymbolContextOptions): ProjectMemorySymbol | undefined {
   if (options.symbolId) {
     return symbols.find((symbol) => symbol.id === options.symbolId)
@@ -364,6 +397,7 @@ export type BranchPilotMcpToolName =
   | 'get_symbol_context'
   | 'get_recent_commits'
   | 'get_current_git_state'
+  | 'get_agent_activity'
 
 export interface BranchPilotMcpToolDefinition {
   name: BranchPilotMcpToolName
@@ -398,6 +432,10 @@ export const BRANCHPILOT_MCP_TOOLS: BranchPilotMcpToolDefinition[] = [
   {
     name: 'get_current_git_state',
     description: 'Return branch and remote state from the latest Project Memory snapshot.'
+  },
+  {
+    name: 'get_agent_activity',
+    description: 'Return recent BranchPilot activity for this repository from the local Activity Log.'
   }
 ]
 

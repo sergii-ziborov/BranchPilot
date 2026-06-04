@@ -3,6 +3,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type {
   ApiResult,
+  ActivityLogActor,
+  ActivityLogEventType,
+  ActivityLogMetadata,
+  ActivityLogQuery,
   BranchActionRequest,
   CheckoutPullRequestRequest,
   CommitDetailsRequest,
@@ -29,6 +33,7 @@ import type {
   StashActionRequest
 } from '../src/shared/branchPilot.js'
 import { generateCommitMessage, generatePullRequestText, generateReviewReport, listAssistantStatuses } from './assistants/assistantRunner.js'
+import { ActivityLogService, type ActivityLogAppendInput } from './lib/activityLogService.js'
 import { CommandRunner } from './lib/commandRunner.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { toBranchPilotError } from './lib/errors.js'
@@ -52,9 +57,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const commandRunner = new CommandRunner()
 const projectMemoryDir = path.join(app.getPath('userData'), 'project-memory')
+const activityLogDir = path.join(app.getPath('userData'), 'activity-log')
 const settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'branchpilot-settings.json'))
 const repositoryService = new RepositoryService(commandRunner, settingsStore)
 const editorService = new ExternalEditorService(commandRunner)
+const activityLogService = new ActivityLogService(activityLogDir)
 const projectMemoryService = new ProjectMemoryService(
   commandRunner,
   new ProjectMemoryStore(projectMemoryDir)
@@ -106,10 +113,101 @@ function handle<Args extends unknown[], T>(channel: string, callback: (...args: 
   })
 }
 
+interface ActivityDescriptor<Args extends unknown[], T> {
+  type: ActivityLogEventType
+  actor: ActivityLogActor
+  title: string
+  repoPath: (args: Args, data?: T) => string | undefined
+  metadata?: (args: Args, data?: T) => ActivityLogMetadata | undefined
+}
+
+function handleLogged<Args extends unknown[], T>(
+  channel: string,
+  descriptor: ActivityDescriptor<Args, T>,
+  callback: (...args: Args) => Promise<T> | T
+) {
+  ipcMain.handle(channel, async (_event, ...rawArgs): Promise<ApiResult<T>> => {
+    const args = rawArgs as Args
+
+    try {
+      const data = await callback(...args)
+      await recordActivity({
+        repoPath: descriptor.repoPath(args, data),
+        type: descriptor.type,
+        actor: descriptor.actor,
+        status: 'success',
+        title: descriptor.title,
+        metadata: descriptor.metadata?.(args, data)
+      })
+
+      return {
+        ok: true,
+        data
+      }
+    } catch (error) {
+      const branchPilotError = toBranchPilotError(error)
+      await recordActivity({
+        repoPath: descriptor.repoPath(args),
+        type: descriptor.type,
+        actor: descriptor.actor,
+        status: 'failure',
+        title: descriptor.title,
+        metadata: {
+          ...(descriptor.metadata?.(args) ?? {}),
+          error_code: branchPilotError.code,
+          error_message: branchPilotError.message
+        }
+      })
+
+      return {
+        ok: false,
+        error: branchPilotError
+      }
+    }
+  })
+}
+
+async function recordActivity(input: Omit<ActivityLogAppendInput, 'repoPath'> & { repoPath?: string }) {
+  if (!input.repoPath) {
+    return
+  }
+
+  try {
+    await activityLogService.append({
+      ...input,
+      repoPath: input.repoPath
+    })
+  } catch (error) {
+    console.error('Activity Log write failed', error)
+  }
+}
+
+function repoPathArg(args: [string]): string {
+  return args[0]
+}
+
+function requestRepoPath<T extends { repoPath: string }>(args: [T]): string {
+  return args[0].repoPath
+}
+
+function snapshotRepoPath(_args: unknown[], snapshot?: RepositorySnapshot | null): string | undefined {
+  return snapshot?.summary.rootPath
+}
+
 function registerIpcHandlers() {
   ipcMain.handle('app:version', () => app.getVersion())
 
-  handle('repository:chooseAndOpen', async () => {
+  handleLogged('repository:chooseAndOpen', {
+    type: 'repository_opened',
+    actor: 'user',
+    title: 'Repository opened',
+    repoPath: snapshotRepoPath,
+    metadata: (_args, snapshot) => snapshot ? {
+      repository: snapshot.summary.name,
+      branch: snapshot.summary.currentBranch,
+      remote: snapshot.summary.remoteName ?? 'none'
+    } : undefined
+  }, async () => {
     const result = await dialog.showOpenDialog({
       title: 'Open repository',
       properties: ['openDirectory']
@@ -122,25 +220,61 @@ function registerIpcHandlers() {
     return withProjectMemoryRefresh(await repositoryService.openRepository(result.filePaths[0]))
   })
 
-  handle('repository:open', async (repoPath: string) =>
+  handleLogged('repository:open', {
+    type: 'repository_opened',
+    actor: 'user',
+    title: 'Repository opened',
+    repoPath: (args, snapshot) => snapshotRepoPath(args, snapshot) ?? args[0],
+    metadata: (_args, snapshot) => snapshot ? {
+      repository: snapshot.summary.name,
+      branch: snapshot.summary.currentBranch,
+      remote: snapshot.summary.remoteName ?? 'none'
+    } : undefined
+  }, async (repoPath: string) =>
     withProjectMemoryRefresh(await repositoryService.openRepository(repoPath))
   )
   handle('repository:recent', () => repositoryService.getRecentRepositories())
-  handle('repository:refresh', (repoPath: string) => repositoryService.getSnapshot(repoPath))
+  handleLogged('repository:refresh', {
+    type: 'repository_refreshed',
+    actor: 'user',
+    title: 'Repository refreshed',
+    repoPath: repoPathArg,
+    metadata: (_args, snapshot) => snapshot ? {
+      branch: snapshot.summary.currentBranch,
+      changed: snapshot.status.counts.changed,
+      staged: snapshot.status.counts.staged
+    } : undefined
+  }, (repoPath: string) => repositoryService.getSnapshot(repoPath))
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
   handle('repository:history', (repoPath: string) => repositoryService.getHistory(repoPath))
   handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))
   handle('repository:commitFileDiff', (request: CommitFileDiffRequest) => repositoryService.getCommitFileDiff(request))
   handle('repository:projectMemory', (repoPath: string) => projectMemoryService.getProjectMemory(repoPath))
-  handle('repository:scanProjectMemory', (repoPath: string): Promise<ProjectMemoryScanResult> =>
+  handleLogged('repository:scanProjectMemory', {
+    type: 'project_memory_scanned',
+    actor: 'branchpilot',
+    title: 'Project Memory scanned',
+    repoPath: repoPathArg,
+    metadata: (_args, result) => result ? {
+      scanned_files: result.scannedFileCount,
+      skipped_files: result.skippedFileCount,
+      duration_ms: result.durationMs,
+      symbols: result.snapshot.symbols.length
+    } : undefined
+  }, (repoPath: string): Promise<ProjectMemoryScanResult> =>
     projectMemoryService.scanProjectMemory(repoPath)
   )
   handle('repository:projectMemoryMcpConfig', (repoPath: string) =>
     createProjectMemoryMcpConfig({
       memoryDir: projectMemoryDir,
+      activityDir: activityLogDir,
       repoPath,
       serverPath: path.join(__dirname, 'mcp/server.js')
     })
+  )
+  handle('activity:list', (query: ActivityLogQuery) => activityLogService.getActivityLog(query))
+  handle('activity:clear', (repoPath: string, confirmed: boolean) =>
+    activityLogService.clearActivityLog(repoPath, confirmed)
   )
   handle('repository:gitConfig', (repoPath: string) => repositoryService.getGitConfig(repoPath))
   handle('repository:setLocalGitIdentity', (request: GitIdentityUpdate) => repositoryService.setLocalGitIdentity(request))
@@ -155,40 +289,165 @@ function registerIpcHandlers() {
   handle('git:deleteUntrackedFile', (request: ConfirmedFileActionRequest) =>
     repositoryService.deleteUntrackedFile(request)
   )
-  handle('git:commit', async (request: CommitRequest) =>
+  handleLogged('git:commit', {
+    type: 'commit_created',
+    actor: 'user',
+    title: 'Commit created',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      title_length: request.title.trim().length,
+      description_length: request.description.trim().length,
+      branch: snapshot?.summary.currentBranch ?? 'unknown'
+    })
+  }, async (request: CommitRequest) =>
     withProjectMemoryRefresh(await repositoryService.commit(request))
   )
   handle('stash:list', (repoPath: string) => repositoryService.listStashes(repoPath))
-  handle('stash:create', (request: CreateStashRequest) => repositoryService.createStash(request))
-  handle('stash:apply', (request: StashActionRequest) => repositoryService.applyStash(request))
-  handle('stash:drop', (request: ConfirmedStashActionRequest) => repositoryService.dropStash(request))
-  handle('git:fetch', (repoPath: string) => repositoryService.fetch(repoPath))
-  handle('git:pull', (repoPath: string) => repositoryService.pull(repoPath))
-  handle('git:push', (repoPath: string) => repositoryService.push(repoPath))
-  handle('git:publishBranch', (request: PublishBranchRequest) => repositoryService.publishBranch(request))
-  handle('git:createBranch', (request: BranchActionRequest) =>
+  handleLogged('stash:create', {
+    type: 'stash_created',
+    actor: 'user',
+    title: 'Stash created',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      message_length: request.message.trim().length,
+      include_untracked: request.includeUntracked
+    })
+  }, (request: CreateStashRequest) => repositoryService.createStash(request))
+  handleLogged('stash:apply', {
+    type: 'stash_applied',
+    actor: 'user',
+    title: 'Stash applied',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({ stash_ref: request.stashRef })
+  }, (request: StashActionRequest) => repositoryService.applyStash(request))
+  handleLogged('stash:drop', {
+    type: 'stash_dropped',
+    actor: 'user',
+    title: 'Stash dropped',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({ stash_ref: request.stashRef })
+  }, (request: ConfirmedStashActionRequest) => repositoryService.dropStash(request))
+  handleLogged('git:fetch', {
+    type: 'git_fetched',
+    actor: 'user',
+    title: 'Fetched remote',
+    repoPath: repoPathArg
+  }, (repoPath: string) => repositoryService.fetch(repoPath))
+  handleLogged('git:pull', {
+    type: 'git_pulled',
+    actor: 'user',
+    title: 'Pulled branch',
+    repoPath: repoPathArg,
+    metadata: (_args, snapshot) => snapshot ? ({ branch: snapshot.summary.currentBranch }) : undefined
+  }, (repoPath: string) => repositoryService.pull(repoPath))
+  handleLogged('git:push', {
+    type: 'git_pushed',
+    actor: 'user',
+    title: 'Pushed branch',
+    repoPath: repoPathArg,
+    metadata: (_args, snapshot) => snapshot ? ({ branch: snapshot.summary.currentBranch }) : undefined
+  }, (repoPath: string) => repositoryService.push(repoPath))
+  handleLogged('git:publishBranch', {
+    type: 'branch_published',
+    actor: 'user',
+    title: 'Branch published',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      branch: request.branch ?? snapshot?.summary.currentBranch ?? 'current',
+      remote: request.remote ?? snapshot?.summary.remoteName ?? 'origin'
+    })
+  }, (request: PublishBranchRequest) => repositoryService.publishBranch(request))
+  handleLogged('git:createBranch', {
+    type: 'branch_created',
+    actor: 'user',
+    title: 'Branch created',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({ branch: request.branchName })
+  }, (request: BranchActionRequest) =>
     repositoryService.createBranch(request.repoPath, request.branchName)
   )
-  handle('git:switchBranch', (request: BranchActionRequest) =>
+  handleLogged('git:switchBranch', {
+    type: 'branch_switched',
+    actor: 'user',
+    title: 'Branch switched',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({ branch: request.branchName })
+  }, (request: BranchActionRequest) =>
     repositoryService.switchBranch(request.repoPath, request.branchName)
   )
-  handle('git:deleteBranch', (request: DeleteBranchRequest) =>
+  handleLogged('git:deleteBranch', {
+    type: 'branch_deleted',
+    actor: 'user',
+    title: 'Branch deleted',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({ branch: request.branchName, force: request.force })
+  }, (request: DeleteBranchRequest) =>
     repositoryService.deleteBranch(request.repoPath, request.branchName, request.force)
   )
 
-  handle('merge:acceptOurs', (request: FileActionRequest) => repositoryService.acceptOurs(request))
-  handle('merge:acceptTheirs', (request: FileActionRequest) => repositoryService.acceptTheirs(request))
-  handle('merge:markResolved', (request: FileActionRequest) => repositoryService.markResolved(request))
-  handle('merge:start', (request: MergeBranchRequest) => repositoryService.mergeBranch(request))
-  handle('merge:continue', (repoPath: string) => repositoryService.continueMergeOperation(repoPath))
-  handle('merge:abort', (repoPath: string) => repositoryService.abortMergeOperation(repoPath))
+  handleLogged('merge:acceptOurs', {
+    type: 'merge_resolved',
+    actor: 'user',
+    title: 'Accepted ours',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({ file: request.filePath, resolution: 'ours' })
+  }, (request: FileActionRequest) => repositoryService.acceptOurs(request))
+  handleLogged('merge:acceptTheirs', {
+    type: 'merge_resolved',
+    actor: 'user',
+    title: 'Accepted theirs',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({ file: request.filePath, resolution: 'theirs' })
+  }, (request: FileActionRequest) => repositoryService.acceptTheirs(request))
+  handleLogged('merge:markResolved', {
+    type: 'merge_resolved',
+    actor: 'user',
+    title: 'Marked resolved',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({ file: request.filePath, resolution: 'manual' })
+  }, (request: FileActionRequest) => repositoryService.markResolved(request))
+  handleLogged('merge:start', {
+    type: 'merge_started',
+    actor: 'user',
+    title: 'Merge started',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      branch: request.branchName,
+      operation: snapshot?.status.merge.operation ?? 'none',
+      conflicts: snapshot?.status.merge.files.length ?? 0
+    })
+  }, (request: MergeBranchRequest) => repositoryService.mergeBranch(request))
+  handleLogged('merge:continue', {
+    type: 'merge_continued',
+    actor: 'user',
+    title: 'Merge continued',
+    repoPath: repoPathArg
+  }, (repoPath: string) => repositoryService.continueMergeOperation(repoPath))
+  handleLogged('merge:abort', {
+    type: 'merge_aborted',
+    actor: 'user',
+    title: 'Merge aborted',
+    repoPath: repoPathArg
+  }, (repoPath: string) => repositoryService.abortMergeOperation(repoPath))
 
   handle('editor:open', (request: EditorOpenRequest) => editorService.openInEditor(request.targetPath, request.line))
   handle('terminal:open', (targetPath: string) => editorService.openTerminal(targetPath))
 
   handle('providers:list', () => listProviderStatuses(commandRunner))
   handle('providers:githubCliStatus', (repoPath?: string) => getGitHubCliStatus(commandRunner, repoPath))
-  handle('providers:createGitHubPullRequest', (request: CreatePullRequestRequest) =>
+  handleLogged('providers:createGitHubPullRequest', {
+    type: 'github_pr_created',
+    actor: 'provider',
+    title: 'GitHub pull request created',
+    repoPath: requestRepoPath,
+    metadata: ([request], pullRequest) => ({
+      title_length: request.title.trim().length,
+      description_length: request.description.trim().length,
+      base_branch: pullRequest?.baseBranch ?? request.baseBranch ?? 'default',
+      head_branch: pullRequest?.headBranch ?? request.headBranch ?? 'current',
+      url: pullRequest?.url ?? ''
+    })
+  }, (request: CreatePullRequestRequest) =>
     createGitHubPullRequest(commandRunner, request)
   )
   handle('providers:currentGitHubPullRequest', (repoPath: string) =>
@@ -197,7 +456,18 @@ function registerIpcHandlers() {
   handle('providers:listGitHubPullRequests', (repoPath: string) =>
     listGitHubPullRequests(commandRunner, repoPath)
   )
-  handle('providers:getGitHubPullRequestDetails', (request: PullRequestDetailsRequest) =>
+  handleLogged('providers:getGitHubPullRequestDetails', {
+    type: 'github_pr_details_loaded',
+    actor: 'provider',
+    title: 'GitHub PR details loaded',
+    repoPath: requestRepoPath,
+    metadata: ([request], details) => ({
+      pr_number: request.prNumber,
+      state: details?.state ?? 'unknown',
+      title_length: details?.title.length ?? 0,
+      changed_files: details?.changedFiles ?? 0
+    })
+  }, (request: PullRequestDetailsRequest) =>
     getGitHubPullRequestDetails(commandRunner, request)
   )
   handle('providers:getGitHubPullRequestChecks', (request: PullRequestDetailsRequest) =>
@@ -206,26 +476,101 @@ function registerIpcHandlers() {
   handle('providers:getGitHubPullRequestDiff', (request: PullRequestDetailsRequest) =>
     getGitHubPullRequestDiff(commandRunner, request)
   )
-  handle('providers:checkoutGitHubPullRequest', async (request: CheckoutPullRequestRequest) => {
+  handleLogged('providers:checkoutGitHubPullRequest', {
+    type: 'github_pr_checked_out',
+    actor: 'provider',
+    title: 'GitHub PR checked out',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      pr_number: request.prNumber,
+      branch: snapshot?.summary.currentBranch ?? 'unknown'
+    })
+  }, async (request: CheckoutPullRequestRequest) => {
     const rootPath = await checkoutGitHubPullRequest(commandRunner, request)
     return repositoryService.getSnapshot(rootPath)
   })
   handle('assistants:list', () => listAssistantStatuses(commandRunner))
-  handle('assistants:generateCommitMessage', (request: CommitMessageGenerationRequest) =>
+  handleLogged('assistants:generateCommitMessage', {
+    type: 'assistant_commit_generated',
+    actor: 'assistant',
+    title: 'Assistant commit text generated',
+    repoPath: requestRepoPath,
+    metadata: ([request], generated) => ({
+      requested_assistant: request.assistant,
+      assistant: generated?.assistant ?? 'unknown',
+      title_length: generated?.title.length ?? 0,
+      description_length: generated?.description.length ?? 0,
+      truncated: generated?.truncated ?? false
+    })
+  }, (request: CommitMessageGenerationRequest) =>
     generateCommitMessage(commandRunner, request)
   )
-  handle('assistants:generatePullRequestText', (request: PullRequestTextGenerationRequest) =>
+  handleLogged('assistants:generatePullRequestText', {
+    type: 'assistant_pr_generated',
+    actor: 'assistant',
+    title: 'Assistant PR text generated',
+    repoPath: requestRepoPath,
+    metadata: ([request], generated) => ({
+      requested_assistant: request.assistant,
+      assistant: generated?.assistant ?? 'unknown',
+      base_branch: generated?.baseBranch ?? request.baseBranch ?? 'default',
+      head_branch: generated?.headBranch ?? 'unknown',
+      commit_count: generated?.commitCount ?? 0,
+      title_length: generated?.title.length ?? 0,
+      description_length: generated?.description.length ?? 0,
+      truncated: generated?.truncated ?? false
+    })
+  }, (request: PullRequestTextGenerationRequest) =>
     generatePullRequestText(commandRunner, request)
   )
-  handle('assistants:generateReviewReport', (request: ReviewReportRequest) =>
+  handleLogged('assistants:generateReviewReport', {
+    type: 'assistant_review_generated',
+    actor: 'assistant',
+    title: 'Assistant review generated',
+    repoPath: requestRepoPath,
+    metadata: ([request], report) => ({
+      requested_assistant: request.assistant,
+      assistant: report?.assistant ?? 'unknown',
+      mode: request.mode,
+      scope: request.scope,
+      findings: report?.findings.length ?? 0,
+      truncated: report?.truncated ?? false
+    })
+  }, (request: ReviewReportRequest) =>
     generateReviewReport(commandRunner, request)
   )
 }
 
 function withProjectMemoryRefresh(snapshot: RepositorySnapshot): RepositorySnapshot {
-  void projectMemoryService.scanProjectMemory(snapshot.summary.rootPath).catch((error: unknown) => {
-    console.error('Project Memory refresh failed', error)
-  })
+  void projectMemoryService.scanProjectMemory(snapshot.summary.rootPath)
+    .then((result) => recordActivity({
+      repoPath: snapshot.summary.rootPath,
+      type: 'project_memory_scanned',
+      actor: 'branchpilot',
+      status: 'success',
+      title: 'Project Memory refreshed',
+      metadata: {
+        scanned_files: result.scannedFileCount,
+        skipped_files: result.skippedFileCount,
+        duration_ms: result.durationMs,
+        symbols: result.snapshot.symbols.length
+      }
+    }))
+    .catch((error: unknown) => {
+      console.error('Project Memory refresh failed', error)
+      const branchPilotError = toBranchPilotError(error)
+      void recordActivity({
+        repoPath: snapshot.summary.rootPath,
+        type: 'project_memory_scanned',
+        actor: 'branchpilot',
+        status: 'failure',
+        title: 'Project Memory refreshed',
+        metadata: {
+          error_code: branchPilotError.code,
+          error_message: branchPilotError.message
+        }
+      })
+    })
 
   return snapshot
 }
