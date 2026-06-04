@@ -17,6 +17,7 @@ import type {
   ConfirmedFileActionRequest,
   CreateStashRequest,
   CreatePullRequestRequest,
+  DailyReviewRequest,
   DeleteBranchRequest,
   DiffRequest,
   EditorOpenRequest,
@@ -35,6 +36,7 @@ import type {
 import { generateCommitMessage, generatePullRequestText, generateReviewReport, listAssistantStatuses } from './assistants/assistantRunner.js'
 import { ActivityLogService, type ActivityLogAppendInput } from './lib/activityLogService.js'
 import { CommandRunner } from './lib/commandRunner.js'
+import { DailyReviewService } from './lib/dailyReviewService.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { toBranchPilotError } from './lib/errors.js'
 import { ProjectMemoryService, ProjectMemoryStore } from './lib/projectMemoryService.js'
@@ -66,6 +68,7 @@ const projectMemoryService = new ProjectMemoryService(
   commandRunner,
   new ProjectMemoryStore(projectMemoryDir)
 )
+const dailyReviewService = new DailyReviewService(repositoryService, activityLogService)
 
 function createMainWindow() {
   const window = new BrowserWindow({
@@ -276,6 +279,21 @@ function registerIpcHandlers() {
   handle('activity:clear', (repoPath: string, confirmed: boolean) =>
     activityLogService.clearActivityLog(repoPath, confirmed)
   )
+  handleLogged('daily:generate', {
+    type: 'daily_review_generated',
+    actor: 'branchpilot',
+    title: 'Daily review generated',
+    repoPath: requestRepoPath,
+    metadata: ([request], report) => ({
+      date: request.date ?? report?.date ?? '',
+      commits: report?.stats.commits ?? 0,
+      changed: report?.stats.changed ?? 0,
+      activities: report?.stats.activities ?? 0,
+      actions: report?.actionItems.length ?? 0
+    })
+  }, (request: DailyReviewRequest) =>
+    dailyReviewService.generateDailyReview(request)
+  )
   handle('repository:gitConfig', (repoPath: string) => repositoryService.getGitConfig(repoPath))
   handle('repository:setLocalGitIdentity', (request: GitIdentityUpdate) => repositoryService.setLocalGitIdentity(request))
 
@@ -332,21 +350,27 @@ function registerIpcHandlers() {
     actor: 'user',
     title: 'Fetched remote',
     repoPath: repoPathArg
-  }, (repoPath: string) => repositoryService.fetch(repoPath))
+  }, async (repoPath: string) =>
+    withProjectMemoryRefresh(await repositoryService.fetch(repoPath))
+  )
   handleLogged('git:pull', {
     type: 'git_pulled',
     actor: 'user',
     title: 'Pulled branch',
     repoPath: repoPathArg,
     metadata: (_args, snapshot) => snapshot ? ({ branch: snapshot.summary.currentBranch }) : undefined
-  }, (repoPath: string) => repositoryService.pull(repoPath))
+  }, async (repoPath: string) =>
+    withProjectMemoryRefresh(await repositoryService.pull(repoPath))
+  )
   handleLogged('git:push', {
     type: 'git_pushed',
     actor: 'user',
     title: 'Pushed branch',
     repoPath: repoPathArg,
     metadata: (_args, snapshot) => snapshot ? ({ branch: snapshot.summary.currentBranch }) : undefined
-  }, (repoPath: string) => repositoryService.push(repoPath))
+  }, async (repoPath: string) =>
+    withProjectMemoryRefresh(await repositoryService.push(repoPath))
+  )
   handleLogged('git:publishBranch', {
     type: 'branch_published',
     actor: 'user',
@@ -356,15 +380,17 @@ function registerIpcHandlers() {
       branch: request.branch ?? snapshot?.summary.currentBranch ?? 'current',
       remote: request.remote ?? snapshot?.summary.remoteName ?? 'origin'
     })
-  }, (request: PublishBranchRequest) => repositoryService.publishBranch(request))
+  }, async (request: PublishBranchRequest) =>
+    withProjectMemoryRefresh(await repositoryService.publishBranch(request))
+  )
   handleLogged('git:createBranch', {
     type: 'branch_created',
     actor: 'user',
     title: 'Branch created',
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName })
-  }, (request: BranchActionRequest) =>
-    repositoryService.createBranch(request.repoPath, request.branchName)
+  }, async (request: BranchActionRequest) =>
+    withProjectMemoryRefresh(await repositoryService.createBranch(request.repoPath, request.branchName))
   )
   handleLogged('git:switchBranch', {
     type: 'branch_switched',
@@ -372,8 +398,8 @@ function registerIpcHandlers() {
     title: 'Branch switched',
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName })
-  }, (request: BranchActionRequest) =>
-    repositoryService.switchBranch(request.repoPath, request.branchName)
+  }, async (request: BranchActionRequest) =>
+    withProjectMemoryRefresh(await repositoryService.switchBranch(request.repoPath, request.branchName))
   )
   handleLogged('git:deleteBranch', {
     type: 'branch_deleted',
@@ -381,8 +407,8 @@ function registerIpcHandlers() {
     title: 'Branch deleted',
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName, force: request.force })
-  }, (request: DeleteBranchRequest) =>
-    repositoryService.deleteBranch(request.repoPath, request.branchName, request.force)
+  }, async (request: DeleteBranchRequest) =>
+    withProjectMemoryRefresh(await repositoryService.deleteBranch(request.repoPath, request.branchName, request.force))
   )
 
   handleLogged('merge:acceptOurs', {
@@ -391,21 +417,27 @@ function registerIpcHandlers() {
     title: 'Accepted ours',
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ file: request.filePath, resolution: 'ours' })
-  }, (request: FileActionRequest) => repositoryService.acceptOurs(request))
+  }, async (request: FileActionRequest) =>
+    withProjectMemoryRefresh(await repositoryService.acceptOurs(request))
+  )
   handleLogged('merge:acceptTheirs', {
     type: 'merge_resolved',
     actor: 'user',
     title: 'Accepted theirs',
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ file: request.filePath, resolution: 'theirs' })
-  }, (request: FileActionRequest) => repositoryService.acceptTheirs(request))
+  }, async (request: FileActionRequest) =>
+    withProjectMemoryRefresh(await repositoryService.acceptTheirs(request))
+  )
   handleLogged('merge:markResolved', {
     type: 'merge_resolved',
     actor: 'user',
     title: 'Marked resolved',
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ file: request.filePath, resolution: 'manual' })
-  }, (request: FileActionRequest) => repositoryService.markResolved(request))
+  }, async (request: FileActionRequest) =>
+    withProjectMemoryRefresh(await repositoryService.markResolved(request))
+  )
   handleLogged('merge:start', {
     type: 'merge_started',
     actor: 'user',
@@ -416,19 +448,25 @@ function registerIpcHandlers() {
       operation: snapshot?.status.merge.operation ?? 'none',
       conflicts: snapshot?.status.merge.files.length ?? 0
     })
-  }, (request: MergeBranchRequest) => repositoryService.mergeBranch(request))
+  }, async (request: MergeBranchRequest) =>
+    withProjectMemoryRefresh(await repositoryService.mergeBranch(request))
+  )
   handleLogged('merge:continue', {
     type: 'merge_continued',
     actor: 'user',
     title: 'Merge continued',
     repoPath: repoPathArg
-  }, (repoPath: string) => repositoryService.continueMergeOperation(repoPath))
+  }, async (repoPath: string) =>
+    withProjectMemoryRefresh(await repositoryService.continueMergeOperation(repoPath))
+  )
   handleLogged('merge:abort', {
     type: 'merge_aborted',
     actor: 'user',
     title: 'Merge aborted',
     repoPath: repoPathArg
-  }, (repoPath: string) => repositoryService.abortMergeOperation(repoPath))
+  }, async (repoPath: string) =>
+    withProjectMemoryRefresh(await repositoryService.abortMergeOperation(repoPath))
+  )
 
   handle('editor:open', (request: EditorOpenRequest) => editorService.openInEditor(request.targetPath, request.line))
   handle('terminal:open', (targetPath: string) => editorService.openTerminal(targetPath))
@@ -487,7 +525,7 @@ function registerIpcHandlers() {
     })
   }, async (request: CheckoutPullRequestRequest) => {
     const rootPath = await checkoutGitHubPullRequest(commandRunner, request)
-    return repositoryService.getSnapshot(rootPath)
+    return withProjectMemoryRefresh(await repositoryService.getSnapshot(rootPath))
   })
   handle('assistants:list', () => listAssistantStatuses(commandRunner))
   handleLogged('assistants:generateCommitMessage', {

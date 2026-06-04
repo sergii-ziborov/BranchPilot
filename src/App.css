@@ -27,6 +27,7 @@
 .message,
 .panel-actions,
 .new-branch,
+.daily-controls,
 .segmented {
   display: flex;
   align-items: center;
@@ -240,6 +241,7 @@ h3 {
 .toolbar,
 .panel-actions,
 .commit-actions,
+.daily-controls,
 .segmented,
 .new-branch {
   gap: 8px;
@@ -253,6 +255,7 @@ h3 {
 .toolbar button,
 .panel-actions button,
 .commit-actions button,
+.daily-controls button,
 .empty-state button,
 .new-branch button,
 .segmented button {
@@ -271,6 +274,7 @@ h3 {
 .toolbar button:hover,
 .panel-actions button:hover,
 .commit-actions button:hover,
+.daily-controls button:hover,
 .empty-state button:hover,
 .new-branch button:hover,
 .segmented button:hover {
@@ -548,6 +552,7 @@ h3 {
 .commit-box input,
 .commit-box textarea,
 .commit-box select,
+.daily-controls input,
 .pr-form input,
 .pr-form textarea,
 .new-branch input {
@@ -561,6 +566,7 @@ h3 {
 
 .commit-box input,
 .commit-box select,
+.daily-controls input,
 .pr-form input,
 .new-branch input {
   height: 38px;
@@ -2009,6 +2015,141 @@ h3 {
   background: #eff6ff;
 }
 
+.daily-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.daily-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.daily-controls input {
+  max-width: 156px;
+}
+
+.daily-summary-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.daily-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.daily-section-list,
+.daily-export,
+.daily-action-list {
+  display: grid;
+  gap: 10px;
+}
+
+.daily-section {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.daily-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.daily-section-heading strong {
+  color: var(--text-strong);
+}
+
+.daily-section-heading span {
+  display: inline-grid;
+  min-width: 24px;
+  min-height: 24px;
+  place-items: center;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.daily-section-heading button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.daily-section ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.daily-section li,
+.daily-action p {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.daily-action {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.daily-action.priority-high {
+  border-left-color: #dc2626;
+}
+
+.daily-action.priority-normal {
+  border-left-color: #2563eb;
+}
+
+.daily-action span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.daily-action strong {
+  color: var(--text-strong);
+}
+
+.daily-markdown-preview {
+  overflow: auto;
+  max-height: 460px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: #d1d5db;
+  background: #0f172a;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 238px minmax(0, 1fr);
@@ -2016,6 +2157,7 @@ h3 {
 
   .stats-grid,
   .memory-summary-grid,
+  .daily-summary-grid,
   .review-grid,
   .assistant-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2030,6 +2172,7 @@ h3 {
   .memory-grid,
   .memory-meta,
   .activity-row,
+  .daily-workspace,
   .review-controls,
   .merge-start,
   .pr-details-meta,

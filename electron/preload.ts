@@ -18,6 +18,7 @@ const branchPilot: BranchPilotApi = {
   getProjectMemoryMcpConfig: (repoPath) => invoke('repository:projectMemoryMcpConfig', repoPath),
   getActivityLog: (query) => invoke('activity:list', query),
   clearActivityLog: (repoPath, confirmed) => invoke('activity:clear', repoPath, confirmed),
+  generateDailyReview: (request) => invoke('daily:generate', request),
   getGitConfig: (repoPath) => invoke('repository:gitConfig', repoPath),
   setLocalGitIdentity: (request) => invoke('repository:setLocalGitIdentity', request),
   stageFile: (request) => invoke('git:stageFile', request),

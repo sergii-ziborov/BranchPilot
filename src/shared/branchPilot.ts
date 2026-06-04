@@ -208,6 +208,7 @@ export type ActivityLogEventType =
   | 'assistant_commit_generated'
   | 'assistant_pr_generated'
   | 'assistant_review_generated'
+  | 'daily_review_generated'
   | 'github_pr_created'
   | 'github_pr_checked_out'
   | 'github_pr_details_loaded'
@@ -240,6 +241,50 @@ export interface ActivityLogSnapshot {
   repoPath: string
   entries: ActivityLogEntry[]
   totalCount: number
+}
+
+export type DailyReviewSectionId = 'summary' | 'commits' | 'worktree' | 'sync' | 'activity' | 'next_actions'
+export type DailyReviewActionPriority = 'high' | 'normal'
+
+export interface DailyReviewRequest {
+  repoPath: string
+  date?: string
+}
+
+export interface DailyReviewStats {
+  commits: number
+  activities: number
+  changed: number
+  staged: number
+  unstaged: number
+  untracked: number
+  conflicted: number
+  ahead: number
+  behind: number
+}
+
+export interface DailyReviewSection {
+  id: DailyReviewSectionId
+  title: string
+  items: string[]
+}
+
+export interface DailyReviewActionItem {
+  title: string
+  details: string
+  priority: DailyReviewActionPriority
+}
+
+export interface DailyReviewReport {
+  repoPath: string
+  repositoryName: string
+  branch: string
+  date: string
+  generatedAt: string
+  stats: DailyReviewStats
+  sections: DailyReviewSection[]
+  actionItems: DailyReviewActionItem[]
+  markdown: string
 }
 
 export interface CommitFileChange {
@@ -576,6 +621,7 @@ export interface BranchPilotApi {
   getProjectMemoryMcpConfig: (repoPath: string) => Promise<ApiResult<ProjectMemoryMcpConfig>>
   getActivityLog: (query: ActivityLogQuery) => Promise<ApiResult<ActivityLogSnapshot>>
   clearActivityLog: (repoPath: string, confirmed: boolean) => Promise<ApiResult<ActivityLogSnapshot>>
+  generateDailyReview: (request: DailyReviewRequest) => Promise<ApiResult<DailyReviewReport>>
   getGitConfig: (repoPath: string) => Promise<ApiResult<GitConfigSnapshot>>
   setLocalGitIdentity: (request: GitIdentityUpdate) => Promise<ApiResult<GitConfigSnapshot>>
   stageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>

@@ -3,6 +3,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Bot,
+  CalendarDays,
   Check,
   Clock3,
   Code2,
@@ -40,6 +41,7 @@ import type {
   DiffHunk,
   DiffLine,
   CreatedPullRequest,
+  DailyReviewReport,
   DiffResult,
   FileChange,
   GitHubCliStatus,
@@ -65,7 +67,7 @@ import type {
 } from './shared/branchPilot'
 import './App.css'
 
-type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory'
+type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily'
 type DiffMode = 'unstaged' | 'staged'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
@@ -95,6 +97,9 @@ function App() {
   const [activityCategory, setActivityCategory] = useState<ActivityCategory>('all')
   const [memoryLoading, setMemoryLoading] = useState(false)
   const [selectedMemoryFilePath, setSelectedMemoryFilePath] = useState<string | null>(null)
+  const [dailyReview, setDailyReview] = useState<DailyReviewReport | null>(null)
+  const [dailyReviewDate, setDailyReviewDate] = useState(() => formatDateInputValue(new Date()))
+  const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
   const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('changes')
   const [busy, setBusy] = useState(false)
@@ -226,6 +231,10 @@ function App() {
     if (!snapshot || viewMode !== 'memory') return
     void loadProjectMemory()
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
+
+  useEffect(() => {
+    setDailyReview(null)
+  }, [snapshot?.summary.rootPath])
 
   useEffect(() => {
     if (!projectMemory) {
@@ -581,6 +590,39 @@ function App() {
     }
 
     setMemoryLoading(false)
+  }
+
+  async function runDailyReview() {
+    if (!api || !currentRepoPath) return
+    setDailyReviewLoading(true)
+    setError(null)
+
+    const result = await api.generateDailyReview({
+      repoPath: currentRepoPath,
+      date: dailyReviewDate || undefined
+    })
+
+    if (result.ok) {
+      setDailyReview(result.data)
+      setNotice(`Daily review generated for ${result.data.date}.`)
+    } else {
+      setDailyReview(null)
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setDailyReviewLoading(false)
+  }
+
+  async function copyDailyReviewMarkdown() {
+    if (!dailyReview) return
+
+    try {
+      await navigator.clipboard.writeText(dailyReview.markdown)
+      setNotice('Daily review Markdown copied.')
+    } catch {
+      setError('Clipboard is not available in this runtime.')
+    }
   }
 
   async function loadCommitDetails(commitSha: string) {
@@ -1101,7 +1143,8 @@ function App() {
     { id: 'stash' as const, label: 'Stash', icon: Save },
     { id: 'review' as const, label: 'Review', icon: ShieldCheck },
     { id: 'providers' as const, label: 'Providers', icon: GitPullRequest },
-    { id: 'memory' as const, label: 'Memory', icon: Database }
+    { id: 'memory' as const, label: 'Memory', icon: Database },
+    { id: 'daily' as const, label: 'Daily', icon: CalendarDays }
   ]
 
   return (
@@ -1268,6 +1311,7 @@ function App() {
             {viewMode === 'review' && renderReviewView()}
             {viewMode === 'providers' && renderProvidersView()}
             {viewMode === 'memory' && renderMemoryView()}
+            {viewMode === 'daily' && renderDailyView()}
           </>
         )}
       </section>
@@ -2253,6 +2297,100 @@ function App() {
     )
   }
 
+  function renderDailyView() {
+    return (
+      <section className="single-panel daily-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Daily Review</h2>
+            <p>Repository work summary for the selected day.</p>
+          </div>
+          <div className="daily-controls">
+            <input
+              aria-label="Daily review date"
+              type="date"
+              value={dailyReviewDate}
+              onChange={(event) => setDailyReviewDate(event.target.value)}
+            />
+            <button type="button" onClick={runDailyReview} disabled={!snapshot || dailyReviewLoading}>
+              {dailyReviewLoading ? <Loader2 className="spin" size={17} /> : <CalendarDays size={17} />}
+              Run daily review
+            </button>
+          </div>
+        </div>
+
+        {!dailyReview ? (
+          <div className="review-empty">
+            <CalendarDays size={24} />
+            <strong>{dailyReviewLoading ? 'Generating daily review' : 'No daily review yet'}</strong>
+            <span>{snapshot ? 'Run a review to summarize commits, current worktree state, sync state, and BranchPilot activity.' : 'Open a repository before generating a daily review.'}</span>
+          </div>
+        ) : (
+          <>
+            <section className="memory-summary-grid daily-summary-grid">
+              <Stat label="Commits" value={dailyReview.stats.commits} />
+              <Stat label="Changed" value={dailyReview.stats.changed} />
+              <Stat label="Conflicts" value={dailyReview.stats.conflicted} />
+              <Stat label="Ahead / behind" value={`${dailyReview.stats.ahead} / ${dailyReview.stats.behind}`} />
+              <Stat label="Activities" value={dailyReview.stats.activities} />
+            </section>
+
+            <div className="daily-workspace">
+              <section className="daily-section-list">
+                {dailyReview.sections.map((section) => (
+                  <article className="daily-section" key={section.id}>
+                    <div className="daily-section-heading">
+                      <strong>{section.title}</strong>
+                      <span>{section.items.length}</span>
+                    </div>
+                    <ul>
+                      {section.items.map((item, index) => (
+                        <li key={`${section.id}-${index}`}>{item}</li>
+                      ))}
+                    </ul>
+                  </article>
+                ))}
+              </section>
+
+              <aside className="daily-export">
+                <section className="daily-section">
+                  <div className="daily-section-heading">
+                    <strong>Action items</strong>
+                    <span>{dailyReview.actionItems.length}</span>
+                  </div>
+                  {dailyReview.actionItems.length === 0 ? (
+                    <div className="quiet-box">No immediate local actions detected.</div>
+                  ) : (
+                    <div className="daily-action-list">
+                      {dailyReview.actionItems.map((item, index) => (
+                        <article className={`daily-action priority-${item.priority}`} key={`${item.priority}-${item.title}-${index}`}>
+                          <span>{item.priority}</span>
+                          <strong>{item.title}</strong>
+                          <p>{item.details}</p>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="daily-section">
+                  <div className="daily-section-heading">
+                    <strong>Markdown</strong>
+                    <button type="button" onClick={copyDailyReviewMarkdown}>
+                      <Copy size={15} />
+                      Copy
+                    </button>
+                  </div>
+                  <pre className="daily-markdown-preview"><code>{dailyReview.markdown}</code></pre>
+                </section>
+              </aside>
+            </div>
+          </>
+        )}
+      </section>
+    )
+  }
+
   function renderProvidersView() {
     const githubProvider = providers.find((provider) => provider.id === 'github')
     const canCreatePr = Boolean(
@@ -2842,6 +2980,14 @@ function formatBytes(sizeBytes: number): string {
   if (sizeBytes < 1024) return `${sizeBytes} B`
   if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatDateInputValue(value: Date): string {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
 }
 
 function formatDate(value: string): string {
