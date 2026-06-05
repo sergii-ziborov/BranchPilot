@@ -72,7 +72,7 @@ import type {
   ReviewSeverity,
   StashEntry
 } from './shared/branchPilot'
-import { getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
+import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
 import { getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import './App.css'
@@ -370,6 +370,13 @@ function App() {
   const createBranchActionState = getCreateBranchActionState({
     snapshot,
     branchName: newBranchName
+  })
+  const branchComposerSummary = getBranchComposerSummary({
+    snapshot,
+    intent: branchDraftGoal,
+    assistantAllowed: canGenerateBranchDraft,
+    branchName: newBranchName,
+    description: newBranchDescription
   })
 
   async function loadRecentRepositories() {
@@ -2513,6 +2520,15 @@ function App() {
               onChange={(event) => setNewBranchDescription(event.target.value)}
               placeholder="Optional local Git branch description"
             />
+          </div>
+
+          <div className="branch-composer-summary" aria-label="Branch draft readiness">
+            {branchComposerSummary.map((item) => (
+              <div className={`branch-summary-item tone-${item.tone}`} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
           </div>
 
           <div className="branch-composer-actions">

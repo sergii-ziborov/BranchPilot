@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getBranchDraftActionState, getCreateBranchActionState } from '../src/shared/branchPreconditions'
+import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from '../src/shared/branchPreconditions'
 import type { InProgressOperation, RepositorySnapshot } from '../src/shared/branchPilot'
 
 describe('branch preconditions', () => {
@@ -74,6 +74,59 @@ describe('branch preconditions', () => {
       enabled: true,
       reasons: []
     })
+  })
+
+  it('summarizes a ready branch composer draft', () => {
+    expect(getBranchComposerSummary({
+      snapshot: makeSnapshot({ changed: 2 }),
+      intent: '',
+      assistantAllowed: true,
+      branchName: 'feature/policy-ui',
+      description: 'Adds policy controls.'
+    })).toEqual([
+      { label: 'Context', value: '2 local changes available', tone: 'ready' },
+      { label: 'Name', value: 'feature/policy-ui', tone: 'ready' },
+      { label: 'Description', value: 'Will be saved locally', tone: 'ready' },
+      { label: 'AI policy', value: 'Draft generation allowed', tone: 'ready' }
+    ])
+  })
+
+  it('summarizes blocked branch composer inputs', () => {
+    expect(getBranchComposerSummary({
+      snapshot: makeSnapshot({ changed: 0, branches: ['main', 'feature/existing'] }),
+      intent: '',
+      assistantAllowed: false,
+      branchName: 'feature/existing',
+      description: ''
+    })).toEqual([
+      { label: 'Context', value: 'Add intent or local changes', tone: 'blocked' },
+      { label: 'Name', value: 'Already exists', tone: 'blocked' },
+      { label: 'Description', value: 'Optional local metadata', tone: 'neutral' },
+      { label: 'AI policy', value: 'Draft generation blocked', tone: 'blocked' }
+    ])
+  })
+
+  it('summarizes missing repository and unsafe branch names', () => {
+    expect(getBranchComposerSummary({
+      snapshot: null,
+      intent: 'Prepare work',
+      assistantAllowed: true,
+      branchName: 'bad branch',
+      description: ''
+    })).toEqual([
+      { label: 'Context', value: 'Open a repository', tone: 'blocked' },
+      { label: 'Name', value: 'Open a repository', tone: 'blocked' },
+      { label: 'Description', value: 'Optional local metadata', tone: 'neutral' },
+      { label: 'AI policy', value: 'Draft generation allowed', tone: 'ready' }
+    ])
+
+    expect(getBranchComposerSummary({
+      snapshot: makeSnapshot(),
+      intent: 'Prepare work',
+      assistantAllowed: true,
+      branchName: 'bad branch',
+      description: ''
+    })[1]).toEqual({ label: 'Name', value: 'Unsafe Git ref', tone: 'blocked' })
   })
 })
 

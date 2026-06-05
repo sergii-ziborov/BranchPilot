@@ -16,6 +16,19 @@ export interface BranchActionState {
   reasons: string[]
 }
 
+export type BranchComposerSummaryTone = 'ready' | 'blocked' | 'neutral'
+
+export interface BranchComposerSummaryItem {
+  label: string
+  value: string
+  tone: BranchComposerSummaryTone
+}
+
+export interface BranchComposerSummaryInput extends BranchDraftActionInput {
+  branchName: string
+  description: string
+}
+
 export function getBranchDraftActionState(input: BranchDraftActionInput): BranchActionState {
   const reasons: string[] = []
 
@@ -64,6 +77,66 @@ export function getCreateBranchActionState(input: CreateBranchActionInput): Bran
     enabled: reasons.length === 0,
     reasons
   }
+}
+
+export function getBranchComposerSummary(input: BranchComposerSummaryInput): BranchComposerSummaryItem[] {
+  const snapshot = input.snapshot
+  const branchName = input.branchName.trim()
+  const description = input.description.trim()
+  const createState = getCreateBranchActionState({
+    snapshot,
+    branchName
+  })
+  const draftState = getBranchDraftActionState(input)
+
+  return [
+    {
+      label: 'Context',
+      value: branchContextLabel(snapshot, input.intent),
+      tone: draftState.enabled ? 'ready' : 'blocked'
+    },
+    {
+      label: 'Name',
+      value: branchNameLabel(snapshot, branchName, createState),
+      tone: createState.enabled ? 'ready' : 'blocked'
+    },
+    {
+      label: 'Description',
+      value: description ? 'Will be saved locally' : 'Optional local metadata',
+      tone: description ? 'ready' : 'neutral'
+    },
+    {
+      label: 'AI policy',
+      value: input.assistantAllowed ? 'Draft generation allowed' : 'Draft generation blocked',
+      tone: input.assistantAllowed ? 'ready' : 'blocked'
+    }
+  ]
+}
+
+function branchContextLabel(snapshot: RepositorySnapshot | null, intent: string): string {
+  if (!snapshot) return 'Open a repository'
+  if (intent.trim()) return 'Intent provided'
+  if (snapshot.status.counts.changed > 0) {
+    const changeCount = snapshot.status.counts.changed
+    return `${changeCount} local change${changeCount === 1 ? '' : 's'} available`
+  }
+
+  return 'Add intent or local changes'
+}
+
+function branchNameLabel(
+  snapshot: RepositorySnapshot | null,
+  branchName: string,
+  createState: BranchActionState
+): string {
+  if (!snapshot) return 'Open a repository'
+  if (!branchName) return 'Required'
+  if (snapshot.branches.some((branch) => branch.name === branchName)) return 'Already exists'
+  if (!createState.enabled && createState.reasons.some((reason) => reason.startsWith('Use a safe Git branch name'))) {
+    return 'Unsafe Git ref'
+  }
+
+  return branchName
 }
 
 function isSafeBranchName(branchName: string): boolean {
