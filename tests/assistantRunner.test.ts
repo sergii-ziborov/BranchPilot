@@ -11,6 +11,7 @@ import {
 } from '../electron/lib/commandRunner'
 import {
   checkAssistantStatuses,
+  generateBranchDescription,
   generateBranchDraft,
   generateCommitMessage,
   generatePullRequestText,
@@ -328,6 +329,62 @@ describe('assistant commit message generation', () => {
       repoPath,
       assistant: 'auto',
       goal: 'Create invalid branch output'
+    })).rejects.toMatchObject({
+      code: 'assistant_parse_failed'
+    })
+  })
+
+  it('generates a description for an existing branch from local context', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({
+      available: ['codex'],
+      assistantOutput: '{"description":"Tracks the branch description generation workflow."}'
+    })
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'description staged\n')
+    git(repoPath, ['add', 'tracked.txt'])
+
+    const result = await generateBranchDescription(runner, {
+      repoPath,
+      assistant: 'codex',
+      branchName: 'main'
+    })
+
+    expect(result).toMatchObject({
+      branchName: 'main',
+      description: 'Tracks the branch description generation workflow.',
+      assistant: 'codex',
+      truncated: false
+    })
+    expect(runner.assistantPrompt).toContain('Branch: main')
+    expect(runner.assistantPrompt).toContain('+description staged')
+  })
+
+  it('rejects branch description generation for missing branches', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({ available: ['codex'] })
+
+    await expect(generateBranchDescription(runner, {
+      repoPath,
+      assistant: 'codex',
+      branchName: 'feature/missing'
+    })).rejects.toMatchObject({
+      code: 'invalid_branch'
+    })
+    expect(runner.assistantInvocations).toHaveLength(0)
+  })
+
+  it('rejects invalid branch description assistant output', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({
+      available: ['codex'],
+      assistantOutput: '{"title":"No description"}'
+    })
+
+    await expect(generateBranchDescription(runner, {
+      repoPath,
+      assistant: 'codex',
+      branchName: 'main'
     })).rejects.toMatchObject({
       code: 'assistant_parse_failed'
     })

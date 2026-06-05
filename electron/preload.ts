@@ -59,6 +59,7 @@ const branchPilot: BranchPilotApi = {
   checkAssistants: () => invoke('assistants:check'),
   generateCommitMessage: (request) => invoke('assistants:generateCommitMessage', request),
   generateBranchDraft: (request) => invoke('assistants:generateBranchDraft', request),
+  generateBranchDescription: (request) => invoke('assistants:generateBranchDescription', request),
   getGitHubCliStatus: (repoPath) => invoke('providers:githubCliStatus', repoPath),
   generatePullRequestText: (request) => invoke('assistants:generatePullRequestText', request),
   createGitHubPullRequest: (request) => invoke('providers:createGitHubPullRequest', request),

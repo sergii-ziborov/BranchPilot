@@ -518,7 +518,20 @@ export interface BranchDraftGenerationRequest {
   goal?: string
 }
 
+export interface BranchDescriptionGenerationRequest {
+  repoPath: string
+  assistant: AssistantId
+  branchName: string
+}
+
 export interface GeneratedBranchDraft {
+  branchName: string
+  description: string
+  assistant: InstalledAssistantId
+  truncated: boolean
+}
+
+export interface GeneratedBranchDescription {
   branchName: string
   description: string
   assistant: InstalledAssistantId
@@ -750,6 +763,7 @@ export interface BranchPilotApi {
   checkAssistants: () => Promise<ApiResult<AssistantStatus[]>>
   generateCommitMessage: (request: CommitMessageGenerationRequest) => Promise<ApiResult<GeneratedCommitMessage>>
   generateBranchDraft: (request: BranchDraftGenerationRequest) => Promise<ApiResult<GeneratedBranchDraft>>
+  generateBranchDescription: (request: BranchDescriptionGenerationRequest) => Promise<ApiResult<GeneratedBranchDescription>>
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>
   createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>

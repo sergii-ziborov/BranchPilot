@@ -136,6 +136,7 @@ function App() {
   const [branchDraftGoal, setBranchDraftGoal] = useState('')
   const [editingBranchName, setEditingBranchName] = useState<string | null>(null)
   const [branchDescriptionDraft, setBranchDescriptionDraft] = useState('')
+  const [branchDescriptionGenerating, setBranchDescriptionGenerating] = useState<string | null>(null)
   const [selectedMergeBranch, setSelectedMergeBranch] = useState('')
   const [stashMessage, setStashMessage] = useState('')
   const [stashes, setStashes] = useState<StashEntry[]>([])
@@ -1360,6 +1361,33 @@ function App() {
     }
   }
 
+  async function generateBranchDescription(branch: BranchSummary) {
+    if (!api || !currentRepoPath) return
+    if (!canGenerateBranchDraft) {
+      setNotice(assistantPolicyBlockedLabel('branch_draft', assistantPolicy))
+      return
+    }
+
+    setBranchDescriptionGenerating(branch.name)
+    setError(null)
+    const result = await api.generateBranchDescription({
+      repoPath: currentRepoPath,
+      assistant: selectedAssistant,
+      branchName: branch.name
+    })
+
+    if (result.ok) {
+      setEditingBranchName(branch.name)
+      setBranchDescriptionDraft(result.data.description)
+      setNotice(`Generated branch description with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated context' : ''}. Review and save it.`)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBranchDescriptionGenerating(null)
+  }
+
   async function saveLocalGitIdentity() {
     if (!api || !currentRepoPath) return
     setBusy(true)
@@ -2568,6 +2596,7 @@ function App() {
         <div className="branch-list">
           {branches.map((branch) => {
             const isEditingDescription = editingBranchName === branch.name
+            const isGeneratingDescription = branchDescriptionGenerating === branch.name
 
             return (
               <article className={branch.current ? 'branch-row current' : 'branch-row'} key={branch.name}>
@@ -2583,6 +2612,10 @@ function App() {
                         placeholder="Describe the purpose of this branch"
                       />
                       <div className="branch-description-actions">
+                        <button type="button" onClick={() => generateBranchDescription(branch)} disabled={busy || isGeneratingDescription || !canGenerateBranchDraft}>
+                          <Bot size={16} />
+                          {isGeneratingDescription ? 'Generating' : 'Generate'}
+                        </button>
                         <button type="button" onClick={() => saveBranchDescription(branch.name)} disabled={busy}>
                           <Save size={16} />
                           Save
@@ -2607,6 +2640,14 @@ function App() {
                   >
                     <Pencil size={16} />
                     Edit description
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => generateBranchDescription(branch)}
+                    disabled={busy || isGeneratingDescription || !canGenerateBranchDraft}
+                  >
+                    <Bot size={16} />
+                    {isGeneratingDescription ? 'Generating' : 'Generate description'}
                   </button>
                   {branch.current && !branch.upstream && snapshot?.summary.remoteName && (
                     <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({

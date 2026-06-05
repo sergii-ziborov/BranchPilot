@@ -4,8 +4,10 @@ import path from 'node:path'
 import type {
   AssistantId,
   AssistantStatus,
+  BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
   CommitMessageGenerationRequest,
+  GeneratedBranchDescription,
   GeneratedBranchDraft,
   GeneratedCommitMessage,
   GeneratedPullRequestText,
@@ -62,6 +64,18 @@ const BRANCH_DRAFT_SCHEMA: Record<string, unknown> = {
     },
     description: {
       type: 'string'
+    }
+  }
+}
+
+const BRANCH_DESCRIPTION_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['description'],
+  properties: {
+    description: {
+      type: 'string',
+      minLength: 1
     }
   }
 }
@@ -344,6 +358,92 @@ export async function generateBranchDraft(
     description: parsed.description,
     assistant: assistant.id,
     truncated: context.truncated
+  }
+}
+
+export async function generateBranchDescription(
+  runner: CommandRunner,
+  request: BranchDescriptionGenerationRequest
+): Promise<GeneratedBranchDescription> {
+  const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
+  const branchName = normalizeBranchName(request.branchName, 'Branch name')
+
+  if (!await refExists(runner, rootPath, `refs/heads/${branchName}`)) {
+    throw new BranchPilotUserError('invalid_branch', 'Local branch was not found.')
+  }
+
+  const currentBranch = await getBranchLabel(runner, rootPath)
+  const currentDescription = await runner.run('/usr/bin/git', ['config', '--get', `branch.${branchName}.description`], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1],
+    timeoutMs: 10_000
+  })
+  const recentCommits = await runner.run('/usr/bin/git', [
+    'log',
+    '--max-count=12',
+    '--pretty=format:%h%x00%s%x00%an',
+    branchName
+  ], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 128],
+    timeoutMs: 30_000
+  })
+  let status = ''
+  let diffContext = ''
+  let truncated = false
+
+  if (currentBranch === branchName) {
+    const statusResult = await runner.run('/usr/bin/git', ['status', '--short'], {
+      cwd: rootPath,
+      timeoutMs: 10_000
+    })
+    const stagedDiff = await runner.run('/usr/bin/git', ['diff', '--cached', '--no-ext-diff'], {
+      cwd: rootPath,
+      allowedExitCodes: [0, 1],
+      timeoutMs: 30_000
+    })
+    const unstagedDiff = await runner.run('/usr/bin/git', ['diff', '--no-ext-diff'], {
+      cwd: rootPath,
+      allowedExitCodes: [0, 1],
+      timeoutMs: 30_000
+    })
+    const context = truncateText([
+      'Staged diff:',
+      stagedDiff.stdout || '(none)',
+      '',
+      'Unstaged diff:',
+      unstagedDiff.stdout || '(none)'
+    ].join('\n'), MAX_ASSISTANT_BRANCH_CONTEXT_BYTES)
+
+    status = statusResult.stdout
+    diffContext = context.text
+    truncated = context.truncated
+  }
+
+  if (!recentCommits.stdout.trim() && !status.trim() && !diffContext.trim()) {
+    throw new BranchPilotUserError(
+      'no_branch_context',
+      'No branch commits or local changes found for description generation.'
+    )
+  }
+
+  const prompt = buildBranchDescriptionPrompt({
+    branchName,
+    currentBranch,
+    currentDescription: currentDescription.stdout,
+    recentCommits: recentCommits.stdout,
+    status,
+    diffContext,
+    truncated
+  })
+  const { assistant, output } = await runAssistantForRequest(runner, request.assistant, prompt, BRANCH_DESCRIPTION_SCHEMA)
+  const description = parseBranchDescription(output)
+
+  return {
+    branchName,
+    description,
+    assistant: assistant.id,
+    truncated
   }
 }
 
@@ -832,6 +932,42 @@ function buildBranchDraftPrompt(context: {
   ].join('\n')
 }
 
+function buildBranchDescriptionPrompt(context: {
+  branchName: string
+  currentBranch: string
+  currentDescription: string
+  recentCommits: string
+  status: string
+  diffContext: string
+  truncated: boolean
+}): string {
+  return [
+    'Generate a concise local Git branch description for the branch below.',
+    'Use only the provided branch name, current description, commits, status, and diffs.',
+    'Return JSON only with this shape: {"description":"..."}',
+    'Rules:',
+    '- description is required and should explain the purpose of the branch;',
+    '- keep it useful as local Git branch metadata, not a pull request body;',
+    '- do not mention that you are an AI assistant;',
+    '- do not wrap the JSON in markdown fences.',
+    '',
+    `Branch: ${context.branchName}`,
+    `Current checked-out branch: ${context.currentBranch}`,
+    `Diff truncated: ${context.truncated ? 'yes' : 'no'}`,
+    '',
+    'Current description:',
+    context.currentDescription.trim() || '(none)',
+    '',
+    'Recent commits:',
+    context.recentCommits || '(none)',
+    '',
+    'Git status:',
+    context.status || '(not checked out)',
+    '',
+    context.diffContext || 'Diff context: (not checked out)'
+  ].join('\n')
+}
+
 function buildPullRequestPrompt(context: {
   baseBranch: string
   headBranch: string
@@ -932,6 +1068,22 @@ function parseBranchDraft(output: string): { branchName: string; description: st
     branchName: normalizeBranchName(branchName, 'Branch name'),
     description
   }
+}
+
+function parseBranchDescription(output: string): string {
+  const parsed = parseJsonLike(output)
+  const candidate = normalizeAssistantPayload(parsed)
+  const description = typeof candidate?.description === 'string' ? candidate.description.trim() : ''
+
+  if (!description) {
+    throw new BranchPilotUserError(
+      'assistant_parse_failed',
+      'Assistant did not return a valid branch description.',
+      output.slice(0, 2_000)
+    )
+  }
+
+  return description
 }
 
 async function validateGeneratedBranchName(

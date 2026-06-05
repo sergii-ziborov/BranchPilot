@@ -9,6 +9,7 @@ import type {
   ActivityLogQuery,
   AssistantActionKind,
   AssistantPolicyUpdate,
+  BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
   BranchActionRequest,
   CheckoutPullRequestRequest,
@@ -39,6 +40,7 @@ import type {
 } from '../src/shared/branchPilot.js'
 import {
   checkAssistantStatuses,
+  generateBranchDescription,
   generateBranchDraft,
   generateCommitMessage,
   generatePullRequestText,
@@ -687,6 +689,21 @@ function registerIpcHandlers() {
     })
   }, (request: BranchDraftGenerationRequest) =>
     generateBranchDraft(commandRunner, request)
+  )
+  handleAssistantAction('assistants:generateBranchDescription', 'branch_draft', {
+    type: 'assistant_branch_generated',
+    actor: 'assistant',
+    title: 'Assistant branch description generated',
+    repoPath: requestRepoPath,
+    metadata: ([request], generated) => ({
+      requested_assistant: request.assistant,
+      assistant: generated?.assistant ?? 'unknown',
+      branch_name: generated?.branchName ?? request.branchName,
+      description_length: generated?.description.length ?? 0,
+      truncated: generated?.truncated ?? false
+    })
+  }, (request: BranchDescriptionGenerationRequest) =>
+    generateBranchDescription(commandRunner, request)
   )
   handleAssistantAction('assistants:generatePullRequestText', 'pull_request_text', {
     type: 'assistant_pr_generated',
