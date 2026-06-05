@@ -343,6 +343,9 @@ function App() {
   const currentRepoPath = snapshot?.summary.rootPath
   const counts = snapshot?.status.counts
   const mergeState = snapshot?.status.merge
+  const canCreateStash = Boolean(snapshot && counts?.changed && mergeState?.operation === 'none')
+  const canStageAll = Boolean(snapshot && counts && counts.conflicted === 0 && (counts.unstaged > 0 || counts.untracked > 0))
+  const canUnstageAll = Boolean(snapshot && counts && counts.staged > 0)
   const hasRemote = Boolean(snapshot?.summary.remoteName)
   const hasUpstream = Boolean(snapshot?.summary.upstream)
   const canFetch = Boolean(snapshot && hasRemote)
@@ -959,6 +962,11 @@ function App() {
 
   async function createStash(message = stashMessage.trim() || defaultStashMessage()) {
     if (!api || !currentRepoPath) return
+    if (!canCreateStash) {
+      setNotice('Stash blocked: open a repository with local changes and no active merge operation.')
+      return
+    }
+
     const created = await runSnapshotAction('Changes stashed.', () =>
       api.createStash({
         repoPath: currentRepoPath,
@@ -974,7 +982,11 @@ function App() {
   }
 
   async function createQuickStash() {
-    if (!counts?.changed) return
+    if (!canCreateStash) {
+      setNotice('Stash blocked: open a repository with local changes and no active merge operation.')
+      return
+    }
+
     const message = window.prompt('Stash message', defaultStashMessage())
 
     if (!message) return
@@ -1542,15 +1554,23 @@ function App() {
               <p>Real status from system Git.</p>
             </div>
             <div className="panel-actions">
-              <button type="button" onClick={createQuickStash} disabled={busy || !counts?.changed}>
+              <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
                 <Save size={17} />
                 Stash changes
               </button>
-              <button type="button" onClick={() => currentRepoPath && runSnapshotAction('All changes staged.', () => api!.stageAll(currentRepoPath))}>
+              <button
+                type="button"
+                onClick={() => currentRepoPath && runSnapshotAction('All changes staged.', () => api!.stageAll(currentRepoPath))}
+                disabled={busy || !canStageAll}
+              >
                 <Plus size={17} />
                 Stage all
               </button>
-              <button type="button" onClick={() => currentRepoPath && runSnapshotAction('All changes unstaged.', () => api!.unstageAll(currentRepoPath))}>
+              <button
+                type="button"
+                onClick={() => currentRepoPath && runSnapshotAction('All changes unstaged.', () => api!.unstageAll(currentRepoPath))}
+                disabled={busy || !canUnstageAll}
+              >
                 <X size={17} />
                 Unstage all
               </button>
@@ -2281,7 +2301,7 @@ function App() {
               onChange={(event) => setStashMessage(event.target.value)}
               placeholder={defaultStashMessage()}
             />
-            <button type="button" onClick={() => createStash()} disabled={busy || !counts?.changed}>
+            <button type="button" onClick={() => createStash()} disabled={busy || !canCreateStash}>
               <Save size={17} />
               Stash changes
             </button>
@@ -2381,7 +2401,7 @@ function App() {
         {!hasOperation && hasDirtyWorktree && (
           <div className="command-hint">
             Stash or commit local changes before starting a merge.
-            <button type="button" onClick={createQuickStash} disabled={busy}>
+            <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
               <Save size={17} />
               Stash changes
             </button>

@@ -179,8 +179,14 @@ button:disabled {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 18px;
   margin-bottom: 14px;
+}
+
+.topbar > div:first-child {
+  flex: 1 1 360px;
+  min-width: 0;
 }
 
 .eyebrow {
@@ -248,6 +254,13 @@ h3 {
 }
 
 .toolbar {
+  flex: 1 1 420px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: min(100%, 320px);
+}
+
+.panel-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -2629,6 +2642,15 @@ h3 {
 
   .content-grid {
     grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    align-items: stretch;
+  }
+
+  .toolbar,
+  .panel-actions {
+    justify-content: flex-start;
   }
 
   .commit-file-grid,
