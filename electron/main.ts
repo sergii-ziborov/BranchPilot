@@ -7,6 +7,9 @@ import type {
   ActivityLogEventType,
   ActivityLogMetadata,
   ActivityLogQuery,
+  AssistantActionKind,
+  AssistantPolicyUpdate,
+  BranchDraftGenerationRequest,
   BranchActionRequest,
   CheckoutPullRequestRequest,
   CommitDetailsRequest,
@@ -33,7 +36,15 @@ import type {
   ReviewReportRequest,
   StashActionRequest
 } from '../src/shared/branchPilot.js'
-import { generateCommitMessage, generatePullRequestText, generateReviewReport, listAssistantStatuses } from './assistants/assistantRunner.js'
+import {
+  checkAssistantStatuses,
+  generateBranchDraft,
+  generateCommitMessage,
+  generatePullRequestText,
+  generateReviewReport,
+  listAssistantStatuses
+} from './assistants/assistantRunner.js'
+import { AssistantPolicyService } from './lib/assistantPolicyService.js'
 import { ActivityLogService, type ActivityLogAppendInput } from './lib/activityLogService.js'
 import { CommandRunner } from './lib/commandRunner.js'
 import { DailyReviewService } from './lib/dailyReviewService.js'
@@ -65,6 +76,7 @@ const activityLogDir = path.join(app.getPath('userData'), 'activity-log')
 const settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'branchpilot-settings.json'))
 const repositoryService = new RepositoryService(commandRunner, settingsStore)
 const editorService = new ExternalEditorService(commandRunner)
+const assistantPolicyService = new AssistantPolicyService(settingsStore)
 const activityLogService = new ActivityLogService(activityLogDir)
 const projectMemoryService = new ProjectMemoryService(
   commandRunner,
@@ -168,6 +180,76 @@ function handleLogged<Args extends unknown[], T>(
           error_message: branchPilotError.message
         }
       })
+
+      return {
+        ok: false,
+        error: branchPilotError
+      }
+    }
+  })
+}
+
+function handleAssistantAction<Args extends [{ repoPath: string }], T>(
+  channel: string,
+  action: AssistantActionKind,
+  descriptor: ActivityDescriptor<Args, T>,
+  callback: (...args: Args) => Promise<T> | T
+) {
+  ipcMain.handle(channel, async (_event, ...rawArgs): Promise<ApiResult<T>> => {
+    const args = rawArgs as Args
+    const repoPath = descriptor.repoPath(args)
+
+    try {
+      if (repoPath) {
+        await assistantPolicyService.assertActionAllowed(repoPath, action)
+      }
+
+      const data = await callback(...args)
+      await recordActivity({
+        repoPath,
+        type: descriptor.type,
+        actor: descriptor.actor,
+        status: 'success',
+        title: descriptor.title,
+        metadata: descriptor.metadata?.(args, data)
+      })
+
+      return {
+        ok: true,
+        data
+      }
+    } catch (error) {
+      const branchPilotError = toBranchPilotError(error)
+
+      if (branchPilotError.code === 'assistant_policy_blocked') {
+        const policy = repoPath ? await assistantPolicyService.getAssistantPolicy(repoPath).catch(() => undefined) : undefined
+        await recordActivity({
+          repoPath,
+          type: 'assistant_action_blocked',
+          actor: 'assistant',
+          status: 'failure',
+          title: 'Assistant action blocked',
+          metadata: {
+            action,
+            policy_mode: policy?.settings.mode ?? 'unknown',
+            error_code: branchPilotError.code,
+            error_message: branchPilotError.message
+          }
+        })
+      } else {
+        await recordActivity({
+          repoPath,
+          type: descriptor.type,
+          actor: descriptor.actor,
+          status: 'failure',
+          title: descriptor.title,
+          metadata: {
+            ...(descriptor.metadata?.(args) ?? {}),
+            error_code: branchPilotError.code,
+            error_message: branchPilotError.message
+          }
+        })
+      }
 
       return {
         ok: false,
@@ -297,6 +379,18 @@ function registerIpcHandlers() {
       serverPath: path.join(__dirname, 'mcp/server.js')
     })
   )
+  handle('assistants:getPolicy', (repoPath: string) => assistantPolicyService.getAssistantPolicy(repoPath))
+  handleLogged('assistants:setPolicy', {
+    type: 'assistant_policy_updated',
+    actor: 'user',
+    title: 'Assistant policy updated',
+    repoPath: requestRepoPath,
+    metadata: ([update], status) => ({
+      mode: status?.settings.mode ?? update.mode
+    })
+  }, (update: AssistantPolicyUpdate) =>
+    assistantPolicyService.setAssistantPolicy(update)
+  )
   handle('activity:list', (query: ActivityLogQuery) => activityLogService.getActivityLog(query))
   handle('activity:clear', (repoPath: string, confirmed: boolean) =>
     activityLogService.clearActivityLog(repoPath, confirmed)
@@ -412,7 +506,7 @@ function registerIpcHandlers() {
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName })
   }, async (request: BranchActionRequest) =>
-    withProjectMemoryRefresh(await repositoryService.createBranch(request.repoPath, request.branchName))
+    withProjectMemoryRefresh(await repositoryService.createBranch(request.repoPath, request.branchName, request.description))
   )
   handleLogged('git:switchBranch', {
     type: 'branch_switched',
@@ -550,7 +644,8 @@ function registerIpcHandlers() {
     return withProjectMemoryRefresh(await repositoryService.getSnapshot(rootPath))
   })
   handle('assistants:list', () => listAssistantStatuses(commandRunner))
-  handleLogged('assistants:generateCommitMessage', {
+  handle('assistants:check', () => checkAssistantStatuses(commandRunner))
+  handleAssistantAction('assistants:generateCommitMessage', 'commit_message', {
     type: 'assistant_commit_generated',
     actor: 'assistant',
     title: 'Assistant commit text generated',
@@ -565,7 +660,22 @@ function registerIpcHandlers() {
   }, (request: CommitMessageGenerationRequest) =>
     generateCommitMessage(commandRunner, request)
   )
-  handleLogged('assistants:generatePullRequestText', {
+  handleAssistantAction('assistants:generateBranchDraft', 'branch_draft', {
+    type: 'assistant_branch_generated',
+    actor: 'assistant',
+    title: 'Assistant branch draft generated',
+    repoPath: requestRepoPath,
+    metadata: ([request], generated) => ({
+      requested_assistant: request.assistant,
+      assistant: generated?.assistant ?? 'unknown',
+      branch_name: generated?.branchName ?? '',
+      description_length: generated?.description.length ?? 0,
+      truncated: generated?.truncated ?? false
+    })
+  }, (request: BranchDraftGenerationRequest) =>
+    generateBranchDraft(commandRunner, request)
+  )
+  handleAssistantAction('assistants:generatePullRequestText', 'pull_request_text', {
     type: 'assistant_pr_generated',
     actor: 'assistant',
     title: 'Assistant PR text generated',
@@ -583,7 +693,7 @@ function registerIpcHandlers() {
   }, (request: PullRequestTextGenerationRequest) =>
     generatePullRequestText(commandRunner, request)
   )
-  handleLogged('assistants:generateReviewReport', {
+  handleAssistantAction('assistants:generateReviewReport', 'review_report', {
     type: 'assistant_review_generated',
     actor: 'assistant',
     title: 'Assistant review generated',

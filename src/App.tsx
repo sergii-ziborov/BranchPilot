@@ -32,7 +32,10 @@ import type {
   ActivityLogEventType,
   ActivityLogSnapshot,
   ApiResult,
+  AssistantActionKind,
   AssistantId,
+  AssistantPolicyMode,
+  AssistantPolicyStatus,
   AssistantStatus,
   BranchSummary,
   CommitDetails,
@@ -68,17 +71,28 @@ import type {
   ReviewSeverity,
   StashEntry
 } from './shared/branchPilot'
+import { getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
+import { getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
+import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import './App.css'
 
 type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily'
 type DiffMode = 'unstaged' | 'staged'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
+type AssistantReadinessState = AssistantStatus['state'] | 'unknown'
 
 const api = window.branchPilot
 const reviewModes: ReviewMode[] = ['consistency', 'security', 'quality']
 const reviewSeverities: ReviewSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 const activityCategories: ActivityCategory[] = ['all', 'git', 'assistant', 'provider', 'memory']
+const assistantPolicyModes: AssistantPolicyMode[] = [
+  'disabled',
+  'review-only',
+  'suggest-only',
+  'allow-local-commands',
+  'allow-file-edits'
+]
 
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
@@ -86,6 +100,9 @@ function App() {
   const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
   const [providers, setProviders] = useState<ProviderStatus[]>([])
   const [assistants, setAssistants] = useState<AssistantStatus[]>([])
+  const [assistantsChecking, setAssistantsChecking] = useState(false)
+  const [assistantPolicy, setAssistantPolicy] = useState<AssistantPolicyStatus | null>(null)
+  const [assistantPolicyLoading, setAssistantPolicyLoading] = useState(false)
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [diffMode, setDiffMode] = useState<DiffMode>('unstaged')
   const [diff, setDiff] = useState<DiffResult | null>(null)
@@ -114,6 +131,8 @@ function App() {
   const [commitTitle, setCommitTitle] = useState('')
   const [commitDescription, setCommitDescription] = useState('')
   const [newBranchName, setNewBranchName] = useState('')
+  const [newBranchDescription, setNewBranchDescription] = useState('')
+  const [branchDraftGoal, setBranchDraftGoal] = useState('')
   const [selectedMergeBranch, setSelectedMergeBranch] = useState('')
   const [stashMessage, setStashMessage] = useState('')
   const [stashes, setStashes] = useState<StashEntry[]>([])
@@ -247,6 +266,15 @@ function App() {
   }, [snapshot?.summary.rootPath])
 
   useEffect(() => {
+    if (!snapshot) {
+      setAssistantPolicy(null)
+      return
+    }
+
+    void loadAssistantPolicy(snapshot.summary.rootPath)
+  }, [snapshot?.summary.rootPath])
+
+  useEffect(() => {
     if (!projectMemory) {
       setSelectedMemoryFilePath(null)
       return
@@ -301,7 +329,7 @@ function App() {
   }, [snapshot?.summary.rootPath, viewMode])
 
   useEffect(() => {
-    if (viewMode !== 'providers' || !selectedPullRequestNumber || !githubCliStatus?.authenticated) {
+    if (viewMode !== 'providers' || !selectedPullRequestNumber || !githubCliStatus?.ghAuthenticated) {
       setSelectedPullRequestDetails(null)
       setSelectedPullRequestChecks([])
       setSelectedPullRequestDiff(null)
@@ -310,7 +338,7 @@ function App() {
     }
 
     void loadPullRequestDetails(selectedPullRequestNumber)
-  }, [githubCliStatus?.authenticated, selectedPullRequestNumber, snapshot?.summary.rootPath, viewMode])
+  }, [githubCliStatus?.ghAuthenticated, selectedPullRequestNumber, snapshot?.summary.rootPath, viewMode])
 
   const currentRepoPath = snapshot?.summary.rootPath
   const counts = snapshot?.status.counts
@@ -322,6 +350,21 @@ function App() {
   const canPush = Boolean(snapshot && !snapshot.summary.isDetached && hasUpstream)
   const canPublishBranch = Boolean(snapshot && !snapshot.summary.isDetached && !snapshot.summary.upstream && snapshot.summary.remoteName)
   const selectedFileTarget = currentRepoPath && selectedChange ? `${currentRepoPath}/${selectedChange.path}` : null
+  const canGenerateCommitText = assistantPolicyAllows(assistantPolicy, 'commit_message')
+  const canGeneratePullRequestText = assistantPolicyAllows(assistantPolicy, 'pull_request_text')
+  const canRunAssistantReview = assistantPolicyAllows(assistantPolicy, 'review_report')
+  const canGenerateBranchDraft = assistantPolicyAllows(assistantPolicy, 'branch_draft')
+  const commitActionState = getCommitActionState({ snapshot, title: commitTitle })
+  const commitAndPushActionState = getCommitAndPushActionState({ snapshot, title: commitTitle })
+  const branchDraftActionState = getBranchDraftActionState({
+    snapshot,
+    intent: branchDraftGoal,
+    assistantAllowed: canGenerateBranchDraft
+  })
+  const createBranchActionState = getCreateBranchActionState({
+    snapshot,
+    branchName: newBranchName
+  })
 
   async function loadRecentRepositories() {
     if (!api) return
@@ -350,6 +393,62 @@ function App() {
     if (!api) return
     const result = await api.listAssistants()
     if (result.ok) setAssistants(result.data)
+  }
+
+  async function checkAssistants() {
+    if (!api) return
+    setAssistantsChecking(true)
+    setError(null)
+    const result = await api.checkAssistants()
+
+    if (result.ok) {
+      setAssistants(result.data)
+      const ready = result.data.filter((assistant) => assistant.state === 'ready').length
+      setNotice(`${ready} of ${result.data.length} assistant CLIs are ready.`)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setAssistantsChecking(false)
+  }
+
+  async function loadAssistantPolicy(repoPath = currentRepoPath) {
+    if (!api || !repoPath) return
+    setAssistantPolicyLoading(true)
+    const result = await api.getAssistantPolicy(repoPath)
+
+    if (result.ok) {
+      setAssistantPolicy(result.data)
+    } else {
+      setAssistantPolicy(null)
+      setError(result.error.message)
+    }
+
+    setAssistantPolicyLoading(false)
+  }
+
+  async function updateAssistantPolicy(mode: AssistantPolicyMode) {
+    if (!api || !currentRepoPath) return
+    setAssistantPolicyLoading(true)
+    setError(null)
+    const result = await api.setAssistantPolicy({
+      repoPath: currentRepoPath,
+      mode
+    })
+
+    if (result.ok) {
+      setAssistantPolicy(result.data)
+      setNotice(`Assistant policy set to ${assistantPolicyModeLabel(result.data.settings.mode)}.`)
+      if (viewMode === 'memory') {
+        void loadProjectMemory(currentRepoPath)
+      }
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setAssistantPolicyLoading(false)
   }
 
   async function loadGitHubCliStatus(): Promise<GitHubCliStatus | null> {
@@ -407,7 +506,7 @@ function App() {
     void loadProviders()
     const status = await loadGitHubCliStatus()
 
-    if (status?.authenticated && currentRepoPath) {
+    if (status?.ghAuthenticated && currentRepoPath) {
       await loadGitHubPullRequests()
     } else {
       setCurrentPullRequest(null)
@@ -836,6 +935,11 @@ function App() {
 
   async function commitChanges(): Promise<boolean> {
     if (!api || !currentRepoPath) return false
+    if (!commitActionState.enabled) {
+      setNotice(`Commit blocked: ${commitActionState.reasons.join(' ')}`)
+      return false
+    }
+
     const committed = await runSnapshotAction('Commit created.', () =>
       api.commit({
         repoPath: currentRepoPath,
@@ -953,6 +1057,10 @@ function App() {
 
   async function generateCommitText() {
     if (!api || !currentRepoPath) return
+    if (!canGenerateCommitText) {
+      setNotice(assistantPolicyBlockedLabel('commit_message', assistantPolicy))
+      return
+    }
 
     if ((commitTitle.trim() || commitDescription.trim()) && !window.confirm('Replace the current commit title and description?')) {
       return
@@ -979,6 +1087,10 @@ function App() {
 
   async function generatePullRequestText() {
     if (!api || !currentRepoPath) return
+    if (!canGeneratePullRequestText) {
+      setNotice(assistantPolicyBlockedLabel('pull_request_text', assistantPolicy))
+      return
+    }
 
     if ((prTitle.trim() || prDescription.trim()) && !window.confirm('Replace the current pull request title and description?')) {
       return
@@ -1053,6 +1165,11 @@ function App() {
 
   async function runReviewReport() {
     if (!api || !currentRepoPath) return
+    if (!canRunAssistantReview) {
+      setNotice(assistantPolicyBlockedLabel('review_report', assistantPolicy))
+      return
+    }
+
     setBusy(true)
     setError(null)
     const result = await api.generateReviewReport({
@@ -1076,6 +1193,10 @@ function App() {
 
   async function runPreCommitReview() {
     if (!api || !currentRepoPath || !counts?.staged || preCommitReviewModes.length === 0) return
+    if (!canRunAssistantReview) {
+      setNotice(assistantPolicyBlockedLabel('review_report', assistantPolicy))
+      return
+    }
 
     setBusy(true)
     setError(null)
@@ -1141,12 +1262,54 @@ function App() {
     setViewMode('review')
   }
 
+  async function generateBranchDraft() {
+    if (!api || !currentRepoPath) return
+    if (!branchDraftActionState.enabled) {
+      setNotice(`Branch draft blocked: ${branchDraftActionState.reasons.join(' ')}`)
+      return
+    }
+
+    if ((newBranchName.trim() || newBranchDescription.trim()) && !window.confirm('Replace the current branch name and description?')) {
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+    const result = await api.generateBranchDraft({
+      repoPath: currentRepoPath,
+      assistant: selectedAssistant,
+      goal: branchDraftGoal.trim() || undefined
+    })
+
+    if (result.ok) {
+      setNewBranchName(result.data.branchName)
+      setNewBranchDescription(result.data.description)
+      setNotice(`Generated branch draft with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated context' : ''}.`)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
   async function createBranch() {
-    if (!api || !currentRepoPath || !newBranchName.trim()) return
+    if (!api || !currentRepoPath) return
+    if (!createBranchActionState.enabled) {
+      setNotice(`Create branch blocked: ${createBranchActionState.reasons.join(' ')}`)
+      return
+    }
+
     await runSnapshotAction('Branch created.', () =>
-      api.createBranch({ repoPath: currentRepoPath, branchName: newBranchName })
+      api.createBranch({
+        repoPath: currentRepoPath,
+        branchName: newBranchName,
+        description: newBranchDescription
+      })
     )
     setNewBranchName('')
+    setNewBranchDescription('')
+    setBranchDraftGoal('')
   }
 
   async function saveLocalGitIdentity() {
@@ -1429,15 +1592,19 @@ function App() {
                 <option value="claude">Claude Code</option>
                 <option value="codex">Codex</option>
               </select>
-              <button type="button" onClick={generateCommitText} disabled={busy || !counts?.staged}>
+              <button type="button" onClick={generateCommitText} disabled={busy || !counts?.staged || !canGenerateCommitText}>
                 <Bot size={17} />
                 Generate
               </button>
             </div>
+            {!canGenerateCommitText && (
+              <div className="assistant-policy-note">{assistantPolicyBlockedLabel('commit_message', assistantPolicy)}</div>
+            )}
+            {renderAssistantReadiness('commit_message')}
             <div className="assistant-detections">
               {assistants.map((assistant) => (
-                <span key={assistant.id}>
-                  {assistant.label}: {assistant.detected ? 'detected' : 'not found'}
+                <span className={`assistant-state state-${assistant.state}`} key={assistant.id}>
+                  {assistant.label}: {assistantStatusLabel(assistant)}
                 </span>
               ))}
             </div>
@@ -1456,8 +1623,12 @@ function App() {
               placeholder="Optional commit body"
             />
             {renderPreCommitReviewPanel()}
+            <ActionBlockers
+              title={commitActionState.enabled ? 'Ready to commit' : 'Commit blocked'}
+              reasons={commitActionState.reasons}
+            />
             <div className="commit-actions">
-              <button type="button" onClick={commitChanges} disabled={busy || !counts?.staged}>
+              <button type="button" onClick={commitChanges} disabled={busy || !commitActionState.enabled}>
                 <GitCommitHorizontal size={17} />
                 Commit
               </button>
@@ -1470,12 +1641,16 @@ function App() {
                     await runSnapshotAction('Push complete.', () => api!.push(currentRepoPath))
                   }
                 }}
-                disabled={busy || !counts?.staged || !canPush}
+                disabled={busy || !commitAndPushActionState.enabled}
               >
                 <UploadCloud size={17} />
                 Commit & push
               </button>
             </div>
+            <ActionBlockers
+              title={commitAndPushActionState.enabled ? 'Ready to commit and push' : 'Commit & push blocked'}
+              reasons={commitAndPushActionState.reasons}
+            />
           </div>
         </div>
 
@@ -1566,7 +1741,7 @@ function App() {
               </button>
             ))}
           </div>
-          <button type="button" onClick={runPreCommitReview} disabled={busy || !counts?.staged || preCommitReviewModes.length === 0}>
+          <button type="button" onClick={runPreCommitReview} disabled={busy || !counts?.staged || preCommitReviewModes.length === 0 || !canRunAssistantReview}>
             {isRunning ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />}
             {isRunning ? `Reviewing ${reviewModeLabel(preCommitRunningMode!)}` : 'Review staged diff'}
           </button>
@@ -1574,6 +1749,8 @@ function App() {
 
         {!counts?.staged ? (
           <div className="precommit-empty">Stage files to review the exact diff that will be committed.</div>
+        ) : !canRunAssistantReview ? (
+          <div className="precommit-empty">{assistantPolicyBlockedLabel('review_report', assistantPolicy)}</div>
         ) : preCommitReviewModes.length === 0 ? (
           <div className="precommit-empty">Select at least one review mode.</div>
         ) : isRunning && preCommitReports.length === 0 ? (
@@ -1623,6 +1800,24 @@ function App() {
           </div>
         )}
       </section>
+    )
+  }
+
+  function renderAssistantReadiness(action: AssistantActionKind) {
+    const summary = assistantReadinessSummary(assistants, selectedAssistant)
+
+    return (
+      <div className={`assistant-readiness state-${summary.state}`}>
+        <div>
+          <span>{assistantActionLabel(action)}</span>
+          <strong>{summary.title}</strong>
+          <p>{summary.message}</p>
+        </div>
+        <button type="button" onClick={checkAssistants} disabled={assistantsChecking}>
+          {assistantsChecking ? <Loader2 className="spin" size={15} /> : <Bot size={15} />}
+          {assistantsChecking ? 'Checking' : 'Check'}
+        </button>
+      </div>
     )
   }
 
@@ -2232,20 +2427,78 @@ function App() {
         <div className="panel-heading">
           <div>
             <h2>Branches</h2>
-            <p>Create, switch, and safely delete local branches.</p>
+            <p>Create, describe, switch, and safely delete local branches.</p>
           </div>
-          <div className="new-branch">
+        </div>
+
+        <section className="branch-composer">
+          <div className="branch-composer-heading">
+            <div>
+              <h3>New branch</h3>
+              <p>Draft a branch name from local context, then create it with an optional Git branch description.</p>
+            </div>
+            <span>{snapshot?.summary.currentBranch ?? 'No repository'}</span>
+          </div>
+
+          <div className="branch-composer-grid">
+            <label htmlFor="branch-draft-goal">Intent</label>
+            <textarea
+              id="branch-draft-goal"
+              value={branchDraftGoal}
+              onChange={(event) => setBranchDraftGoal(event.target.value)}
+              placeholder="What are you about to work on?"
+            />
+
+            <label htmlFor="branch-name">Branch name</label>
             <input
+              id="branch-name"
               value={newBranchName}
               onChange={(event) => setNewBranchName(event.target.value)}
               placeholder="feature/new-work"
             />
-            <button type="button" onClick={createBranch} disabled={!newBranchName.trim()}>
+
+            <label htmlFor="branch-description">Branch description</label>
+            <textarea
+              id="branch-description"
+              value={newBranchDescription}
+              onChange={(event) => setNewBranchDescription(event.target.value)}
+              placeholder="Optional local Git branch description"
+            />
+          </div>
+
+          <div className="branch-composer-actions">
+            <select
+              aria-label="Branch draft assistant"
+              value={selectedAssistant}
+              onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
+            >
+              <option value="auto">Auto</option>
+              <option value="claude">Claude Code</option>
+              <option value="codex">Codex</option>
+            </select>
+            <button type="button" onClick={generateBranchDraft} disabled={busy || !branchDraftActionState.enabled}>
+              <Bot size={17} />
+              Generate draft
+            </button>
+            <button type="button" onClick={createBranch} disabled={busy || !createBranchActionState.enabled}>
               <GitBranch size={17} />
-              Create
+              Create branch
             </button>
           </div>
-        </div>
+
+          {!canGenerateBranchDraft && (
+            <div className="assistant-policy-note">{assistantPolicyBlockedLabel('branch_draft', assistantPolicy)}</div>
+          )}
+          {renderAssistantReadiness('branch_draft')}
+          <ActionBlockers
+            title={branchDraftActionState.enabled ? 'Ready to generate branch draft' : 'Branch draft blocked'}
+            reasons={branchDraftActionState.reasons}
+          />
+          <ActionBlockers
+            title={createBranchActionState.enabled ? 'Ready to create branch' : 'Create branch blocked'}
+            reasons={createBranchActionState.reasons}
+          />
+        </section>
 
         <div className="branch-list">
           {branches.map((branch) => (
@@ -2253,6 +2506,7 @@ function App() {
               <div>
                 <strong>{branch.name}</strong>
                 <span>{branch.upstream || 'No upstream'} · {branch.lastCommitAt ? formatDate(branch.lastCommitAt) : 'No commit date'}</span>
+                {branch.description && <p>{branch.description}</p>}
               </div>
               <div className="panel-actions">
                 {branch.current && !branch.upstream && snapshot?.summary.remoteName && (
@@ -2286,6 +2540,66 @@ function App() {
     )
   }
 
+  function renderAssistantPolicyPanel() {
+    const mode = assistantPolicy?.settings.mode ?? 'suggest-only'
+    const lockedModes = assistantPolicy?.lockedModes ?? ['allow-local-commands', 'allow-file-edits']
+    const actions: AssistantActionKind[] = ['commit_message', 'branch_draft', 'pull_request_text', 'review_report']
+
+    return (
+      <section className="assistant-policy-panel">
+        <div className="assistant-policy-heading">
+          <div>
+            <h3>Assistant policy</h3>
+            <p>Per-repository permissions for Claude Code and Codex.</p>
+          </div>
+          <span>{assistantPolicyLoading ? 'Loading' : assistantPolicyModeLabel(mode)}</span>
+        </div>
+
+        <div className="segmented assistant-policy-modes" aria-label="Assistant policy modes">
+          {assistantPolicyModes.map((candidateMode) => {
+            const locked = lockedModes.includes(candidateMode)
+
+            return (
+              <button
+                aria-pressed={mode === candidateMode}
+                className={`${mode === candidateMode ? 'active' : ''} ${locked ? 'locked' : ''}`.trim()}
+                disabled={!snapshot || assistantPolicyLoading || locked}
+                key={candidateMode}
+                onClick={() => updateAssistantPolicy(candidateMode)}
+                type="button"
+              >
+                {assistantPolicyModeLabel(candidateMode)}
+                {locked ? ' · future' : ''}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="assistant-policy-actions">
+          {actions.map((action) => {
+            const allowed = assistantPolicyAllows(assistantPolicy, action)
+
+            return (
+              <div className={allowed ? 'allowed' : 'blocked'} key={action}>
+                {allowed ? <Check size={15} /> : <X size={15} />}
+                <span>{assistantActionLabel(action)}</span>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="assistant-policy-copy">
+          Assistants receive explicit local context only. BranchPilot v1 does not grant file write access, shell write access, auto-apply, or silent approval expansion.
+          Destructive Git operations still require their own confirmations.
+        </div>
+
+        {assistantPolicy?.settings.updatedAt && (
+          <div className="assistant-policy-updated">Updated {formatDate(assistantPolicy.settings.updatedAt)}</div>
+        )}
+      </section>
+    )
+  }
+
   function renderReviewView() {
     const findings = reviewReport?.findings ?? []
     const findingsBySeverity = groupFindingsBySeverity(findings)
@@ -2297,13 +2611,15 @@ function App() {
             <h2>Review modes</h2>
             <p>Run local assistant reviews on staged, unstaged, or branch changes.</p>
           </div>
-          <button type="button" onClick={runReviewReport} disabled={!snapshot || busy}>
+          <button type="button" onClick={runReviewReport} disabled={!snapshot || busy || !canRunAssistantReview}>
             <ShieldCheck size={17} />
             Run review
           </button>
         </div>
 
         <div className="review-workspace">
+          {renderAssistantPolicyPanel()}
+
           <section className="review-controls">
             <div className="control-group">
               <span>Mode</span>
@@ -2350,9 +2666,16 @@ function App() {
               </select>
             </div>
           </section>
+          {renderAssistantReadiness('review_report')}
 
           {!snapshot ? (
             <div className="quiet-box">Open a repository before running a review.</div>
+          ) : !canRunAssistantReview ? (
+            <div className="review-empty">
+              <ShieldCheck size={24} />
+              <strong>Assistant reviews blocked</strong>
+              <span>{assistantPolicyBlockedLabel('review_report', assistantPolicy)}</span>
+            </div>
           ) : !reviewReport ? (
             <div className="review-empty">
               <ShieldCheck size={24} />
@@ -2401,12 +2724,26 @@ function App() {
           )}
         </div>
 
+        <div className="assistant-health-heading">
+          <div>
+            <h3>Assistant health</h3>
+            <p>PATH detection is fast. Health check verifies that the CLI can actually generate JSON for BranchPilot.</p>
+          </div>
+          <button type="button" onClick={checkAssistants} disabled={assistantsChecking}>
+            {assistantsChecking ? <Loader2 className="spin" size={17} /> : <Bot size={17} />}
+            {assistantsChecking ? 'Checking' : 'Check assistants'}
+          </button>
+        </div>
+
         <div className="assistant-grid">
           {assistants.map((assistant) => (
-            <div className="provider-card" key={assistant.id}>
+            <div className={`provider-card assistant-card state-${assistant.state}`} key={assistant.id}>
               <Bot size={20} />
               <strong>{assistant.label}</strong>
-              <span>{assistant.detected ? `Detected: ${assistant.executable}` : 'Not detected'}</span>
+              <span>{assistantStatusLabel(assistant)}</span>
+              <code>{assistant.executable ?? assistant.id}</code>
+              <p>{assistant.message}</p>
+              {assistant.checkedAt && <span>Checked {formatDate(assistant.checkedAt)}</span>}
             </div>
           ))}
         </div>
@@ -2510,21 +2847,20 @@ function App() {
 
   function renderProvidersView() {
     const githubProvider = providers.find((provider) => provider.id === 'github')
-    const canCreatePr = Boolean(
-      snapshot &&
-      !snapshot.summary.isDetached &&
-      prTitle.trim() &&
-      githubCliStatus?.authenticated &&
-      snapshot.summary.upstream &&
-      !currentPullRequest
-    )
+    const createPrState = getCreatePullRequestState({
+      snapshot,
+      githubStatus: githubCliStatus,
+      title: prTitle,
+      currentPullRequestExists: Boolean(currentPullRequest)
+    })
+    const browsePrState = getPullRequestBrowseState(snapshot, githubCliStatus)
 
     return (
       <section className="single-panel">
         <div className="panel-heading">
           <div>
             <h2>Providers</h2>
-            <p>GitHub uses the local GitHub CLI bridge first; full provider APIs remain later.</p>
+            <p>GitHub uses authenticated gh when available, with GitHub Desktop credentials as a PR creation fallback.</p>
           </div>
           <button type="button" onClick={refreshProvidersPanel} disabled={busy}>
             <RefreshCcw size={17} />
@@ -2553,11 +2889,15 @@ function App() {
           </div>
 
           {githubCliStatus?.state === 'unauthenticated' && (
-            <div className="command-hint">Run <code>gh auth login</code> in Terminal, then refresh this panel.</div>
+            <div className="command-hint">Run <code>gh auth login</code> or sign in with GitHub Desktop, then refresh this panel.</div>
           )}
 
           {githubCliStatus?.state === 'missing' && (
-            <div className="command-hint">Install GitHub CLI to create pull requests from BranchPilot.</div>
+            <div className="command-hint">Install GitHub CLI or sign in with GitHub Desktop to create pull requests from BranchPilot.</div>
+          )}
+
+          {githubCliStatus?.authProvider === 'git-credential' && (
+            <div className="command-hint">Using GitHub Desktop credential for PR creation. Run <code>gh auth login</code> to enable PR list, checks, diff, and checkout.</div>
           )}
 
           {snapshot && !snapshot.summary.upstream && (
@@ -2620,7 +2960,7 @@ function App() {
               placeholder="Describe changes, testing, and risk"
             />
             <div className="commit-actions">
-              <button type="button" onClick={generatePullRequestText} disabled={!snapshot || busy}>
+              <button type="button" onClick={generatePullRequestText} disabled={!snapshot || busy || !canGeneratePullRequestText}>
                 <Bot size={17} />
                 Generate PR text
               </button>
@@ -2630,7 +2970,7 @@ function App() {
                   Open current PR
                 </button>
               ) : (
-                <button type="button" onClick={createPullRequest} disabled={!canCreatePr || busy}>
+                <button type="button" onClick={createPullRequest} disabled={!createPrState.enabled || busy}>
                   <GitPullRequest size={17} />
                   Create PR
                 </button>
@@ -2642,6 +2982,14 @@ function App() {
                 </button>
               )}
             </div>
+            {!canGeneratePullRequestText && (
+              <div className="assistant-policy-note">{assistantPolicyBlockedLabel('pull_request_text', assistantPolicy)}</div>
+            )}
+            {renderAssistantReadiness('pull_request_text')}
+            <ActionBlockers
+              title={createPrState.enabled ? 'Ready to create PR' : 'Create PR blocked'}
+              reasons={createPrState.reasons}
+            />
           </div>
 
           {createdPullRequest && (
@@ -2656,15 +3004,21 @@ function App() {
             <div className="panel-heading compact-heading">
               <div>
                 <h3>Pull requests</h3>
-                <p>{pullRequests.length} recent pull request{pullRequests.length === 1 ? '' : 's'} from GitHub CLI.</p>
+                <p>{githubCliStatus?.ghAuthenticated ? `${pullRequests.length} recent pull request${pullRequests.length === 1 ? '' : 's'} from GitHub CLI.` : 'PR list, checks, diff, and checkout require gh auth login.'}</p>
               </div>
-              <button type="button" className="secondary" onClick={loadGitHubPullRequests} disabled={busy || !githubCliStatus?.authenticated || !snapshot}>
+              <button type="button" className="secondary" onClick={loadGitHubPullRequests} disabled={busy || !browsePrState.enabled}>
                 <RefreshCcw size={17} />
                 Refresh PRs
               </button>
             </div>
+            <ActionBlockers
+              title={browsePrState.enabled ? 'Ready to browse PRs' : 'PR browsing blocked'}
+              reasons={browsePrState.reasons}
+            />
 
-            {githubCliStatus?.authenticated && pullRequests.length === 0 ? (
+            {!browsePrState.enabled ? (
+              <div className="quiet-box">Authenticate GitHub CLI to browse pull requests in BranchPilot. Creating a PR can still use GitHub Desktop credentials.</div>
+            ) : pullRequests.length === 0 ? (
               <div className="quiet-box">No open pull requests found.</div>
             ) : (
               <div className="pr-list">
@@ -2872,6 +3226,26 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+function ActionBlockers({ title, reasons }: { title: string; reasons: string[] }) {
+  return (
+    <div className={reasons.length === 0 ? 'action-blockers ready' : 'action-blockers blocked'}>
+      <div>
+        {reasons.length === 0 ? <Check size={16} /> : <FileWarning size={16} />}
+        <strong>{title}</strong>
+      </div>
+      {reasons.length > 0 ? (
+        <ul>
+          {reasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>All required preconditions are satisfied.</p>
+      )}
+    </div>
+  )
+}
+
 function DiffPreview({
   diff,
   mode,
@@ -3004,6 +3378,117 @@ function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string {
   return assistant === 'claude' ? 'Claude Code' : 'Codex'
 }
 
+function assistantStatusLabel(assistant: AssistantStatus): string {
+  if (assistant.state === 'ready') return 'ready'
+  if (assistant.state === 'unavailable') return 'unavailable'
+  if (assistant.state === 'missing') return 'not found'
+  return assistant.detected ? 'detected' : 'not found'
+}
+
+function assistantReadinessSummary(
+  assistants: AssistantStatus[],
+  selectedAssistant: AssistantId
+): { state: AssistantReadinessState; title: string; message: string } {
+  if (assistants.length === 0) {
+    return {
+      state: 'unknown',
+      title: 'Assistant status not loaded',
+      message: 'BranchPilot has not loaded Claude/Codex detection yet.'
+    }
+  }
+
+  if (selectedAssistant !== 'auto') {
+    const assistant = assistants.find((candidate) => candidate.id === selectedAssistant)
+
+    if (!assistant) {
+      return {
+        state: 'missing',
+        title: `${assistantLabel(selectedAssistant)} is not configured`,
+        message: 'Select Auto or install the requested assistant CLI.'
+      }
+    }
+
+    return {
+      state: assistant.state,
+      title: `${assistant.label}: ${assistantStatusLabel(assistant)}`,
+      message: assistant.message
+    }
+  }
+
+  const ready = assistants.find((assistant) => assistant.state === 'ready')
+
+  if (ready) {
+    return {
+      state: 'ready',
+      title: `Auto will use ${ready.label}`,
+      message: ready.message
+    }
+  }
+
+  const detected = assistants.find((assistant) => assistant.state === 'detected')
+
+  if (detected) {
+    return {
+      state: 'detected',
+      title: 'Auto has detected assistants',
+      message: 'Run a health check to verify that generation access works before relying on Auto.'
+    }
+  }
+
+  const unavailable = assistants.find((assistant) => assistant.state === 'unavailable')
+
+  if (unavailable) {
+    return {
+      state: 'unavailable',
+      title: 'Auto has no ready assistant',
+      message: assistants.map((assistant) => `${assistant.label}: ${assistantStatusLabel(assistant)}`).join(' · ')
+    }
+  }
+
+  return {
+    state: 'missing',
+    title: 'No assistant CLI found',
+    message: 'Install Claude Code or Codex, then reload assistant detection.'
+  }
+}
+
+function assistantPolicyAllows(policy: AssistantPolicyStatus | null, action: AssistantActionKind): boolean {
+  if (!policy) {
+    return true
+  }
+
+  return policy.allowedActions.includes(action)
+}
+
+function assistantPolicyModeLabel(mode: AssistantPolicyMode): string {
+  if (mode === 'disabled') return 'Disabled'
+  if (mode === 'review-only') return 'Review only'
+  if (mode === 'allow-local-commands') return 'Allow local commands'
+  if (mode === 'allow-file-edits') return 'Allow file edits'
+  return 'Suggest only'
+}
+
+function assistantActionLabel(action: AssistantActionKind): string {
+  if (action === 'branch_draft') return 'Branch draft generation'
+  if (action === 'commit_message') return 'Commit text generation'
+  if (action === 'pull_request_text') return 'PR text generation'
+  return 'Assistant reviews'
+}
+
+function assistantPolicyBlockedLabel(action: AssistantActionKind, policy: AssistantPolicyStatus | null): string {
+  const mode = policy?.settings.mode ?? 'suggest-only'
+
+  if (mode === 'disabled') {
+    return `${assistantActionLabel(action)} is blocked because assistant policy is Disabled.`
+  }
+
+  if (mode === 'review-only') {
+    return `${assistantActionLabel(action)} is blocked because assistant policy is Review only.`
+  }
+
+  return `${assistantActionLabel(action)} is not available under the current assistant policy.`
+}
+
 function reviewModeLabel(mode: ReviewMode): string {
   if (mode === 'security') return 'Security'
   if (mode === 'quality') return 'Quality'
@@ -3028,21 +3513,25 @@ function groupFindingsBySeverity(findings: ReviewFinding[]): Record<ReviewSeveri
 
 function providerStateLabel(state: ProviderStatus['state']): string {
   if (state === 'connected') return 'connected'
-  if (state === 'unauthenticated') return 'gh login required'
-  if (state === 'missing') return 'gh missing'
+  if (state === 'unauthenticated') return 'auth required'
+  if (state === 'missing') return 'auth missing'
   return state
 }
 
 function githubStatusLabel(status: GitHubCliStatus): string {
   if (status.state === 'authenticated') {
+    if (status.authProvider === 'git-credential') {
+      return status.username ? `GitHub Desktop: ${status.username}` : 'GitHub Desktop credential'
+    }
+
     return status.username ? `Authenticated as ${status.username}` : 'Authenticated'
   }
 
   if (status.state === 'unauthenticated') {
-    return 'gh auth required'
+    return 'GitHub auth required'
   }
 
-  return 'gh missing'
+  return 'GitHub auth missing'
 }
 
 function memoryFileMeta(file: ProjectMemoryFile): string {
@@ -3062,6 +3551,7 @@ function memoryFileMeta(file: ProjectMemoryFile): string {
 function activityEntryCategory(entry: ActivityLogEntry): ActivityCategory {
   if (entry.actor === 'assistant') return 'assistant'
   if (entry.actor === 'provider') return 'provider'
+  if (entry.type === 'assistant_policy_updated' || entry.type === 'assistant_action_blocked') return 'assistant'
   if (
     entry.type === 'project_memory_scanned' ||
     entry.type === 'project_wiki_generated' ||

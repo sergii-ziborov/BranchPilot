@@ -451,8 +451,9 @@ describe('RepositoryService', () => {
     const repoPath = createTempRepository()
     const service = createService()
 
-    const created = await service.createBranch(repoPath, 'feature/work')
+    const created = await service.createBranch(repoPath, 'feature/work', 'Tracks the generated branch purpose.')
     expect(created.summary.currentBranch).toBe('feature/work')
+    expect(created.branches.find((branch) => branch.name === 'feature/work')?.description).toBe('Tracks the generated branch purpose.')
 
     const switched = await service.switchBranch(repoPath, 'main')
     expect(switched.summary.currentBranch).toBe('main')

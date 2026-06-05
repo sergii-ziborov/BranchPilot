@@ -4,7 +4,9 @@ import path from 'node:path'
 import type {
   AssistantId,
   AssistantStatus,
+  BranchDraftGenerationRequest,
   CommitMessageGenerationRequest,
+  GeneratedBranchDraft,
   GeneratedCommitMessage,
   GeneratedPullRequestText,
   InstalledAssistantId,
@@ -30,15 +32,31 @@ interface ResolvedAssistantRunner extends AssistantRunner {
 }
 
 const MAX_ASSISTANT_DIFF_BYTES = 80_000
+const MAX_ASSISTANT_BRANCH_CONTEXT_BYTES = 100_000
 const MAX_ASSISTANT_PR_DIFF_BYTES = 120_000
 const MAX_ASSISTANT_REVIEW_DIFF_BYTES = 120_000
 
 const GENERATED_TEXT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['title'],
+  required: ['title', 'description'],
   properties: {
     title: {
+      type: 'string',
+      minLength: 1
+    },
+    description: {
+      type: 'string'
+    }
+  }
+}
+
+const BRANCH_DRAFT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['branchName', 'description'],
+  properties: {
+    branchName: {
       type: 'string',
       minLength: 1
     },
@@ -61,7 +79,7 @@ const REVIEW_REPORT_SCHEMA: Record<string, unknown> = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['severity', 'title', 'details'],
+        required: ['severity', 'title', 'details', 'filePath', 'line', 'recommendation'],
         properties: {
           severity: {
             type: 'string',
@@ -74,13 +92,13 @@ const REVIEW_REPORT_SCHEMA: Record<string, unknown> = {
             type: 'string'
           },
           filePath: {
-            type: 'string'
+            type: ['string', 'null']
           },
           line: {
-            type: 'number'
+            type: ['number', 'null']
           },
           recommendation: {
-            type: 'string'
+            type: ['string', 'null']
           }
         }
       }
@@ -102,7 +120,66 @@ export async function listAssistantStatuses(runner: CommandRunner): Promise<Assi
         id: candidate.id,
         label: candidate.label,
         executable: executablePath ?? candidate.executable,
-        detected: Boolean(executablePath)
+        detected: Boolean(executablePath),
+        state: executablePath ? 'detected' : 'missing',
+        message: executablePath
+          ? `${candidate.label} CLI was found on PATH. Run a health check to verify access.`
+          : `${candidate.label} CLI was not found on PATH.`
+      }
+    })
+  )
+}
+
+export async function checkAssistantStatuses(runner: CommandRunner): Promise<AssistantStatus[]> {
+  return Promise.all(
+    ASSISTANT_RUNNERS.map(async (candidate) => {
+      const executablePath = await resolveExecutablePath(runner, candidate.executable)
+      const checkedAt = new Date().toISOString()
+
+      if (!executablePath) {
+        return {
+          id: candidate.id,
+          label: candidate.label,
+          executable: candidate.executable,
+          detected: false,
+          state: 'missing',
+          message: `${candidate.label} CLI was not found on PATH.`,
+          checkedAt
+        }
+      }
+
+      const assistant = {
+        ...candidate,
+        executablePath
+      }
+
+      try {
+        await runAssistant(
+          runner,
+          assistant,
+          'Return JSON only with this shape: {"title":"Assistant health check","description":"ready"}.',
+          GENERATED_TEXT_SCHEMA
+        )
+
+        return {
+          id: candidate.id,
+          label: candidate.label,
+          executable: executablePath,
+          detected: true,
+          state: 'ready',
+          message: `${candidate.label} is ready for BranchPilot generation.`,
+          checkedAt
+        }
+      } catch (error) {
+        return {
+          id: candidate.id,
+          label: candidate.label,
+          executable: executablePath,
+          detected: true,
+          state: 'unavailable',
+          message: assistantHealthErrorMessage(error),
+          checkedAt
+        }
       }
     })
   )
@@ -137,14 +214,13 @@ export async function generateCommitMessage(
     timeoutMs: 10_000
   })
   const truncatedDiff = truncateText(diff.stdout, MAX_ASSISTANT_DIFF_BYTES)
-  const assistant = await resolveAssistant(runner, request.assistant)
   const prompt = buildCommitPrompt({
     branch: branch.stdout.trim() || 'Detached HEAD',
     status: status.stdout.trim(),
     diff: truncatedDiff.text,
     truncated: truncatedDiff.truncated
   })
-  const output = await runAssistant(runner, assistant, prompt)
+  const { assistant, output } = await runAssistantForRequest(runner, request.assistant, prompt)
   const parsed = parseGeneratedText(output, 'commit title')
 
   return {
@@ -185,7 +261,6 @@ export async function generatePullRequestText(
   }
 
   const truncatedDiff = truncateText(diff.stdout, MAX_ASSISTANT_PR_DIFF_BYTES)
-  const assistant = await resolveAssistant(runner, request.assistant)
   const prompt = buildPullRequestPrompt({
     baseBranch: base.baseBranch,
     headBranch,
@@ -193,7 +268,7 @@ export async function generatePullRequestText(
     diff: truncatedDiff.text,
     truncated: truncatedDiff.truncated
   })
-  const output = await runAssistant(runner, assistant, prompt)
+  const { assistant, output } = await runAssistantForRequest(runner, request.assistant, prompt)
   const parsed = parseGeneratedText(output, 'pull request title')
 
   return {
@@ -204,6 +279,71 @@ export async function generatePullRequestText(
     baseBranch: base.baseBranch,
     headBranch,
     commitCount: commits.stdout.trim() ? commits.stdout.trim().split('\n').length : 0
+  }
+}
+
+export async function generateBranchDraft(
+  runner: CommandRunner,
+  request: BranchDraftGenerationRequest
+): Promise<GeneratedBranchDraft> {
+  const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
+  const currentBranch = await getBranchLabel(runner, rootPath)
+  const status = await runner.run('/usr/bin/git', ['status', '--short'], {
+    cwd: rootPath,
+    timeoutMs: 10_000
+  })
+  const stagedDiff = await runner.run('/usr/bin/git', ['diff', '--cached', '--no-ext-diff'], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1],
+    timeoutMs: 30_000
+  })
+  const unstagedDiff = await runner.run('/usr/bin/git', ['diff', '--no-ext-diff'], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1],
+    timeoutMs: 30_000
+  })
+  const recentCommits = await runner.run('/usr/bin/git', [
+    'log',
+    '--max-count=8',
+    '--pretty=format:%h%x00%s%x00%an'
+  ], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 128],
+    timeoutMs: 30_000
+  })
+  const goal = request.goal?.trim() ?? ''
+
+  if (!goal && !status.stdout.trim() && !stagedDiff.stdout.trim() && !unstagedDiff.stdout.trim()) {
+    throw new BranchPilotUserError(
+      'no_branch_context',
+      'Add a branch goal or create local changes before generating a branch draft.'
+    )
+  }
+
+  const context = truncateText([
+    'Staged diff:',
+    stagedDiff.stdout || '(none)',
+    '',
+    'Unstaged diff:',
+    unstagedDiff.stdout || '(none)'
+  ].join('\n'), MAX_ASSISTANT_BRANCH_CONTEXT_BYTES)
+  const prompt = buildBranchDraftPrompt({
+    goal,
+    currentBranch,
+    status: status.stdout,
+    recentCommits: recentCommits.stdout,
+    diffContext: context.text,
+    truncated: context.truncated
+  })
+  const { assistant, output } = await runAssistantForRequest(runner, request.assistant, prompt, BRANCH_DRAFT_SCHEMA)
+  const parsed = parseBranchDraft(output)
+  const branchName = await validateGeneratedBranchName(runner, rootPath, parsed.branchName)
+
+  return {
+    branchName,
+    description: parsed.description,
+    assistant: assistant.id,
+    truncated: context.truncated
   }
 }
 
@@ -218,7 +358,6 @@ export async function generateReviewReport(
     throw new BranchPilotUserError('no_review_changes', `No ${request.scope} changes found to review.`)
   }
 
-  const assistant = await resolveAssistant(runner, request.assistant)
   const prompt = buildReviewPrompt({
     mode: request.mode,
     scope: request.scope,
@@ -229,7 +368,7 @@ export async function generateReviewReport(
     diff: context.diff,
     truncated: context.truncated
   })
-  const output = await runAssistant(runner, assistant, prompt, REVIEW_REPORT_SCHEMA)
+  const { assistant, output } = await runAssistantForRequest(runner, request.assistant, prompt, REVIEW_REPORT_SCHEMA)
   const parsed = parseReviewReport(output)
 
   return {
@@ -421,20 +560,25 @@ async function refExists(runner: CommandRunner, rootPath: string, ref: string): 
   return result.exitCode === 0
 }
 
-async function resolveAssistant(runner: CommandRunner, requestedAssistant: AssistantId): Promise<ResolvedAssistantRunner> {
+async function resolveAssistantCandidates(runner: CommandRunner, requestedAssistant: AssistantId): Promise<ResolvedAssistantRunner[]> {
   const candidates = requestedAssistant === 'auto'
     ? ASSISTANT_RUNNERS
     : ASSISTANT_RUNNERS.filter((candidate) => candidate.id === requestedAssistant)
+  const resolved: ResolvedAssistantRunner[] = []
 
   for (const candidate of candidates) {
     const executablePath = await resolveExecutablePath(runner, candidate.executable)
 
     if (executablePath) {
-      return {
+      resolved.push({
         ...candidate,
         executablePath
-      }
+      })
     }
+  }
+
+  if (resolved.length > 0) {
+    return resolved
   }
 
   const label = requestedAssistant === 'auto'
@@ -442,6 +586,37 @@ async function resolveAssistant(runner: CommandRunner, requestedAssistant: Assis
     : ASSISTANT_RUNNERS.find((candidate) => candidate.id === requestedAssistant)?.label ?? requestedAssistant
 
   throw new BranchPilotUserError('assistant_not_found', `${label} CLI is not available on PATH.`)
+}
+
+async function runAssistantForRequest(
+  runner: CommandRunner,
+  requestedAssistant: AssistantId,
+  prompt: string,
+  outputSchema = GENERATED_TEXT_SCHEMA
+): Promise<{ assistant: ResolvedAssistantRunner; output: string }> {
+  const candidates = await resolveAssistantCandidates(runner, requestedAssistant)
+  let lastError: unknown
+
+  for (const assistant of candidates) {
+    try {
+      return {
+        assistant,
+        output: await runAssistant(runner, assistant, prompt, outputSchema)
+      }
+    } catch (error) {
+      if (
+        requestedAssistant !== 'auto' ||
+        !(error instanceof BranchPilotUserError) ||
+        error.code !== 'assistant_failed'
+      ) {
+        throw error
+      }
+
+      lastError = error
+    }
+  }
+
+  throw lastError
 }
 
 async function resolveExecutablePath(runner: CommandRunner, executable: string): Promise<string | undefined> {
@@ -492,13 +667,41 @@ async function runAssistant(
     if (error instanceof CommandExecutionError) {
       throw new BranchPilotUserError(
         'assistant_failed',
-        `${assistant.label} failed to generate a commit message.`,
-        [error.result.stderr, error.result.stdout].filter(Boolean).join('\n')
+        `${assistant.label} failed to generate text.`,
+        summarizeAssistantFailure([error.result.stderr, error.result.stdout].filter(Boolean).join('\n'))
       )
     }
 
     throw error
   }
+}
+
+function assistantHealthErrorMessage(error: unknown): string {
+  if (error instanceof BranchPilotUserError) {
+    return error.details
+      ? `${error.message} ${error.details}`
+      : error.message
+  }
+
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return 'Assistant health check failed.'
+}
+
+function summarizeAssistantFailure(output: string): string {
+  const lines = output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const importantLines = lines.filter((line) =>
+    /^ERROR[:\s]/i.test(line) ||
+    /auth|login|token|subscription|disabled|invalid_request|invalid_json_schema|quota|rate limit/i.test(line)
+  )
+  const summary = (importantLines.length > 0 ? importantLines : lines.slice(-8)).join('\n')
+
+  return summary.slice(0, 2_000)
 }
 
 async function runCodex(
@@ -593,6 +796,42 @@ function reviewFocus(mode: ReviewMode): string {
   return 'Look for architecture boundary issues, naming problems, duplicated logic, missing tests, unrelated changes, and risky refactors.'
 }
 
+function buildBranchDraftPrompt(context: {
+  goal: string
+  currentBranch: string
+  status: string
+  recentCommits: string
+  diffContext: string
+  truncated: boolean
+}): string {
+  return [
+    'Generate a Git branch name and branch description for the work below.',
+    'Use only the provided intent, Git status, commits, and diffs.',
+    'Return JSON only with this shape: {"branchName":"feature/...","description":"..."}',
+    'Rules:',
+    '- branchName is required, lower-case, slash/kebab-case, and safe for git check-ref-format --branch;',
+    '- use a prefix such as feature/, fix/, chore/, docs/, test/, or refactor/;',
+    '- description is required, concise, and should explain the intent of the branch;',
+    '- do not include spaces, quotes, markdown, or a remote prefix in branchName;',
+    '- do not wrap the JSON in markdown fences;',
+    '- do not mention that you are an AI assistant.',
+    '',
+    `Current branch: ${context.currentBranch}`,
+    `Diff truncated: ${context.truncated ? 'yes' : 'no'}`,
+    '',
+    'User intent:',
+    context.goal || '(none)',
+    '',
+    'Git status:',
+    context.status || '(clean)',
+    '',
+    'Recent commits:',
+    context.recentCommits || '(none)',
+    '',
+    context.diffContext
+  ].join('\n')
+}
+
 function buildPullRequestPrompt(context: {
   baseBranch: string
   headBranch: string
@@ -673,6 +912,48 @@ function parseGeneratedText(output: string, titleLabel: string): { title: string
     title,
     description
   }
+}
+
+function parseBranchDraft(output: string): { branchName: string; description: string } {
+  const parsed = parseJsonLike(output)
+  const candidate = normalizeAssistantPayload(parsed)
+  const branchName = typeof candidate?.branchName === 'string' ? candidate.branchName.trim() : ''
+  const description = typeof candidate?.description === 'string' ? candidate.description.trim() : ''
+
+  if (!branchName) {
+    throw new BranchPilotUserError(
+      'assistant_parse_failed',
+      'Assistant did not return a valid branch name.',
+      output.slice(0, 2_000)
+    )
+  }
+
+  return {
+    branchName: normalizeBranchName(branchName, 'Branch name'),
+    description
+  }
+}
+
+async function validateGeneratedBranchName(
+  runner: CommandRunner,
+  rootPath: string,
+  branchName: string
+): Promise<string> {
+  const result = await runner.run('/usr/bin/git', ['check-ref-format', '--branch', branchName], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1, 128],
+    timeoutMs: 10_000
+  })
+
+  if (result.exitCode !== 0) {
+    throw new BranchPilotUserError(
+      'assistant_parse_failed',
+      'Assistant returned an invalid branch name.',
+      result.stderr || branchName
+    )
+  }
+
+  return result.stdout.trim() || branchName
 }
 
 function parseReviewReport(output: string): { summary: string; findings: ReviewFinding[] } {

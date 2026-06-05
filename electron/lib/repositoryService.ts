@@ -419,10 +419,19 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
-  async createBranch(repoPath: string, branchName: string): Promise<RepositorySnapshot> {
+  async createBranch(repoPath: string, branchName: string, description?: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const normalizedName = normalizeBranchName(branchName)
     await this.git(rootPath, ['switch', '-c', normalizedName])
+
+    if (description?.trim()) {
+      await this.git(rootPath, [
+        'config',
+        `branch.${normalizedName}.description`,
+        normalizeConfigValue(description, 'Branch description')
+      ])
+    }
+
     return this.getSnapshot(rootPath)
   }
 
@@ -537,7 +546,7 @@ export class RepositoryService {
       '--format=%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(committerdate:iso-strict)%00%(objectname)'
     ])
 
-    return result.stdout
+    const branches = result.stdout
       .split('\n')
       .filter(Boolean)
       .map((line) => {
@@ -551,6 +560,11 @@ export class RepositoryService {
           lastCommitAt: lastCommitAt || undefined
         }
       })
+
+    return Promise.all(branches.map(async (branch) => ({
+      ...branch,
+      description: await this.getConfig(rootPath, `branch.${branch.name}.description`)
+    })))
   }
 
   private async resolveRepositoryRoot(selectedPath: string): Promise<string> {

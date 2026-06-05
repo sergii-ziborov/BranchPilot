@@ -9,7 +9,14 @@ import {
   type CommandRunResult,
   CommandRunner
 } from '../electron/lib/commandRunner'
-import { generateCommitMessage, generatePullRequestText, generateReviewReport } from '../electron/assistants/assistantRunner'
+import {
+  checkAssistantStatuses,
+  generateBranchDraft,
+  generateCommitMessage,
+  generatePullRequestText,
+  generateReviewReport,
+  listAssistantStatuses
+} from '../electron/assistants/assistantRunner'
 
 const tempRoots: string[] = []
 
@@ -41,6 +48,62 @@ describe('assistant commit message generation', () => {
     })
     expect(runner.assistantPrompt).toContain('+staged')
     expect(runner.assistantPrompt).not.toContain('+unstaged')
+  })
+
+  it('lists assistant path detection without running generation', async () => {
+    const runner = new AssistantTestRunner({ available: ['claude'] })
+
+    const statuses = await listAssistantStatuses(runner)
+
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        id: 'claude',
+        detected: true,
+        state: 'detected'
+      }),
+      expect.objectContaining({
+        id: 'codex',
+        detected: false,
+        state: 'missing'
+      })
+    ])
+    expect(runner.assistantInvocations).toHaveLength(0)
+  })
+
+  it('checks assistant health with ready, unavailable, and missing states', async () => {
+    const runner = new AssistantTestRunner({
+      available: ['claude'],
+      failingAssistants: ['claude']
+    })
+
+    const statuses = await checkAssistantStatuses(runner)
+
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        id: 'claude',
+        detected: true,
+        state: 'unavailable',
+        message: expect.stringContaining('Claude Code failed to generate text')
+      }),
+      expect.objectContaining({
+        id: 'codex',
+        detected: false,
+        state: 'missing'
+      })
+    ])
+    expect(runner.assistantInvocations).toHaveLength(1)
+  })
+
+  it('marks assistant health ready when minimal JSON generation succeeds', async () => {
+    const runner = new AssistantTestRunner({ available: ['codex'] })
+
+    const statuses = await checkAssistantStatuses(runner)
+
+    expect(statuses.find((status) => status.id === 'codex')).toEqual(expect.objectContaining({
+      detected: true,
+      state: 'ready',
+      message: 'Codex is ready for BranchPilot generation.'
+    }))
   })
 
   it('rejects generation when nothing is staged', async () => {
@@ -97,6 +160,36 @@ describe('assistant commit message generation', () => {
 
     expect(result.assistant).toBe('codex')
   })
+
+  it('falls back to Codex in auto mode when Claude execution fails', async () => {
+    const repoPath = createStagedRepository()
+    const runner = new AssistantTestRunner({
+      available: ['claude', 'codex'],
+      failingAssistants: ['claude']
+    })
+
+    const result = await generateCommitMessage(runner, { repoPath, assistant: 'auto' })
+
+    expect(result.assistant).toBe('codex')
+    expect(runner.assistantInvocations.map((invocation) => invocation.command)).toEqual([
+      '/tmp/branchpilot-claude',
+      '/tmp/branchpilot-codex'
+    ])
+  })
+
+  it('does not fall back when a specifically requested assistant fails', async () => {
+    const repoPath = createStagedRepository()
+    const runner = new AssistantTestRunner({
+      available: ['claude', 'codex'],
+      failingAssistants: ['claude']
+    })
+
+    await expect(generateCommitMessage(runner, { repoPath, assistant: 'claude' })).rejects.toMatchObject({
+      code: 'assistant_failed'
+    })
+    expect(runner.assistantInvocations.map((invocation) => invocation.command)).toEqual(['/tmp/branchpilot-claude'])
+  })
+
 
   it('returns a parse error for invalid assistant output', async () => {
     const repoPath = createStagedRepository()
@@ -182,6 +275,60 @@ describe('assistant commit message generation', () => {
     git(repoPath, ['commit', '-m', 'Feature bad output'])
 
     await expect(generatePullRequestText(runner, { repoPath, assistant: 'auto' })).rejects.toMatchObject({
+      code: 'assistant_parse_failed'
+    })
+  })
+
+  it('generates branch draft from intent and local working tree context', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({
+      available: ['claude'],
+      assistantOutput: '{"branchName":"feature/policy-ui","description":"Adds a policy-aware branch workflow."}'
+    })
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'branch staged\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'branch unstaged\n')
+
+    const result = await generateBranchDraft(runner, {
+      repoPath,
+      assistant: 'auto',
+      goal: 'Improve assistant policy UI'
+    })
+
+    expect(result).toMatchObject({
+      branchName: 'feature/policy-ui',
+      description: 'Adds a policy-aware branch workflow.',
+      assistant: 'claude',
+      truncated: false
+    })
+    expect(runner.assistantPrompt).toContain('Improve assistant policy UI')
+    expect(runner.assistantPrompt).toContain('+branch staged')
+    expect(runner.assistantPrompt).toContain('+branch unstaged')
+  })
+
+  it('requires branch draft context before invoking an assistant', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({ available: ['claude'] })
+
+    await expect(generateBranchDraft(runner, { repoPath, assistant: 'auto' })).rejects.toMatchObject({
+      code: 'no_branch_context'
+    })
+    expect(runner.assistantInvocations).toHaveLength(0)
+  })
+
+  it('rejects invalid generated branch names', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({
+      available: ['claude'],
+      assistantOutput: '{"branchName":"bad branch name","description":"Invalid branch."}'
+    })
+
+    await expect(generateBranchDraft(runner, {
+      repoPath,
+      assistant: 'auto',
+      goal: 'Create invalid branch output'
+    })).rejects.toMatchObject({
       code: 'assistant_parse_failed'
     })
   })
@@ -331,6 +478,7 @@ describe('assistant commit message generation', () => {
 
 interface AssistantTestRunnerOptions {
   available: Array<'claude' | 'codex'>
+  failingAssistants?: Array<'claude' | 'codex'>
   assistantOutput?: string
 }
 
@@ -354,8 +502,13 @@ class AssistantTestRunner extends CommandRunner {
     }
 
     if (command === '/tmp/branchpilot-claude' || command === '/tmp/branchpilot-codex') {
+      const assistant = command.endsWith('claude') ? 'claude' : 'codex'
       this.assistantPrompt = options.input ?? ''
       this.assistantInvocations.push({ command, args, cwd: options.cwd })
+
+      if (this.options.failingAssistants?.includes(assistant)) {
+        throw new CommandExecutionError(`${assistant} failed`, makeResult(command, args, '', `${assistant} failed`, options.cwd, 1))
+      }
 
       return makeResult(
         command,

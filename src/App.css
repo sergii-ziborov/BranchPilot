@@ -553,9 +553,12 @@ h3 {
 .commit-box textarea,
 .commit-box select,
 .daily-controls input,
-.pr-form input,
-.pr-form textarea,
-.new-branch input {
+  .pr-form input,
+  .pr-form textarea,
+  .branch-composer input,
+  .branch-composer textarea,
+  .branch-composer select,
+  .new-branch input {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--border);
@@ -566,15 +569,18 @@ h3 {
 
 .commit-box input,
 .commit-box select,
-.daily-controls input,
-.pr-form input,
-.new-branch input {
+  .daily-controls input,
+  .pr-form input,
+  .branch-composer input,
+  .branch-composer select,
+  .new-branch input {
   height: 38px;
   padding: 0 10px;
 }
 
 .commit-box textarea,
-.pr-form textarea {
+.pr-form textarea,
+.branch-composer textarea {
   min-height: 88px;
   resize: vertical;
   padding: 10px;
@@ -624,6 +630,86 @@ h3 {
   color: var(--muted);
   background: #ffffff;
   font-size: 12px;
+}
+
+.assistant-detections .state-ready {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.assistant-detections .state-unavailable {
+  color: #991b1b;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.assistant-detections .state-missing {
+  color: #92400e;
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.assistant-readiness {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.assistant-readiness span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.assistant-readiness strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.assistant-readiness p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.assistant-readiness button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.assistant-readiness.state-ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.assistant-readiness.state-unavailable {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.assistant-readiness.state-missing {
+  border-color: #fde68a;
+  background: #fffbeb;
 }
 
 .precommit-review {
@@ -934,6 +1020,88 @@ h3 {
   background: #f8fafc;
 }
 
+.branch-composer {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.branch-composer-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.branch-composer-heading h3 {
+  font-size: 15px;
+}
+
+.branch-composer-heading p,
+.branch-composer-heading span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.branch-composer-heading span {
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.branch-composer-grid {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 9px 12px;
+  align-items: start;
+}
+
+.branch-composer-grid label {
+  padding-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.branch-composer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.branch-composer-actions select,
+.branch-composer-actions button {
+  min-height: 36px;
+}
+
+.branch-composer-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.branch-composer-actions button:last-child {
+  color: #ffffff;
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
 .branch-row.current {
   border-color: #93c5fd;
   background: #eff6ff;
@@ -951,6 +1119,13 @@ h3 {
   margin-top: 3px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.branch-row p {
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .config-grid {
@@ -1542,6 +1717,69 @@ h3 {
   font-weight: 700;
 }
 
+.assistant-health-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.assistant-health-heading h3 {
+  font-size: 15px;
+}
+
+.assistant-health-heading p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.assistant-health-heading button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.assistant-card code {
+  display: block;
+  overflow: hidden;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-card p {
+  margin-top: 8px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.assistant-card.state-ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.assistant-card.state-unavailable {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.assistant-card.state-missing {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
 .panel-heading > button,
 .review-controls button {
   display: inline-flex;
@@ -1559,6 +1797,148 @@ h3 {
 .review-workspace {
   display: grid;
   gap: 14px;
+}
+
+.assistant-policy-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.assistant-policy-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.assistant-policy-heading h3 {
+  font-size: 15px;
+}
+
+.assistant-policy-heading p,
+.assistant-policy-copy,
+.assistant-policy-updated,
+.assistant-policy-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.assistant-policy-heading > span {
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.assistant-policy-modes {
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+.assistant-policy-modes button.locked {
+  color: #94a3b8;
+  background: #f8fafc;
+}
+
+.assistant-policy-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.assistant-policy-actions > div {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.assistant-policy-actions > .allowed {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.assistant-policy-actions > .blocked {
+  color: #991b1b;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.assistant-policy-note {
+  padding: 8px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.action-blockers {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.action-blockers > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-blockers strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.action-blockers p,
+.action-blockers li {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.action-blockers ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.action-blockers.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.action-blockers.ready svg {
+  color: #166534;
+}
+
+.action-blockers.blocked {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.action-blockers.blocked svg {
+  color: #92400e;
 }
 
 .review-controls {
@@ -2259,6 +2639,8 @@ h3 {
   .activity-row,
   .daily-workspace,
   .review-controls,
+  .assistant-policy-actions,
+  .branch-composer-grid,
   .merge-start,
   .pr-details-meta,
   .pr-diff-panel,

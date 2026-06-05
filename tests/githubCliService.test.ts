@@ -15,27 +15,73 @@ import {
   getGitHubPullRequestDiff,
   listGitHubPullRequests
 } from '../electron/providers/githubCliService'
+import type {
+  GitHubApiClient,
+  GitHubCredentialProvider,
+  GitHubDesktopCredential
+} from '../electron/providers/githubCliService'
 import type { GitHubPullRequest, GitHubPullRequestCheck, GitHubPullRequestDetails } from '../src/shared/branchPilot'
 
 describe('GitHub CLI bridge', () => {
   it('detects missing, unauthenticated, and authenticated gh states', async () => {
-    await expect(getGitHubCliStatus(new GitHubCliTestRunner({ ghInstalled: false }))).resolves.toMatchObject({
+    const noCredential = new FakeGitHubCredentialProvider(null)
+    const apiClient = new FakeGitHubApiClient()
+
+    await expect(getGitHubCliStatus(
+      new GitHubCliTestRunner({ ghInstalled: false }),
+      undefined,
+      noCredential,
+      apiClient
+    )).resolves.toMatchObject({
       state: 'missing',
       installed: false,
       authenticated: false
     })
 
-    await expect(getGitHubCliStatus(new GitHubCliTestRunner({ ghAuthenticated: false }))).resolves.toMatchObject({
+    await expect(getGitHubCliStatus(
+      new GitHubCliTestRunner({ ghAuthenticated: false }),
+      undefined,
+      noCredential,
+      apiClient
+    )).resolves.toMatchObject({
       state: 'unauthenticated',
       installed: true,
       authenticated: false
     })
 
-    await expect(getGitHubCliStatus(new GitHubCliTestRunner({ ghAuthenticated: true }))).resolves.toMatchObject({
+    await expect(getGitHubCliStatus(
+      new GitHubCliTestRunner({ ghAuthenticated: true }),
+      undefined,
+      noCredential,
+      apiClient
+    )).resolves.toMatchObject({
       state: 'authenticated',
       installed: true,
       authenticated: true,
+      ghAuthenticated: true,
+      gitCredentialAuthenticated: false,
+      authProvider: 'gh',
       username: 'branchpilot-user'
+    })
+  })
+
+  it('detects GitHub Desktop credentials when gh is not authenticated', async () => {
+    const credentialProvider = new FakeGitHubCredentialProvider()
+    const apiClient = new FakeGitHubApiClient()
+
+    await expect(getGitHubCliStatus(
+      new GitHubCliTestRunner({ ghAuthenticated: false }),
+      '/repo',
+      credentialProvider,
+      apiClient
+    )).resolves.toMatchObject({
+      state: 'authenticated',
+      installed: true,
+      authenticated: true,
+      ghAuthenticated: false,
+      gitCredentialAuthenticated: true,
+      authProvider: 'git-credential',
+      username: 'desktop-user'
     })
   })
 
@@ -85,6 +131,47 @@ describe('GitHub CLI bridge', () => {
       baseBranch: 'main'
     })).resolves.toMatchObject({
       url: 'https://github.com/example/project/pull/42'
+    })
+  })
+
+  it('creates a pull request through GitHub API when GitHub Desktop credentials are available', async () => {
+    const runner = new GitHubCliTestRunner({
+      ghAuthenticated: false,
+      remoteUrl: 'https://github.com/example/project.git',
+      upstream: 'origin/feature/test'
+    })
+    const apiClient = new FakeGitHubApiClient()
+
+    const result = await createGitHubPullRequest(
+      runner,
+      {
+        repoPath: '/repo',
+        title: 'Create with desktop credential',
+        description: 'Uses the GitHub API fallback.',
+        baseBranch: 'main'
+      },
+      new FakeGitHubCredentialProvider(),
+      apiClient
+    )
+
+    expect(result).toEqual({
+      url: 'https://github.com/example/project/pull/77',
+      title: 'Create with desktop credential',
+      baseBranch: 'main',
+      headBranch: 'feature/test'
+    })
+    expect(runner.ghPrCreateArgs).toEqual([])
+    expect(apiClient.createdPullRequest).toMatchObject({
+      repository: {
+        owner: 'example',
+        repo: 'project'
+      },
+      request: {
+        title: 'Create with desktop credential',
+        description: 'Uses the GitHub API fallback.',
+        baseBranch: 'main',
+        headBranch: 'feature/test'
+      }
     })
   })
 
@@ -190,15 +277,15 @@ describe('GitHub CLI bridge', () => {
     expect(runner.ghPrDiffArgs).toEqual(['pr', 'diff', '7', '--patch'])
   })
 
-  it('blocks pull request creation when gh is unauthenticated', async () => {
+  it('blocks pull request creation when no GitHub auth path is available', async () => {
     const runner = new GitHubCliTestRunner({ ghAuthenticated: false })
 
     await expect(createGitHubPullRequest(runner, {
       repoPath: '/repo',
       title: 'Blocked',
       description: ''
-    })).rejects.toMatchObject({
-      code: 'github_cli_unauthenticated'
+    }, new FakeGitHubCredentialProvider(null), new FakeGitHubApiClient())).rejects.toMatchObject({
+      code: 'github_auth_unauthenticated'
     })
   })
 
@@ -282,6 +369,58 @@ interface GitHubCliTestRunnerOptions {
   prChecksOutput?: string
   prChecksExitCode?: number
   prDiffOutput?: string
+}
+
+class FakeGitHubCredentialProvider implements GitHubCredentialProvider {
+  constructor(private readonly credential: GitHubDesktopCredential | null | undefined = {
+    username: 'desktop-user',
+    token: 'desktop-token'
+  }) {}
+
+  async getCredential(): Promise<GitHubDesktopCredential | undefined> {
+    return this.credential ?? undefined
+  }
+}
+
+class FakeGitHubApiClient implements GitHubApiClient {
+  createdPullRequest?: {
+    credential: GitHubDesktopCredential
+    repository: { owner: string; repo: string; remoteUrl: string }
+    request: {
+      title: string
+      description: string
+      baseBranch: string
+      headBranch: string
+    }
+  }
+
+  async getViewer(): Promise<{ login: string }> {
+    return { login: 'desktop-user' }
+  }
+
+  async createPullRequest(
+    credential: GitHubDesktopCredential,
+    repository: { owner: string; repo: string; remoteUrl: string },
+    request: {
+      title: string
+      description: string
+      baseBranch: string
+      headBranch: string
+    }
+  ) {
+    this.createdPullRequest = {
+      credential,
+      repository,
+      request
+    }
+
+    return {
+      url: 'https://github.com/example/project/pull/77',
+      title: request.title,
+      baseBranch: request.baseBranch,
+      headBranch: request.headBranch
+    }
+  }
 }
 
 class GitHubCliTestRunner extends CommandRunner {

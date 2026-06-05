@@ -94,6 +94,7 @@ export interface BranchSummary {
   name: string
   current: boolean
   upstream?: string
+  description?: string
   lastCommit?: string
   lastCommitAt?: string
 }
@@ -215,11 +216,39 @@ export interface ProjectWikiGenerationResult {
   memory: ProjectMemoryScanResult
 }
 
+export type AssistantPolicyMode =
+  | 'disabled'
+  | 'review-only'
+  | 'suggest-only'
+  | 'allow-local-commands'
+  | 'allow-file-edits'
+
+export type AssistantActionKind = 'commit_message' | 'pull_request_text' | 'review_report' | 'branch_draft'
+
+export interface AssistantPolicySettings {
+  repoPath: string
+  mode: AssistantPolicyMode
+  updatedAt: string
+}
+
+export interface AssistantPolicyStatus {
+  settings: AssistantPolicySettings
+  allowedActions: AssistantActionKind[]
+  lockedModes: AssistantPolicyMode[]
+}
+
+export interface AssistantPolicyUpdate {
+  repoPath: string
+  mode: AssistantPolicyMode
+}
+
 export type ActivityLogEventType =
   | 'repository_opened'
   | 'repository_refreshed'
   | 'project_memory_scanned'
   | 'project_wiki_generated'
+  | 'assistant_policy_updated'
+  | 'assistant_action_blocked'
   | 'commit_created'
   | 'branch_created'
   | 'branch_switched'
@@ -236,6 +265,7 @@ export type ActivityLogEventType =
   | 'merge_aborted'
   | 'merge_resolved'
   | 'assistant_commit_generated'
+  | 'assistant_branch_generated'
   | 'assistant_pr_generated'
   | 'assistant_review_generated'
   | 'daily_review_generated'
@@ -481,6 +511,19 @@ export interface GeneratedPullRequestText {
   commitCount: number
 }
 
+export interface BranchDraftGenerationRequest {
+  repoPath: string
+  assistant: AssistantId
+  goal?: string
+}
+
+export interface GeneratedBranchDraft {
+  branchName: string
+  description: string
+  assistant: InstalledAssistantId
+  truncated: boolean
+}
+
 export type ReviewMode = 'consistency' | 'security' | 'quality'
 export type ReviewScope = 'staged' | 'unstaged' | 'branch'
 export type ReviewSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
@@ -525,6 +568,7 @@ export interface PublishBranchRequest {
 export interface BranchActionRequest {
   repoPath: string
   branchName: string
+  description?: string
 }
 
 export interface DeleteBranchRequest extends BranchActionRequest {
@@ -537,11 +581,15 @@ export interface EditorOpenRequest {
 }
 
 export type GitHubCliState = 'missing' | 'unauthenticated' | 'authenticated'
+export type GitHubAuthProvider = 'none' | 'gh' | 'git-credential'
 
 export interface GitHubCliStatus {
   state: GitHubCliState
   installed: boolean
   authenticated: boolean
+  ghAuthenticated: boolean
+  gitCredentialAuthenticated: boolean
+  authProvider: GitHubAuthProvider
   executable?: string
   username?: string
   message: string
@@ -633,7 +681,10 @@ export interface AssistantStatus {
   id: InstalledAssistantId
   label: string
   detected: boolean
+  state: 'missing' | 'detected' | 'ready' | 'unavailable'
   executable?: string
+  message: string
+  checkedAt?: string
 }
 
 export interface BranchPilotApi {
@@ -651,6 +702,8 @@ export interface BranchPilotApi {
   getProjectMemoryMcpConfig: (repoPath: string) => Promise<ApiResult<ProjectMemoryMcpConfig>>
   getProjectWiki: (repoPath: string) => Promise<ApiResult<ProjectWikiSnapshot | null>>
   generateProjectWiki: (repoPath: string) => Promise<ApiResult<ProjectWikiGenerationResult>>
+  getAssistantPolicy: (repoPath: string) => Promise<ApiResult<AssistantPolicyStatus>>
+  setAssistantPolicy: (update: AssistantPolicyUpdate) => Promise<ApiResult<AssistantPolicyStatus>>
   getActivityLog: (query: ActivityLogQuery) => Promise<ApiResult<ActivityLogSnapshot>>
   clearActivityLog: (repoPath: string, confirmed: boolean) => Promise<ApiResult<ActivityLogSnapshot>>
   generateDailyReview: (request: DailyReviewRequest) => Promise<ApiResult<DailyReviewReport>>
@@ -686,7 +739,9 @@ export interface BranchPilotApi {
   openTerminal: (targetPath: string) => Promise<ApiResult<GitOperationResult>>
   listProviders: () => Promise<ApiResult<ProviderStatus[]>>
   listAssistants: () => Promise<ApiResult<AssistantStatus[]>>
+  checkAssistants: () => Promise<ApiResult<AssistantStatus[]>>
   generateCommitMessage: (request: CommitMessageGenerationRequest) => Promise<ApiResult<GeneratedCommitMessage>>
+  generateBranchDraft: (request: BranchDraftGenerationRequest) => Promise<ApiResult<GeneratedBranchDraft>>
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>
   createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>

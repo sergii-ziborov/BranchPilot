@@ -1,4 +1,5 @@
 import { promises as fs } from 'node:fs'
+import { spawn } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import type {
@@ -19,32 +20,109 @@ import { BranchPilotUserError } from '../lib/errors.js'
 
 const GITHUB_REMOTE_PATTERN = /(?:github\.com[:/])([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i
 
-export async function getGitHubCliStatus(runner: CommandRunner, repoPath?: string): Promise<GitHubCliStatus> {
+export interface GitHubDesktopCredential {
+  username?: string
+  token: string
+}
+
+export interface GitHubCredentialProvider {
+  getCredential(): Promise<GitHubDesktopCredential | undefined>
+}
+
+export interface GitHubApiPullRequest {
+  url: string
+  title: string
+  baseBranch: string
+  headBranch: string
+}
+
+export interface GitHubApiClient {
+  getViewer(credential: GitHubDesktopCredential): Promise<{ login: string }>
+  createPullRequest(
+    credential: GitHubDesktopCredential,
+    repository: GitHubRepositoryInfo,
+    request: {
+      title: string
+      description: string
+      baseBranch: string
+      headBranch: string
+    }
+  ): Promise<GitHubApiPullRequest>
+}
+
+interface GitHubRepositoryInfo {
+  owner: string
+  repo: string
+  remoteUrl: string
+}
+
+const DEFAULT_CREDENTIAL_PROVIDER: GitHubCredentialProvider = {
+  getCredential: readGitHubDesktopCredential
+}
+
+const DEFAULT_API_CLIENT: GitHubApiClient = {
+  getViewer: getGitHubApiViewer,
+  createPullRequest: createGitHubApiPullRequest
+}
+
+export async function getGitHubCliStatus(
+  runner: CommandRunner,
+  repoPath?: string,
+  credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient = DEFAULT_API_CLIENT
+): Promise<GitHubCliStatus> {
   const executable = await resolveGhExecutable(runner)
+
+  if (executable) {
+    const auth = await runner.run(executable, ['auth', 'status'], {
+      cwd: repoPath,
+      allowedExitCodes: [0, 1],
+      timeoutMs: 15_000
+    })
+
+    if (auth.exitCode === 0) {
+      return {
+        state: 'authenticated',
+        installed: true,
+        authenticated: true,
+        ghAuthenticated: true,
+        gitCredentialAuthenticated: false,
+        authProvider: 'gh',
+        executable,
+        username: parseGitHubUsername([auth.stdout, auth.stderr].filter(Boolean).join('\n')),
+        message: 'GitHub CLI is authenticated.'
+      }
+    }
+  }
+
+  const credential = await credentialProvider.getCredential()
+  const viewer = credential ? await tryGetGitHubApiViewer(apiClient, credential) : undefined
+
+  if (credential && viewer) {
+    return {
+      state: 'authenticated',
+      installed: Boolean(executable),
+      authenticated: true,
+      ghAuthenticated: false,
+      gitCredentialAuthenticated: true,
+      authProvider: 'git-credential',
+      executable,
+      username: viewer.login || credential.username,
+      message: executable
+        ? 'GitHub Desktop credential is available. GitHub CLI is installed but not authenticated.'
+        : 'GitHub Desktop credential is available. GitHub CLI is not installed.'
+    }
+  }
 
   if (!executable) {
     return {
       state: 'missing',
       installed: false,
       authenticated: false,
-      message: 'GitHub CLI is not installed.'
-    }
-  }
-
-  const auth = await runner.run(executable, ['auth', 'status'], {
-    cwd: repoPath,
-    allowedExitCodes: [0, 1],
-    timeoutMs: 15_000
-  })
-
-  if (auth.exitCode === 0) {
-    return {
-      state: 'authenticated',
-      installed: true,
-      authenticated: true,
-      executable,
-      username: parseGitHubUsername([auth.stdout, auth.stderr].filter(Boolean).join('\n')),
-      message: 'GitHub CLI is authenticated.'
+      ghAuthenticated: false,
+      gitCredentialAuthenticated: false,
+      authProvider: 'none',
+      message: 'GitHub CLI is not installed and no valid GitHub Desktop credential was found.'
     }
   }
 
@@ -52,17 +130,22 @@ export async function getGitHubCliStatus(runner: CommandRunner, repoPath?: strin
     state: 'unauthenticated',
     installed: true,
     authenticated: false,
+    ghAuthenticated: false,
+    gitCredentialAuthenticated: false,
+    authProvider: 'none',
     executable,
-    message: 'GitHub CLI is installed but not authenticated. Run gh auth login.'
+    message: 'GitHub CLI is installed but not authenticated. Run gh auth login or sign in with GitHub Desktop.'
   }
 }
 
 export async function createGitHubPullRequest(
   runner: CommandRunner,
-  request: CreatePullRequestRequest
+  request: CreatePullRequestRequest,
+  credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient = DEFAULT_API_CLIENT
 ): Promise<CreatedPullRequest> {
   const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
-  const status = await assertGitHubCliReady(runner, rootPath)
+  const auth = await resolveGitHubAuth(runner, rootPath, credentialProvider, apiClient)
   const currentBranch = await getCurrentBranch(runner, rootPath)
   const headBranch = normalizeBranchName(request.headBranch || currentBranch, 'Head branch')
 
@@ -79,12 +162,30 @@ export async function createGitHubPullRequest(
   }
 
   const baseBranch = normalizeBranchName(request.baseBranch || await resolveDefaultBaseBranch(runner, rootPath), 'Base branch')
+
+  if (auth.provider === 'git-credential') {
+    const remote = await getGitHubRepositoryInfo(runner, rootPath)
+    const pullRequest = await apiClient.createPullRequest(auth.credential, remote, {
+      title,
+      description: request.description.trim(),
+      baseBranch,
+      headBranch
+    })
+
+    return {
+      url: pullRequest.url,
+      title: pullRequest.title,
+      baseBranch: pullRequest.baseBranch,
+      headBranch: pullRequest.headBranch
+    }
+  }
+
   const bodyFile = path.join(os.tmpdir(), `branchpilot-pr-${Date.now()}.md`)
 
   await fs.writeFile(bodyFile, request.description.trim(), 'utf8')
 
   try {
-    const result = await runner.run(status.executable, [
+    const result = await runner.run(auth.executable, [
       'pr',
       'create',
       '--title',
@@ -263,8 +364,8 @@ async function assertGitHubCliReady(runner: CommandRunner, rootPath: string): Pr
     throw new BranchPilotUserError('github_cli_missing', 'GitHub CLI is not installed.')
   }
 
-  if (status.state !== 'authenticated' || !status.executable) {
-    throw new BranchPilotUserError('github_cli_unauthenticated', 'Run gh auth login before creating a pull request.')
+  if (status.authProvider !== 'gh' || !status.executable) {
+    throw new BranchPilotUserError('github_cli_unauthenticated', 'Run gh auth login before using GitHub CLI pull request actions.')
   }
 
   await getGitHubRemoteUrl(runner, rootPath)
@@ -273,6 +374,54 @@ async function assertGitHubCliReady(runner: CommandRunner, rootPath: string): Pr
     ...status,
     executable: status.executable
   }
+}
+
+async function resolveGitHubAuth(
+  runner: CommandRunner,
+  rootPath: string,
+  credentialProvider: GitHubCredentialProvider,
+  apiClient: GitHubApiClient
+): Promise<
+  | { provider: 'gh'; executable: string }
+  | { provider: 'git-credential'; credential: GitHubDesktopCredential }
+> {
+  const status = await getGitHubCliStatus(runner, rootPath, credentialProvider, apiClient)
+
+  if (status.authProvider === 'gh' && status.executable) {
+    await getGitHubRemoteUrl(runner, rootPath)
+
+    return {
+      provider: 'gh',
+      executable: status.executable
+    }
+  }
+
+  if (status.authProvider === 'git-credential') {
+    const credential = await credentialProvider.getCredential()
+
+    if (credential) {
+      await getGitHubRemoteUrl(runner, rootPath)
+
+      return {
+        provider: 'git-credential',
+        credential
+      }
+    }
+  }
+
+  if (status.state === 'missing') {
+    throw new BranchPilotUserError(
+      'github_auth_missing',
+      'No GitHub authentication is available.',
+      'Install or authenticate GitHub CLI, or sign in with GitHub Desktop.'
+    )
+  }
+
+  throw new BranchPilotUserError(
+    'github_auth_unauthenticated',
+    'GitHub authentication is not ready.',
+    'Run gh auth login or sign in with GitHub Desktop.'
+  )
 }
 
 async function resolveRepositoryRoot(runner: CommandRunner, repoPath: string): Promise<string> {
@@ -300,6 +449,21 @@ async function getGitHubRemoteUrl(runner: CommandRunner, rootPath: string): Prom
   }
 
   throw new BranchPilotUserError('github_remote_missing', 'No GitHub remote was found for this repository.')
+}
+
+async function getGitHubRepositoryInfo(runner: CommandRunner, rootPath: string): Promise<GitHubRepositoryInfo> {
+  const remoteUrl = await getGitHubRemoteUrl(runner, rootPath)
+  const match = remoteUrl.match(GITHUB_REMOTE_PATTERN)
+
+  if (!match) {
+    throw new BranchPilotUserError('github_remote_missing', 'No GitHub remote was found for this repository.')
+  }
+
+  return {
+    owner: match[1],
+    repo: match[2],
+    remoteUrl
+  }
 }
 
 async function getCurrentBranch(runner: CommandRunner, rootPath: string): Promise<string> {
@@ -352,6 +516,188 @@ function normalizeBranchName(branchName: string, label: string): string {
 
 function parseGitHubUsername(output: string): string | undefined {
   return output.match(/Logged in to [^\s]+ account ([^\s]+)/)?.[1]
+}
+
+async function readGitHubDesktopCredential(): Promise<GitHubDesktopCredential | undefined> {
+  const output = await runPrivateCredentialFill()
+  const credential = parseGitCredentialOutput(output)
+
+  return credential?.token ? credential : undefined
+}
+
+async function runPrivateCredentialFill(): Promise<string> {
+  return new Promise((resolve) => {
+    const child = spawn('/usr/bin/git', ['credential', 'fill'], {
+      shell: false,
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
+    let stdout = ''
+
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    child.on('error', () => resolve(''))
+    child.on('close', (exitCode) => {
+      resolve(exitCode === 0 ? stdout : '')
+    })
+    child.stdin.write('protocol=https\nhost=github.com\n\n')
+    child.stdin.end()
+  })
+}
+
+function parseGitCredentialOutput(output: string): GitHubDesktopCredential | undefined {
+  const values = new Map<string, string>()
+
+  for (const line of output.split('\n')) {
+    const index = line.indexOf('=')
+
+    if (index <= 0) {
+      continue
+    }
+
+    values.set(line.slice(0, index), line.slice(index + 1))
+  }
+
+  const token = values.get('password')?.trim()
+
+  if (!token) {
+    return undefined
+  }
+
+  return {
+    username: values.get('username')?.trim() || undefined,
+    token
+  }
+}
+
+async function tryGetGitHubApiViewer(
+  apiClient: GitHubApiClient,
+  credential: GitHubDesktopCredential
+): Promise<{ login: string } | undefined> {
+  try {
+    return await apiClient.getViewer(credential)
+  } catch {
+    return undefined
+  }
+}
+
+async function getGitHubApiViewer(credential: GitHubDesktopCredential): Promise<{ login: string }> {
+  const response = await fetch('https://api.github.com/user', {
+    headers: githubApiHeaders(credential)
+  })
+  const body = await readGitHubApiBody(response)
+  const login = typeof body.login === 'string' ? body.login : ''
+
+  if (!response.ok || !login) {
+    throw new BranchPilotUserError(
+      'github_credential_invalid',
+      'GitHub Desktop credential could not be verified.',
+      githubApiErrorMessage(body, response.status)
+    )
+  }
+
+  return { login }
+}
+
+async function createGitHubApiPullRequest(
+  credential: GitHubDesktopCredential,
+  repository: GitHubRepositoryInfo,
+  request: {
+    title: string
+    description: string
+    baseBranch: string
+    headBranch: string
+  }
+): Promise<GitHubApiPullRequest> {
+  const response = await fetch(`https://api.github.com/repos/${repository.owner}/${repository.repo}/pulls`, {
+    method: 'POST',
+    headers: {
+      ...githubApiHeaders(credential),
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      title: request.title,
+      body: request.description,
+      base: request.baseBranch,
+      head: request.headBranch
+    })
+  })
+  const body = await readGitHubApiBody(response)
+
+  if (!response.ok) {
+    throw new BranchPilotUserError(
+      'github_pr_create_failed',
+      'GitHub API could not create the pull request.',
+      githubApiErrorMessage(body, response.status)
+    )
+  }
+
+  const url = typeof body.html_url === 'string' ? body.html_url : ''
+
+  if (!url) {
+    throw new BranchPilotUserError(
+      'github_pr_parse_failed',
+      'GitHub API did not return a pull request URL.'
+    )
+  }
+
+  return {
+    url,
+    title: typeof body.title === 'string' ? body.title : request.title,
+    baseBranch: normalizeApiBranchRef(body.base, request.baseBranch),
+    headBranch: normalizeApiBranchRef(body.head, request.headBranch)
+  }
+}
+
+function githubApiHeaders(credential: GitHubDesktopCredential): HeadersInit {
+  return {
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${credential.token}`,
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'BranchPilot'
+  }
+}
+
+async function readGitHubApiBody(response: Response): Promise<Record<string, unknown>> {
+  const text = await response.text()
+
+  if (!text.trim()) {
+    return {}
+  }
+
+  try {
+    return JSON.parse(text) as Record<string, unknown>
+  } catch {
+    return { message: text.slice(0, 500) }
+  }
+}
+
+function githubApiErrorMessage(body: Record<string, unknown>, status: number): string {
+  const message = typeof body.message === 'string' ? body.message : `HTTP ${status}`
+  const errors = Array.isArray(body.errors)
+    ? body.errors
+        .map((error) => typeof error === 'string'
+          ? error
+          : error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+            ? error.message
+            : '')
+        .filter(Boolean)
+    : []
+
+  return [message, ...errors].join('\n')
+}
+
+function normalizeApiBranchRef(value: unknown, fallback: string): string {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const ref = (value as Record<string, unknown>).ref
+
+    if (typeof ref === 'string' && ref.trim()) {
+      return ref
+    }
+  }
+
+  return fallback
 }
 
 function parsePullRequestUrl(output: string): string {
