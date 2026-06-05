@@ -435,6 +435,26 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async updateBranchDescription(repoPath: string, branchName: string, description: string): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const normalizedName = normalizeBranchName(branchName)
+    await this.assertLocalBranchExists(rootPath, normalizedName)
+
+    if (description.trim()) {
+      await this.git(rootPath, [
+        'config',
+        `branch.${normalizedName}.description`,
+        normalizeConfigValue(description, 'Branch description')
+      ])
+    } else {
+      await this.git(rootPath, ['config', '--unset', `branch.${normalizedName}.description`], {
+        allowedExitCodes: [0, 5]
+      })
+    }
+
+    return this.getSnapshot(rootPath)
+  }
+
   async switchBranch(repoPath: string, branchName: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     await this.git(rootPath, ['switch', normalizeBranchName(branchName)])
@@ -703,6 +723,16 @@ export class RepositoryService {
     }
 
     return remoteName
+  }
+
+  private async assertLocalBranchExists(rootPath: string, branchName: string): Promise<void> {
+    const result = await this.git(rootPath, ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], {
+      allowedExitCodes: [0, 1]
+    })
+
+    if (result.exitCode !== 0) {
+      throw new BranchPilotUserError('invalid_branch', 'Local branch does not exist.')
+    }
   }
 
   private async assertHasUpstream(rootPath: string, action: string): Promise<void> {

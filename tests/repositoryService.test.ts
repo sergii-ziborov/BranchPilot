@@ -462,6 +462,28 @@ describe('RepositoryService', () => {
     expect(deleted.branches.map((branch) => branch.name)).not.toContain('feature/work')
   })
 
+  it('updates and clears local branch descriptions', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    await service.createBranch(repoPath, 'feature/described')
+
+    const updated = await service.updateBranchDescription(
+      repoPath,
+      'feature/described',
+      'Documents the user-facing purpose of the branch.'
+    )
+    expect(updated.branches.find((branch) => branch.name === 'feature/described')?.description)
+      .toBe('Documents the user-facing purpose of the branch.')
+
+    const cleared = await service.updateBranchDescription(repoPath, 'feature/described', '  ')
+    expect(cleared.branches.find((branch) => branch.name === 'feature/described')?.description).toBeUndefined()
+
+    await expect(service.updateBranchDescription(repoPath, 'feature/missing', 'No branch.')).rejects.toMatchObject({
+      code: 'invalid_branch'
+    })
+  })
+
   it('blocks deleting the current branch and reports unmerged safe-delete failures', async () => {
     const repoPath = createTempRepository()
     const service = createService()

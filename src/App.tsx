@@ -17,6 +17,7 @@ import {
   GitMerge,
   GitPullRequest,
   Loader2,
+  Pencil,
   Plus,
   RefreshCcw,
   Save,
@@ -133,6 +134,8 @@ function App() {
   const [newBranchName, setNewBranchName] = useState('')
   const [newBranchDescription, setNewBranchDescription] = useState('')
   const [branchDraftGoal, setBranchDraftGoal] = useState('')
+  const [editingBranchName, setEditingBranchName] = useState<string | null>(null)
+  const [branchDescriptionDraft, setBranchDescriptionDraft] = useState('')
   const [selectedMergeBranch, setSelectedMergeBranch] = useState('')
   const [stashMessage, setStashMessage] = useState('')
   const [stashes, setStashes] = useState<StashEntry[]>([])
@@ -1322,6 +1325,32 @@ function App() {
     setNewBranchName('')
     setNewBranchDescription('')
     setBranchDraftGoal('')
+  }
+
+  function startBranchDescriptionEdit(branch: BranchSummary) {
+    setEditingBranchName(branch.name)
+    setBranchDescriptionDraft(branch.description ?? '')
+  }
+
+  function cancelBranchDescriptionEdit() {
+    setEditingBranchName(null)
+    setBranchDescriptionDraft('')
+  }
+
+  async function saveBranchDescription(branchName: string) {
+    if (!api || !currentRepoPath) return
+
+    const saved = await runSnapshotAction('Branch description saved.', () =>
+      api.updateBranchDescription({
+        repoPath: currentRepoPath,
+        branchName,
+        description: branchDescriptionDraft
+      })
+    )
+
+    if (saved) {
+      cancelBranchDescriptionEdit()
+    }
   }
 
   async function saveLocalGitIdentity() {
@@ -2521,40 +2550,75 @@ function App() {
         </section>
 
         <div className="branch-list">
-          {branches.map((branch) => (
-            <article className={branch.current ? 'branch-row current' : 'branch-row'} key={branch.name}>
-              <div>
-                <strong>{branch.name}</strong>
-                <span>{branch.upstream || 'No upstream'} · {branch.lastCommitAt ? formatDate(branch.lastCommitAt) : 'No commit date'}</span>
-                {branch.description && <p>{branch.description}</p>}
-              </div>
-              <div className="panel-actions">
-                {branch.current && !branch.upstream && snapshot?.summary.remoteName && (
-                  <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
-                    repoPath: currentRepoPath,
-                    branch: branch.name,
-                    remote: snapshot.summary.remoteName
-                  }))}>
-                    Publish
+          {branches.map((branch) => {
+            const isEditingDescription = editingBranchName === branch.name
+
+            return (
+              <article className={branch.current ? 'branch-row current' : 'branch-row'} key={branch.name}>
+                <div>
+                  <strong>{branch.name}</strong>
+                  <span>{branch.upstream || 'No upstream'} · {branch.lastCommitAt ? formatDate(branch.lastCommitAt) : 'No commit date'}</span>
+                  {isEditingDescription ? (
+                    <div className="branch-description-editor">
+                      <textarea
+                        aria-label={`Description for ${branch.name}`}
+                        value={branchDescriptionDraft}
+                        onChange={(event) => setBranchDescriptionDraft(event.target.value)}
+                        placeholder="Describe the purpose of this branch"
+                      />
+                      <div className="branch-description-actions">
+                        <button type="button" onClick={() => saveBranchDescription(branch.name)} disabled={busy}>
+                          <Save size={16} />
+                          Save
+                        </button>
+                        <button type="button" className="secondary" onClick={cancelBranchDescriptionEdit} disabled={busy}>
+                          <X size={16} />
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className={branch.description ? undefined : 'branch-description-empty'}>
+                      {branch.description || 'No local branch description.'}
+                    </p>
+                  )}
+                </div>
+                <div className="panel-actions">
+                  <button
+                    type="button"
+                    onClick={() => startBranchDescriptionEdit(branch)}
+                    disabled={busy || isEditingDescription}
+                  >
+                    <Pencil size={16} />
+                    Edit description
                   </button>
-                )}
-                <button
-                  type="button"
-                  disabled={branch.current}
-                  onClick={() => currentRepoPath && runSnapshotAction('Branch switched.', () => api!.switchBranch({ repoPath: currentRepoPath, branchName: branch.name }))}
-                >
-                  Switch
-                </button>
-                <button
-                  type="button"
-                  disabled={branch.current}
-                  onClick={() => currentRepoPath && window.confirm(`Delete local branch ${branch.name}?`) && runSnapshotAction('Branch deleted.', () => api!.deleteBranch({ repoPath: currentRepoPath, branchName: branch.name, force: false }))}
-                >
-                  Delete
-                </button>
-              </div>
-            </article>
-          ))}
+                  {branch.current && !branch.upstream && snapshot?.summary.remoteName && (
+                    <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
+                      repoPath: currentRepoPath,
+                      branch: branch.name,
+                      remote: snapshot.summary.remoteName
+                    }))}>
+                      Publish
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={branch.current || isEditingDescription}
+                    onClick={() => currentRepoPath && runSnapshotAction('Branch switched.', () => api!.switchBranch({ repoPath: currentRepoPath, branchName: branch.name }))}
+                  >
+                    Switch
+                  </button>
+                  <button
+                    type="button"
+                    disabled={branch.current || isEditingDescription}
+                    onClick={() => currentRepoPath && window.confirm(`Delete local branch ${branch.name}?`) && runSnapshotAction('Branch deleted.', () => api!.deleteBranch({ repoPath: currentRepoPath, branchName: branch.name, force: false }))}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            )
+          })}
         </div>
       </section>
     )

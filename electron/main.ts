@@ -34,7 +34,8 @@ import type {
   PublishBranchRequest,
   RepositorySnapshot,
   ReviewReportRequest,
-  StashActionRequest
+  StashActionRequest,
+  UpdateBranchDescriptionRequest
 } from '../src/shared/branchPilot.js'
 import {
   checkAssistantStatuses,
@@ -507,6 +508,18 @@ function registerIpcHandlers() {
     metadata: ([request]) => ({ branch: request.branchName })
   }, async (request: BranchActionRequest) =>
     withProjectMemoryRefresh(await repositoryService.createBranch(request.repoPath, request.branchName, request.description))
+  )
+  handleLogged('git:updateBranchDescription', {
+    type: 'branch_description_updated',
+    actor: 'user',
+    title: 'Branch description updated',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      branch: request.branchName,
+      description_length: request.description.trim().length
+    })
+  }, async (request: UpdateBranchDescriptionRequest) =>
+    withProjectMemoryRefresh(await repositoryService.updateBranchDescription(request.repoPath, request.branchName, request.description))
   )
   handleLogged('git:switchBranch', {
     type: 'branch_switched',

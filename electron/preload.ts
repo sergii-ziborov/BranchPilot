@@ -43,6 +43,7 @@ const branchPilot: BranchPilotApi = {
   push: (repoPath) => invoke('git:push', repoPath),
   publishBranch: (request) => invoke('git:publishBranch', request),
   createBranch: (request) => invoke('git:createBranch', request),
+  updateBranchDescription: (request) => invoke('git:updateBranchDescription', request),
   switchBranch: (request) => invoke('git:switchBranch', request),
   deleteBranch: (request) => invoke('git:deleteBranch', request),
   acceptOurs: (request) => invoke('merge:acceptOurs', request),

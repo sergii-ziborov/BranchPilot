@@ -251,6 +251,7 @@ export type ActivityLogEventType =
   | 'assistant_action_blocked'
   | 'commit_created'
   | 'branch_created'
+  | 'branch_description_updated'
   | 'branch_switched'
   | 'branch_deleted'
   | 'git_fetched'
@@ -571,6 +572,12 @@ export interface BranchActionRequest {
   description?: string
 }
 
+export interface UpdateBranchDescriptionRequest {
+  repoPath: string
+  branchName: string
+  description: string
+}
+
 export interface DeleteBranchRequest extends BranchActionRequest {
   force: boolean
 }
@@ -727,6 +734,7 @@ export interface BranchPilotApi {
   push: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   publishBranch: (request: PublishBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   createBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>
+  updateBranchDescription: (request: UpdateBranchDescriptionRequest) => Promise<ApiResult<RepositorySnapshot>>
   switchBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   deleteBranch: (request: DeleteBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   acceptOurs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
