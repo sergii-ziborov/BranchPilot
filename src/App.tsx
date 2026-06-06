@@ -1621,6 +1621,7 @@ function App() {
             <h2>Open a local Git repository</h2>
             <p>BranchPilot will read status, diffs, branches, merge state, and local Git configuration.</p>
             <button type="button" onClick={chooseRepository} disabled={!api || busy}>
+              <FolderOpen size={17} />
               Open repository
             </button>
           </section>
@@ -3118,6 +3119,7 @@ function App() {
                   repoPath: currentRepoPath,
                   remote: snapshot.summary.remoteName
                 }))}>
+                  <UploadCloud size={17} />
                   Publish branch
                 </button>
               )}
