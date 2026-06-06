@@ -4,11 +4,13 @@ import type { AssistantPolicySettings, RecentRepository } from '../../src/shared
 
 interface PersistedSettings {
   recentRepositories: RecentRepository[]
+  pinnedRepositoryPaths: string[]
   assistantPolicies: Record<string, AssistantPolicySettings>
 }
 
 const DEFAULT_SETTINGS: PersistedSettings = {
   recentRepositories: [],
+  pinnedRepositoryPaths: [],
   assistantPolicies: {}
 }
 
@@ -24,13 +26,45 @@ export class SettingsStore {
     const recent: RecentRepository = {
       path: rootPath,
       name: path.basename(rootPath),
-      lastOpenedAt: new Date().toISOString()
+      lastOpenedAt: new Date().toISOString(),
+      pinned: settings.pinnedRepositoryPaths.includes(rootPath)
     }
 
-    settings.recentRepositories = [
+    settings.recentRepositories = normalizeRecentRepositories([
       recent,
       ...settings.recentRepositories.filter((repo) => repo.path !== rootPath)
-    ].slice(0, 12)
+    ], settings.pinnedRepositoryPaths)
+
+    await this.write(settings)
+
+    return settings.recentRepositories
+  }
+
+  async setRepositoryPinned(rootPath: string, pinned: boolean): Promise<RecentRepository[]> {
+    const settings = await this.read()
+    const pinnedPaths = new Set(settings.pinnedRepositoryPaths)
+
+    if (pinned) {
+      pinnedPaths.add(rootPath)
+    } else {
+      pinnedPaths.delete(rootPath)
+    }
+
+    settings.pinnedRepositoryPaths = [...pinnedPaths]
+
+    if (!settings.recentRepositories.some((repo) => repo.path === rootPath)) {
+      settings.recentRepositories = [
+        {
+          path: rootPath,
+          name: path.basename(rootPath),
+          lastOpenedAt: new Date().toISOString(),
+          pinned
+        },
+        ...settings.recentRepositories
+      ].slice(0, 12)
+    }
+
+    settings.recentRepositories = normalizeRecentRepositories(settings.recentRepositories, settings.pinnedRepositoryPaths)
 
     await this.write(settings)
 
@@ -53,14 +87,19 @@ export class SettingsStore {
     try {
       const raw = await fs.readFile(this.filePath, 'utf8')
       const parsed = JSON.parse(raw) as PersistedSettings
+      const pinnedRepositoryPaths = Array.isArray(parsed.pinnedRepositoryPaths)
+        ? parsed.pinnedRepositoryPaths.filter(isString)
+        : extractInlinePinnedRepositoryPaths(parsed.recentRepositories)
 
       return {
-        recentRepositories: Array.isArray(parsed.recentRepositories) ? parsed.recentRepositories : [],
+        recentRepositories: normalizeRecentRepositories(parsed.recentRepositories, pinnedRepositoryPaths),
+        pinnedRepositoryPaths,
         assistantPolicies: isAssistantPolicyRecord(parsed.assistantPolicies) ? parsed.assistantPolicies : {}
       }
     } catch {
       return {
         recentRepositories: [...DEFAULT_SETTINGS.recentRepositories],
+        pinnedRepositoryPaths: [...DEFAULT_SETTINGS.pinnedRepositoryPaths],
         assistantPolicies: { ...DEFAULT_SETTINGS.assistantPolicies }
       }
     }
@@ -70,6 +109,50 @@ export class SettingsStore {
     await fs.mkdir(path.dirname(this.filePath), { recursive: true })
     await fs.writeFile(this.filePath, JSON.stringify(settings, null, 2), 'utf8')
   }
+}
+
+function normalizeRecentRepositories(value: unknown, pinnedRepositoryPaths: unknown): RecentRepository[] {
+  if (!Array.isArray(value)) return []
+
+  const pinnedPaths = new Set(Array.isArray(pinnedRepositoryPaths) ? pinnedRepositoryPaths.filter(isString) : [])
+
+  return value
+    .filter((repo): repo is Partial<RecentRepository> =>
+      Boolean(repo) &&
+      typeof repo === 'object' &&
+      typeof repo.path === 'string' &&
+      typeof repo.name === 'string' &&
+      typeof repo.lastOpenedAt === 'string'
+    )
+    .map((repo) => ({
+      path: repo.path!,
+      name: repo.name!,
+      lastOpenedAt: repo.lastOpenedAt!,
+      pinned: pinnedPaths.has(repo.path!)
+    }))
+    .sort((first, second) => {
+      if (first.pinned !== second.pinned) return first.pinned ? -1 : 1
+
+      return Date.parse(second.lastOpenedAt) - Date.parse(first.lastOpenedAt)
+    })
+    .slice(0, 12)
+}
+
+function extractInlinePinnedRepositoryPaths(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .filter((repo): repo is Partial<RecentRepository> =>
+      Boolean(repo) &&
+      typeof repo === 'object' &&
+      typeof repo.path === 'string' &&
+      repo.pinned === true
+    )
+    .map((repo) => repo.path!)
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0
 }
 
 function isAssistantPolicyRecord(value: unknown): value is Record<string, AssistantPolicySettings> {

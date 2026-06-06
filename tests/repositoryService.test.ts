@@ -34,6 +34,53 @@ describe('RepositoryService', () => {
     expect(snapshot.status.changes.map((change) => change.path)).toContain('new.txt')
   })
 
+  it('pins recent repositories and keeps pinned entries first', async () => {
+    const firstRepoPath = createTempRepository()
+    const secondRepoPath = createTempRepository()
+    const firstRepoRoot = realpathSync(firstRepoPath)
+    const secondRepoRoot = realpathSync(secondRepoPath)
+    const service = createService()
+
+    await service.openRepository(firstRepoPath)
+    await service.openRepository(secondRepoPath)
+
+    let recentRepositories = await service.setRepositoryPinned({
+      repoPath: firstRepoPath,
+      pinned: true
+    })
+
+    expect(recentRepositories[0]).toMatchObject({
+      path: firstRepoRoot,
+      pinned: true
+    })
+    expect(recentRepositories[1]).toMatchObject({
+      path: secondRepoRoot,
+      pinned: false
+    })
+
+    await service.openRepository(secondRepoPath)
+    recentRepositories = await service.getRecentRepositories()
+
+    expect(recentRepositories[0]).toMatchObject({
+      path: firstRepoRoot,
+      pinned: true
+    })
+
+    recentRepositories = await service.setRepositoryPinned({
+      repoPath: firstRepoPath,
+      pinned: false
+    })
+
+    expect(recentRepositories[0]).toMatchObject({
+      path: secondRepoRoot,
+      pinned: false
+    })
+    expect(recentRepositories[1]).toMatchObject({
+      path: firstRepoRoot,
+      pinned: false
+    })
+  })
+
   it('commits staged changes with a multiline message', async () => {
     const repoPath = createTempRepository()
     const service = createService()

@@ -21,6 +21,7 @@ import type {
   MergeState,
   PublishBranchRequest,
   RecentRepository,
+  RepositoryPinRequest,
   RemoteSummary,
   RepositorySnapshot,
   RepositoryStatus,
@@ -53,6 +54,12 @@ export class RepositoryService {
 
   async getRecentRepositories(): Promise<RecentRepository[]> {
     return this.settings.getRecentRepositories()
+  }
+
+  async setRepositoryPinned(request: RepositoryPinRequest): Promise<RecentRepository[]> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+
+    return this.settings.setRepositoryPinned(rootPath, request.pinned)
   }
 
   async getSnapshot(repoPath: string): Promise<RepositorySnapshot> {

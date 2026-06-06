@@ -24,6 +24,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Star,
   Terminal,
   Trash2,
   UploadCloud,
@@ -436,6 +437,21 @@ function App() {
     if (!api) return
     const result = await api.getRecentRepositories()
     if (result.ok) setRecentRepositories(result.data)
+  }
+
+  async function toggleRepositoryPinned(repo: RecentRepository) {
+    if (!api) return
+
+    const result = await api.setRepositoryPinned({
+      repoPath: repo.path,
+      pinned: !repo.pinned
+    })
+
+    if (result.ok) {
+      setRecentRepositories(result.data)
+    } else {
+      setError(result.error.message)
+    }
   }
 
   async function loadProviders() {
@@ -1566,10 +1582,22 @@ function App() {
             <p>No recent repositories.</p>
           ) : (
             recentRepositories.map((repo) => (
-              <button type="button" key={repo.path} onClick={() => openRepository(repo.path)}>
-                <strong>{repo.name}</strong>
-                <span>{repo.path}</span>
-              </button>
+              <article className={repo.pinned ? 'recent-repo-row pinned' : 'recent-repo-row'} key={repo.path}>
+                <button className="recent-repo-open" type="button" onClick={() => openRepository(repo.path)}>
+                  <strong>{repo.name}</strong>
+                  <span>{repo.path}</span>
+                </button>
+                <button
+                  className={repo.pinned ? 'recent-pin-button pinned' : 'recent-pin-button'}
+                  type="button"
+                  aria-label={repo.pinned ? `Unpin ${repo.name}` : `Pin ${repo.name}`}
+                  title={repo.pinned ? 'Unpin repository' : 'Pin repository'}
+                  onClick={() => toggleRepositoryPinned(repo)}
+                  disabled={!api || busy}
+                >
+                  <Star size={16} fill={repo.pinned ? 'currentColor' : 'none'} />
+                </button>
+              </article>
             ))
           )}
         </div>

@@ -33,6 +33,7 @@ import type {
   PullRequestDetailsRequest,
   PullRequestTextGenerationRequest,
   PublishBranchRequest,
+  RepositoryPinRequest,
   RepositorySnapshot,
   ReviewReportRequest,
   StashActionRequest,
@@ -329,6 +330,7 @@ function registerIpcHandlers() {
     withProjectMemoryRefresh(await repositoryService.openRepository(repoPath))
   )
   handle('repository:recent', () => repositoryService.getRecentRepositories())
+  handle('repository:setPinned', (request: RepositoryPinRequest) => repositoryService.setRepositoryPinned(request))
   handleLogged('repository:refresh', {
     type: 'repository_refreshed',
     actor: 'user',

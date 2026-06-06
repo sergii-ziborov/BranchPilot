@@ -79,7 +79,8 @@ button:disabled {
 
 .repo-picker,
 .nav-list button,
-.recent-list button {
+.recent-repo-open,
+.recent-pin-button {
   width: 100%;
   gap: 10px;
   border: 1px solid transparent;
@@ -95,7 +96,7 @@ button:disabled {
 }
 
 .repo-picker span,
-.recent-list span,
+.recent-repo-open span,
 .repo-path,
 .file-name,
 .file-state {
@@ -122,7 +123,8 @@ button:disabled {
 .nav-list button:hover,
 .nav-list button.active,
 .repo-picker:hover,
-.recent-list button:hover {
+.recent-repo-open:hover,
+.recent-pin-button:hover {
   color: #ffffff;
   background: rgba(148, 163, 184, 0.14);
   border-color: rgba(148, 163, 184, 0.2);
@@ -139,7 +141,14 @@ button:disabled {
   font-size: 13px;
 }
 
-.recent-list button {
+.recent-repo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.recent-repo-open {
   display: grid;
   gap: 3px;
   min-height: 48px;
@@ -148,12 +157,28 @@ button:disabled {
   text-align: left;
 }
 
+.recent-pin-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 8px;
+  color: var(--sidebar-muted);
+}
+
+.recent-pin-button.pinned {
+  color: #fde68a;
+  background: rgba(250, 204, 21, 0.1);
+  border-color: rgba(250, 204, 21, 0.28);
+}
+
 .recent-list strong {
   color: #f8fafc;
   font-size: 13px;
 }
 
-.recent-list span {
+.recent-repo-open span {
   color: var(--sidebar-muted);
   font-size: 12px;
 }

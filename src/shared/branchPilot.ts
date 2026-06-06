@@ -88,6 +88,12 @@ export interface RecentRepository {
   path: string
   name: string
   lastOpenedAt: string
+  pinned: boolean
+}
+
+export interface RepositoryPinRequest {
+  repoPath: string
+  pinned: boolean
 }
 
 export interface BranchSummary {
@@ -712,6 +718,7 @@ export interface BranchPilotApi {
   chooseAndOpenRepository: () => Promise<ApiResult<RepositorySnapshot | null>>
   openRepository: (path: string) => Promise<ApiResult<RepositorySnapshot>>
   getRecentRepositories: () => Promise<ApiResult<RecentRepository[]>>
+  setRepositoryPinned: (request: RepositoryPinRequest) => Promise<ApiResult<RecentRepository[]>>
   refreshRepository: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   getDiff: (request: DiffRequest) => Promise<ApiResult<DiffResult>>
   getHistory: (repoPath: string) => Promise<ApiResult<CommitSummary[]>>

@@ -8,6 +8,7 @@ const branchPilot: BranchPilotApi = {
   chooseAndOpenRepository: () => invoke('repository:chooseAndOpen'),
   openRepository: (path) => invoke('repository:open', path),
   getRecentRepositories: () => invoke('repository:recent'),
+  setRepositoryPinned: (request) => invoke('repository:setPinned', request),
   refreshRepository: (repoPath) => invoke('repository:refresh', repoPath),
   getDiff: (request) => invoke('repository:diff', request),
   getHistory: (repoPath) => invoke('repository:history', repoPath),
