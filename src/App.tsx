@@ -21,6 +21,7 @@ import {
   Plus,
   RefreshCcw,
   Save,
+  Search,
   Settings,
   ShieldCheck,
   Terminal,
@@ -106,6 +107,7 @@ function App() {
   const [assistantPolicy, setAssistantPolicy] = useState<AssistantPolicyStatus | null>(null)
   const [assistantPolicyLoading, setAssistantPolicyLoading] = useState(false)
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+  const [changeFilter, setChangeFilter] = useState('')
   const [diffMode, setDiffMode] = useState<DiffMode>('unstaged')
   const [diff, setDiff] = useState<DiffResult | null>(null)
   const [history, setHistory] = useState<CommitSummary[]>([])
@@ -163,6 +165,19 @@ function App() {
   const [preCommitReviewModes, setPreCommitReviewModes] = useState<ReviewMode[]>(reviewModes)
   const [preCommitReports, setPreCommitReports] = useState<ReviewReport[]>([])
   const [preCommitRunningMode, setPreCommitRunningMode] = useState<ReviewMode | null>(null)
+
+  const filteredChanges = useMemo(() => {
+    const changes = snapshot?.status.changes ?? []
+    const query = changeFilter.trim().toLowerCase()
+
+    if (!query) return changes
+
+    return changes.filter((change) =>
+      [change.path, change.originalPath, change.status, changeLabel(change)]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => value.toLowerCase().includes(query))
+    )
+  }, [changeFilter, snapshot])
 
   const selectedChange = useMemo(
     () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
@@ -239,13 +254,15 @@ function App() {
   useEffect(() => {
     if (!snapshot) return
 
-    const firstChange = snapshot.status.changes[0]
+    const filterActive = changeFilter.trim().length > 0
+    const visibleChanges = filterActive ? filteredChanges : snapshot.status.changes
+    const firstChange = visibleChanges[0]
 
-    if (!selectedFilePath || !snapshot.status.changes.some((change) => change.path === selectedFilePath)) {
+    if (!selectedFilePath || !visibleChanges.some((change) => change.path === selectedFilePath)) {
       setSelectedFilePath(firstChange?.path ?? null)
       setDiffMode(firstChange?.staged && !firstChange.unstaged ? 'staged' : 'unstaged')
     }
-  }, [selectedFilePath, snapshot])
+  }, [changeFilter, filteredChanges, selectedFilePath, snapshot])
 
   useEffect(() => {
     if (!snapshot || !selectedChange) {
@@ -1692,11 +1709,32 @@ function App() {
             </div>
           </div>
 
+          <div className="change-filter-bar">
+            <label className="change-filter-input" htmlFor="change-filter">
+              <Search size={16} />
+              <input
+                id="change-filter"
+                value={changeFilter}
+                onChange={(event) => setChangeFilter(event.target.value)}
+                placeholder="Search changed files"
+              />
+            </label>
+            <span>{filteredChanges.length} / {snapshot?.status.changes.length ?? 0}</span>
+            {changeFilter && (
+              <button type="button" className="secondary" onClick={() => setChangeFilter('')}>
+                <X size={15} />
+                Clear
+              </button>
+            )}
+          </div>
+
           <div className="change-list">
             {snapshot?.status.changes.length === 0 ? (
               <div className="quiet-box">Working tree is clean.</div>
+            ) : filteredChanges.length === 0 ? (
+              <div className="quiet-box">No changed files match this search.</div>
             ) : (
-              snapshot?.status.changes.map((change) => (
+              filteredChanges.map((change) => (
                 <div className={selectedFilePath === change.path ? 'change-row selected' : 'change-row'} key={change.path}>
                   <StageCheckbox
                     change={change}

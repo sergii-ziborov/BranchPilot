@@ -494,6 +494,53 @@ button.danger-button:hover {
   max-width: none;
 }
 
+.change-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.change-filter-input {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #ffffff;
+}
+
+.change-filter-input input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: var(--text-strong);
+  background: transparent;
+}
+
+.change-filter-bar > span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.change-filter-bar button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
 .change-list,
 .history-list,
 .branch-list,
@@ -2923,6 +2970,10 @@ button.secondary:hover {
 
 @media (max-width: 760px) {
   .changes-heading {
+    grid-template-columns: 1fr;
+  }
+
+  .change-filter-bar {
     grid-template-columns: 1fr;
   }
 }
