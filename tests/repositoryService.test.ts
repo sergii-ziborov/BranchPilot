@@ -548,6 +548,76 @@ describe('RepositoryService', () => {
     expect(git(repoPath, ['config', '--local', '--get', 'user.name'])).toBe('BranchPilot Local')
   })
 
+  it('adds updates and removes remotes with confirmation', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+    const firstUrl = 'https://github.com/example/project.git'
+    const secondUrl = 'git@github.com:example/project.git'
+
+    expect((await service.getGitConfig(repoPath)).remotes).toEqual([])
+
+    const added = await service.addRemote({
+      repoPath,
+      name: 'origin',
+      url: firstUrl
+    })
+
+    expect(added.remotes).toEqual([
+      {
+        name: 'origin',
+        fetchUrl: firstUrl,
+        pushUrl: firstUrl
+      }
+    ])
+    await expect(service.addRemote({
+      repoPath,
+      name: 'origin',
+      url: firstUrl
+    })).rejects.toMatchObject({ code: 'remote_exists' })
+
+    const updated = await service.setRemoteUrl({
+      repoPath,
+      name: 'origin',
+      url: secondUrl
+    })
+
+    expect(updated.remotes).toEqual([
+      {
+        name: 'origin',
+        fetchUrl: secondUrl,
+        pushUrl: secondUrl
+      }
+    ])
+    await expect(service.addRemote({
+      repoPath,
+      name: '-bad',
+      url: firstUrl
+    })).rejects.toMatchObject({ code: 'invalid_remote' })
+    await expect(service.addRemote({
+      repoPath,
+      name: 'upstream',
+      url: ''
+    })).rejects.toMatchObject({ code: 'invalid_remote_url' })
+    await expect(service.removeRemote({
+      repoPath,
+      name: 'origin',
+      confirmed: false
+    })).rejects.toMatchObject({ code: 'confirmation_required' })
+
+    const removed = await service.removeRemote({
+      repoPath,
+      name: 'origin',
+      confirmed: true
+    })
+
+    expect(removed.remotes).toEqual([])
+    await expect(service.setRemoteUrl({
+      repoPath,
+      name: 'origin',
+      url: firstUrl
+    })).rejects.toMatchObject({ code: 'git_no_remote' })
+  })
+
   it('lists and updates configured submodules', async () => {
     const repoPath = createTempRepository()
     const childRepoPath = createTempRepository()

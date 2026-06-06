@@ -40,6 +40,8 @@ import type {
   PullRequestDetailsRequest,
   PullRequestTextGenerationRequest,
   PublishBranchRequest,
+  RemoteRemoveRequest,
+  RemoteUpsertRequest,
   RemoveWorktreeRequest,
   RepositoryPinRequest,
   RepositorySnapshot,
@@ -490,6 +492,39 @@ function registerIpcHandlers() {
   )
   handle('repository:gitConfig', (repoPath: string) => repositoryService.getGitConfig(repoPath))
   handle('repository:setLocalGitIdentity', (request: GitIdentityUpdate) => repositoryService.setLocalGitIdentity(request))
+  handleLogged('git:addRemote', {
+    type: 'remote_added',
+    actor: 'user',
+    title: 'Remote added',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      remote: request.name
+    })
+  }, (request: RemoteUpsertRequest) =>
+    repositoryService.addRemote(request)
+  )
+  handleLogged('git:setRemoteUrl', {
+    type: 'remote_updated',
+    actor: 'user',
+    title: 'Remote updated',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      remote: request.name
+    })
+  }, (request: RemoteUpsertRequest) =>
+    repositoryService.setRemoteUrl(request)
+  )
+  handleLogged('git:removeRemote', {
+    type: 'remote_removed',
+    actor: 'user',
+    title: 'Remote removed',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      remote: request.name
+    })
+  }, (request: RemoteRemoveRequest) =>
+    repositoryService.removeRemote(request)
+  )
 
   handle('git:stageFile', (request: FileActionRequest) => repositoryService.stageFile(request))
   handle('git:unstageFile', (request: FileActionRequest) => repositoryService.unstageFile(request))

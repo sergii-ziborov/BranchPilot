@@ -371,6 +371,9 @@ export type ActivityLogEventType =
   | 'branch_description_updated'
   | 'branch_switched'
   | 'branch_deleted'
+  | 'remote_added'
+  | 'remote_updated'
+  | 'remote_removed'
   | 'tag_created'
   | 'tag_deleted'
   | 'worktree_created'
@@ -498,6 +501,18 @@ export interface RemoteSummary {
   name: string
   fetchUrl?: string
   pushUrl?: string
+}
+
+export interface RemoteUpsertRequest {
+  repoPath: string
+  name: string
+  url: string
+}
+
+export interface RemoteRemoveRequest {
+  repoPath: string
+  name: string
+  confirmed: boolean
 }
 
 export interface GitConfigSnapshot {
@@ -921,6 +936,9 @@ export interface BranchPilotApi {
   generateDailyReview: (request: DailyReviewRequest) => Promise<ApiResult<DailyReviewReport>>
   getGitConfig: (repoPath: string) => Promise<ApiResult<GitConfigSnapshot>>
   setLocalGitIdentity: (request: GitIdentityUpdate) => Promise<ApiResult<GitConfigSnapshot>>
+  addRemote: (request: RemoteUpsertRequest) => Promise<ApiResult<GitConfigSnapshot>>
+  setRemoteUrl: (request: RemoteUpsertRequest) => Promise<ApiResult<GitConfigSnapshot>>
+  removeRemote: (request: RemoteRemoveRequest) => Promise<ApiResult<GitConfigSnapshot>>
   stageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   unstageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   stageHunk: (request: HunkActionRequest) => Promise<ApiResult<RepositorySnapshot>>

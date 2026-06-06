@@ -38,7 +38,9 @@ import type {
   RecentRepository,
   RepositoryPinRequest,
   RepositoryDashboardSnapshot,
+  RemoteRemoveRequest,
   RemoteSummary,
+  RemoteUpsertRequest,
   RepositorySnapshot,
   RepositoryStatus,
   RepositorySummary,
@@ -401,6 +403,42 @@ export class RepositoryService {
 
     await this.git(rootPath, ['config', '--local', 'user.name', name])
     await this.git(rootPath, ['config', '--local', 'user.email', email])
+
+    return this.getGitConfig(rootPath)
+  }
+
+  async addRemote(request: RemoteUpsertRequest): Promise<GitConfigSnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const name = normalizeRemoteName(request.name)
+    const url = normalizeRemoteUrl(request.url)
+
+    await this.assertRemoteMissing(rootPath, name)
+    await this.git(rootPath, ['remote', 'add', name, url])
+
+    return this.getGitConfig(rootPath)
+  }
+
+  async setRemoteUrl(request: RemoteUpsertRequest): Promise<GitConfigSnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const name = normalizeRemoteName(request.name)
+    const url = normalizeRemoteUrl(request.url)
+
+    await this.assertRemoteExists(rootPath, name)
+    await this.git(rootPath, ['remote', 'set-url', name, url])
+
+    return this.getGitConfig(rootPath)
+  }
+
+  async removeRemote(request: RemoteRemoveRequest): Promise<GitConfigSnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Removing a remote requires explicit confirmation.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const name = normalizeRemoteName(request.name)
+
+    await this.assertRemoteExists(rootPath, name)
+    await this.git(rootPath, ['remote', 'remove', name])
 
     return this.getGitConfig(rootPath)
   }
@@ -1330,6 +1368,20 @@ export class RepositoryService {
     }
   }
 
+  private async assertRemoteMissing(rootPath: string, name: string): Promise<void> {
+    if (await this.remoteExists(rootPath, name)) {
+      throw new BranchPilotUserError('remote_exists', 'Remote already exists.')
+    }
+  }
+
+  private async remoteExists(rootPath: string, name: string): Promise<boolean> {
+    const result = await this.git(rootPath, ['remote', 'get-url', name], {
+      allowedExitCodes: [0, 1, 2]
+    })
+
+    return result.exitCode === 0
+  }
+
   private async assertValidBaseRef(rootPath: string, baseRef: string): Promise<void> {
     const result = await this.git(rootPath, ['rev-parse', '--verify', `${baseRef}^{commit}`], {
       allowedExitCodes: [0, 128]
@@ -1529,6 +1581,26 @@ function normalizeTagName(tagName: string): string {
 
   if (!trimmed || trimmed.startsWith('-') || trimmed.includes('\0')) {
     throw new BranchPilotUserError('invalid_tag', 'Invalid tag name.')
+  }
+
+  return trimmed
+}
+
+function normalizeRemoteName(name: string): string {
+  const trimmed = name.trim()
+
+  if (!/^[A-Za-z0-9._-]+$/.test(trimmed) || trimmed.startsWith('-')) {
+    throw new BranchPilotUserError('invalid_remote', 'Remote name can contain letters, numbers, dots, underscores, and hyphens.')
+  }
+
+  return trimmed
+}
+
+function normalizeRemoteUrl(url: string): string {
+  const trimmed = url.trim()
+
+  if (!trimmed || trimmed.includes('\0') || trimmed.startsWith('-')) {
+    throw new BranchPilotUserError('invalid_remote_url', 'Remote URL is required.')
   }
 
   return trimmed

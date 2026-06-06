@@ -70,6 +70,7 @@ import type {
   ProjectWikiSnapshot,
   PatchScope,
   RecentRepository,
+  RemoteSummary,
   RepositorySnapshot,
   RepositoryDashboardSnapshot,
   ReviewFinding,
@@ -186,6 +187,9 @@ function App() {
   const [stashes, setStashes] = useState<StashEntry[]>([])
   const [localUserName, setLocalUserName] = useState('')
   const [localUserEmail, setLocalUserEmail] = useState('')
+  const [remoteName, setRemoteName] = useState('')
+  const [remoteUrl, setRemoteUrl] = useState('')
+  const [editingRemoteName, setEditingRemoteName] = useState<string | null>(null)
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
   const [githubCliStatus, setGithubCliStatus] = useState<GitHubCliStatus | null>(null)
   const [currentPullRequest, setCurrentPullRequest] = useState<GitHubPullRequest | null>(null)
@@ -2033,6 +2037,91 @@ function App() {
     setBusy(false)
   }
 
+  function startRemoteEdit(remote: RemoteSummary) {
+    setEditingRemoteName(remote.name)
+    setRemoteName(remote.name)
+    setRemoteUrl(remote.fetchUrl ?? remote.pushUrl ?? '')
+  }
+
+  function cancelRemoteEdit() {
+    setEditingRemoteName(null)
+    setRemoteName('')
+    setRemoteUrl('')
+  }
+
+  async function saveRemote() {
+    if (!api || !currentRepoPath) return
+
+    const name = (editingRemoteName ?? remoteName).trim()
+    const url = remoteUrl.trim()
+
+    if (!name || !url) {
+      setNotice('Remote blocked: add a name and URL.')
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+
+    const result = editingRemoteName
+      ? await api.setRemoteUrl({ repoPath: currentRepoPath, name, url })
+      : await api.addRemote({ repoPath: currentRepoPath, name, url })
+    const label = editingRemoteName ? 'Remote updated.' : 'Remote added.'
+
+    if (result.ok) {
+      setGitConfig(result.data)
+      cancelRemoteEdit()
+      const snapshotResult = await api.refreshRepository(currentRepoPath)
+      applySnapshotResult(snapshotResult, label)
+      if (!snapshotResult.ok) {
+        setNotice(label)
+      }
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
+  async function removeRemote(remote: RemoteSummary) {
+    if (!api || !currentRepoPath) return
+
+    const confirmed = await requestConfirmation(`Remove remote ${remote.name}?`, {
+      title: 'Remove Remote',
+      confirmLabel: 'Remove remote',
+      variant: 'danger'
+    })
+
+    if (!confirmed) return
+
+    setBusy(true)
+    setError(null)
+
+    const result = await api.removeRemote({
+      repoPath: currentRepoPath,
+      name: remote.name,
+      confirmed
+    })
+
+    if (result.ok) {
+      setGitConfig(result.data)
+      if (editingRemoteName === remote.name) {
+        cancelRemoteEdit()
+      }
+      const snapshotResult = await api.refreshRepository(currentRepoPath)
+      applySnapshotResult(snapshotResult, 'Remote removed.')
+      if (!snapshotResult.ok) {
+        setNotice('Remote removed.')
+      }
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
   async function openRepoInEditor() {
     if (!api || !currentRepoPath) return
     await runOperationAction('Repository opened in editor.', () => api.openInEditor({ targetPath: currentRepoPath }))
@@ -3314,15 +3403,64 @@ function App() {
           </section>
 
           <section className="config-card remotes-card">
-            <h3>Remotes</h3>
+            <div className="config-card-heading">
+              <div>
+                <h3>Remotes</h3>
+                <p>Add, update, or remove repository remotes.</p>
+              </div>
+            </div>
+            <div className="remote-composer">
+              <label htmlFor="remote-name">
+                Name
+                <input
+                  id="remote-name"
+                  value={remoteName}
+                  onChange={(event) => setRemoteName(event.target.value)}
+                  placeholder="origin"
+                  disabled={busy || Boolean(editingRemoteName)}
+                />
+              </label>
+              <label htmlFor="remote-url">
+                URL
+                <input
+                  id="remote-url"
+                  value={remoteUrl}
+                  onChange={(event) => setRemoteUrl(event.target.value)}
+                  placeholder="https://github.com/owner/repo.git"
+                  disabled={busy}
+                />
+              </label>
+              <button type="button" onClick={saveRemote} disabled={busy || !remoteName.trim() || !remoteUrl.trim()}>
+                {editingRemoteName ? <Save size={16} /> : <Plus size={16} />}
+                {editingRemoteName ? 'Save' : 'Add'}
+              </button>
+              {editingRemoteName && (
+                <button className="secondary-button" type="button" onClick={cancelRemoteEdit} disabled={busy}>
+                  <X size={16} />
+                  Cancel
+                </button>
+              )}
+            </div>
             {gitConfig?.remotes.length === 0 || !gitConfig ? (
               <p className="muted-text">No remotes configured.</p>
             ) : (
               gitConfig.remotes.map((remote) => (
                 <div className="remote-row" key={remote.name}>
-                  <strong>{remote.name}</strong>
-                  <span>fetch: {remote.fetchUrl ?? 'unset'}</span>
-                  <span>push: {remote.pushUrl ?? 'unset'}</span>
+                  <div className="remote-row-details">
+                    <strong>{remote.name}</strong>
+                    <span>fetch: {remote.fetchUrl ?? 'unset'}</span>
+                    <span>push: {remote.pushUrl ?? 'unset'}</span>
+                  </div>
+                  <div className="remote-row-actions">
+                    <button className="secondary-button" type="button" onClick={() => startRemoteEdit(remote)} disabled={busy}>
+                      <Pencil size={16} />
+                      Edit
+                    </button>
+                    <button className="danger-button" type="button" onClick={() => removeRemote(remote)} disabled={busy}>
+                      <Trash2 size={16} />
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ))
             )}

@@ -2369,6 +2369,31 @@ button.danger-button:hover {
   background: #2563eb;
 }
 
+.config-card button.secondary-button,
+.config-card button.danger-button,
+.remote-row-actions button {
+  border-color: var(--border);
+  color: var(--text);
+  background: #ffffff;
+}
+
+.config-card button.secondary-button:hover,
+.remote-row-actions button:hover {
+  border-color: #a7b0c0;
+  background: #f9fafb;
+}
+
+.config-card button.danger-button {
+  border-color: #fecaca;
+  color: #b91c1c;
+  background: #fff7f7;
+}
+
+.config-card button.danger-button:hover {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
 .info-row {
   display: grid;
   gap: 4px;
@@ -2412,13 +2437,40 @@ button.danger-button:hover {
   background: #ffffff;
 }
 
+.remote-composer {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.28fr) minmax(220px, 1fr) auto auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.remote-composer label {
+  display: grid;
+  gap: 6px;
+}
+
 .remote-row {
   display: grid;
-  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #ffffff;
+}
+
+.remote-row-details {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.remote-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .remote-row span,
@@ -3752,6 +3804,8 @@ button.secondary:hover {
   .review-controls,
   .assistant-policy-actions,
   .branch-composer-grid,
+  .remote-composer,
+  .remote-row,
   .worktree-composer,
   .tag-composer,
   .merge-start,
@@ -3776,7 +3830,8 @@ button.secondary:hover {
   }
 
   .worktree-composer-actions,
-  .tag-composer-actions {
+  .tag-composer-actions,
+  .remote-row-actions {
     grid-column: auto;
     justify-content: flex-start;
   }
