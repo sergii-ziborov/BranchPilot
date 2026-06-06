@@ -653,7 +653,7 @@ function registerIpcHandlers() {
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName, force: request.force })
   }, async (request: DeleteBranchRequest) =>
-    withProjectMemoryRefresh(await repositoryService.deleteBranch(request.repoPath, request.branchName, request.force))
+    withProjectMemoryRefresh(await repositoryService.deleteBranch(request.repoPath, request.branchName, request.force, request.confirmed))
   )
   handleLogged('git:createTag', {
     type: 'tag_created',

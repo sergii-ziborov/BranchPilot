@@ -842,7 +842,11 @@ describe('RepositoryService', () => {
     const switched = await service.switchBranch(repoPath, 'main')
     expect(switched.summary.currentBranch).toBe('main')
 
-    const deleted = await service.deleteBranch(repoPath, 'feature/work', false)
+    await expect(service.deleteBranch(repoPath, 'feature/work', false, false)).rejects.toMatchObject({
+      code: 'confirmation_required'
+    })
+
+    const deleted = await service.deleteBranch(repoPath, 'feature/work', false, true)
     expect(deleted.branches.map((branch) => branch.name)).not.toContain('feature/work')
   })
 
@@ -974,7 +978,7 @@ describe('RepositoryService', () => {
     const repoPath = createTempRepository()
     const service = createService()
 
-    await expect(service.deleteBranch(repoPath, 'main', false)).rejects.toMatchObject({ code: 'git_current_branch' })
+    await expect(service.deleteBranch(repoPath, 'main', false, true)).rejects.toMatchObject({ code: 'git_current_branch' })
 
     await service.createBranch(repoPath, 'feature/unmerged')
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'unmerged\n')
@@ -983,7 +987,7 @@ describe('RepositoryService', () => {
     await service.switchBranch(repoPath, 'main')
 
     try {
-      await service.deleteBranch(repoPath, 'feature/unmerged', false)
+      await service.deleteBranch(repoPath, 'feature/unmerged', false, true)
       throw new Error('Expected delete to fail')
     } catch (error) {
       expect(toBranchPilotError(error).code).toBe('git_branch_not_merged')

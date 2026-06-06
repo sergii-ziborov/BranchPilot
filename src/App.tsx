@@ -1792,6 +1792,7 @@ function App() {
       api.deleteBranch({
         repoPath: currentRepoPath,
         branchName: branch.name,
+        confirmed,
         force: false
       })
     )

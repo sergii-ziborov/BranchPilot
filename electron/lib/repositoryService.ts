@@ -724,7 +724,11 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
-  async deleteBranch(repoPath: string, branchName: string, force: boolean): Promise<RepositorySnapshot> {
+  async deleteBranch(repoPath: string, branchName: string, force: boolean, confirmed: boolean): Promise<RepositorySnapshot> {
+    if (!confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Deleting a branch requires explicit confirmation.')
+    }
+
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const normalizedName = normalizeBranchName(branchName)
     const currentBranch = await this.getCurrentBranch(rootPath)

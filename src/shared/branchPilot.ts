@@ -748,6 +748,7 @@ export interface UpdateBranchDescriptionRequest {
 }
 
 export interface DeleteBranchRequest extends BranchActionRequest {
+  confirmed: boolean
   force: boolean
 }
 
