@@ -27,6 +27,7 @@ import type {
   GitHubPullRequest,
   GitHubPullRequestCheck,
   GitHubPullRequestDetails,
+  GitHubPullRequestDiff,
   GitHubRepositorySummary,
   ListGitHubRepositoriesRequest
 } from '../src/shared/branchPilot'
@@ -495,6 +496,85 @@ describe('GitHub CLI bridge', () => {
     )).resolves.toEqual(details)
   })
 
+  it('reads pull request diff through GitHub Desktop credentials', async () => {
+    const apiClient = new FakeGitHubApiClient(undefined, undefined, undefined, undefined, makePullRequestDiff())
+
+    const diff = await getGitHubPullRequestDiff(
+      new GitHubCliTestRunner({ ghAuthenticated: false }),
+      {
+        repoPath: '/repo',
+        prNumber: 7
+      },
+      new FakeGitHubCredentialProvider(),
+      apiClient
+    )
+
+    expect(diff.prNumber).toBe(7)
+    expect(diff.files).toHaveLength(1)
+    expect(diff.files[0]).toMatchObject({
+      path: 'src/App.tsx',
+      status: 'modified',
+      additions: 1,
+      deletions: 1
+    })
+    expect(diff.files[0].hunks[0].lines).toHaveLength(4)
+    expect(diff.text).toContain('diff --git a/src/App.tsx b/src/App.tsx')
+  })
+
+  it('normalizes pull request diff files from the GitHub API fallback', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = String(input)
+
+      if (url === 'https://api.github.com/user') {
+        return jsonResponse({ login: 'desktop-user' })
+      }
+
+      if (url.startsWith('https://api.github.com/repos/example/project/pulls/7/files')) {
+        return jsonResponse([
+          {
+            filename: 'src/App.tsx',
+            status: 'modified',
+            additions: 1,
+            deletions: 1,
+            patch: [
+              '@@ -1,3 +1,3 @@',
+              ' import React from "react"',
+              '-const title = "Old"',
+              '+const title = "New"',
+              ' export default title'
+            ].join('\n')
+          }
+        ])
+      }
+
+      return jsonResponse({ message: `Unexpected URL ${url}` }, 404)
+    }) as typeof fetch
+
+    try {
+      const diff = await getGitHubPullRequestDiff(
+        new GitHubCliTestRunner({ ghAuthenticated: false }),
+        {
+          repoPath: '/repo',
+          prNumber: 7
+        },
+        new FakeGitHubCredentialProvider()
+      )
+
+      expect(diff.files).toHaveLength(1)
+      expect(diff.files[0]).toMatchObject({
+        path: 'src/App.tsx',
+        status: 'modified',
+        additions: 1,
+        deletions: 1
+      })
+      expect(diff.files[0].hunks[0].lines).toHaveLength(4)
+      expect(diff.text).toContain('diff --git a/src/App.tsx b/src/App.tsx')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it('blocks pull request creation when no GitHub auth path is available', async () => {
     const runner = new GitHubCliTestRunner({ ghAuthenticated: false })
 
@@ -628,7 +708,8 @@ class FakeGitHubApiClient implements GitHubApiClient {
       makeAccount({ login: 'desktop-org', type: 'organization' })
     ],
     private readonly pullRequests: GitHubPullRequest[] = [makePullRequest()],
-    private readonly pullRequestDetails: GitHubPullRequestDetails = makePullRequestDetails()
+    private readonly pullRequestDetails: GitHubPullRequestDetails = makePullRequestDetails(),
+    private readonly pullRequestDiff: GitHubPullRequestDiff = makePullRequestDiff()
   ) {}
 
   async getViewer(): Promise<{ login: string }> {
@@ -679,6 +760,17 @@ class FakeGitHubApiClient implements GitHubApiClient {
     return {
       ...this.pullRequestDetails,
       number: prNumber
+    }
+  }
+
+  async getPullRequestDiff(
+    _credential: GitHubDesktopCredential,
+    _repository: { owner: string; repo: string; remoteUrl: string },
+    prNumber: number
+  ): Promise<GitHubPullRequestDiff> {
+    return {
+      ...this.pullRequestDiff,
+      prNumber
     }
   }
 
@@ -964,6 +1056,61 @@ function makePullRequestCheck(overrides: Partial<GitHubPullRequestCheck> = {}): 
   }
 }
 
+function makePullRequestDiff(overrides: Partial<GitHubPullRequestDiff> = {}): GitHubPullRequestDiff {
+  return {
+    prNumber: 7,
+    text: [
+      'diff --git a/src/App.tsx b/src/App.tsx',
+      '--- a/src/App.tsx',
+      '+++ b/src/App.tsx',
+      '@@ -1,3 +1,3 @@',
+      ' import React from "react"',
+      '-const title = "Old"',
+      '+const title = "New"',
+      ' export default title',
+      ''
+    ].join('\n'),
+    files: [
+      {
+        oldPath: 'src/App.tsx',
+        newPath: 'src/App.tsx',
+        path: 'src/App.tsx',
+        text: [
+          'diff --git a/src/App.tsx b/src/App.tsx',
+          '--- a/src/App.tsx',
+          '+++ b/src/App.tsx',
+          '@@ -1,3 +1,3 @@',
+          ' import React from "react"',
+          '-const title = "Old"',
+          '+const title = "New"',
+          ' export default title',
+          ''
+        ].join('\n'),
+        status: 'modified',
+        additions: 1,
+        deletions: 1,
+        hunks: [
+          {
+            header: '@@ -1,3 +1,3 @@',
+            oldStart: 1,
+            oldLines: 3,
+            newStart: 1,
+            newLines: 3,
+            patch: '',
+            lines: [
+              { type: 'context', content: 'import React from "react"', oldLineNumber: 1, newLineNumber: 1 },
+              { type: 'remove', content: 'const title = "Old"', oldLineNumber: 2 },
+              { type: 'add', content: 'const title = "New"', newLineNumber: 2 },
+              { type: 'context', content: 'export default title', oldLineNumber: 3, newLineNumber: 3 }
+            ]
+          }
+        ]
+      }
+    ],
+    ...overrides
+  }
+}
+
 function makeRepository(overrides: Partial<GitHubRepositorySummary> = {}): GitHubRepositorySummary {
   const nameWithOwner = overrides.nameWithOwner ?? 'example/project'
   const [owner, name] = nameWithOwner.split('/')
@@ -1066,4 +1213,13 @@ function toGhPullRequestCheckJson(check: GitHubPullRequestCheck) {
     startedAt: check.startedAt,
     completedAt: check.completedAt
   }
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
 }

@@ -53,6 +53,11 @@ export interface GitHubApiClient {
     repository: GitHubRepositoryInfo,
     prNumber: number
   ): Promise<GitHubPullRequestDetails>
+  getPullRequestDiff(
+    credential: GitHubDesktopCredential,
+    repository: GitHubRepositoryInfo,
+    prNumber: number
+  ): Promise<GitHubPullRequestDiff>
   createPullRequest(
     credential: GitHubDesktopCredential,
     repository: GitHubRepositoryInfo,
@@ -81,6 +86,7 @@ const DEFAULT_API_CLIENT: GitHubApiClient = {
   listRepositories: listGitHubApiRepositories,
   listPullRequests: listGitHubApiPullRequests,
   getPullRequestDetails: getGitHubApiPullRequestDetails,
+  getPullRequestDiff: getGitHubApiPullRequestDiff,
   createPullRequest: createGitHubApiPullRequest
 }
 
@@ -446,12 +452,19 @@ export async function getGitHubPullRequestChecks(
 
 export async function getGitHubPullRequestDiff(
   runner: CommandRunner,
-  request: PullRequestDetailsRequest
+  request: PullRequestDetailsRequest,
+  credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient = DEFAULT_API_CLIENT
 ): Promise<GitHubPullRequestDiff> {
   const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
-  const status = await assertGitHubCliReady(runner, rootPath)
+  const auth = await resolveGitHubAuth(runner, rootPath, credentialProvider, apiClient)
   const prNumber = normalizePullRequestNumber(request.prNumber)
-  const result = await runner.run(status.executable, ['pr', 'diff', String(prNumber), '--patch'], {
+
+  if (auth.provider === 'git-credential') {
+    return apiClient.getPullRequestDiff(auth.credential, await getGitHubRepositoryInfo(runner, rootPath), prNumber)
+  }
+
+  const result = await runner.run(auth.executable, ['pr', 'diff', String(prNumber), '--patch'], {
     cwd: rootPath,
     timeoutMs: 120_000
   })
@@ -967,6 +980,33 @@ async function getGitHubApiPullRequestDetails(
   return normalizeGitHubPullRequestDetails(body)
 }
 
+async function getGitHubApiPullRequestDiff(
+  credential: GitHubDesktopCredential,
+  repository: GitHubRepositoryInfo,
+  prNumber: number
+): Promise<GitHubPullRequestDiff> {
+  const url = new URL(`https://api.github.com/repos/${repository.owner}/${repository.repo}/pulls/${prNumber}/files`)
+  url.searchParams.set('per_page', '100')
+  const response = await fetch(url, {
+    headers: githubApiHeaders(credential)
+  })
+  const body = await readGitHubApiJson(response)
+
+  if (!response.ok) {
+    throw new BranchPilotUserError(
+      'github_pr_diff_failed',
+      'GitHub API could not load pull request diff.',
+      githubApiErrorMessage(body, response.status)
+    )
+  }
+
+  if (!Array.isArray(body)) {
+    throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub API did not return pull request files.')
+  }
+
+  return buildGitHubPullRequestDiffFromApiFiles(prNumber, body)
+}
+
 function githubApiHeaders(credential: GitHubDesktopCredential): HeadersInit {
   return {
     Accept: 'application/vnd.github+json',
@@ -1140,6 +1180,34 @@ function parseGitHubPullRequestDiff(prNumber: number, output: string): GitHubPul
   }
 }
 
+function buildGitHubPullRequestDiffFromApiFiles(
+  prNumber: number,
+  values: unknown[]
+): GitHubPullRequestDiff {
+  const apiFiles = values.map((value) => normalizeGitHubPullRequestApiFile(value))
+  const text = apiFiles.map((file) => file.text).join('')
+  const parsedFiles = parseUnifiedDiff(text)
+
+  return {
+    prNumber,
+    text,
+    files: apiFiles.map((apiFile, index) => {
+      const parsedFile = parsedFiles[index]
+
+      return {
+        oldPath: parsedFile?.oldPath ?? apiFile.oldPath,
+        newPath: parsedFile?.newPath ?? apiFile.newPath,
+        hunks: parsedFile?.hunks ?? [],
+        path: apiFile.path,
+        text: apiFile.text,
+        status: apiFile.status,
+        additions: apiFile.additions,
+        deletions: apiFile.deletions
+      }
+    })
+  }
+}
+
 function parseGitHubJson(
   output: string,
   code = 'github_pr_parse_failed',
@@ -1294,6 +1362,51 @@ function normalizeGitHubPullRequestCheck(value: unknown): GitHubPullRequestCheck
   }
 }
 
+function normalizeGitHubPullRequestApiFile(value: unknown): {
+  oldPath?: string
+  newPath: string
+  path: string
+  text: string
+  status: GitHubPullRequestDiffFile['status']
+  additions: number
+  deletions: number
+} {
+  if (!value || typeof value !== 'object') {
+    throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub API returned an invalid pull request file.')
+  }
+
+  const record = value as Record<string, unknown>
+  const filename = optionalString(record.filename) ?? ''
+  const apiStatus = optionalString(record.status) ?? 'modified'
+
+  if (!filename) {
+    throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub API returned an incomplete pull request file.')
+  }
+
+  const status = normalizeGitHubFileStatus(apiStatus)
+  const previousPath = optionalString(record.previous_filename)
+  const oldPath = status === 'added' ? undefined : previousPath ?? filename
+  const newPath = status === 'deleted' ? '/dev/null' : filename
+  const text = buildGitHubApiFilePatch({
+    filename,
+    oldPath,
+    newPath,
+    previousPath,
+    status,
+    patch: optionalString(record.patch)
+  })
+
+  return {
+    oldPath,
+    newPath,
+    path: filename,
+    text,
+    status,
+    additions: normalizeNonNegativeNumber(record.additions),
+    deletions: normalizeNonNegativeNumber(record.deletions)
+  }
+}
+
 function normalizeGitHubAuthor(value: unknown): GitHubPullRequestDetails['author'] {
   if (!value || typeof value !== 'object') {
     return undefined
@@ -1311,6 +1424,40 @@ function normalizeGitHubAuthor(value: unknown): GitHubPullRequestDetails['author
     name: optionalString(record.name),
     url: optionalString(record.url)
   }
+}
+
+function normalizeGitHubFileStatus(status: string): GitHubPullRequestDiffFile['status'] {
+  if (status === 'added') return 'added'
+  if (status === 'removed') return 'deleted'
+  if (status === 'renamed') return 'renamed'
+  if (status === 'copied') return 'copied'
+  if (status === 'modified' || status === 'changed') return 'modified'
+  return 'unknown'
+}
+
+function buildGitHubApiFilePatch(file: {
+  filename: string
+  oldPath?: string
+  newPath: string
+  previousPath?: string
+  status: GitHubPullRequestDiffFile['status']
+  patch?: string
+}): string {
+  const diffOldPath = file.oldPath ?? file.filename
+  const diffNewPath = file.newPath === '/dev/null' ? file.filename : file.newPath
+  const oldHeaderPath = file.oldPath ? `a/${file.oldPath}` : '/dev/null'
+  const newHeaderPath = file.newPath === '/dev/null' ? '/dev/null' : `b/${file.newPath}`
+  const header = [
+    `diff --git a/${diffOldPath} b/${diffNewPath}`,
+    file.status === 'added' ? 'new file mode 100644' : undefined,
+    file.status === 'deleted' ? 'deleted file mode 100644' : undefined,
+    file.status === 'renamed' && file.previousPath ? `rename from ${file.previousPath}` : undefined,
+    file.status === 'renamed' ? `rename to ${file.filename}` : undefined,
+    `--- ${oldHeaderPath}`,
+    `+++ ${newHeaderPath}`
+  ].filter((line): line is string => Boolean(line))
+
+  return `${header.join('\n')}${file.patch ? `\n${file.patch}` : ''}\n`
 }
 
 function normalizeRepositoryOwner(value: unknown): string {

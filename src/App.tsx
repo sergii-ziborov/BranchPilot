@@ -877,7 +877,7 @@ function App() {
     const [detailsResult, checksResult, diffResult] = await Promise.all([
       api.getGitHubPullRequestDetails(request),
       githubCliStatus?.ghAuthenticated ? api.getGitHubPullRequestChecks(request) : Promise.resolve<ApiResult<GitHubPullRequestCheck[]>>({ ok: true, data: [] }),
-      githubCliStatus?.ghAuthenticated ? api.getGitHubPullRequestDiff(request) : Promise.resolve<ApiResult<GitHubPullRequestDiff>>({ ok: true, data: { prNumber, text: '', files: [] } })
+      api.getGitHubPullRequestDiff(request)
     ])
 
     if (detailsResult.ok) {
@@ -4753,7 +4753,7 @@ function App() {
           )}
 
           {githubCliStatus?.authProvider === 'git-credential' && (
-            <div className="command-hint">Using GitHub Desktop credential for PR creation, list, and details. Run <code>gh auth login</code> to enable checks, diff, and checkout.</div>
+            <div className="command-hint">Using GitHub Desktop credential for PR creation, list, details, and diff. Run <code>gh auth login</code> to enable checks and checkout.</div>
           )}
 
           {snapshot && providerRemote.kind !== 'github' && (
@@ -5129,7 +5129,7 @@ function App() {
             </div>
 
             {!githubCliStatus?.ghAuthenticated && (
-              <div className="command-hint">Checks, diff preview, and PR checkout require <code>gh auth login</code>. Details are loaded through the current GitHub credential.</div>
+              <div className="command-hint">Checks and PR checkout require <code>gh auth login</code>. Details and diff are loaded through the current GitHub credential.</div>
             )}
 
             <div className="pr-body">
@@ -5144,7 +5144,7 @@ function App() {
                 <span className="check-bucket bucket-other">{checks.length} total</span>
               </div>
               {checks.length === 0 ? (
-                <div className="quiet-box">No checks reported by GitHub CLI.</div>
+                <div className="quiet-box">{githubCliStatus?.ghAuthenticated ? 'No checks reported by GitHub CLI.' : 'Checks require gh auth login.'}</div>
               ) : (
                 <div className="pr-check-list">
                   {checks.map((check) => (
