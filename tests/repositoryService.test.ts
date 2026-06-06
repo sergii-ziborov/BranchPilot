@@ -364,6 +364,24 @@ describe('RepositoryService', () => {
     expect(diff.files).toEqual([])
   })
 
+  it('truncates large tracked file diffs before parsing', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), `${'x'.repeat(400_000)}\n`)
+
+    const diff = await service.getDiff({
+      repoPath,
+      filePath: 'tracked.txt',
+      staged: false
+    })
+
+    expect(diff.tooLarge).toBe(true)
+    expect(diff.binary).toBe(false)
+    expect(diff.text.length).toBeLessThanOrEqual(350_000)
+    expect(diff.files).toEqual([])
+  })
+
   it('rejects absolute and parent-directory file paths before file Git actions', async () => {
     const repoPath = createTempRepository()
     const service = createService()
