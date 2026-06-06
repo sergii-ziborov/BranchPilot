@@ -81,6 +81,7 @@ export interface RepositorySnapshot {
   summary: RepositorySummary
   status: RepositoryStatus
   branches: BranchSummary[]
+  remoteBranches: RemoteBranchSummary[]
   tags: TagSummary[]
   worktrees: WorktreeSummary[]
   submodules: SubmoduleSummary[]
@@ -160,6 +161,14 @@ export interface BranchSummary {
   current: boolean
   upstream?: string
   description?: string
+  lastCommit?: string
+  lastCommitAt?: string
+}
+
+export interface RemoteBranchSummary {
+  name: string
+  remote: string
+  branchName: string
   lastCommit?: string
   lastCommitAt?: string
 }

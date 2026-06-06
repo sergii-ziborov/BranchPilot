@@ -42,6 +42,7 @@ import type {
   RecentRepository,
   RepositoryPinRequest,
   RepositoryDashboardSnapshot,
+  RemoteBranchSummary,
   RemoteRemoveRequest,
   RemoteSummary,
   RemoteUpsertRequest,
@@ -167,8 +168,9 @@ export class RepositoryService {
   async getSnapshot(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const { summary, status } = await this.getRepositoryStatusContext(rootPath, { includeGitIdentity: true })
-    const [branches, tags, worktrees, submodules, lfs, recentRepositories] = await Promise.all([
+    const [branches, remoteBranches, tags, worktrees, submodules, lfs, recentRepositories] = await Promise.all([
       this.listBranches(rootPath),
+      this.listRemoteBranches(rootPath),
       this.listTags(rootPath),
       this.listRepositoryWorktrees(rootPath),
       this.listRepositorySubmodules(rootPath),
@@ -180,6 +182,7 @@ export class RepositoryService {
       summary,
       status,
       branches,
+      remoteBranches,
       tags,
       worktrees,
       submodules,
@@ -1224,6 +1227,31 @@ export class RepositoryService {
       ...branch,
       description: await this.getConfig(rootPath, `branch.${branch.name}.description`)
     })))
+  }
+
+  private async listRemoteBranches(rootPath: string): Promise<RemoteBranchSummary[]> {
+    const result = await this.git(rootPath, [
+      'branch',
+      '-r',
+      '--format=%(refname:short)%00%(committerdate:iso-strict)%00%(objectname)'
+    ])
+
+    return result.stdout
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const [name, lastCommitAt, lastCommit] = line.split('\0')
+        const separatorIndex = name.indexOf('/')
+
+        return {
+          name,
+          remote: separatorIndex === -1 ? name : name.slice(0, separatorIndex),
+          branchName: separatorIndex === -1 ? name : name.slice(separatorIndex + 1),
+          lastCommit: lastCommit || undefined,
+          lastCommitAt: lastCommitAt || undefined
+        }
+      })
+      .filter((branch) => branch.branchName !== 'HEAD')
   }
 
   private async listTags(rootPath: string): Promise<TagSummary[]> {

@@ -808,6 +808,7 @@ button.danger-button:hover {
 }
 
 .branch-list,
+.remote-branch-list,
 .conflict-list,
 .review-grid,
 .assistant-grid {
@@ -2075,6 +2076,75 @@ button.danger-button:hover {
 
 .branch-row .branch-description-empty {
   color: var(--muted);
+}
+
+.remote-branch-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.branch-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.branch-section-heading h3 {
+  color: var(--text-strong);
+  font-size: 15px;
+}
+
+.branch-section-heading p,
+.branch-section-heading span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.branch-section-heading span {
+  white-space: nowrap;
+}
+
+.remote-branch-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.remote-branch-row strong,
+.remote-branch-row span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-branch-row strong {
+  color: var(--text-strong);
+}
+
+.remote-branch-row span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.remote-branch-row code {
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: #475569;
+  background: #f8fafc;
+  font-size: 12px;
 }
 
 .branch-compare-panel {
@@ -4297,6 +4367,7 @@ button.secondary:hover {
   .review-controls,
   .assistant-policy-actions,
   .branch-composer-grid,
+  .remote-branch-row,
   .remote-composer,
   .remote-row,
   .worktree-composer,

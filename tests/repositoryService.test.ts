@@ -207,6 +207,7 @@ describe('RepositoryService', () => {
 
     expect(snapshot.status.counts.staged).toBe(1)
     expect(snapshot.branches).toEqual(openedSnapshot.branches)
+    expect(snapshot.remoteBranches).toEqual(openedSnapshot.remoteBranches)
     expect(snapshot.tags).toEqual(openedSnapshot.tags)
     expect(snapshot.worktrees).toEqual(openedSnapshot.worktrees)
     expect(snapshot.submodules).toEqual(openedSnapshot.submodules)
@@ -214,6 +215,7 @@ describe('RepositoryService', () => {
     expect(commandLines.some((line) => line.startsWith('lfs '))).toBe(false)
     expect(commandLines.some((line) => line.startsWith('submodule '))).toBe(false)
     expect(commandLines.some((line) => line.startsWith('tag '))).toBe(false)
+    expect(commandLines.some((line) => line.startsWith('branch -r '))).toBe(false)
     expect(commandLines.some((line) => line.startsWith('worktree '))).toBe(false)
   })
 
@@ -1100,6 +1102,37 @@ describe('RepositoryService', () => {
 
     const deleted = await service.deleteBranch(repoPath, 'feature/renamed', false, true)
     expect(deleted.branches.map((branch) => branch.name)).not.toContain('feature/renamed')
+  })
+
+  it('lists fetched remote branches separately from local branches', async () => {
+    const { repoPath, remotePath } = createRemoteBackedRepository()
+    const service = createService()
+
+    await service.publishBranch({ repoPath })
+
+    const clonePath = cloneRemote(remotePath)
+    git(clonePath, ['switch', '--quiet', '-c', 'feature/remote-only'])
+    writeFileSync(path.join(clonePath, 'remote-only.txt'), 'remote only\n')
+    git(clonePath, ['add', 'remote-only.txt'])
+    git(clonePath, ['commit', '-m', 'Remote only branch'])
+    git(clonePath, ['push', '--quiet', '-u', 'origin', 'feature/remote-only'])
+
+    const snapshot = await service.fetch(repoPath)
+
+    expect(snapshot.branches.map((branch) => branch.name)).not.toContain('feature/remote-only')
+    expect(snapshot.remoteBranches).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: 'origin/main',
+        remote: 'origin',
+        branchName: 'main'
+      }),
+      expect.objectContaining({
+        name: 'origin/feature/remote-only',
+        remote: 'origin',
+        branchName: 'feature/remote-only'
+      })
+    ]))
+    expect(snapshot.remoteBranches.map((branch) => branch.name)).not.toContain('origin/HEAD')
   })
 
   it('updates and clears local branch descriptions', async () => {

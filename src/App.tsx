@@ -74,6 +74,7 @@ import type {
   ProjectWikiSnapshot,
   PatchScope,
   RecentRepository,
+  RemoteBranchSummary,
   RemoteSummary,
   RepositorySnapshot,
   RepositoryDashboardSnapshot,
@@ -2638,7 +2639,7 @@ function App() {
             {viewMode === 'changes' && renderChangesView()}
             {viewMode === 'history' && renderHistoryView()}
             {viewMode === 'merge' && renderMergeView()}
-            {viewMode === 'branches' && renderBranchesView(snapshot.branches, snapshot.tags, snapshot.worktrees)}
+            {viewMode === 'branches' && renderBranchesView(snapshot.branches, snapshot.remoteBranches ?? [], snapshot.tags, snapshot.worktrees)}
             {viewMode === 'config' && renderConfigView()}
             {viewMode === 'stash' && renderStashView()}
             {viewMode === 'review' && renderReviewView()}
@@ -4110,7 +4111,12 @@ function App() {
     )
   }
 
-  function renderBranchesView(branches: BranchSummary[], tags: TagSummary[], worktrees: WorktreeSummary[]) {
+  function renderBranchesView(
+    branches: BranchSummary[],
+    remoteBranches: RemoteBranchSummary[],
+    tags: TagSummary[],
+    worktrees: WorktreeSummary[]
+  ) {
     const branchQuery = branchFilter.trim().toLowerCase()
     const filteredBranches = branchQuery
       ? branches.filter((branch) =>
@@ -4124,6 +4130,18 @@ function App() {
           .some((value) => value.toLowerCase().includes(branchQuery))
       )
       : branches
+    const filteredRemoteBranches = branchQuery
+      ? remoteBranches.filter((branch) =>
+        [
+          branch.name,
+          branch.remote,
+          branch.branchName,
+          branch.lastCommit
+        ]
+          .filter((value): value is string => Boolean(value))
+          .some((value) => value.toLowerCase().includes(branchQuery))
+      )
+      : remoteBranches
     const tagQuery = tagFilter.trim().toLowerCase()
     const filteredTags = tagQuery
       ? tags.filter((tag) =>
@@ -4138,7 +4156,7 @@ function App() {
         <div className="panel-heading">
           <div>
             <h2>Branches</h2>
-            <p>Create, describe, switch, and safely delete local branches.</p>
+            <p>Create, describe, switch, and safely delete local branches. Inspect fetched remote branches without mutating them.</p>
           </div>
         </div>
 
@@ -4230,7 +4248,7 @@ function App() {
               placeholder="Search branches"
             />
           </label>
-          <span>{filteredBranches.length} / {branches.length}</span>
+          <span>{filteredBranches.length + filteredRemoteBranches.length} / {branches.length + remoteBranches.length}</span>
           {branchFilter && (
             <button type="button" className="secondary" onClick={() => setBranchFilter('')}>
               <X size={15} />
@@ -4352,6 +4370,34 @@ function App() {
           })}
         </div>
 
+        <section className="remote-branch-panel">
+          <div className="branch-section-heading">
+            <div>
+              <h3>Remote branches</h3>
+              <p>Read-only remote tracking refs from the last fetch.</p>
+            </div>
+            <span>{filteredRemoteBranches.length} / {remoteBranches.length}</span>
+          </div>
+
+          <div className="remote-branch-list">
+            {remoteBranches.length === 0 ? (
+              <div className="quiet-box">No fetched remote branches.</div>
+            ) : filteredRemoteBranches.length === 0 ? (
+              <div className="quiet-box">No remote branches match this search.</div>
+            ) : (
+              filteredRemoteBranches.map((branch) => (
+                <article className="remote-branch-row" key={branch.name}>
+                  <div>
+                    <strong>{branch.branchName}</strong>
+                    <span>{branch.name} · {branch.lastCommitAt ? formatDate(branch.lastCommitAt) : 'No commit date'}</span>
+                  </div>
+                  <code>{branch.remote}</code>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+
         {branchComparison && (
           <section className="branch-compare-panel">
             <div className="branch-compare-heading">
@@ -4413,6 +4459,9 @@ function App() {
             <datalist id="worktree-base-refs">
               {branches.map((branch) => (
                 <option value={branch.name} key={branch.name} />
+              ))}
+              {remoteBranches.map((branch) => (
+                <option value={branch.name} key={`remote-${branch.name}`} />
               ))}
             </datalist>
             <div className="worktree-composer-actions">
