@@ -12,6 +12,8 @@ import type {
   GitHubPullRequestDetails,
   GitHubPullRequestDiff,
   GitHubPullRequestDiffFile,
+  GitHubRepositorySummary,
+  ListGitHubRepositoriesRequest,
   PullRequestDetailsRequest
 } from '../../src/shared/branchPilot.js'
 import { parseUnifiedDiff } from '../lib/diffParser.js'
@@ -256,6 +258,41 @@ export async function listGitHubPullRequests(
   return parseGitHubPullRequestList(result.stdout)
 }
 
+export async function listGitHubRepositories(
+  runner: CommandRunner,
+  request: ListGitHubRepositoriesRequest = {}
+): Promise<GitHubRepositorySummary[]> {
+  const status = await assertGitHubCliAuthenticated(runner)
+  const limit = normalizeRepositoryListLimit(request.limit)
+  const owner = normalizeOptionalGitHubOwner(request.owner)
+  const args = [
+    'repo',
+    'list',
+    ...(owner ? [owner] : []),
+    '--json',
+    REPOSITORY_JSON_FIELDS,
+    '--limit',
+    String(limit),
+    '--no-archived'
+  ]
+
+  if (request.visibility && request.visibility !== 'all') {
+    args.push('--visibility', request.visibility)
+  }
+
+  const result = await runner.run(status.executable, args, {
+    timeoutMs: 45_000
+  })
+  const repositories = parseGitHubRepositoryList(result.stdout)
+  const query = request.query?.trim().toLowerCase()
+
+  if (!query) {
+    return repositories
+  }
+
+  return repositories.filter((repository) => matchesGitHubRepositoryQuery(repository, query))
+}
+
 export async function getGitHubPullRequestDetails(
   runner: CommandRunner,
   request: PullRequestDetailsRequest
@@ -356,17 +393,23 @@ async function resolveGhExecutable(runner: CommandRunner): Promise<string | unde
 }
 
 async function assertGitHubCliReady(runner: CommandRunner, rootPath: string): Promise<GitHubCliStatus & { executable: string }> {
-  const status = await getGitHubCliStatus(runner, rootPath)
+  const status = await assertGitHubCliAuthenticated(runner, rootPath)
+
+  await getGitHubRemoteUrl(runner, rootPath)
+
+  return status
+}
+
+async function assertGitHubCliAuthenticated(runner: CommandRunner, repoPath?: string): Promise<GitHubCliStatus & { executable: string }> {
+  const status = await getGitHubCliStatus(runner, repoPath)
 
   if (status.state === 'missing') {
     throw new BranchPilotUserError('github_cli_missing', 'GitHub CLI is not installed.')
   }
 
   if (status.authProvider !== 'gh' || !status.executable) {
-    throw new BranchPilotUserError('github_cli_unauthenticated', 'Run gh auth login before using GitHub CLI pull request actions.')
+    throw new BranchPilotUserError('github_cli_unauthenticated', 'Run gh auth login before using GitHub CLI actions.')
   }
-
-  await getGitHubRemoteUrl(runner, rootPath)
 
   return {
     ...status,
@@ -758,6 +801,7 @@ function parsePullRequestUrl(output: string): string {
 const PR_JSON_FIELDS = 'number,title,url,state,headRefName,baseRefName,isDraft'
 const PR_DETAILS_JSON_FIELDS = 'number,title,body,url,state,headRefName,baseRefName,isDraft,author,createdAt,updatedAt,additions,deletions,changedFiles'
 const PR_CHECK_JSON_FIELDS = 'name,state,bucket,workflow,description,link,startedAt,completedAt'
+const REPOSITORY_JSON_FIELDS = 'name,nameWithOwner,owner,description,visibility,isPrivate,isFork,isArchived,url,sshUrl,defaultBranchRef,updatedAt,pushedAt'
 
 function normalizePullRequestNumber(prNumber: number): number {
   if (!Number.isInteger(prNumber) || prNumber <= 0) {
@@ -783,6 +827,20 @@ function parseGitHubPullRequestList(output: string): GitHubPullRequest[] {
 
 function parseGitHubPullRequest(output: string): GitHubPullRequest {
   return normalizeGitHubPullRequest(parseGitHubJson(output))
+}
+
+function parseGitHubRepositoryList(output: string): GitHubRepositorySummary[] {
+  if (!output.trim()) {
+    return []
+  }
+
+  const parsed = parseGitHubJson(output, 'github_repo_parse_failed', 'GitHub CLI did not return a repository list.')
+
+  if (!Array.isArray(parsed)) {
+    throw new BranchPilotUserError('github_repo_parse_failed', 'GitHub CLI did not return a repository list.', output)
+  }
+
+  return parsed.map((value) => normalizeGitHubRepository(value))
 }
 
 function parseGitHubPullRequestChecks(output: string): GitHubPullRequestCheck[] {
@@ -823,11 +881,51 @@ function parseGitHubPullRequestDiff(prNumber: number, output: string): GitHubPul
   }
 }
 
-function parseGitHubJson(output: string): unknown {
+function parseGitHubJson(
+  output: string,
+  code = 'github_pr_parse_failed',
+  message = 'GitHub CLI returned invalid pull request JSON.'
+): unknown {
   try {
     return JSON.parse(output) as unknown
   } catch {
-    throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub CLI returned invalid pull request JSON.', output)
+    throw new BranchPilotUserError(code, message, output)
+  }
+}
+
+function normalizeGitHubRepository(value: unknown): GitHubRepositorySummary {
+  if (!value || typeof value !== 'object') {
+    throw new BranchPilotUserError('github_repo_parse_failed', 'GitHub CLI returned an invalid repository.')
+  }
+
+  const record = value as Record<string, unknown>
+  const explicitNameWithOwner = typeof record.nameWithOwner === 'string' ? record.nameWithOwner : ''
+  const nameWithOwnerParts = explicitNameWithOwner.split('/').filter(Boolean)
+  const name = typeof record.name === 'string' && record.name.trim()
+    ? record.name.trim()
+    : nameWithOwnerParts[1] ?? ''
+  const owner = normalizeRepositoryOwner(record.owner) || nameWithOwnerParts[0] || ''
+  const normalizedPath = normalizeGitHubRepositoryPath(owner, name)
+  const url = typeof record.url === 'string' ? record.url.trim() : ''
+
+  if (!normalizedPath || !url) {
+    throw new BranchPilotUserError('github_repo_parse_failed', 'GitHub CLI returned an incomplete repository.')
+  }
+
+  return {
+    name: normalizedPath.repo,
+    nameWithOwner: `${normalizedPath.owner}/${normalizedPath.repo}`,
+    owner: normalizedPath.owner,
+    description: optionalString(record.description) ?? '',
+    visibility: optionalString(record.visibility) ?? (record.isPrivate ? 'PRIVATE' : 'PUBLIC'),
+    isPrivate: Boolean(record.isPrivate),
+    isFork: Boolean(record.isFork),
+    isArchived: Boolean(record.isArchived),
+    url,
+    sshUrl: optionalString(record.sshUrl) ?? '',
+    defaultBranch: normalizeRepositoryDefaultBranch(record.defaultBranchRef),
+    updatedAt: optionalString(record.updatedAt) ?? '',
+    pushedAt: optionalString(record.pushedAt) ?? ''
   }
 }
 
@@ -918,6 +1016,57 @@ function normalizeGitHubAuthor(value: unknown): GitHubPullRequestDetails['author
     name: optionalString(record.name),
     url: optionalString(record.url)
   }
+}
+
+function normalizeRepositoryOwner(value: unknown): string {
+  if (!value || typeof value !== 'object') {
+    return ''
+  }
+
+  const record = value as Record<string, unknown>
+  return typeof record.login === 'string' ? record.login.trim() : ''
+}
+
+function normalizeRepositoryDefaultBranch(value: unknown): string {
+  if (!value || typeof value !== 'object') {
+    return ''
+  }
+
+  const record = value as Record<string, unknown>
+  return typeof record.name === 'string' ? record.name.trim() : ''
+}
+
+function normalizeRepositoryListLimit(limit: number | undefined): number {
+  if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+    return 30
+  }
+
+  return Math.min(100, Math.max(1, Math.trunc(limit)))
+}
+
+function normalizeOptionalGitHubOwner(owner: string | undefined): string | undefined {
+  const trimmed = owner?.trim()
+
+  if (!trimmed) {
+    return undefined
+  }
+
+  if (trimmed.startsWith('-') || !isSafeGitHubPathSegment(trimmed)) {
+    throw new BranchPilotUserError('invalid_github_owner', 'GitHub owner is invalid.')
+  }
+
+  return trimmed
+}
+
+function matchesGitHubRepositoryQuery(repository: GitHubRepositorySummary, query: string): boolean {
+  return [
+    repository.nameWithOwner,
+    repository.name,
+    repository.owner,
+    repository.description,
+    repository.visibility,
+    repository.defaultBranch
+  ].some((value) => value.toLowerCase().includes(query))
 }
 
 function normalizeNonNegativeNumber(value: unknown): number {

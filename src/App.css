@@ -3438,6 +3438,93 @@ button.danger-button:hover {
   background: #f8fafc;
 }
 
+.github-repo-browser {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.github-repo-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) minmax(130px, 0.5fr) minmax(86px, 0.3fr);
+  gap: 10px;
+}
+
+.github-repo-controls label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.github-repo-controls span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.github-repo-controls input,
+.github-repo-controls select {
+  width: 100%;
+  min-height: 38px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: #ffffff;
+  font: inherit;
+}
+
+.github-repo-list {
+  display: grid;
+  gap: 8px;
+}
+
+.github-repo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.github-repo-row > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.github-repo-row strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.github-repo-row span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.github-repo-row p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .github-status {
   display: inline-flex;
   min-height: 28px;
@@ -3979,6 +4066,8 @@ button.secondary:hover {
   .stash-row,
   .current-pr,
   .pr-row,
+  .github-repo-controls,
+  .github-repo-row,
   .provider-remote-grid,
   .severity-strip {
     grid-template-columns: 1fr;

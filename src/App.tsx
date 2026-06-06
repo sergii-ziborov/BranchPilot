@@ -61,6 +61,7 @@ import type {
   GitHubPullRequestDetails,
   GitHubPullRequestDiff,
   GitHubPullRequestDiffFile,
+  GitHubRepositorySummary,
   GitConfigSnapshot,
   GitOperationResult,
   ProviderStatus,
@@ -199,6 +200,12 @@ function App() {
   const [editingRemoteName, setEditingRemoteName] = useState<string | null>(null)
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
   const [githubCliStatus, setGithubCliStatus] = useState<GitHubCliStatus | null>(null)
+  const [githubRepositories, setGithubRepositories] = useState<GitHubRepositorySummary[]>([])
+  const [githubRepoOwner, setGithubRepoOwner] = useState('')
+  const [githubRepoQuery, setGithubRepoQuery] = useState('')
+  const [githubRepoVisibility, setGithubRepoVisibility] = useState<'all' | 'public' | 'private' | 'internal'>('all')
+  const [githubRepoLimit, setGithubRepoLimit] = useState(30)
+  const [githubRepoLoading, setGithubRepoLoading] = useState(false)
   const [currentPullRequest, setCurrentPullRequest] = useState<GitHubPullRequest | null>(null)
   const [pullRequests, setPullRequests] = useState<GitHubPullRequest[]>([])
   const [selectedPullRequestNumber, setSelectedPullRequestNumber] = useState<number | null>(null)
@@ -732,6 +739,68 @@ function App() {
       setSelectedPullRequestNumber(null)
       setError(listResult.error.message)
     }
+  }
+
+  async function loadGitHubRepositories() {
+    if (!api) return
+
+    setGithubRepoLoading(true)
+    setError(null)
+    const status = githubCliStatus ?? await loadGitHubCliStatus()
+
+    if (!status?.ghAuthenticated) {
+      setGithubRepositories([])
+      setNotice('Run gh auth login before browsing GitHub repositories.')
+      setGithubRepoLoading(false)
+      return
+    }
+
+    const result = await api.listGitHubRepositories({
+      owner: githubRepoOwner.trim() || undefined,
+      query: githubRepoQuery.trim() || undefined,
+      visibility: githubRepoVisibility,
+      limit: githubRepoLimit
+    })
+
+    if (result.ok) {
+      setGithubRepositories(result.data)
+      setNotice(`Loaded ${result.data.length} GitHub repositor${result.data.length === 1 ? 'y' : 'ies'}.`)
+    } else {
+      setGithubRepositories([])
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setGithubRepoLoading(false)
+  }
+
+  async function cloneGitHubRepository(repository: GitHubRepositorySummary, protocol: 'https' | 'ssh') {
+    if (!api) return
+    const remoteUrl = protocol === 'ssh' ? repository.sshUrl : repository.url
+
+    if (!remoteUrl) {
+      setNotice(`${protocol.toUpperCase()} clone URL is not available for ${repository.nameWithOwner}.`)
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+    const result = await api.cloneRepository({
+      remoteUrl,
+      targetName: repository.name
+    })
+
+    if (result.ok && result.data) {
+      applySnapshot(result.data, `${repository.nameWithOwner} cloned.`)
+      setViewMode('changes')
+    } else if (result.ok) {
+      setNotice('Clone canceled.')
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
   }
 
   async function refreshProvidersPanel() {
@@ -4623,6 +4692,8 @@ function App() {
           hasRepository={Boolean(snapshot)}
         />
 
+        {renderGitHubRepositoryBrowser()}
+
         {showGitHubPullRequestPanel ? (
           <section className="pr-panel">
           <div className="panel-heading">
@@ -4849,6 +4920,108 @@ function App() {
           </section>
         ) : (
           <PlannedProviderWorkflowPanel remote={providerRemote} />
+        )}
+      </section>
+    )
+  }
+
+  function renderGitHubRepositoryBrowser() {
+    const repoBrowserReady = Boolean(githubCliStatus?.ghAuthenticated)
+
+    return (
+      <section className="github-repo-browser">
+        <div className="panel-heading compact-heading">
+          <div>
+            <h3>GitHub repositories</h3>
+            <p>{repoBrowserReady ? `${githubRepositories.length} repositories loaded from gh.` : 'Repository list requires gh auth login.'}</p>
+          </div>
+          <button type="button" className="secondary" onClick={loadGitHubRepositories} disabled={busy || githubRepoLoading}>
+            {githubRepoLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
+            Load repositories
+          </button>
+        </div>
+
+        {!repoBrowserReady && (
+          <div className="command-hint">Run <code>gh auth login</code>, then load repositories.</div>
+        )}
+
+        <div className="github-repo-controls">
+          <label>
+            <span>Owner/org</span>
+            <input
+              value={githubRepoOwner}
+              onChange={(event) => setGithubRepoOwner(event.target.value)}
+              placeholder={githubCliStatus?.username ?? 'default account'}
+              disabled={busy || githubRepoLoading}
+            />
+          </label>
+          <label>
+            <span>Search</span>
+            <input
+              value={githubRepoQuery}
+              onChange={(event) => setGithubRepoQuery(event.target.value)}
+              placeholder="name or description"
+              disabled={busy || githubRepoLoading}
+            />
+          </label>
+          <label>
+            <span>Visibility</span>
+            <select
+              value={githubRepoVisibility}
+              onChange={(event) => setGithubRepoVisibility(event.target.value as typeof githubRepoVisibility)}
+              disabled={busy || githubRepoLoading}
+            >
+              <option value="all">All</option>
+              <option value="private">Private</option>
+              <option value="public">Public</option>
+              <option value="internal">Internal</option>
+            </select>
+          </label>
+          <label>
+            <span>Limit</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={githubRepoLimit}
+              onChange={(event) => setGithubRepoLimit(Number(event.target.value) || 30)}
+              disabled={busy || githubRepoLoading}
+            />
+          </label>
+        </div>
+
+        {!repoBrowserReady ? (
+          <div className="quiet-box">GitHub Desktop credentials can create PRs, but repository browsing uses authenticated GitHub CLI.</div>
+        ) : githubRepoLoading ? (
+          <div className="quiet-box">Loading GitHub repositories.</div>
+        ) : githubRepositories.length === 0 ? (
+          <div className="quiet-box">No repositories loaded yet.</div>
+        ) : (
+          <div className="github-repo-list">
+            {githubRepositories.map((repository) => (
+              <article className="github-repo-row" key={repository.nameWithOwner}>
+                <div>
+                  <strong>{repository.nameWithOwner}</strong>
+                  <span>{githubRepositoryMeta(repository)}</span>
+                  {repository.description && <p>{repository.description}</p>}
+                </div>
+                <div className="pr-actions">
+                  <button type="button" className="secondary" onClick={() => openExternalLink(repository.url, 'GitHub repository link')}>
+                    <ExternalLink size={15} />
+                    Open
+                  </button>
+                  <button type="button" onClick={() => void cloneGitHubRepository(repository, 'https')} disabled={busy}>
+                    <ArrowDownToLine size={15} />
+                    Clone HTTPS
+                  </button>
+                  <button type="button" onClick={() => void cloneGitHubRepository(repository, 'ssh')} disabled={busy || !repository.sshUrl}>
+                    <ArrowDownToLine size={15} />
+                    Clone SSH
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
         )}
       </section>
     )
@@ -5487,6 +5660,17 @@ function githubStatusLabel(status: GitHubCliStatus): string {
   }
 
   return 'GitHub auth missing'
+}
+
+function githubRepositoryMeta(repository: GitHubRepositorySummary): string {
+  const parts = [
+    repository.visibility.toLowerCase(),
+    repository.defaultBranch ? `default ${repository.defaultBranch}` : undefined,
+    repository.isFork ? 'fork' : undefined,
+    repository.pushedAt ? `pushed ${formatDate(repository.pushedAt)}` : repository.updatedAt ? `updated ${formatDate(repository.updatedAt)}` : undefined
+  ].filter((value): value is string => Boolean(value))
+
+  return parts.join(' · ')
 }
 
 function memoryFileMeta(file: ProjectMemoryFile): string {

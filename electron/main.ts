@@ -37,6 +37,7 @@ import type {
   FileActionRequest,
   GitIdentityUpdate,
   HunkActionRequest,
+  ListGitHubRepositoriesRequest,
   MergeBranchRequest,
   ProjectMemoryScanResult,
   PullRequestDetailsRequest,
@@ -82,6 +83,7 @@ import {
   getGitHubPullRequestChecks,
   getGitHubPullRequestDetails,
   getGitHubPullRequestDiff,
+  listGitHubRepositories,
   listGitHubPullRequests
 } from './providers/githubCliService.js'
 import { listProviderStatuses } from './providers/providerAdapter.js'
@@ -942,6 +944,9 @@ function registerIpcHandlers() {
   )
   handle('providers:listGitHubPullRequests', (repoPath: string) =>
     listGitHubPullRequests(commandRunner, repoPath)
+  )
+  handle('providers:listGitHubRepositories', (request: ListGitHubRepositoriesRequest) =>
+    listGitHubRepositories(commandRunner, request)
   )
   handleLogged('providers:getGitHubPullRequestDetails', {
     type: 'github_pr_details_loaded',

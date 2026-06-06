@@ -63,6 +63,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'providers:githubCliStatus',
   'providers:list',
   'providers:listGitHubPullRequests',
+  'providers:listGitHubRepositories',
   'repository:chooseAndOpen',
   'repository:clone',
   'repository:commitDetails',

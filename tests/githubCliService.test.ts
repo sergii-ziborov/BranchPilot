@@ -13,6 +13,7 @@ import {
   getGitHubPullRequestChecks,
   getGitHubPullRequestDetails,
   getGitHubPullRequestDiff,
+  listGitHubRepositories,
   listGitHubPullRequests
 } from '../electron/providers/githubCliService'
 import type {
@@ -20,7 +21,7 @@ import type {
   GitHubCredentialProvider,
   GitHubDesktopCredential
 } from '../electron/providers/githubCliService'
-import type { GitHubPullRequest, GitHubPullRequestCheck, GitHubPullRequestDetails } from '../src/shared/branchPilot'
+import type { GitHubPullRequest, GitHubPullRequestCheck, GitHubPullRequestDetails, GitHubRepositorySummary } from '../src/shared/branchPilot'
 
 describe('GitHub CLI bridge', () => {
   it('detects missing, unauthenticated, and authenticated gh states', async () => {
@@ -82,6 +83,49 @@ describe('GitHub CLI bridge', () => {
       gitCredentialAuthenticated: true,
       authProvider: 'git-credential',
       username: 'desktop-user'
+    })
+  })
+
+  it('lists GitHub repositories through gh and filters by query locally', async () => {
+    const runner = new GitHubCliTestRunner({
+      repositories: [
+        makeRepository({ name: 'BranchPilot', nameWithOwner: 'sergii-ziborov/BranchPilot', description: 'Desktop Git client' }),
+        makeRepository({ name: 'appi', nameWithOwner: 'sergii-ziborov/appi', description: 'Other app' })
+      ]
+    })
+
+    await expect(listGitHubRepositories(runner, {
+      owner: 'sergii-ziborov',
+      query: 'pilot',
+      visibility: 'private',
+      limit: 50
+    })).resolves.toEqual([
+      makeRepository({ name: 'BranchPilot', nameWithOwner: 'sergii-ziborov/BranchPilot', description: 'Desktop Git client' })
+    ])
+
+    expect(runner.ghRepoListArgs).toEqual([
+      'repo',
+      'list',
+      'sergii-ziborov',
+      '--json',
+      'name,nameWithOwner,owner,description,visibility,isPrivate,isFork,isArchived,url,sshUrl,defaultBranchRef,updatedAt,pushedAt',
+      '--limit',
+      '50',
+      '--no-archived',
+      '--visibility',
+      'private'
+    ])
+  })
+
+  it('rejects invalid GitHub repository list output', async () => {
+    await expect(listGitHubRepositories(new GitHubCliTestRunner({ repoListOutput: 'not-json' }))).rejects.toMatchObject({
+      code: 'github_repo_parse_failed'
+    })
+  })
+
+  it('blocks GitHub repository listing when gh is not authenticated', async () => {
+    await expect(listGitHubRepositories(new GitHubCliTestRunner({ ghAuthenticated: false }))).rejects.toMatchObject({
+      code: 'github_cli_unauthenticated'
     })
   })
 
@@ -391,6 +435,8 @@ interface GitHubCliTestRunnerOptions {
   originHead?: string
   currentPullRequest?: GitHubPullRequest | null
   pullRequests?: GitHubPullRequest[]
+  repositories?: GitHubRepositorySummary[]
+  repoListOutput?: string
   prViewOutput?: string
   prListOutput?: string
   pullRequestDetails?: GitHubPullRequestDetails
@@ -459,6 +505,7 @@ class GitHubCliTestRunner extends CommandRunner {
   ghPrDetailsArgs: string[] = []
   ghPrChecksArgs: string[] = []
   ghPrDiffArgs: string[] = []
+  ghRepoListArgs: string[] = []
 
   constructor(private readonly options: GitHubCliTestRunnerOptions = {}) {
     super()
@@ -536,6 +583,24 @@ class GitHubCliTestRunner extends CommandRunner {
         args,
         0,
         `${JSON.stringify(pullRequests.map(toGhPullRequestJson))}\n`,
+        '',
+        options
+      )
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'repo' && args[1] === 'list') {
+      this.ghRepoListArgs = args
+
+      if (this.options.repoListOutput) {
+        return this.complete(command, args, 0, this.options.repoListOutput, '', options)
+      }
+
+      const repositories = this.options.repositories ?? [makeRepository()]
+      return this.complete(
+        command,
+        args,
+        0,
+        `${JSON.stringify(repositories.map(toGhRepositoryJson))}\n`,
         '',
         options
       )
@@ -670,6 +735,28 @@ function makePullRequestCheck(overrides: Partial<GitHubPullRequestCheck> = {}): 
   }
 }
 
+function makeRepository(overrides: Partial<GitHubRepositorySummary> = {}): GitHubRepositorySummary {
+  const nameWithOwner = overrides.nameWithOwner ?? 'example/project'
+  const [owner, name] = nameWithOwner.split('/')
+
+  return {
+    name: overrides.name ?? name,
+    nameWithOwner,
+    owner: overrides.owner ?? owner,
+    description: '',
+    visibility: 'PRIVATE',
+    isPrivate: true,
+    isFork: false,
+    isArchived: false,
+    url: `https://github.com/${nameWithOwner}`,
+    sshUrl: `git@github.com:${nameWithOwner}.git`,
+    defaultBranch: 'main',
+    updatedAt: '2026-06-02T10:00:00Z',
+    pushedAt: '2026-06-02T09:00:00Z',
+    ...overrides
+  }
+}
+
 function toGhPullRequestJson(pullRequest: GitHubPullRequest) {
   return {
     number: pullRequest.number,
@@ -679,6 +766,28 @@ function toGhPullRequestJson(pullRequest: GitHubPullRequest) {
     headRefName: pullRequest.headBranch,
     baseRefName: pullRequest.baseBranch,
     isDraft: pullRequest.draft
+  }
+}
+
+function toGhRepositoryJson(repository: GitHubRepositorySummary) {
+  return {
+    name: repository.name,
+    nameWithOwner: repository.nameWithOwner,
+    owner: {
+      login: repository.owner
+    },
+    description: repository.description,
+    visibility: repository.visibility,
+    isPrivate: repository.isPrivate,
+    isFork: repository.isFork,
+    isArchived: repository.isArchived,
+    url: repository.url,
+    sshUrl: repository.sshUrl,
+    defaultBranchRef: {
+      name: repository.defaultBranch
+    },
+    updatedAt: repository.updatedAt,
+    pushedAt: repository.pushedAt
   }
 }
 

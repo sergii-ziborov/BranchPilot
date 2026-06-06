@@ -915,6 +915,29 @@ export interface GitHubPullRequestDiff {
   files: GitHubPullRequestDiffFile[]
 }
 
+export interface ListGitHubRepositoriesRequest {
+  owner?: string
+  query?: string
+  visibility?: 'all' | 'public' | 'private' | 'internal'
+  limit?: number
+}
+
+export interface GitHubRepositorySummary {
+  name: string
+  nameWithOwner: string
+  owner: string
+  description: string
+  visibility: string
+  isPrivate: boolean
+  isFork: boolean
+  isArchived: boolean
+  url: string
+  sshUrl: string
+  defaultBranch: string
+  updatedAt: string
+  pushedAt: string
+}
+
 export interface PullRequestDetailsRequest {
   repoPath: string
   prNumber: number
@@ -1024,6 +1047,7 @@ export interface BranchPilotApi {
   createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>
   getCurrentBranchPullRequest: (repoPath: string) => Promise<ApiResult<GitHubPullRequest | null>>
   listGitHubPullRequests: (repoPath: string) => Promise<ApiResult<GitHubPullRequest[]>>
+  listGitHubRepositories: (request: ListGitHubRepositoriesRequest) => Promise<ApiResult<GitHubRepositorySummary[]>>
   getGitHubPullRequestDetails: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestDetails>>
   getGitHubPullRequestChecks: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestCheck[]>>
   getGitHubPullRequestDiff: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestDiff>>
