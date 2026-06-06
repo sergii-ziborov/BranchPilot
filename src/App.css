@@ -422,6 +422,10 @@ h3 {
 }
 
 .change-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  min-height: 44px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: #f8fafc;
@@ -501,6 +505,25 @@ h3 {
   background: #eff6ff;
 }
 
+.change-stage-toggle {
+  display: grid;
+  height: 100%;
+  min-height: 42px;
+  place-items: center;
+  border-right: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.change-stage-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #2563eb;
+}
+
+.change-stage-toggle input:disabled {
+  cursor: not-allowed;
+}
+
 .change-select {
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr) auto;
@@ -508,7 +531,7 @@ h3 {
   gap: 10px;
   width: 100%;
   min-height: 42px;
-  padding: 0 10px;
+  padding: 0 10px 0 8px;
   border: 0;
   color: var(--text);
   background: transparent;

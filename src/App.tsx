@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -73,6 +73,7 @@ import type {
   StashEntry
 } from './shared/branchPilot'
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
+import { getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
 import { getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import './App.css'
@@ -913,6 +914,28 @@ function App() {
     )
   }
 
+  async function toggleChangeStage(change: FileChange) {
+    if (!api || !currentRepoPath) return
+    const action = getChangeStageToggleAction(change)
+
+    if (action === 'none') return
+
+    setSelectedFilePath(change.path)
+
+    if (action === 'unstage') {
+      setDiffMode('staged')
+      await runSnapshotAction('File unstaged.', () =>
+        api.unstageFile({ repoPath: currentRepoPath, filePath: change.path })
+      )
+      return
+    }
+
+    setDiffMode('unstaged')
+    await runSnapshotAction('File staged.', () =>
+      api.stageFile({ repoPath: currentRepoPath, filePath: change.path })
+    )
+  }
+
   async function stageSelectedHunk(hunk: DiffHunk) {
     if (!api || !currentRepoPath || !selectedChange) return
     await runSnapshotAction('Hunk staged.', () =>
@@ -1647,6 +1670,11 @@ function App() {
             ) : (
               snapshot?.status.changes.map((change) => (
                 <div className={selectedFilePath === change.path ? 'change-row selected' : 'change-row'} key={change.path}>
+                  <StageCheckbox
+                    change={change}
+                    disabled={busy || change.conflicted}
+                    onToggle={toggleChangeStage}
+                  />
                   <button
                     className="change-select"
                     type="button"
@@ -3384,6 +3412,41 @@ function ActionBlockers({ title, reasons }: { title: string; reasons: string[] }
         <p>All required preconditions are satisfied.</p>
       )}
     </div>
+  )
+}
+
+function StageCheckbox({
+  change,
+  disabled,
+  onToggle
+}: {
+  change: FileChange
+  disabled: boolean
+  onToggle: (change: FileChange) => void | Promise<void>
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const toggleState = getChangeStageToggleState(change)
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.indeterminate = toggleState.mixed
+    }
+  }, [toggleState.mixed])
+
+  return (
+    <label className="change-stage-toggle" title={change.conflicted ? 'Resolve conflicts before staging.' : 'Stage or unstage this file'}>
+      <input
+        ref={inputRef}
+        type="checkbox"
+        aria-label={toggleState.label}
+        aria-checked={toggleState.mixed ? 'mixed' : toggleState.checked}
+        checked={toggleState.checked}
+        disabled={disabled || toggleState.disabled}
+        onChange={() => {
+          void onToggle(change)
+        }}
+      />
+    </label>
   )
 }
 
