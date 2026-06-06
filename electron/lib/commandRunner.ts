@@ -197,6 +197,9 @@ export function redact(text: string): string {
     .replace(/github_pat_[A-Za-z0-9_]+/g, '<redacted>')
     .replace(/gh[pousr]_[A-Za-z0-9_]+/g, '<redacted>')
     .replace(/x-access-token:[^@\s]+/g, 'x-access-token:<redacted>')
+    .replace(/(authorization:\s*bearer\s+)[^\s]+/gi, '$1<redacted>')
+    .replace(/(api[_-]?key=)[^\s]+/gi, '$1<redacted>')
+    .replace(/(secret=)[^\s]+/gi, '$1<redacted>')
     .replace(/(password=)[^\s]+/gi, '$1<redacted>')
     .replace(/(token=)[^\s]+/gi, '$1<redacted>')
 }

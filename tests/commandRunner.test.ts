@@ -14,11 +14,11 @@ describe('CommandRunner', () => {
     const token = 'ghp_branchpilottesttoken123'
     const result = await runner.run(process.execPath, [
       '-e',
-      `process.stdout.write("${token}"); process.stderr.write("token=${token}");`
+      `process.stdout.write("${token}\\nAuthorization: Bearer secret-bearer"); process.stderr.write("token=${token}\\napi_key=secret-key\\nsecret=raw-secret");`
     ])
 
-    expect(result.stdout).toBe('<redacted>')
-    expect(result.stderr).toBe('token=<redacted>')
+    expect(result.stdout).toBe('<redacted>\nAuthorization: Bearer <redacted>')
+    expect(result.stderr).toBe('token=<redacted>\napi_key=<redacted>\nsecret=<redacted>')
   })
 
   it('caps stdout and stderr while preserving truncation flags', async () => {
