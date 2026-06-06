@@ -75,6 +75,8 @@ interface GitDefaultBranchResult {
 }
 
 export class RepositoryService {
+  private readonly snapshotCache = new Map<string, RepositorySnapshot>()
+
   constructor(
     private readonly runner: CommandRunner,
     private readonly settings: SettingsStore
@@ -174,7 +176,7 @@ export class RepositoryService {
       this.settings.getRecentRepositories()
     ])
 
-    return {
+    return this.cacheSnapshot({
       summary,
       status,
       branches,
@@ -183,7 +185,30 @@ export class RepositoryService {
       submodules,
       lfs,
       recentRepositories
+    })
+  }
+
+  private async getStatusOnlySnapshot(rootPath: string): Promise<RepositorySnapshot> {
+    const cachedSnapshot = this.snapshotCache.get(rootPath)
+
+    if (!cachedSnapshot) {
+      return this.getSnapshot(rootPath)
     }
+
+    const { summary, status } = await this.getRepositoryStatusContext(rootPath, { includeGitIdentity: true })
+    const recentRepositories = await this.settings.getRecentRepositories()
+
+    return this.cacheSnapshot({
+      ...cachedSnapshot,
+      summary,
+      status,
+      recentRepositories
+    })
+  }
+
+  private cacheSnapshot(snapshot: RepositorySnapshot): RepositorySnapshot {
+    this.snapshotCache.set(snapshot.summary.rootPath, snapshot)
+    return snapshot
   }
 
   private async getDashboardRepository(repo: RecentRepository, activeRootPath?: string): Promise<{
@@ -486,13 +511,13 @@ export class RepositoryService {
   async stageFile(request: FileActionRequest): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     await this.git(rootPath, ['add', '--', normalizeRelativePath(request.filePath)])
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async unstageFile(request: FileActionRequest): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     await this.git(rootPath, ['restore', '--staged', '--', normalizeRelativePath(request.filePath)])
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async stageHunk(request: HunkActionRequest): Promise<RepositorySnapshot> {
@@ -505,7 +530,7 @@ export class RepositoryService {
       timeoutMs: 30_000
     })
 
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async unstageHunk(request: HunkActionRequest): Promise<RepositorySnapshot> {
@@ -518,19 +543,19 @@ export class RepositoryService {
       timeoutMs: 30_000
     })
 
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async stageAll(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     await this.git(rootPath, ['add', '-A'])
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async unstageAll(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     await this.git(rootPath, ['restore', '--staged', '--', '.'])
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async discardFile(request: FileActionRequest & { confirmed: boolean }): Promise<RepositorySnapshot> {
@@ -540,7 +565,7 @@ export class RepositoryService {
 
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     await this.git(rootPath, ['restore', '--', normalizeRelativePath(request.filePath)])
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async deleteUntrackedFile(request: FileActionRequest & { confirmed: boolean }): Promise<RepositorySnapshot> {
@@ -550,7 +575,7 @@ export class RepositoryService {
 
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     await this.git(rootPath, ['clean', '-f', '--', normalizeRelativePath(request.filePath)])
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async commit(request: CommitRequest): Promise<RepositorySnapshot> {
@@ -697,14 +722,14 @@ export class RepositoryService {
 
     await this.git(rootPath, args, { timeoutMs: 120_000 })
 
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async applyStash(request: StashActionRequest): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     await this.git(rootPath, ['stash', 'apply', normalizeStashRef(request.stashRef)], { timeoutMs: 120_000 })
 
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async dropStash(request: ConfirmedStashActionRequest): Promise<RepositorySnapshot> {
@@ -715,7 +740,7 @@ export class RepositoryService {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     await this.git(rootPath, ['stash', 'drop', normalizeStashRef(request.stashRef)], { timeoutMs: 120_000 })
 
-    return this.getSnapshot(rootPath)
+    return this.getStatusOnlySnapshot(rootPath)
   }
 
   async fetch(repoPath: string): Promise<RepositorySnapshot> {

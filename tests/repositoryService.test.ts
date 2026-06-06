@@ -190,6 +190,33 @@ describe('RepositoryService', () => {
     expect(commandLines.some((line) => line.includes('branch.old/topic.description'))).toBe(false)
   })
 
+  it('uses status-only snapshot refreshes after staging when a full snapshot is cached', async () => {
+    const repoPath = createTempRepository()
+    const runner = new RecordingCommandRunner()
+    const service = createService(runner)
+    const openedSnapshot = await service.openRepository(repoPath)
+
+    writeFileSync(path.join(repoPath, 'new.txt'), 'new\n')
+
+    runner.reset()
+    const snapshot = await service.stageFile({
+      repoPath,
+      filePath: 'new.txt'
+    })
+    const commandLines = runner.calls.map((call) => call.args.join(' '))
+
+    expect(snapshot.status.counts.staged).toBe(1)
+    expect(snapshot.branches).toEqual(openedSnapshot.branches)
+    expect(snapshot.tags).toEqual(openedSnapshot.tags)
+    expect(snapshot.worktrees).toEqual(openedSnapshot.worktrees)
+    expect(snapshot.submodules).toEqual(openedSnapshot.submodules)
+    expect(snapshot.lfs).toEqual(openedSnapshot.lfs)
+    expect(commandLines.some((line) => line.startsWith('lfs '))).toBe(false)
+    expect(commandLines.some((line) => line.startsWith('submodule '))).toBe(false)
+    expect(commandLines.some((line) => line.startsWith('tag '))).toBe(false)
+    expect(commandLines.some((line) => line.startsWith('worktree '))).toBe(false)
+  })
+
   it('commits staged changes with a multiline message', async () => {
     const repoPath = createTempRepository()
     const service = createService()
