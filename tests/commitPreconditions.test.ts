@@ -147,6 +147,13 @@ function makeSnapshot(overrides: {
     tags: [],
     worktrees: [],
     submodules: [],
+    lfs: {
+      installed: false,
+      trackedPatterns: [],
+      files: [],
+      fileCount: 0,
+      message: 'Git LFS is not installed.'
+    },
     recentRepositories: []
   }
 }

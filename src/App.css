@@ -2278,7 +2278,8 @@ button.danger-button:hover {
 }
 
 .remotes-card,
-.submodules-card {
+.submodules-card,
+.lfs-card {
   grid-column: 1 / -1;
 }
 
@@ -2392,6 +2393,60 @@ button.danger-button:hover {
 .submodule-row .panel-actions {
   flex: 0 0 auto;
   max-width: min(100%, 420px);
+}
+
+.lfs-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lfs-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lfs-columns section {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.lfs-columns h4 {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.lfs-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lfs-row {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.lfs-row strong,
+.lfs-row span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lfs-row strong {
+  color: var(--text-strong);
+}
+
+.lfs-row span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .stash-workspace,
@@ -3496,6 +3551,8 @@ button.secondary:hover {
   .memory-meta,
   .project-wiki-grid,
   .branch-composer-summary,
+  .lfs-summary-grid,
+  .lfs-columns,
   .activity-row,
   .daily-workspace,
   .review-controls,

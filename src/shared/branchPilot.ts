@@ -84,6 +84,7 @@ export interface RepositorySnapshot {
   tags: TagSummary[]
   worktrees: WorktreeSummary[]
   submodules: SubmoduleSummary[]
+  lfs: GitLfsSummary
   recentRepositories: RecentRepository[]
 }
 
@@ -187,6 +188,29 @@ export interface SubmoduleSummary {
   head?: string
   status: SubmoduleStatus
   description?: string
+}
+
+export type GitLfsFileStatus = 'present' | 'pointer' | 'unknown'
+
+export interface GitLfsPattern {
+  pattern: string
+  sourcePath: string
+  line: number
+}
+
+export interface GitLfsFile {
+  path: string
+  oid?: string
+  status: GitLfsFileStatus
+}
+
+export interface GitLfsSummary {
+  installed: boolean
+  version?: string
+  trackedPatterns: GitLfsPattern[]
+  files: GitLfsFile[]
+  fileCount: number
+  message: string
 }
 
 export interface CommitSummary {
@@ -352,6 +376,7 @@ export type ActivityLogEventType =
   | 'worktree_created'
   | 'worktree_removed'
   | 'submodule_updated'
+  | 'git_lfs_pulled'
   | 'patch_exported'
   | 'patch_applied'
   | 'git_fetched'
@@ -926,6 +951,8 @@ export interface BranchPilotApi {
   removeWorktree: (request: RemoveWorktreeRequest) => Promise<ApiResult<RepositorySnapshot>>
   listSubmodules: (repoPath: string) => Promise<ApiResult<SubmoduleSummary[]>>
   updateSubmodule: (request: UpdateSubmoduleRequest) => Promise<ApiResult<RepositorySnapshot>>
+  getGitLfsSummary: (repoPath: string) => Promise<ApiResult<GitLfsSummary>>
+  pullGitLfs: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   exportPatch: (request: ExportPatchRequest) => Promise<ApiResult<ExportedPatch | null>>
   applyPatch: (request: ApplyPatchRequest) => Promise<ApiResult<RepositorySnapshot | null>>
   acceptOurs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>

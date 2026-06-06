@@ -25,6 +25,10 @@ import type {
   ExportedPatch,
   ExportPatchRequest,
   FileActionRequest,
+  GitLfsFile,
+  GitLfsFileStatus,
+  GitLfsPattern,
+  GitLfsSummary,
   GitConfigSnapshot,
   GitIdentityUpdate,
   HunkActionRequest,
@@ -158,6 +162,7 @@ export class RepositoryService {
       tags: await this.listTags(rootPath),
       worktrees: await this.listRepositoryWorktrees(rootPath),
       submodules: await this.listRepositorySubmodules(rootPath),
+      lfs: await this.getRepositoryGitLfsSummary(rootPath),
       recentRepositories: await this.settings.getRecentRepositories()
     }
   }
@@ -799,6 +804,26 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async getGitLfsSummary(repoPath: string): Promise<GitLfsSummary> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    return this.getRepositoryGitLfsSummary(rootPath)
+  }
+
+  async pullGitLfs(repoPath: string): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const summary = await this.getRepositoryGitLfsSummary(rootPath)
+
+    if (!summary.installed) {
+      throw new BranchPilotUserError('git_lfs_missing', 'Git LFS is not installed. Install git-lfs before pulling LFS objects.')
+    }
+
+    await this.assertNoActiveOperation(rootPath)
+    await this.assertNoConflicts(rootPath, 'pulling Git LFS objects')
+    await this.git(rootPath, ['lfs', 'pull'], { timeoutMs: 120_000 })
+
+    return this.getSnapshot(rootPath)
+  }
+
   async exportPatch(request: ExportPatchRequest): Promise<ExportedPatch> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     const outputPath = normalizePatchOutputPath(request.outputPath)
@@ -1013,6 +1038,53 @@ export class RepositoryService {
         description: statusEntry?.description
       }
     })
+  }
+
+  private async getRepositoryGitLfsSummary(rootPath: string): Promise<GitLfsSummary> {
+    const trackedPatterns = await this.listGitLfsPatterns(rootPath)
+    const versionResult = await this.git(rootPath, ['lfs', 'version'], { allowedExitCodes: [0, 1] })
+    const installed = versionResult.exitCode === 0
+    const version = installed ? parseGitLfsVersion(versionResult.stdout) : undefined
+    const files = installed ? await this.listGitLfsFiles(rootPath) : []
+
+    return {
+      installed,
+      version,
+      trackedPatterns,
+      files,
+      fileCount: files.length,
+      message: gitLfsMessage(installed, trackedPatterns.length, files.length, version)
+    }
+  }
+
+  private async listGitLfsPatterns(rootPath: string): Promise<GitLfsPattern[]> {
+    const result = await this.git(rootPath, ['ls-files', '-z', '--', '.gitattributes', ':(glob)**/.gitattributes'], {
+      allowedExitCodes: [0, 1]
+    })
+    const attributeFiles = result.stdout.split('\0').filter(Boolean)
+    const patterns: GitLfsPattern[] = []
+
+    for (const filePath of attributeFiles) {
+      const fullPath = resolveRepositoryPath(rootPath, filePath)
+      const content = await fs.readFile(fullPath, 'utf8')
+
+      patterns.push(...parseGitLfsPatterns(content, filePath))
+    }
+
+    return patterns
+  }
+
+  private async listGitLfsFiles(rootPath: string): Promise<GitLfsFile[]> {
+    const result = await this.git(rootPath, ['lfs', 'ls-files', '--long'], {
+      allowedExitCodes: [0, 1],
+      timeoutMs: 120_000
+    })
+
+    if (result.exitCode !== 0) {
+      return []
+    }
+
+    return parseGitLfsFiles(result.stdout)
   }
 
   private async assertValidTagName(rootPath: string, tagName: string): Promise<void> {
@@ -1653,6 +1725,95 @@ function mapSubmoduleStatus(prefix: string): SubmoduleStatus {
   if (prefix === '-') return 'uninitialized'
   if (prefix === '+') return 'modified'
   if (prefix === 'U') return 'conflicted'
+  return 'unknown'
+}
+
+function parseGitLfsVersion(output: string): string | undefined {
+  const firstLine = output.trim().split('\n')[0]
+
+  return firstLine || undefined
+}
+
+function gitLfsMessage(installed: boolean, patternCount: number, fileCount: number, version?: string): string {
+  if (!installed) {
+    return patternCount > 0
+      ? 'Git LFS patterns are configured, but git-lfs is not installed.'
+      : 'Git LFS is not installed.'
+  }
+
+  if (patternCount === 0 && fileCount === 0) {
+    return `${version ?? 'Git LFS'} detected. No tracked LFS patterns were found.`
+  }
+
+  return `${version ?? 'Git LFS'} detected with ${patternCount} tracked pattern${patternCount === 1 ? '' : 's'} and ${fileCount} known LFS file${fileCount === 1 ? '' : 's'}.`
+}
+
+function parseGitLfsPatterns(content: string, sourcePath: string): GitLfsPattern[] {
+  return content
+    .split('\n')
+    .map((line, index) => parseGitLfsPatternLine(line, sourcePath, index + 1))
+    .filter((pattern): pattern is GitLfsPattern => Boolean(pattern))
+}
+
+function parseGitLfsPatternLine(line: string, sourcePath: string, lineNumber: number): GitLfsPattern | null {
+  const trimmed = line.trim()
+
+  if (!trimmed || trimmed.startsWith('#')) {
+    return null
+  }
+
+  const [pattern, ...attributes] = trimmed.split(/\s+/)
+
+  if (!pattern || pattern.startsWith('#') || !attributes.includes('filter=lfs')) {
+    return null
+  }
+
+  return {
+    pattern,
+    sourcePath,
+    line: lineNumber
+  }
+}
+
+function parseGitLfsFiles(output: string): GitLfsFile[] {
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(parseGitLfsFileLine)
+    .filter((file): file is GitLfsFile => Boolean(file))
+}
+
+function parseGitLfsFileLine(line: string): GitLfsFile | null {
+  const match = line.match(/^([a-fA-F0-9]{40,64})\s+([*-])\s+(.+)$/)
+
+  if (match) {
+    const [, oid, marker, filePath] = match
+
+    return {
+      oid,
+      path: normalizeRelativePath(filePath),
+      status: mapGitLfsFileStatus(marker)
+    }
+  }
+
+  const fallback = line.match(/^([*-])\s+(.+)$/)
+
+  if (fallback) {
+    const [, marker, filePath] = fallback
+
+    return {
+      path: normalizeRelativePath(filePath),
+      status: mapGitLfsFileStatus(marker)
+    }
+  }
+
+  return null
+}
+
+function mapGitLfsFileStatus(marker: string): GitLfsFileStatus {
+  if (marker === '*') return 'present'
+  if (marker === '-') return 'pointer'
   return 'unknown'
 }
 

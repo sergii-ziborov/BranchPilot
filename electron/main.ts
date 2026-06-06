@@ -710,6 +710,21 @@ function registerIpcHandlers() {
   }, async (request: UpdateSubmoduleRequest) =>
     withProjectMemoryRefresh(await repositoryService.updateSubmodule(request))
   )
+  handle('git:lfsSummary', async (repoPath: string) =>
+    repositoryService.getGitLfsSummary(repoPath)
+  )
+  handleLogged('git:lfsPull', {
+    type: 'git_lfs_pulled',
+    actor: 'user',
+    title: 'Git LFS objects pulled',
+    repoPath: repoPathArg,
+    metadata: (_args, snapshot) => ({
+      patterns: snapshot?.lfs.trackedPatterns.length ?? 0,
+      files: snapshot?.lfs.fileCount ?? 0
+    })
+  }, async (repoPath: string) =>
+    withProjectMemoryRefresh(await repositoryService.pullGitLfs(repoPath))
+  )
   handleLogged('git:exportPatch', {
     type: 'patch_exported',
     actor: 'user',

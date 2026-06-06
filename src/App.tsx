@@ -52,6 +52,7 @@ import type {
   DashboardRepositorySummary,
   DiffResult,
   FileChange,
+  GitLfsFileStatus,
   GitHubCliStatus,
   GitHubPullRequest,
   GitHubPullRequestCheck,
@@ -1775,6 +1776,14 @@ function App() {
     setBusy(false)
   }
 
+  async function pullGitLfs() {
+    if (!api || !currentRepoPath) return
+
+    await runSnapshotAction('Git LFS objects pulled.', () =>
+      api.pullGitLfs(currentRepoPath)
+    )
+  }
+
   function startBranchDescriptionEdit(branch: BranchSummary) {
     setEditingBranchName(branch.name)
     setBranchDescriptionDraft(branch.description ?? '')
@@ -3128,6 +3137,60 @@ function App() {
                 ))}
               </div>
             )}
+          </section>
+
+          <section className="config-card lfs-card">
+            <div className="config-card-heading">
+              <div>
+                <h3>Git LFS</h3>
+                <p>{snapshot?.lfs.message ?? 'Open a repository to inspect Git LFS.'}</p>
+              </div>
+              <button type="button" onClick={pullGitLfs} disabled={busy || !snapshot?.lfs.installed}>
+                <Database size={16} />
+                Pull LFS
+              </button>
+            </div>
+
+            <div className="lfs-summary-grid">
+              <InfoRow label="Installed" value={snapshot?.lfs.installed ? 'Yes' : 'No'} />
+              <InfoRow label="Version" value={snapshot?.lfs.version ?? 'Unavailable'} />
+              <InfoRow label="Patterns" value={String(snapshot?.lfs.trackedPatterns.length ?? 0)} />
+              <InfoRow label="Known files" value={String(snapshot?.lfs.fileCount ?? 0)} />
+            </div>
+
+            <div className="lfs-columns">
+              <section>
+                <h4>Tracked patterns</h4>
+                {!snapshot?.lfs.trackedPatterns.length ? (
+                  <p className="muted-text">No LFS patterns found in tracked .gitattributes files.</p>
+                ) : (
+                  <div className="lfs-list">
+                    {snapshot.lfs.trackedPatterns.map((pattern) => (
+                      <div className="lfs-row" key={`${pattern.sourcePath}-${pattern.line}-${pattern.pattern}`}>
+                        <strong>{pattern.pattern}</strong>
+                        <span>{pattern.sourcePath}:{pattern.line}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h4>LFS files</h4>
+                {!snapshot?.lfs.files.length ? (
+                  <p className="muted-text">{snapshot?.lfs.installed ? 'No LFS files reported by git lfs.' : 'Install git-lfs to list LFS files.'}</p>
+                ) : (
+                  <div className="lfs-list">
+                    {snapshot.lfs.files.map((file) => (
+                      <div className="lfs-row" key={`${file.oid ?? file.status}-${file.path}`}>
+                        <strong>{file.path}</strong>
+                        <span>{gitLfsFileLabel(file.status, file.oid)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
           </section>
         </div>
       </section>
@@ -4849,6 +4912,16 @@ function submoduleStatusLabel(submodule: SubmoduleSummary): string {
   ].filter((value): value is string => Boolean(value))
 
   return parts.join(' · ')
+}
+
+function gitLfsFileLabel(status: GitLfsFileStatus, oid?: string): string {
+  const label = status === 'present'
+    ? 'object present'
+    : status === 'pointer'
+      ? 'pointer only'
+      : 'unknown'
+
+  return oid ? `${label} · ${oid.slice(0, 12)}` : label
 }
 
 function formatBytes(sizeBytes: number): string {

@@ -537,6 +537,45 @@ describe('RepositoryService', () => {
     expect(readFileSync(path.join(repoPath, 'libs/child/child.txt'), 'utf8')).toBe('child\n')
   })
 
+  it('detects Git LFS patterns and reports missing git-lfs before pulling', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, '.gitattributes'), [
+      '# BranchPilot LFS fixture',
+      '*.psd filter=lfs diff=lfs merge=lfs -text',
+      'assets/*.zip filter=lfs diff=lfs merge=lfs -text',
+      ''
+    ].join('\n'))
+    git(repoPath, ['add', '.gitattributes'])
+    git(repoPath, ['commit', '-m', 'Configure LFS patterns'])
+
+    const snapshot = await service.openRepository(repoPath)
+
+    expect(snapshot.lfs.trackedPatterns).toEqual([
+      {
+        pattern: '*.psd',
+        sourcePath: '.gitattributes',
+        line: 2
+      },
+      {
+        pattern: 'assets/*.zip',
+        sourcePath: '.gitattributes',
+        line: 3
+      }
+    ])
+    expect(snapshot.lfs.fileCount).toBe(snapshot.lfs.files.length)
+
+    const summary = await service.getGitLfsSummary(repoPath)
+    expect(summary.trackedPatterns).toHaveLength(2)
+
+    if (!summary.installed) {
+      await expect(service.pullGitLfs(repoPath)).rejects.toMatchObject({
+        code: 'git_lfs_missing'
+      })
+    }
+  })
+
   it('detects and aborts a real merge conflict', async () => {
     const repoPath = createConflictedRepository()
     const service = createService()

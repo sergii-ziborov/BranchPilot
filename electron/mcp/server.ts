@@ -59,6 +59,7 @@ const activityTypes = [
   'worktree_created',
   'worktree_removed',
   'submodule_updated',
+  'git_lfs_pulled',
   'patch_exported',
   'patch_applied',
   'git_fetched',
