@@ -49,6 +49,7 @@ import type {
   DiffLine,
   CreatedPullRequest,
   DailyReviewReport,
+  DashboardStaleBranch,
   DashboardRepositorySummary,
   DiffResult,
   FileChange,
@@ -133,6 +134,7 @@ function App() {
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
   const [repositoryDashboard, setRepositoryDashboard] = useState<RepositoryDashboardSnapshot | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardRepositoryFilter, setDashboardRepositoryFilter] = useState('')
   const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
   const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
   const [providers, setProviders] = useState<ProviderStatus[]>([])
@@ -2389,9 +2391,15 @@ function App() {
   function renderDashboardView() {
     const dashboard = repositoryDashboard
     const repositories = dashboard?.repositories ?? []
-    const attentionRepositories = repositories.filter((repo) => repo.state !== 'clean' || repo.ahead > 0 || repo.behind > 0)
-    const conflictedRepositories = repositories.filter((repo) => repo.state === 'conflicted')
-    const staleBranches = dashboard?.staleBranches ?? []
+    const dashboardQuery = dashboardRepositoryFilter.trim().toLowerCase()
+    const filteredRepositories = dashboardQuery
+      ? repositories.filter((repo) => matchesDashboardRepository(repo, dashboardQuery))
+      : repositories
+    const attentionRepositories = filteredRepositories.filter((repo) => repo.state !== 'clean' || repo.ahead > 0 || repo.behind > 0)
+    const conflictedRepositories = filteredRepositories.filter((repo) => repo.state === 'conflicted')
+    const staleBranches = (dashboard?.staleBranches ?? []).filter((branch) =>
+      !dashboardQuery || matchesDashboardStaleBranch(branch, dashboardQuery)
+    )
     const currentPrSummary = currentPullRequest
       ? `#${currentPullRequest.number} · ${currentPullRequest.state}${currentPullRequest.draft ? ' · draft' : ''}`
       : githubCliStatus?.ghAuthenticated
@@ -2426,6 +2434,28 @@ function App() {
               <Stat label="Conflicts" value={dashboard.totals.conflicted} />
               <Stat label="Ahead / behind" value={`${dashboard.totals.ahead} / ${dashboard.totals.behind}`} />
               <Stat label="Stale branches" value={dashboard.totals.staleBranches} />
+            </div>
+
+            <div className="dashboard-filter-bar">
+              <label className="list-filter-input" htmlFor="dashboard-repository-filter">
+                <Search size={16} />
+                <input
+                  id="dashboard-repository-filter"
+                  value={dashboardRepositoryFilter}
+                  onChange={(event) => setDashboardRepositoryFilter(event.target.value)}
+                  placeholder="Search repositories, branches, remotes"
+                />
+              </label>
+              <span>
+                {filteredRepositories.length} / {repositories.length} repos
+                {dashboardQuery ? ` · ${staleBranches.length} stale branches` : ''}
+              </span>
+              {dashboardRepositoryFilter && (
+                <button type="button" className="secondary" onClick={() => setDashboardRepositoryFilter('')}>
+                  <X size={15} />
+                  Clear
+                </button>
+              )}
             </div>
 
             <div className="dashboard-workspace">
@@ -5284,6 +5314,29 @@ function dashboardStateLabel(repo: DashboardRepositorySummary): string {
   if (repo.state === 'conflicted') return `${repo.mergeOperation === 'none' ? 'Conflict' : repo.mergeOperation} active`
   if (repo.state === 'dirty') return 'Dirty'
   return 'Clean'
+}
+
+function matchesDashboardRepository(repo: DashboardRepositorySummary, query: string): boolean {
+  return [
+    repo.name,
+    repo.path,
+    repo.currentBranch,
+    repo.upstream,
+    repo.remoteName,
+    repo.state,
+    repo.error
+  ]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => value.toLowerCase().includes(query))
+}
+
+function matchesDashboardStaleBranch(branch: DashboardStaleBranch, query: string): boolean {
+  return [
+    branch.repoName,
+    branch.repoPath,
+    branch.name,
+    branch.lastCommitAt
+  ].some((value) => value.toLowerCase().includes(query))
 }
 
 function dashboardRepoMeta(repo: DashboardRepositorySummary): string {

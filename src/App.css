@@ -759,6 +759,32 @@ button.danger-button:hover {
   gap: 10px;
 }
 
+.dashboard-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-filter-bar > span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.dashboard-filter-bar button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
 .dashboard-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
@@ -3826,6 +3852,7 @@ button.secondary:hover {
 
   .commit-file-grid,
   .dashboard-workspace,
+  .dashboard-filter-bar,
   .config-grid,
   .memory-grid,
   .memory-meta,
