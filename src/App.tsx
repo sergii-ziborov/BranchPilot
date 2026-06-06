@@ -98,6 +98,7 @@ import {
   type ChangeDiffMode
 } from './shared/changeStaging'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
+import { buildSplitDiffRows } from './shared/diffView'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -106,6 +107,7 @@ import './App.css'
 
 type ViewMode = 'dashboard' | 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily'
 type DiffMode = ChangeDiffMode
+type DiffDisplayMode = 'unified' | 'split'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
 type AssistantReadinessState = AssistantStatus['state'] | 'unknown'
@@ -167,6 +169,7 @@ function App() {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [changeFilter, setChangeFilter] = useState('')
   const [diffMode, setDiffMode] = useState<DiffMode>('unstaged')
+  const [diffDisplayMode, setDiffDisplayMode] = useState<DiffDisplayMode>('unified')
   const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
   const [diff, setDiff] = useState<DiffResult | null>(null)
   const [history, setHistory] = useState<CommitSummary[]>([])
@@ -3076,12 +3079,29 @@ function App() {
                 />
                 Ignore whitespace
               </label>
+              <div className="segmented diff-display-toggle" aria-label="Diff display mode">
+                <button
+                  className={diffDisplayMode === 'unified' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setDiffDisplayMode('unified')}
+                >
+                  Unified
+                </button>
+                <button
+                  className={diffDisplayMode === 'split' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setDiffDisplayMode('split')}
+                >
+                  Split
+                </button>
+              </div>
             </div>
           )}
 
           <DiffPreview
             diff={diff}
             mode={diffMode}
+            displayMode={diffDisplayMode}
             busy={busy}
             onStageHunk={stageSelectedHunk}
             onUnstageHunk={unstageSelectedHunk}
@@ -5454,12 +5474,14 @@ function BulkStageCheckbox({
 function DiffPreview({
   diff,
   mode,
+  displayMode = 'unified',
   busy = false,
   onStageHunk,
   onUnstageHunk
 }: {
   diff: DiffResult | null
   mode?: DiffMode
+  displayMode?: DiffDisplayMode
   busy?: boolean
   onStageHunk?: (hunk: DiffHunk) => void
   onUnstageHunk?: (hunk: DiffHunk) => void
@@ -5505,21 +5527,52 @@ function DiffPreview({
                   </button>
                 )}
               </div>
-              <div className="diff-lines">
-                {hunk.lines.map((line, lineIndex) => (
-                  <code className={`diff-line line-${line.type}`} key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}>
-                    <span className="line-number">{formatLineNumber(line.oldLineNumber)}</span>
-                    <span className="line-number">{formatLineNumber(line.newLineNumber)}</span>
-                    <span className="line-marker">{diffLinePrefix(line)}</span>
-                    <span className="line-content">{line.content}</span>
-                  </code>
-                ))}
-              </div>
+              {displayMode === 'split' ? <SplitDiffLines lines={hunk.lines} /> : <UnifiedDiffLines lines={hunk.lines} />}
             </article>
           ))}
         </section>
       ))}
     </div>
+  )
+}
+
+function UnifiedDiffLines({ lines }: { lines: DiffLine[] }) {
+  return (
+    <div className="diff-lines">
+      {lines.map((line, lineIndex) => (
+        <code className={`diff-line line-${line.type}`} key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}>
+          <span className="line-number">{formatLineNumber(line.oldLineNumber)}</span>
+          <span className="line-number">{formatLineNumber(line.newLineNumber)}</span>
+          <span className="line-marker">{diffLinePrefix(line)}</span>
+          <span className="line-content">{line.content}</span>
+        </code>
+      ))}
+    </div>
+  )
+}
+
+function SplitDiffLines({ lines }: { lines: DiffLine[] }) {
+  return (
+    <div className="split-diff-lines">
+      {buildSplitDiffRows(lines).map((row, rowIndex) => (
+        <div className="split-diff-row" key={`${rowIndex}-${row.oldLine?.content ?? ''}-${row.newLine?.content ?? ''}`}>
+          <SplitDiffCell line={row.oldLine} side="old" />
+          <SplitDiffCell line={row.newLine} side="new" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SplitDiffCell({ line, side }: { line?: DiffLine; side: 'old' | 'new' }) {
+  const lineNumber = side === 'old' ? line?.oldLineNumber : line?.newLineNumber
+
+  return (
+    <code className={`split-diff-cell ${line ? `line-${line.type}` : 'line-empty'}`}>
+      <span className="line-number">{formatLineNumber(lineNumber)}</span>
+      <span className="line-marker">{line ? diffLinePrefix(line) : ''}</span>
+      <span className="line-content">{line?.content ?? ''}</span>
+    </code>
   )
 }
 

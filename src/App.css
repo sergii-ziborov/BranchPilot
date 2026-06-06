@@ -1660,6 +1660,12 @@ button.danger-button:hover {
   accent-color: #2563eb;
 }
 
+.diff-display-toggle button {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
 .segmented button.active {
   color: #ffffff;
   border-color: #2563eb;
@@ -1772,6 +1778,31 @@ button.danger-button:hover {
   display: grid;
 }
 
+.split-diff-lines {
+  display: grid;
+  min-width: 920px;
+}
+
+.split-diff-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.split-diff-cell {
+  display: grid;
+  grid-template-columns: 48px 22px minmax(0, 1fr);
+  min-height: 24px;
+  align-items: center;
+  border-right: 1px solid rgba(148, 163, 184, 0.16);
+  color: #d1d5db;
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.split-diff-cell.line-empty {
+  background: rgba(15, 23, 42, 0.55);
+}
+
 .diff-line {
   display: grid;
   grid-template-columns: 48px 48px 22px minmax(0, 1fr);
@@ -1783,31 +1814,38 @@ button.danger-button:hover {
 }
 
 .diff-line .line-number,
-.diff-line .line-marker {
+.diff-line .line-marker,
+.split-diff-cell .line-number,
+.split-diff-cell .line-marker {
   color: #94a3b8;
   text-align: right;
   user-select: none;
 }
 
-.diff-line .line-marker {
+.diff-line .line-marker,
+.split-diff-cell .line-marker {
   padding-right: 8px;
 }
 
-.diff-line .line-content {
+.diff-line .line-content,
+.split-diff-cell .line-content {
   overflow: visible;
 }
 
-.diff-line.line-add {
+.diff-line.line-add,
+.split-diff-cell.line-add {
   color: #bbf7d0;
   background: rgba(22, 101, 52, 0.24);
 }
 
-.diff-line.line-remove {
+.diff-line.line-remove,
+.split-diff-cell.line-remove {
   color: #fecaca;
   background: rgba(153, 27, 27, 0.24);
 }
 
-.diff-line.line-meta {
+.diff-line.line-meta,
+.split-diff-cell.line-meta {
   color: #94a3b8;
 }
 
