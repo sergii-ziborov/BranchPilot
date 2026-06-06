@@ -41,6 +41,7 @@ import type {
   AssistantPolicyMode,
   AssistantPolicyStatus,
   AssistantStatus,
+  BranchComparison,
   BranchSummary,
   CommitDetails,
   CommitFileChange,
@@ -184,6 +185,8 @@ function App() {
   const [editingBranchName, setEditingBranchName] = useState<string | null>(null)
   const [branchDescriptionDraft, setBranchDescriptionDraft] = useState('')
   const [branchDescriptionGenerating, setBranchDescriptionGenerating] = useState<string | null>(null)
+  const [branchComparison, setBranchComparison] = useState<BranchComparison | null>(null)
+  const [branchComparisonLoading, setBranchComparisonLoading] = useState<string | null>(null)
   const [selectedMergeBranch, setSelectedMergeBranch] = useState('')
   const [stashMessage, setStashMessage] = useState('')
   const [stashes, setStashes] = useState<StashEntry[]>([])
@@ -1101,6 +1104,7 @@ function App() {
 
   function applySnapshot(nextSnapshot: RepositorySnapshot, successMessage: string) {
     resetPreCommitReview()
+    setBranchComparison(null)
     setSnapshot(nextSnapshot)
     setRecentRepositories(nextSnapshot.recentRepositories)
     setNotice(successMessage)
@@ -1812,6 +1816,29 @@ function App() {
         force: false
       })
     )
+  }
+
+  async function compareBranch(branch: BranchSummary) {
+    if (!api || !currentRepoPath || branch.current) return
+
+    setBranchComparisonLoading(branch.name)
+    setError(null)
+
+    const result = await api.compareBranch({
+      repoPath: currentRepoPath,
+      targetBranch: branch.name
+    })
+
+    if (result.ok) {
+      setBranchComparison(result.data)
+      setNotice(`Compared ${result.data.targetBranch} against ${result.data.baseBranch}.`)
+    } else {
+      setBranchComparison(null)
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBranchComparisonLoading(null)
   }
 
   async function createTag() {
@@ -3974,6 +4001,14 @@ function App() {
                   )}
                   <button
                     type="button"
+                    disabled={busy || branch.current || isEditingDescription || Boolean(branchComparisonLoading)}
+                    onClick={() => compareBranch(branch)}
+                  >
+                    {branchComparisonLoading === branch.name ? <Loader2 className="spin" size={16} /> : <GitCommitHorizontal size={16} />}
+                    Compare
+                  </button>
+                  <button
+                    type="button"
                     disabled={branch.current || isEditingDescription}
                     onClick={() => currentRepoPath && runSnapshotAction('Branch switched.', () => api!.switchBranch({ repoPath: currentRepoPath, branchName: branch.name }))}
                   >
@@ -3994,6 +4029,39 @@ function App() {
             )
           })}
         </div>
+
+        {branchComparison && (
+          <section className="branch-compare-panel">
+            <div className="branch-compare-heading">
+              <div>
+                <h3>{branchComparison.targetBranch}</h3>
+                <p>Compared against {branchComparison.baseBranch}</p>
+              </div>
+              <span>
+                {branchComparison.targetOnlyCommits} ahead · {branchComparison.baseOnlyCommits} behind · {branchComparison.files.length} files
+              </span>
+            </div>
+            {branchComparison.summaryText ? (
+              <pre><code>{branchComparison.summaryText}</code></pre>
+            ) : (
+              <div className="quiet-box">No file changes between these branches.</div>
+            )}
+            {branchComparison.tooLarge && <div className="command-hint">Compare summary was truncated for performance.</div>}
+            {branchComparison.files.length > 0 && (
+              <div className="branch-compare-files">
+                {branchComparison.files.slice(0, 24).map((file) => (
+                  <div className="commit-file-row" key={`${file.rawStatus}-${file.path}-${file.originalPath ?? ''}`}>
+                    <span className={`file-status status-${file.status}`}>{commitFileToken(file)}</span>
+                    <span className="file-name">{file.originalPath ? `${file.originalPath} → ${file.path}` : file.path}</span>
+                  </div>
+                ))}
+                {branchComparison.files.length > 24 && (
+                  <div className="quiet-box">{branchComparison.files.length - 24} more changed files.</div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="worktree-panel">
           <div className="panel-heading">

@@ -10,6 +10,7 @@ import type {
   ApplyPatchRequest,
   AssistantActionKind,
   AssistantPolicyUpdate,
+  BranchCompareRequest,
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
   BranchActionRequest,
@@ -671,6 +672,9 @@ function registerIpcHandlers() {
     })
   }, async (request: UpdateBranchDescriptionRequest) =>
     withProjectMemoryRefresh(await repositoryService.updateBranchDescription(request.repoPath, request.branchName, request.description))
+  )
+  handle('git:compareBranch', (request: BranchCompareRequest) =>
+    repositoryService.compareBranch(request)
   )
   handleLogged('git:switchBranch', {
     type: 'branch_switched',

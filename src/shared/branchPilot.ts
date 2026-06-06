@@ -158,6 +158,22 @@ export interface BranchSummary {
   lastCommitAt?: string
 }
 
+export interface BranchCompareRequest {
+  repoPath: string
+  targetBranch: string
+  baseBranch?: string
+}
+
+export interface BranchComparison {
+  baseBranch: string
+  targetBranch: string
+  baseOnlyCommits: number
+  targetOnlyCommits: number
+  files: CommitFileChange[]
+  summaryText: string
+  tooLarge: boolean
+}
+
 export interface TagSummary {
   name: string
   targetSha: string
@@ -967,6 +983,7 @@ export interface BranchPilotApi {
   publishBranch: (request: PublishBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   createBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   updateBranchDescription: (request: UpdateBranchDescriptionRequest) => Promise<ApiResult<RepositorySnapshot>>
+  compareBranch: (request: BranchCompareRequest) => Promise<ApiResult<BranchComparison>>
   switchBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   deleteBranch: (request: DeleteBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   createTag: (request: CreateTagRequest) => Promise<ApiResult<RepositorySnapshot>>

@@ -2,6 +2,8 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type {
+  BranchCompareRequest,
+  BranchComparison,
   BranchSummary,
   CommitDetails,
   CommitDetailsRequest,
@@ -61,6 +63,7 @@ import { SettingsStore } from './settingsStore.js'
 
 const MAX_DIFF_BYTES = 350_000
 const MAX_DIFF_OUTPUT_BYTES = MAX_DIFF_BYTES + 1
+const MAX_BRANCH_COMPARE_SUMMARY_BYTES = 80_000
 const DEFAULT_REMOTE = 'origin'
 const STALE_BRANCH_THRESHOLD_DAYS = 30
 
@@ -769,6 +772,43 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async compareBranch(request: BranchCompareRequest): Promise<BranchComparison> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const baseBranch = normalizeBranchName(request.baseBranch ?? await this.assertCurrentBranch(rootPath, 'compare branches'))
+    const targetBranch = normalizeBranchName(request.targetBranch)
+
+    await this.assertLocalBranchExists(rootPath, baseBranch)
+    await this.assertLocalBranchExists(rootPath, targetBranch)
+
+    if (baseBranch === targetBranch) {
+      throw new BranchPilotUserError('same_branch', 'Choose a different branch to compare.')
+    }
+
+    const range = `${baseBranch}...${targetBranch}`
+    const commitCounts = await this.git(rootPath, ['rev-list', '--left-right', '--count', range])
+    const [baseOnlyCommits, targetOnlyCommits] = parseBranchCompareCommitCounts(commitCounts.stdout)
+    const files = await this.getBranchComparisonFiles(rootPath, range)
+    const summary = await this.git(rootPath, [
+      'diff',
+      '--stat',
+      '--compact-summary',
+      '--find-renames',
+      range
+    ], {
+      maxOutputBytes: MAX_BRANCH_COMPARE_SUMMARY_BYTES
+    })
+
+    return {
+      baseBranch,
+      targetBranch,
+      baseOnlyCommits,
+      targetOnlyCommits,
+      files,
+      summaryText: summary.stdout.trim(),
+      tooLarge: Boolean(summary.stdoutTruncated)
+    }
+  }
+
   async switchBranch(repoPath: string, branchName: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     await this.git(rootPath, ['switch', normalizeBranchName(branchName)])
@@ -1338,32 +1378,19 @@ export class RepositoryService {
 
   private async getCommitFiles(rootPath: string, commitSha: string): Promise<CommitFileChange[]> {
     const result = await this.git(rootPath, ['diff-tree', '--root', '-r', '--name-status', '-z', '--no-commit-id', commitSha])
-    const records = result.stdout.split('\0').filter(Boolean)
-    const files: CommitFileChange[] = []
+    return parseNameStatusRecords(result.stdout)
+  }
 
-    for (let index = 0; index < records.length; index += 1) {
-      const rawStatus = records[index]
+  private async getBranchComparisonFiles(rootPath: string, range: string): Promise<CommitFileChange[]> {
+    const result = await this.git(rootPath, [
+      'diff',
+      '--name-status',
+      '-z',
+      '--find-renames',
+      range
+    ])
 
-      if (rawStatus.startsWith('R') || rawStatus.startsWith('C')) {
-        files.push({
-          rawStatus,
-          status: rawStatus.startsWith('R') ? 'renamed' : 'copied',
-          originalPath: records[index + 1],
-          path: records[index + 2]
-        })
-        index += 2
-        continue
-      }
-
-      files.push({
-        rawStatus,
-        status: mapRawStatus(rawStatus),
-        path: records[index + 1]
-      })
-      index += 1
-    }
-
-    return files
+    return parseNameStatusRecords(result.stdout)
   }
 
   private async getCommitContainingBranches(rootPath: string, commitSha: string): Promise<string[]> {
@@ -1820,6 +1847,44 @@ function parseStashEntry(line: string): StashEntry {
     createdAtLabel,
     message
   }
+}
+
+function parseNameStatusRecords(output: string): CommitFileChange[] {
+  const records = output.split('\0').filter(Boolean)
+  const files: CommitFileChange[] = []
+
+  for (let index = 0; index < records.length; index += 1) {
+    const rawStatus = records[index]
+
+    if (rawStatus.startsWith('R') || rawStatus.startsWith('C')) {
+      files.push({
+        rawStatus,
+        status: rawStatus.startsWith('R') ? 'renamed' : 'copied',
+        originalPath: records[index + 1],
+        path: records[index + 2]
+      })
+      index += 2
+      continue
+    }
+
+    files.push({
+      rawStatus,
+      status: mapRawStatus(rawStatus),
+      path: records[index + 1]
+    })
+    index += 1
+  }
+
+  return files
+}
+
+function parseBranchCompareCommitCounts(output: string): [number, number] {
+  const [baseOnly, targetOnly] = output.trim().split(/\s+/).map((value) => Number.parseInt(value, 10))
+
+  return [
+    Number.isFinite(baseOnly) ? baseOnly : 0,
+    Number.isFinite(targetOnly) ? targetOnly : 0
+  ]
 }
 
 function parseTagSummary(line: string): TagSummary {

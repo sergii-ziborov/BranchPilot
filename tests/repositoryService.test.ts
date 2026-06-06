@@ -974,6 +974,47 @@ describe('RepositoryService', () => {
     })
   })
 
+  it('compares local branches without switching worktrees', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    await service.createBranch(repoPath, 'feature/compare')
+    writeFileSync(path.join(repoPath, 'feature.txt'), 'feature\n')
+    git(repoPath, ['add', 'feature.txt'])
+    git(repoPath, ['commit', '-m', 'Feature compare work'])
+
+    await service.switchBranch(repoPath, 'main')
+    writeFileSync(path.join(repoPath, 'main.txt'), 'main\n')
+    git(repoPath, ['add', 'main.txt'])
+    git(repoPath, ['commit', '-m', 'Main compare work'])
+
+    const comparison = await service.compareBranch({
+      repoPath,
+      targetBranch: 'feature/compare'
+    })
+
+    expect(comparison).toMatchObject({
+      baseBranch: 'main',
+      targetBranch: 'feature/compare',
+      baseOnlyCommits: 1,
+      targetOnlyCommits: 1,
+      tooLarge: false
+    })
+    expect(comparison.files).toEqual([
+      {
+        path: 'feature.txt',
+        rawStatus: 'A',
+        status: 'added'
+      }
+    ])
+    expect(comparison.summaryText).toContain('feature.txt')
+    expect(git(repoPath, ['branch', '--show-current'])).toBe('main')
+    await expect(service.compareBranch({
+      repoPath,
+      targetBranch: 'main'
+    })).rejects.toMatchObject({ code: 'same_branch' })
+  })
+
   it('creates lightweight and annotated tags and deletes tags with confirmation', async () => {
     const repoPath = createTempRepository()
     const service = createService()

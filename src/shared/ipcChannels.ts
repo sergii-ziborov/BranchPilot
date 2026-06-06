@@ -17,6 +17,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'git:applyPatch',
   'git:cherryPickCommit',
   'git:commit',
+  'git:compareBranch',
   'git:createBranch',
   'git:addRemote',
   'git:createTag',
