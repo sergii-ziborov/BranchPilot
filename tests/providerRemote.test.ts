@@ -6,6 +6,7 @@ describe('provider remote detection', () => {
     expect(getProviderRemoteSummary('https://github.com/example/project.git')).toMatchObject({
       kind: 'github',
       label: 'GitHub',
+      workflowLabel: 'pull request',
       host: 'github.com',
       owner: 'example',
       repository: 'project',
@@ -30,6 +31,7 @@ describe('provider remote detection', () => {
   it('detects planned GitLab and Bitbucket remotes', () => {
     expect(getProviderRemoteSummary('https://gitlab.com/group/subgroup/project.git')).toMatchObject({
       kind: 'gitlab',
+      workflowLabel: 'merge request',
       owner: 'group/subgroup',
       repository: 'project',
       supported: false
@@ -37,6 +39,7 @@ describe('provider remote detection', () => {
 
     expect(getProviderRemoteSummary('git@bitbucket.org:workspace/project.git')).toMatchObject({
       kind: 'bitbucket',
+      workflowLabel: 'pull request',
       owner: 'workspace',
       repository: 'project',
       supported: false

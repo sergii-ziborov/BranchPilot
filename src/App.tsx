@@ -4263,6 +4263,7 @@ function App() {
   function renderProvidersView() {
     const githubProvider = providers.find((provider) => provider.id === 'github')
     const providerRemote = getProviderRemoteSummary(snapshot?.summary.remoteUrl)
+    const showGitHubPullRequestPanel = providerRemote.kind !== 'gitlab' && providerRemote.kind !== 'bitbucket'
     const createPrState = getCreatePullRequestState({
       snapshot,
       githubStatus: githubCliStatus,
@@ -4300,7 +4301,8 @@ function App() {
           hasRepository={Boolean(snapshot)}
         />
 
-        <section className="pr-panel">
+        {showGitHubPullRequestPanel ? (
+          <section className="pr-panel">
           <div className="panel-heading">
             <div>
               <h3>GitHub pull request</h3>
@@ -4522,7 +4524,10 @@ function App() {
           </section>
 
           {renderPullRequestDetailsPanel()}
-        </section>
+          </section>
+        ) : (
+          <PlannedProviderWorkflowPanel remote={providerRemote} />
+        )}
       </section>
     )
   }
@@ -4688,6 +4693,23 @@ function ProviderRemoteCard({
         <InfoRow label="Repository" value={remote.repository ?? 'Unknown'} />
       </div>
       {remoteUrl && <code>{remoteUrl}</code>}
+    </section>
+  )
+}
+
+function PlannedProviderWorkflowPanel({ remote }: { remote: ProviderRemoteSummary }) {
+  return (
+    <section className="planned-provider-panel">
+      <div className="panel-heading compact-heading">
+        <div>
+          <h3>{remote.label} {remote.workflowLabel}</h3>
+          <p>Native {remote.workflowLabel} workflows for this provider are planned.</p>
+        </div>
+        <span className="remote-support-chip planned">Planned</span>
+      </div>
+      <div className="quiet-box">
+        BranchPilot detected this repository on {remote.label}. Local Git, review, commit text, Project Memory, and Project Wiki workflows are available now; provider-native {remote.workflowLabel} creation will come after the adapter is implemented.
+      </div>
     </section>
   )
 }

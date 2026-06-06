@@ -3,6 +3,7 @@ export type ProviderRemoteKind = 'github' | 'gitlab' | 'bitbucket' | 'unknown' |
 export interface ProviderRemoteSummary {
   kind: ProviderRemoteKind
   label: string
+  workflowLabel: string
   host?: string
   owner?: string
   repository?: string
@@ -23,6 +24,7 @@ export function getProviderRemoteSummary(remoteUrl: string | null | undefined): 
     return {
       kind: 'none',
       label: 'No remote',
+      workflowLabel: 'provider workflow',
       supported: false,
       message: 'Add a Git remote before provider workflows are available.'
     }
@@ -36,6 +38,7 @@ export function getProviderRemoteSummary(remoteUrl: string | null | undefined): 
     return {
       kind,
       label: parsed.host,
+      workflowLabel: 'provider workflow',
       host: parsed.host,
       owner: parsed.owner,
       repository,
@@ -47,6 +50,7 @@ export function getProviderRemoteSummary(remoteUrl: string | null | undefined): 
   return {
     kind,
     label,
+    workflowLabel: providerWorkflowLabel(kind),
     host: parsed.host,
     owner: parsed.owner,
     repository,
@@ -109,6 +113,12 @@ function providerLabel(kind: ProviderRemoteKind): string {
   if (kind === 'bitbucket') return 'Bitbucket'
   if (kind === 'none') return 'No remote'
   return 'Unknown provider'
+}
+
+function providerWorkflowLabel(kind: ProviderRemoteKind): string {
+  if (kind === 'gitlab') return 'merge request'
+  if (kind === 'github' || kind === 'bitbucket') return 'pull request'
+  return 'provider workflow'
 }
 
 function providerMessage(kind: ProviderRemoteKind): string {
