@@ -64,6 +64,7 @@ import { CommandRunner } from './lib/commandRunner.js'
 import { DailyReviewService } from './lib/dailyReviewService.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { toBranchPilotError } from './lib/errors.js'
+import { isSafeExternalUrl } from './lib/externalUrl.js'
 import { ProjectMemoryService, ProjectMemoryStore } from './lib/projectMemoryService.js'
 import { ProjectWikiService, ProjectWikiStore } from './lib/projectWikiService.js'
 import { RepositoryService } from './lib/repositoryService.js'
@@ -116,7 +117,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   })
 
@@ -128,7 +129,10 @@ function createMainWindow() {
   }
 
   window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    if (isSafeExternalUrl(url)) {
+      void shell.openExternal(url)
+    }
+
     return { action: 'deny' }
   })
 }
