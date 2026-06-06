@@ -466,6 +466,34 @@ h3 {
   font-size: 13px;
 }
 
+.changes-heading {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(250px, 330px);
+  align-items: start;
+}
+
+.changes-heading > div:first-child {
+  min-width: 0;
+}
+
+.changes-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  justify-content: stretch;
+}
+
+.changes-actions .bulk-stage-toggle,
+.changes-actions .changes-stash-action {
+  grid-column: 1 / -1;
+}
+
+.changes-actions .bulk-stage-toggle,
+.changes-actions button {
+  width: 100%;
+  max-width: none;
+}
+
 .change-list,
 .history-list,
 .branch-list,
@@ -2869,5 +2897,11 @@ h3 {
 
   .pr-actions {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .changes-heading {
+    grid-template-columns: 1fr;
   }
 }

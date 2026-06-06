@@ -1650,22 +1650,23 @@ function App() {
     return (
       <section className="content-grid">
         <div className="changes-panel">
-          <div className="panel-heading">
+          <div className="panel-heading changes-heading">
             <div>
               <h2>Changes</h2>
               <p>Real status from system Git.</p>
             </div>
-            <div className="panel-actions">
+            <div className="panel-actions changes-actions">
               <BulkStageCheckbox
                 state={bulkStageToggleState}
                 disabled={busy}
                 onToggle={toggleBulkStage}
               />
-              <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
+              <button className="changes-stash-action" type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
                 <Save size={17} />
                 Stash changes
               </button>
               <button
+                className="changes-stage-action"
                 type="button"
                 onClick={() => currentRepoPath && runSnapshotAction('All changes staged.', () => api!.stageAll(currentRepoPath))}
                 disabled={busy || !canStageAll}
@@ -1674,6 +1675,7 @@ function App() {
                 Stage all
               </button>
               <button
+                className="changes-stage-action"
                 type="button"
                 onClick={() => currentRepoPath && runSnapshotAction('All changes unstaged.', () => api!.unstageAll(currentRepoPath))}
                 disabled={busy || !canUnstageAll}
