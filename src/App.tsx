@@ -85,6 +85,7 @@ import type {
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
 import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
+import { getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import { getVirtualListWindow, type VirtualListWindow } from './shared/virtualList'
 import './App.css'
@@ -4260,6 +4261,7 @@ function App() {
 
   function renderProvidersView() {
     const githubProvider = providers.find((provider) => provider.id === 'github')
+    const providerRemote = getProviderRemoteSummary(snapshot?.summary.remoteUrl)
     const createPrState = getCreatePullRequestState({
       snapshot,
       githubStatus: githubCliStatus,
@@ -4289,6 +4291,13 @@ function App() {
             </div>
           ))}
         </div>
+
+        <ProviderRemoteCard
+          remote={providerRemote}
+          remoteName={snapshot?.summary.remoteName}
+          remoteUrl={snapshot?.summary.remoteUrl}
+          hasRepository={Boolean(snapshot)}
+        />
 
         <section className="pr-panel">
           <div className="panel-heading">
@@ -4637,6 +4646,40 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
+  )
+}
+
+function ProviderRemoteCard({
+  remote,
+  remoteName,
+  remoteUrl,
+  hasRepository
+}: {
+  remote: ProviderRemoteSummary
+  remoteName?: string
+  remoteUrl?: string
+  hasRepository: boolean
+}) {
+  return (
+    <section className={`provider-remote-card provider-${remote.kind}`}>
+      <div className="provider-remote-heading">
+        <div>
+          <span>Current remote</span>
+          <strong>{hasRepository ? remote.label : 'No repository selected'}</strong>
+        </div>
+        <span className={remote.supported ? 'remote-support-chip supported' : 'remote-support-chip planned'}>
+          {remote.supported ? 'Workflow available' : 'Planned / unavailable'}
+        </span>
+      </div>
+      <p>{hasRepository ? remote.message : 'Open a repository to inspect provider compatibility.'}</p>
+      <div className="provider-remote-grid">
+        <InfoRow label="Remote" value={remoteName ?? 'None'} />
+        <InfoRow label="Host" value={remote.host ?? 'None'} />
+        <InfoRow label="Owner" value={remote.owner ?? 'Unknown'} />
+        <InfoRow label="Repository" value={remote.repository ?? 'Unknown'} />
+      </div>
+      {remoteUrl && <code>{remoteUrl}</code>}
+    </section>
   )
 }
 

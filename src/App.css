@@ -2694,6 +2694,88 @@ button.danger-button:hover {
   font-weight: 700;
 }
 
+.provider-remote-card {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.provider-remote-card.provider-github {
+  border-color: #bbf7d0;
+  background: #f8fff9;
+}
+
+.provider-remote-card.provider-gitlab,
+.provider-remote-card.provider-bitbucket {
+  border-color: #fde68a;
+  background: #fffdf5;
+}
+
+.provider-remote-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.provider-remote-heading span,
+.provider-remote-card p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.provider-remote-heading strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-strong);
+}
+
+.remote-support-chip {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.remote-support-chip.supported {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.remote-support-chip.planned {
+  color: #92400e;
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.provider-remote-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.provider-remote-card code {
+  overflow: hidden;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #f8fafc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .assistant-health-heading {
   display: flex;
   align-items: flex-start;
@@ -3670,6 +3752,7 @@ button.secondary:hover {
   .stash-row,
   .current-pr,
   .pr-row,
+  .provider-remote-grid,
   .severity-strip {
     grid-template-columns: 1fr;
   }
