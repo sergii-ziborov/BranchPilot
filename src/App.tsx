@@ -2783,6 +2783,7 @@ function App() {
     const visibleSummary = changeFilter
       ? `${filteredChanges.length} of ${totalChanges}`
       : `${totalChanges}`
+    const commitAssistantReadiness = assistantReadinessSummary(assistants, selectedAssistant)
 
     return (
       <section className="content-grid changes-workflow-grid">
@@ -2897,10 +2898,24 @@ function App() {
           </div>
 
           <div className="commit-box">
-            <div className="assistant-controls">
-              <label htmlFor="assistant-select">Assistant</label>
+            <input
+              id="commit-title"
+              aria-label="Commit title"
+              value={commitTitle}
+              onChange={(event) => setCommitTitle(event.target.value)}
+              placeholder="Summary (required)"
+            />
+            <textarea
+              id="commit-description"
+              aria-label="Commit description"
+              value={commitDescription}
+              onChange={(event) => setCommitDescription(event.target.value)}
+              placeholder="Description"
+            />
+            <div className="commit-assistant-row">
               <select
                 id="assistant-select"
+                aria-label="Commit text assistant"
                 value={selectedAssistant}
                 onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
               >
@@ -2910,13 +2925,22 @@ function App() {
               </select>
               <button type="button" onClick={generateCommitText} disabled={busy || !counts?.staged || !canGenerateCommitText}>
                 <Bot size={17} />
-                Generate
+                Generate text
+              </button>
+              <button type="button" className="secondary" onClick={checkAssistants} disabled={assistantsChecking}>
+                {assistantsChecking ? <Loader2 className="spin" size={15} /> : <Bot size={15} />}
+                Check
               </button>
             </div>
             {!canGenerateCommitText && (
               <div className="assistant-policy-note">{assistantPolicyBlockedLabel('commit_message', assistantPolicy)}</div>
             )}
-            {renderAssistantReadiness('commit_message')}
+            {commitAssistantReadiness.state !== 'ready' && (
+              <div className={`commit-assistant-note state-${commitAssistantReadiness.state}`}>
+                <strong>{commitAssistantReadiness.title}</strong>
+                <span>{commitAssistantReadiness.message}</span>
+              </div>
+            )}
             <div className="assistant-detections">
               {assistants.map((assistant) => (
                 <span className={`assistant-state state-${assistant.state}`} key={assistant.id}>
@@ -2924,25 +2948,13 @@ function App() {
                 </span>
               ))}
             </div>
-            <label htmlFor="commit-title">Commit title</label>
-            <input
-              id="commit-title"
-              value={commitTitle}
-              onChange={(event) => setCommitTitle(event.target.value)}
-              placeholder="Summarize staged changes"
-            />
-            <label htmlFor="commit-description">Description</label>
-            <textarea
-              id="commit-description"
-              value={commitDescription}
-              onChange={(event) => setCommitDescription(event.target.value)}
-              placeholder="Optional commit body"
-            />
             {renderPreCommitReviewPanel()}
-            <ActionBlockers
-              title={commitActionState.enabled ? 'Ready to commit' : 'Commit blocked'}
-              reasons={commitActionState.reasons}
-            />
+            {commitActionState.reasons.length > 0 && (
+              <ActionBlockers
+                title="Commit blocked"
+                reasons={commitActionState.reasons}
+              />
+            )}
             <div className="commit-actions">
               <button type="button" onClick={commitChanges} disabled={busy || !commitActionState.enabled}>
                 <GitCommitHorizontal size={17} />
@@ -2967,14 +2979,6 @@ function App() {
                 Commit & push
               </button>
             </div>
-            <ActionBlockers
-              title={amendCommitActionState.enabled ? 'Ready to amend last commit' : 'Amend blocked'}
-              reasons={amendCommitActionState.reasons}
-            />
-            <ActionBlockers
-              title={commitAndPushActionState.enabled ? 'Ready to commit and push' : 'Commit & push blocked'}
-              reasons={commitAndPushActionState.reasons}
-            />
           </div>
         </div>
 

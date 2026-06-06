@@ -130,7 +130,9 @@ function createMainWindow() {
 
   if (devServerUrl) {
     void window.loadURL(devServerUrl)
-    window.webContents.openDevTools({ mode: 'detach' })
+    if (process.env.BRANCHPILOT_OPEN_DEVTOOLS === '1') {
+      window.webContents.openDevTools({ mode: 'detach' })
+    }
   } else {
     void window.loadFile(path.join(__dirname, '../../dist/index.html'))
   }
