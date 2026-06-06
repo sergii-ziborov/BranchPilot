@@ -1698,6 +1698,8 @@ function App() {
                   <button
                     className="change-select"
                     type="button"
+                    title={`${change.path} · ${changeLabel(change)}`}
+                    aria-label={`${change.path}, ${changeLabel(change)}`}
                     onClick={() => {
                       setSelectedFilePath(change.path)
                       setDiffMode(change.staged && !change.unstaged ? 'staged' : 'unstaged')
@@ -1705,7 +1707,6 @@ function App() {
                   >
                     <span className={`file-status status-${change.status}`}>{statusToken(change)}</span>
                     <span className="file-name">{change.path}</span>
-                    <span className="file-state">{changeLabel(change)}</span>
                   </button>
                 </div>
               ))
