@@ -975,12 +975,17 @@ function App() {
 
   async function discardSelected() {
     if (!api || !currentRepoPath || !selectedChange) return
-    const confirmed = window.confirm(`Discard local changes in ${selectedChange.path}?`)
+    const isUntracked = selectedChange.untracked
+    const confirmed = window.confirm(
+      isUntracked
+        ? `Delete untracked file ${selectedChange.path}?`
+        : `Discard local changes in ${selectedChange.path}?`
+    )
     if (!confirmed) return
 
-    const action = selectedChange.untracked ? api.deleteUntrackedFile : api.discardFile
+    const action = isUntracked ? api.deleteUntrackedFile : api.discardFile
 
-    await runSnapshotAction('File discarded.', () =>
+    await runSnapshotAction(isUntracked ? 'Untracked file deleted.' : 'File discarded.', () =>
       action({ repoPath: currentRepoPath, filePath: selectedChange.path, confirmed })
     )
   }
