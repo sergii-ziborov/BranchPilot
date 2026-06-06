@@ -44,6 +44,15 @@ export interface GitHubApiClient {
     credential: GitHubDesktopCredential,
     request: ListGitHubRepositoriesRequest
   ): Promise<GitHubRepositorySummary[]>
+  listPullRequests(
+    credential: GitHubDesktopCredential,
+    repository: GitHubRepositoryInfo
+  ): Promise<GitHubPullRequest[]>
+  getPullRequestDetails(
+    credential: GitHubDesktopCredential,
+    repository: GitHubRepositoryInfo,
+    prNumber: number
+  ): Promise<GitHubPullRequestDetails>
   createPullRequest(
     credential: GitHubDesktopCredential,
     repository: GitHubRepositoryInfo,
@@ -70,6 +79,8 @@ const DEFAULT_API_CLIENT: GitHubApiClient = {
   getViewer: getGitHubApiViewer,
   listAccounts: listGitHubApiAccounts,
   listRepositories: listGitHubApiRepositories,
+  listPullRequests: listGitHubApiPullRequests,
+  getPullRequestDetails: getGitHubApiPullRequestDetails,
   createPullRequest: createGitHubApiPullRequest
 }
 
@@ -222,12 +233,22 @@ export async function createGitHubPullRequest(
 
 export async function getCurrentBranchPullRequest(
   runner: CommandRunner,
-  repoPath: string
+  repoPath: string,
+  credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient = DEFAULT_API_CLIENT
 ): Promise<GitHubPullRequest | null> {
   const rootPath = await resolveRepositoryRoot(runner, repoPath)
-  const status = await assertGitHubCliReady(runner, rootPath)
+  const auth = await resolveGitHubAuth(runner, rootPath, credentialProvider, apiClient)
+  const currentBranch = await getCurrentBranch(runner, rootPath)
 
-  const result = await runner.run(status.executable, [
+  if (auth.provider === 'git-credential') {
+    const remote = await getGitHubRepositoryInfo(runner, rootPath)
+    const pullRequests = await apiClient.listPullRequests(auth.credential, remote)
+
+    return pullRequests.find((pullRequest) => pullRequest.headBranch === currentBranch) ?? null
+  }
+
+  const result = await runner.run(auth.executable, [
     'pr',
     'view',
     '--json',
@@ -247,11 +268,18 @@ export async function getCurrentBranchPullRequest(
 
 export async function listGitHubPullRequests(
   runner: CommandRunner,
-  repoPath: string
+  repoPath: string,
+  credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient = DEFAULT_API_CLIENT
 ): Promise<GitHubPullRequest[]> {
   const rootPath = await resolveRepositoryRoot(runner, repoPath)
-  const status = await assertGitHubCliReady(runner, rootPath)
-  const result = await runner.run(status.executable, [
+  const auth = await resolveGitHubAuth(runner, rootPath, credentialProvider, apiClient)
+
+  if (auth.provider === 'git-credential') {
+    return apiClient.listPullRequests(auth.credential, await getGitHubRepositoryInfo(runner, rootPath))
+  }
+
+  const result = await runner.run(auth.executable, [
     'pr',
     'list',
     '--json',
@@ -364,12 +392,19 @@ export async function listGitHubRepositories(
 
 export async function getGitHubPullRequestDetails(
   runner: CommandRunner,
-  request: PullRequestDetailsRequest
+  request: PullRequestDetailsRequest,
+  credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient = DEFAULT_API_CLIENT
 ): Promise<GitHubPullRequestDetails> {
   const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
-  const status = await assertGitHubCliReady(runner, rootPath)
+  const auth = await resolveGitHubAuth(runner, rootPath, credentialProvider, apiClient)
   const prNumber = normalizePullRequestNumber(request.prNumber)
-  const result = await runner.run(status.executable, [
+
+  if (auth.provider === 'git-credential') {
+    return apiClient.getPullRequestDetails(auth.credential, await getGitHubRepositoryInfo(runner, rootPath), prNumber)
+  }
+
+  const result = await runner.run(auth.executable, [
     'pr',
     'view',
     String(prNumber),
@@ -881,6 +916,57 @@ async function listGitHubApiRepositories(
   return filterGitHubRepositories(body.map((value) => normalizeGitHubRepository(value)), request)
 }
 
+async function listGitHubApiPullRequests(
+  credential: GitHubDesktopCredential,
+  repository: GitHubRepositoryInfo
+): Promise<GitHubPullRequest[]> {
+  const url = new URL(`https://api.github.com/repos/${repository.owner}/${repository.repo}/pulls`)
+  url.searchParams.set('state', 'open')
+  url.searchParams.set('per_page', '30')
+  url.searchParams.set('sort', 'updated')
+  url.searchParams.set('direction', 'desc')
+
+  const response = await fetch(url, {
+    headers: githubApiHeaders(credential)
+  })
+  const body = await readGitHubApiJson(response)
+
+  if (!response.ok) {
+    throw new BranchPilotUserError(
+      'github_pr_list_failed',
+      'GitHub API could not list pull requests.',
+      githubApiErrorMessage(body, response.status)
+    )
+  }
+
+  if (!Array.isArray(body)) {
+    throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub API did not return a pull request list.')
+  }
+
+  return body.map((value) => normalizeGitHubPullRequest(value))
+}
+
+async function getGitHubApiPullRequestDetails(
+  credential: GitHubDesktopCredential,
+  repository: GitHubRepositoryInfo,
+  prNumber: number
+): Promise<GitHubPullRequestDetails> {
+  const response = await fetch(`https://api.github.com/repos/${repository.owner}/${repository.repo}/pulls/${prNumber}`, {
+    headers: githubApiHeaders(credential)
+  })
+  const body = await readGitHubApiJson(response)
+
+  if (!response.ok) {
+    throw new BranchPilotUserError(
+      'github_pr_details_failed',
+      'GitHub API could not load pull request details.',
+      githubApiErrorMessage(body, response.status)
+    )
+  }
+
+  return normalizeGitHubPullRequestDetails(body)
+}
+
 function githubApiHeaders(credential: GitHubDesktopCredential): HeadersInit {
   return {
     Accept: 'application/vnd.github+json',
@@ -1145,12 +1231,12 @@ function normalizeGitHubPullRequestDetails(value: unknown): GitHubPullRequestDet
   return {
     ...pullRequest,
     body: typeof record.body === 'string' ? record.body : '',
-    author: normalizeGitHubAuthor(record.author),
-    createdAt: typeof record.createdAt === 'string' ? record.createdAt : '',
-    updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : '',
+    author: normalizeGitHubAuthor(record.author ?? record.user),
+    createdAt: optionalString(record.createdAt) ?? optionalString(record.created_at) ?? '',
+    updatedAt: optionalString(record.updatedAt) ?? optionalString(record.updated_at) ?? '',
     additions: normalizeNonNegativeNumber(record.additions),
     deletions: normalizeNonNegativeNumber(record.deletions),
-    changedFiles: normalizeNonNegativeNumber(record.changedFiles)
+    changedFiles: normalizeNonNegativeNumber(record.changedFiles ?? record.changed_files)
   }
 }
 
@@ -1162,10 +1248,10 @@ function normalizeGitHubPullRequest(value: unknown): GitHubPullRequest {
   const record = value as Record<string, unknown>
   const number = Number(record.number)
   const title = typeof record.title === 'string' ? record.title : ''
-  const url = typeof record.url === 'string' ? record.url : ''
+  const url = optionalString(record.html_url) ?? optionalString(record.url) ?? ''
   const state = typeof record.state === 'string' ? record.state : ''
-  const headBranch = typeof record.headRefName === 'string' ? record.headRefName : ''
-  const baseBranch = typeof record.baseRefName === 'string' ? record.baseRefName : ''
+  const headBranch = optionalString(record.headRefName) ?? normalizeApiBranchRef(record.head, '')
+  const baseBranch = optionalString(record.baseRefName) ?? normalizeApiBranchRef(record.base, '')
 
   if (!Number.isInteger(number) || number <= 0 || !title || !url || !state || !headBranch || !baseBranch) {
     throw new BranchPilotUserError('github_pr_parse_failed', 'GitHub CLI returned an incomplete pull request.')
@@ -1178,7 +1264,7 @@ function normalizeGitHubPullRequest(value: unknown): GitHubPullRequest {
     state,
     headBranch,
     baseBranch,
-    draft: Boolean(record.isDraft)
+    draft: Boolean(record.isDraft ?? record.draft)
   }
 }
 

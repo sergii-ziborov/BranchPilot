@@ -36,13 +36,13 @@ describe('provider preconditions', () => {
     })
   })
 
-  it('requires gh authentication for browsing pull requests', () => {
+  it('allows pull request browsing through gh or GitHub Desktop credentials', () => {
     expect(getPullRequestBrowseState(
       makeSnapshot(),
       makeGitHubStatus({ authProvider: 'git-credential' })
     )).toEqual({
-      enabled: false,
-      reasons: ['Run gh auth login to browse pull requests, checks, diffs, and checkout.']
+      enabled: true,
+      reasons: []
     })
 
     expect(getPullRequestBrowseState(
@@ -51,6 +51,14 @@ describe('provider preconditions', () => {
     )).toEqual({
       enabled: true,
       reasons: []
+    })
+
+    expect(getPullRequestBrowseState(
+      makeSnapshot(),
+      makeGitHubStatus({ authProvider: 'none', authenticated: false })
+    )).toEqual({
+      enabled: false,
+      reasons: ['Authenticate GitHub with gh or GitHub Desktop to browse pull requests.']
     })
   })
 

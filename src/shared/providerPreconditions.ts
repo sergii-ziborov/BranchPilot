@@ -69,8 +69,8 @@ export function getPullRequestBrowseState(
     }
   }
 
-  if (!githubStatus?.ghAuthenticated) {
-    reasons.push('Run gh auth login to browse pull requests, checks, diffs, and checkout.')
+  if (!githubStatus?.authenticated) {
+    reasons.push('Authenticate GitHub with gh or GitHub Desktop to browse pull requests.')
   }
 
   return {

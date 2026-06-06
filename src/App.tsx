@@ -526,7 +526,7 @@ function App() {
   }, [snapshot?.summary.rootPath, viewMode])
 
   useEffect(() => {
-    if (viewMode !== 'providers' || !selectedPullRequestNumber || !githubCliStatus?.ghAuthenticated) {
+    if (viewMode !== 'providers' || !selectedPullRequestNumber || !githubCliStatus?.authenticated) {
       setSelectedPullRequestDetails(null)
       setSelectedPullRequestChecks([])
       setSelectedPullRequestDiff(null)
@@ -535,7 +535,7 @@ function App() {
     }
 
     void loadPullRequestDetails(selectedPullRequestNumber)
-  }, [githubCliStatus?.ghAuthenticated, selectedPullRequestNumber, snapshot?.summary.rootPath, viewMode])
+  }, [githubCliStatus?.authenticated, selectedPullRequestNumber, snapshot?.summary.rootPath, viewMode])
 
   const currentRepoPath = snapshot?.summary.rootPath
   const counts = snapshot?.status.counts
@@ -845,7 +845,7 @@ function App() {
       setGithubAccounts([])
     }
 
-    if (status?.ghAuthenticated && currentRepoPath) {
+    if (status?.authenticated && currentRepoPath) {
       await loadGitHubPullRequests()
     } else {
       setCurrentPullRequest(null)
@@ -876,8 +876,8 @@ function App() {
     }
     const [detailsResult, checksResult, diffResult] = await Promise.all([
       api.getGitHubPullRequestDetails(request),
-      api.getGitHubPullRequestChecks(request),
-      api.getGitHubPullRequestDiff(request)
+      githubCliStatus?.ghAuthenticated ? api.getGitHubPullRequestChecks(request) : Promise.resolve<ApiResult<GitHubPullRequestCheck[]>>({ ok: true, data: [] }),
+      githubCliStatus?.ghAuthenticated ? api.getGitHubPullRequestDiff(request) : Promise.resolve<ApiResult<GitHubPullRequestDiff>>({ ok: true, data: { prNumber, text: '', files: [] } })
     ])
 
     if (detailsResult.ok) {
@@ -4753,7 +4753,7 @@ function App() {
           )}
 
           {githubCliStatus?.authProvider === 'git-credential' && (
-            <div className="command-hint">Using GitHub Desktop credential for PR creation. Run <code>gh auth login</code> to enable PR list, checks, diff, and checkout.</div>
+            <div className="command-hint">Using GitHub Desktop credential for PR creation, list, and details. Run <code>gh auth login</code> to enable checks, diff, and checkout.</div>
           )}
 
           {snapshot && providerRemote.kind !== 'github' && (
@@ -4869,7 +4869,7 @@ function App() {
             <div className="panel-heading compact-heading">
               <div>
                 <h3>Pull requests</h3>
-                <p>{githubCliStatus?.ghAuthenticated ? `${pullRequests.length} recent pull request${pullRequests.length === 1 ? '' : 's'} from GitHub CLI.` : 'PR list, checks, diff, and checkout require gh auth login.'}</p>
+                <p>{githubCliStatus?.authenticated ? `${pullRequests.length} recent pull request${pullRequests.length === 1 ? '' : 's'} from ${githubRepositoryBrowserSourceLabel(githubCliStatus)}.` : 'PR list requires GitHub CLI or GitHub Desktop auth.'}</p>
               </div>
               <button type="button" className="secondary" onClick={loadGitHubPullRequests} disabled={busy || !browsePrState.enabled}>
                 <RefreshCcw size={17} />
@@ -4882,7 +4882,7 @@ function App() {
             />
 
             {!browsePrState.enabled ? (
-              <div className="quiet-box">Authenticate GitHub CLI to browse pull requests in BranchPilot. Creating a PR can still use GitHub Desktop credentials.</div>
+              <div className="quiet-box">Authenticate GitHub with gh or GitHub Desktop to browse pull requests in BranchPilot.</div>
             ) : pullRequests.length === 0 ? (
               <div className="quiet-box">No open pull requests found.</div>
             ) : (
@@ -4928,7 +4928,7 @@ function App() {
                               event.stopPropagation()
                               void checkoutPullRequest(pullRequest)
                             }}
-                            disabled={busy}
+                            disabled={busy || !githubCliStatus?.ghAuthenticated}
                           >
                             <GitPullRequest size={17} />
                             Checkout
@@ -5127,6 +5127,10 @@ function App() {
               <InfoRow label="Changed files" value={String(details.changedFiles)} />
               <InfoRow label="Additions / deletions" value={`+${details.additions} / -${details.deletions}`} />
             </div>
+
+            {!githubCliStatus?.ghAuthenticated && (
+              <div className="command-hint">Checks, diff preview, and PR checkout require <code>gh auth login</code>. Details are loaded through the current GitHub credential.</div>
+            )}
 
             <div className="pr-body">
               {details.body.trim() ? details.body : 'No pull request description.'}

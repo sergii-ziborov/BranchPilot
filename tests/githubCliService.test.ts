@@ -362,6 +362,41 @@ describe('GitHub CLI bridge', () => {
     await expect(listGitHubPullRequests(runner, '/repo')).resolves.toEqual(pullRequests)
   })
 
+  it('lists current and open pull requests through GitHub Desktop credentials', async () => {
+    const currentPullRequest = makePullRequest({
+      number: 7,
+      title: 'Add PR workflow',
+      headBranch: 'feature/pr-workflow',
+      baseBranch: 'main'
+    })
+    const pullRequests = [
+      currentPullRequest,
+      makePullRequest({
+        number: 8,
+        title: 'Tighten branch sync',
+        headBranch: 'feature/sync'
+      })
+    ]
+    const apiClient = new FakeGitHubApiClient(undefined, undefined, pullRequests)
+    const runner = new GitHubCliTestRunner({
+      ghAuthenticated: false,
+      currentBranch: 'feature/pr-workflow'
+    })
+
+    await expect(getCurrentBranchPullRequest(
+      runner,
+      '/repo',
+      new FakeGitHubCredentialProvider(),
+      apiClient
+    )).resolves.toEqual(currentPullRequest)
+    await expect(listGitHubPullRequests(
+      runner,
+      '/repo',
+      new FakeGitHubCredentialProvider(),
+      apiClient
+    )).resolves.toEqual(pullRequests)
+  })
+
   it('returns null when the current branch has no pull request', async () => {
     const runner = new GitHubCliTestRunner({ currentPullRequest: null })
 
@@ -438,6 +473,28 @@ describe('GitHub CLI bridge', () => {
     expect(runner.ghPrDiffArgs).toEqual(['pr', 'diff', '7', '--patch'])
   })
 
+  it('reads pull request details through GitHub Desktop credentials', async () => {
+    const details = makePullRequestDetails({
+      number: 7,
+      title: 'Add API details',
+      body: 'Loaded without gh auth.',
+      changedFiles: 2,
+      additions: 4,
+      deletions: 1
+    })
+    const apiClient = new FakeGitHubApiClient(undefined, undefined, undefined, details)
+
+    await expect(getGitHubPullRequestDetails(
+      new GitHubCliTestRunner({ ghAuthenticated: false }),
+      {
+        repoPath: '/repo',
+        prNumber: 7
+      },
+      new FakeGitHubCredentialProvider(),
+      apiClient
+    )).resolves.toEqual(details)
+  })
+
   it('blocks pull request creation when no GitHub auth path is available', async () => {
     const runner = new GitHubCliTestRunner({ ghAuthenticated: false })
 
@@ -476,9 +533,14 @@ describe('GitHub CLI bridge', () => {
     })).rejects.toMatchObject({ code: 'git_no_upstream' })
   })
 
-  it('blocks pull request list, view, and checkout when GitHub CLI preconditions fail', async () => {
-    await expect(listGitHubPullRequests(new GitHubCliTestRunner({ ghAuthenticated: false }), '/repo'))
-      .rejects.toMatchObject({ code: 'github_cli_unauthenticated' })
+  it('blocks pull request list, view, and checkout when preconditions fail', async () => {
+    await expect(listGitHubPullRequests(
+      new GitHubCliTestRunner({ ghAuthenticated: false }),
+      '/repo',
+      new FakeGitHubCredentialProvider(null),
+      new FakeGitHubApiClient()
+    ))
+      .rejects.toMatchObject({ code: 'github_auth_unauthenticated' })
 
     await expect(getCurrentBranchPullRequest(new GitHubCliTestRunner({ remoteUrl: 'https://gitlab.com/example/project.git' }), '/repo'))
       .rejects.toMatchObject({ code: 'github_remote_missing' })
@@ -564,7 +626,9 @@ class FakeGitHubApiClient implements GitHubApiClient {
     private readonly accounts: GitHubAccountSummary[] = [
       makeAccount({ login: 'desktop-user', type: 'user' }),
       makeAccount({ login: 'desktop-org', type: 'organization' })
-    ]
+    ],
+    private readonly pullRequests: GitHubPullRequest[] = [makePullRequest()],
+    private readonly pullRequestDetails: GitHubPullRequestDetails = makePullRequestDetails()
   ) {}
 
   async getViewer(): Promise<{ login: string }> {
@@ -601,6 +665,21 @@ class FakeGitHubApiClient implements GitHubApiClient {
         repository.description
       ].some((value) => value.toLowerCase().includes(query)) : true
     })
+  }
+
+  async listPullRequests(): Promise<GitHubPullRequest[]> {
+    return this.pullRequests
+  }
+
+  async getPullRequestDetails(
+    _credential: GitHubDesktopCredential,
+    _repository: { owner: string; repo: string; remoteUrl: string },
+    prNumber: number
+  ): Promise<GitHubPullRequestDetails> {
+    return {
+      ...this.pullRequestDetails,
+      number: prNumber
+    }
   }
 
   async createPullRequest(
