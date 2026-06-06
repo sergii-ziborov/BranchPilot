@@ -18,16 +18,24 @@
   "build": {
     "appId": "com.branchpilot.app",
     "productName": "BranchPilot",
+    "asar": true,
     "files": [
       "dist",
       "dist-electron",
       "package.json"
     ],
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release"
     },
     "mac": {
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "target": [
+        "dmg",
+        "zip"
+      ]
     }
   },
   "dependencies": {
