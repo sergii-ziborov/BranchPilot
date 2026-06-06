@@ -265,6 +265,50 @@ h3 {
   justify-content: flex-end;
 }
 
+.bulk-stage-toggle {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  max-width: 190px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.bulk-stage-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #2563eb;
+}
+
+.bulk-stage-toggle span {
+  display: grid;
+  min-width: 0;
+  line-height: 1.1;
+}
+
+.bulk-stage-toggle strong,
+.bulk-stage-toggle small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bulk-stage-toggle strong {
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.bulk-stage-toggle small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .toolbar button,
 .panel-actions button,
 .commit-actions button,

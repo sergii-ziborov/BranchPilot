@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getChangeStageToggleAction, getChangeStageToggleState } from '../src/shared/changeStaging'
-import type { FileChange, FileChangeStatus } from '../src/shared/branchPilot'
+import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from '../src/shared/changeStaging'
+import type { FileChange, FileChangeStatus, RepositoryCounts } from '../src/shared/branchPilot'
 
 describe('change staging toggle', () => {
   it('stages unstaged and untracked files', () => {
@@ -37,6 +37,54 @@ describe('change staging toggle', () => {
       label: 'Stage src/app.ts'
     })
   })
+
+  it('stages all when unstaged or untracked files exist', () => {
+    expect(getBulkStageToggleState(makeCounts({ changed: 3, staged: 0, unstaged: 2, untracked: 1 }))).toEqual({
+      checked: false,
+      mixed: false,
+      disabled: false,
+      action: 'stage_all',
+      label: 'Stage all files',
+      summary: '0 staged / 3 unstaged'
+    })
+  })
+
+  it('shows mixed bulk state when staged and unstaged files coexist', () => {
+    expect(getBulkStageToggleState(makeCounts({ changed: 3, staged: 1, unstaged: 2 }))).toEqual({
+      checked: false,
+      mixed: true,
+      disabled: false,
+      action: 'stage_all',
+      label: 'Stage all files',
+      summary: '1 staged / 2 unstaged'
+    })
+  })
+
+  it('unstages all when every changed file is staged', () => {
+    expect(getBulkStageToggleAction(makeCounts({ changed: 2, staged: 2 }))).toBe('unstage_all')
+    expect(getBulkStageToggleState(makeCounts({ changed: 2, staged: 2 }))).toMatchObject({
+      checked: true,
+      mixed: false,
+      action: 'unstage_all',
+      label: 'Unstage all files'
+    })
+  })
+
+  it('disables bulk staging for clean or conflicted states', () => {
+    expect(getBulkStageToggleState(makeCounts())).toMatchObject({
+      disabled: true,
+      action: 'none',
+      summary: 'No changes'
+    })
+    expect(getBulkStageToggleState(makeCounts({ changed: 2, unstaged: 1, conflicted: 1 }))).toEqual({
+      checked: false,
+      mixed: false,
+      disabled: true,
+      action: 'none',
+      label: 'No bulk staging action available',
+      summary: '0 staged / 1 unstaged / 1 conflicted'
+    })
+  })
 })
 
 function makeChange(overrides: Partial<FileChange> = {}): FileChange {
@@ -55,4 +103,15 @@ function statusFromFlags(change: Partial<FileChange>): FileChangeStatus {
   if (change.untracked) return 'untracked'
   if (change.conflicted) return 'conflicted'
   return 'modified'
+}
+
+function makeCounts(overrides: Partial<RepositoryCounts> = {}): RepositoryCounts {
+  return {
+    changed: 0,
+    staged: 0,
+    unstaged: 0,
+    untracked: 0,
+    conflicted: 0,
+    ...overrides
+  }
 }

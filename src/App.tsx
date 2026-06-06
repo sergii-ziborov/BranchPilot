@@ -73,7 +73,7 @@ import type {
   StashEntry
 } from './shared/branchPilot'
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
-import { getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
+import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
 import { getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import './App.css'
@@ -351,6 +351,7 @@ function App() {
   const canCreateStash = Boolean(snapshot && counts?.changed && mergeState?.operation === 'none')
   const canStageAll = Boolean(snapshot && counts && counts.conflicted === 0 && (counts.unstaged > 0 || counts.untracked > 0))
   const canUnstageAll = Boolean(snapshot && counts && counts.staged > 0)
+  const bulkStageToggleState = getBulkStageToggleState(counts)
   const hasRemote = Boolean(snapshot?.summary.remoteName)
   const hasUpstream = Boolean(snapshot?.summary.upstream)
   const canFetch = Boolean(snapshot && hasRemote)
@@ -934,6 +935,20 @@ function App() {
     await runSnapshotAction('File staged.', () =>
       api.stageFile({ repoPath: currentRepoPath, filePath: change.path })
     )
+  }
+
+  async function toggleBulkStage() {
+    if (!api || !currentRepoPath) return
+    const action = getBulkStageToggleAction(counts)
+
+    if (action === 'stage_all') {
+      await runSnapshotAction('All changes staged.', () => api.stageAll(currentRepoPath))
+      return
+    }
+
+    if (action === 'unstage_all') {
+      await runSnapshotAction('All changes unstaged.', () => api.unstageAll(currentRepoPath))
+    }
   }
 
   async function stageSelectedHunk(hunk: DiffHunk) {
@@ -1641,6 +1656,11 @@ function App() {
               <p>Real status from system Git.</p>
             </div>
             <div className="panel-actions">
+              <BulkStageCheckbox
+                state={bulkStageToggleState}
+                disabled={busy}
+                onToggle={toggleBulkStage}
+              />
               <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
                 <Save size={17} />
                 Stash changes
@@ -3446,6 +3466,44 @@ function StageCheckbox({
           void onToggle(change)
         }}
       />
+    </label>
+  )
+}
+
+function BulkStageCheckbox({
+  state,
+  disabled,
+  onToggle
+}: {
+  state: ReturnType<typeof getBulkStageToggleState>
+  disabled: boolean
+  onToggle: () => void | Promise<void>
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.indeterminate = state.mixed
+    }
+  }, [state.mixed])
+
+  return (
+    <label className="bulk-stage-toggle" title={state.label}>
+      <input
+        ref={inputRef}
+        type="checkbox"
+        aria-label={state.label}
+        aria-checked={state.mixed ? 'mixed' : state.checked}
+        checked={state.checked}
+        disabled={disabled || state.disabled}
+        onChange={() => {
+          void onToggle()
+        }}
+      />
+      <span>
+        <strong>{state.action === 'unstage_all' ? 'Unstage' : 'Stage'}</strong>
+        <small>{state.summary}</small>
+      </span>
     </label>
   )
 }
