@@ -364,6 +364,22 @@ describe('RepositoryService', () => {
     expect(diff.files).toEqual([])
   })
 
+  it('rejects absolute and parent-directory file paths before file Git actions', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    await expect(service.getDiff({
+      repoPath,
+      filePath: '../tracked.txt',
+      staged: false
+    })).rejects.toMatchObject({ code: 'invalid_path' })
+
+    await expect(service.stageFile({
+      repoPath,
+      filePath: path.join(repoPath, 'tracked.txt')
+    })).rejects.toMatchObject({ code: 'invalid_path' })
+  })
+
   it('exports and applies a working tree patch with confirmation', async () => {
     const repoPath = createTempRepository()
     const patchRoot = mkdtempSync(path.join(tmpdir(), 'branchpilot-patch-test-'))
