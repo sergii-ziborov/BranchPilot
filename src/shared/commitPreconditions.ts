@@ -18,6 +18,32 @@ export function getCommitAndPushActionState(input: CommitActionInput): CommitAct
   return buildCommitState(input, true)
 }
 
+export function getAmendCommitActionState(input: CommitActionInput): CommitActionState {
+  const reasons: string[] = []
+  const snapshot = input.snapshot
+
+  if (!snapshot) {
+    reasons.push('Open a repository.')
+  } else {
+    const operation = snapshot.status.merge.operation
+
+    if (operation !== 'none') {
+      reasons.push(`Finish or abort the ${operationLabel(operation)} in Merge view.`)
+    } else if (snapshot.status.counts.conflicted > 0) {
+      reasons.push('Resolve conflicted files before amending.')
+    }
+  }
+
+  if (!input.title.trim()) {
+    reasons.push('Add a commit title.')
+  }
+
+  return {
+    enabled: reasons.length === 0,
+    reasons
+  }
+}
+
 function buildCommitState(input: CommitActionInput, includePushChecks: boolean): CommitActionState {
   const reasons: string[] = []
   const snapshot = input.snapshot

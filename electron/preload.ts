@@ -36,6 +36,7 @@ const branchPilot: BranchPilotApi = {
   discardFile: (request) => invoke('git:discardFile', request),
   deleteUntrackedFile: (request) => invoke('git:deleteUntrackedFile', request),
   commit: (request) => invoke('git:commit', request),
+  amendCommit: (request) => invoke('git:amendCommit', request),
   listStashes: (repoPath) => invoke('stash:list', repoPath),
   createStash: (request) => invoke('stash:create', request),
   applyStash: (request) => invoke('stash:apply', request),

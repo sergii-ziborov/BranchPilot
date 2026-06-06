@@ -79,7 +79,7 @@ import type {
 } from './shared/branchPilot'
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
 import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
-import { getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
+import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import './App.css'
 
@@ -445,6 +445,7 @@ function App() {
   const canGenerateBranchDraft = assistantPolicyAllows(assistantPolicy, 'branch_draft')
   const commitActionState = getCommitActionState({ snapshot, title: commitTitle })
   const commitAndPushActionState = getCommitAndPushActionState({ snapshot, title: commitTitle })
+  const amendCommitActionState = getAmendCommitActionState({ snapshot, title: commitTitle })
   const branchDraftActionState = getBranchDraftActionState({
     snapshot,
     intent: branchDraftGoal,
@@ -1126,6 +1127,34 @@ function App() {
     }
 
     return committed
+  }
+
+  async function amendLastCommit(): Promise<boolean> {
+    if (!api || !currentRepoPath) return false
+    if (!amendCommitActionState.enabled) {
+      setNotice(`Amend blocked: ${amendCommitActionState.reasons.join(' ')}`)
+      return false
+    }
+
+    const confirmed = window.confirm('Amend the last commit? This rewrites the current branch HEAD.')
+    if (!confirmed) return false
+
+    const amended = await runSnapshotAction('Commit amended.', () =>
+      api.amendCommit({
+        repoPath: currentRepoPath,
+        title: commitTitle,
+        description: commitDescription,
+        confirmed
+      })
+    )
+
+    if (amended) {
+      setCommitTitle('')
+      setCommitDescription('')
+      resetPreCommitReview()
+    }
+
+    return amended
   }
 
   async function createStash(message = stashMessage.trim() || defaultStashMessage()) {
@@ -2114,6 +2143,10 @@ function App() {
                 <GitCommitHorizontal size={17} />
                 Commit
               </button>
+              <button type="button" className="secondary" onClick={amendLastCommit} disabled={busy || !amendCommitActionState.enabled}>
+                <Pencil size={17} />
+                Amend last
+              </button>
               <button
                 type="button"
                 className="secondary"
@@ -2129,6 +2162,10 @@ function App() {
                 Commit & push
               </button>
             </div>
+            <ActionBlockers
+              title={amendCommitActionState.enabled ? 'Ready to amend last commit' : 'Amend blocked'}
+              reasons={amendCommitActionState.reasons}
+            />
             <ActionBlockers
               title={commitAndPushActionState.enabled ? 'Ready to commit and push' : 'Commit & push blocked'}
               reasons={commitAndPushActionState.reasons}

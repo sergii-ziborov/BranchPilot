@@ -17,6 +17,7 @@ import type {
   CommitFileDiffRequest,
   CommitMessageGenerationRequest,
   CommitRequest,
+  ConfirmedCommitRequest,
   ConfirmedStashActionRequest,
   ConfirmedFileActionRequest,
   CreateStashRequest,
@@ -441,6 +442,19 @@ function registerIpcHandlers() {
     })
   }, async (request: CommitRequest) =>
     withProjectMemoryRefresh(await repositoryService.commit(request))
+  )
+  handleLogged('git:amendCommit', {
+    type: 'commit_amended',
+    actor: 'user',
+    title: 'Commit amended',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      title_length: request.title.trim().length,
+      description_length: request.description.trim().length,
+      branch: snapshot?.summary.currentBranch ?? 'unknown'
+    })
+  }, async (request: ConfirmedCommitRequest) =>
+    withProjectMemoryRefresh(await repositoryService.amendCommit(request))
   )
   handle('stash:list', (repoPath: string) => repositoryService.listStashes(repoPath))
   handleLogged('stash:create', {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getCommitActionState, getCommitAndPushActionState } from '../src/shared/commitPreconditions'
+import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from '../src/shared/commitPreconditions'
 import type { InProgressOperation, RepositorySnapshot } from '../src/shared/branchPilot'
 
 describe('commit preconditions', () => {
@@ -71,6 +71,26 @@ describe('commit preconditions', () => {
     })).toEqual({
       enabled: false,
       reasons: ['Switch from detached HEAD to a branch before pushing.']
+    })
+  })
+
+  it('allows amend without staged changes when title and repository are ready', () => {
+    expect(getAmendCommitActionState({
+      snapshot: makeSnapshot({ staged: 0 }),
+      title: 'Amend message only'
+    })).toEqual({
+      enabled: true,
+      reasons: []
+    })
+  })
+
+  it('blocks amend during merge workflows and when title is missing', () => {
+    expect(getAmendCommitActionState({
+      snapshot: makeSnapshot({ mergeOperation: 'cherry-pick' }),
+      title: ' '
+    })).toEqual({
+      enabled: false,
+      reasons: ['Finish or abort the cherry-pick in Merge view.', 'Add a commit title.']
     })
   })
 })

@@ -147,6 +147,33 @@ describe('RepositoryService', () => {
     expect(subject).toBe('Update tracked file')
   })
 
+  it('amends the last commit with confirmation and a multiline message', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+    const originalHead = git(repoPath, ['rev-parse', 'HEAD'])
+
+    await expect(service.amendCommit({
+      repoPath,
+      title: 'Blocked amend',
+      description: '',
+      confirmed: false
+    })).rejects.toMatchObject({
+      code: 'confirmation_required'
+    })
+
+    const snapshot = await service.amendCommit({
+      repoPath,
+      title: 'Amended initial commit',
+      description: 'Keeps the tree and rewrites the commit message.',
+      confirmed: true
+    })
+
+    expect(snapshot.status.counts.changed).toBe(0)
+    expect(git(repoPath, ['rev-parse', 'HEAD'])).not.toBe(originalHead)
+    expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Amended initial commit')
+    expect(git(repoPath, ['log', '-1', '--pretty=%b'])).toContain('Keeps the tree')
+  })
+
   it('stages and unstages individual hunks', async () => {
     const repoPath = createTempRepository()
     const service = createService()

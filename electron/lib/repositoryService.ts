@@ -7,6 +7,7 @@ import type {
   CommitDetailsRequest,
   CommitFileChange,
   CommitFileDiffRequest,
+  ConfirmedCommitRequest,
   ConfirmedStashActionRequest,
   CommitRequest,
   CreateStashRequest,
@@ -423,15 +424,39 @@ export class RepositoryService {
     }
 
     const message = [title, request.description.trim()].filter(Boolean).join('\n\n')
-    const messageFile = path.join(os.tmpdir(), `branchpilot-commit-${Date.now()}.txt`)
+    await this.gitCommitWithMessageFile(rootPath, ['commit', '-F'], message)
 
-    await fs.writeFile(messageFile, message, 'utf8')
+    return this.getSnapshot(rootPath)
+  }
 
-    try {
-      await this.git(rootPath, ['commit', '-F', messageFile], { timeoutMs: 120_000 })
-    } finally {
-      await fs.rm(messageFile, { force: true })
+  async amendCommit(request: ConfirmedCommitRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Amending the last commit requires explicit confirmation.')
     }
+
+    const title = request.title.trim()
+
+    if (!title) {
+      throw new BranchPilotUserError('invalid_commit_message', 'Commit title is required.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    await this.git(rootPath, ['rev-parse', '--verify', 'HEAD'])
+
+    const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
+    const parsedStatus = parseGitStatus(statusOutput.stdout)
+    const mergeState = await this.getMergeState(rootPath, parsedStatus.conflicts)
+
+    if (mergeState.operation !== 'none') {
+      throw new BranchPilotUserError('git_operation_in_progress', `Finish or abort the ${mergeState.operation} before amending.`)
+    }
+
+    if (parsedStatus.counts.conflicted > 0) {
+      throw new BranchPilotUserError('conflicts_present', 'Resolve conflicted files before amending.')
+    }
+
+    const message = [title, request.description.trim()].filter(Boolean).join('\n\n')
+    await this.gitCommitWithMessageFile(rootPath, ['commit', '--amend', '-F'], message)
 
     return this.getSnapshot(rootPath)
   }
@@ -916,6 +941,18 @@ export class RepositoryService {
       binary,
       tooLarge,
       files: []
+    }
+  }
+
+  private async gitCommitWithMessageFile(rootPath: string, argsPrefix: string[], message: string): Promise<void> {
+    const messageFile = path.join(os.tmpdir(), `branchpilot-commit-${Date.now()}.txt`)
+
+    await fs.writeFile(messageFile, message, 'utf8')
+
+    try {
+      await this.git(rootPath, [...argsPrefix, messageFile], { timeoutMs: 120_000 })
+    } finally {
+      await fs.rm(messageFile, { force: true })
     }
   }
 
