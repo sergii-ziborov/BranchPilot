@@ -45,6 +45,7 @@ import type {
   RepositorySnapshot,
   ReviewReportRequest,
   StashActionRequest,
+  UpdateSubmoduleRequest,
   UpdateBranchDescriptionRequest
 } from '../src/shared/branchPilot.js'
 import {
@@ -692,6 +693,22 @@ function registerIpcHandlers() {
     })
   }, async (request: RemoveWorktreeRequest) =>
     withProjectMemoryRefresh(await repositoryService.removeWorktree(request))
+  )
+  handle('git:listSubmodules', async (repoPath: string) =>
+    repositoryService.listSubmodules(repoPath)
+  )
+  handleLogged('git:updateSubmodule', {
+    type: 'submodule_updated',
+    actor: 'user',
+    title: 'Submodule updated',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      path: request.path ?? 'all',
+      init: request.init,
+      recursive: request.recursive
+    })
+  }, async (request: UpdateSubmoduleRequest) =>
+    withProjectMemoryRefresh(await repositoryService.updateSubmodule(request))
   )
   handleLogged('git:exportPatch', {
     type: 'patch_exported',

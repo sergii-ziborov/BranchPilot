@@ -83,6 +83,7 @@ export interface RepositorySnapshot {
   branches: BranchSummary[]
   tags: TagSummary[]
   worktrees: WorktreeSummary[]
+  submodules: SubmoduleSummary[]
   recentRepositories: RecentRepository[]
 }
 
@@ -174,6 +175,18 @@ export interface WorktreeSummary {
   prunable: boolean
   current: boolean
   reason?: string
+}
+
+export type SubmoduleStatus = 'initialized' | 'uninitialized' | 'modified' | 'conflicted' | 'unknown'
+
+export interface SubmoduleSummary {
+  path: string
+  absolutePath: string
+  url?: string
+  branch?: string
+  head?: string
+  status: SubmoduleStatus
+  description?: string
 }
 
 export interface CommitSummary {
@@ -338,6 +351,7 @@ export type ActivityLogEventType =
   | 'tag_deleted'
   | 'worktree_created'
   | 'worktree_removed'
+  | 'submodule_updated'
   | 'patch_exported'
   | 'patch_applied'
   | 'git_fetched'
@@ -738,6 +752,13 @@ export interface RemoveWorktreeRequest {
   force?: boolean
 }
 
+export interface UpdateSubmoduleRequest {
+  repoPath: string
+  path?: string
+  init: boolean
+  recursive: boolean
+}
+
 export interface EditorOpenRequest {
   targetPath: string
   line?: number
@@ -903,6 +924,8 @@ export interface BranchPilotApi {
   listWorktrees: (repoPath: string) => Promise<ApiResult<WorktreeSummary[]>>
   createWorktree: (request: CreateWorktreeRequest) => Promise<ApiResult<RepositorySnapshot | null>>
   removeWorktree: (request: RemoveWorktreeRequest) => Promise<ApiResult<RepositorySnapshot>>
+  listSubmodules: (repoPath: string) => Promise<ApiResult<SubmoduleSummary[]>>
+  updateSubmodule: (request: UpdateSubmoduleRequest) => Promise<ApiResult<RepositorySnapshot>>
   exportPatch: (request: ExportPatchRequest) => Promise<ApiResult<ExportedPatch | null>>
   applyPatch: (request: ApplyPatchRequest) => Promise<ApiResult<RepositorySnapshot | null>>
   acceptOurs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>

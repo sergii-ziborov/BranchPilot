@@ -58,6 +58,7 @@ const activityTypes = [
   'tag_deleted',
   'worktree_created',
   'worktree_removed',
+  'submodule_updated',
   'patch_exported',
   'patch_applied',
   'git_fetched',

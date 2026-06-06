@@ -77,6 +77,7 @@ import type {
   ReviewScope,
   ReviewSeverity,
   StashEntry,
+  SubmoduleSummary,
   TagSummary,
   WorktreeSummary
 } from './shared/branchPilot'
@@ -1743,6 +1744,37 @@ function App() {
     )
   }
 
+  async function updateSubmodule(submodule?: SubmoduleSummary) {
+    if (!api || !currentRepoPath) return
+
+    await runSnapshotAction(submodule ? 'Submodule updated.' : 'Submodules updated.', () =>
+      api.updateSubmodule({
+        repoPath: currentRepoPath,
+        path: submodule?.path,
+        init: true,
+        recursive: true
+      })
+    )
+  }
+
+  async function openSubmodule(submodule: SubmoduleSummary) {
+    if (!api) return
+
+    setBusy(true)
+    setError(null)
+    const result = await api.openRepository(submodule.absolutePath)
+
+    if (result.ok) {
+      applySnapshot(result.data, 'Submodule opened.')
+      setViewMode('changes')
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
   function startBranchDescriptionEdit(branch: BranchSummary) {
     setEditingBranchName(branch.name)
     setBranchDescriptionDraft(branch.description ?? '')
@@ -3052,6 +3084,49 @@ function App() {
                   <span>push: {remote.pushUrl ?? 'unset'}</span>
                 </div>
               ))
+            )}
+          </section>
+
+          <section className="config-card submodules-card">
+            <div className="config-card-heading">
+              <div>
+                <h3>Submodules</h3>
+                <p>Initialize and update configured Git submodules.</p>
+              </div>
+              <button type="button" onClick={() => updateSubmodule()} disabled={busy || !snapshot?.submodules.length}>
+                <RefreshCcw size={16} />
+                Update all
+              </button>
+            </div>
+            {!snapshot?.submodules.length ? (
+              <p className="muted-text">No submodules configured.</p>
+            ) : (
+              <div className="submodule-list">
+                {snapshot.submodules.map((submodule) => (
+                  <article className={`submodule-row status-${submodule.status}`} key={submodule.path}>
+                    <div>
+                      <strong>{submodule.path}</strong>
+                      <span>{submoduleStatusLabel(submodule)}</span>
+                      <code>{submodule.url ?? 'No URL configured'}</code>
+                      {submodule.branch && <span>branch: {submodule.branch}</span>}
+                    </div>
+                    <div className="panel-actions">
+                      <button type="button" onClick={() => updateSubmodule(submodule)} disabled={busy}>
+                        <RefreshCcw size={16} />
+                        {submodule.status === 'uninitialized' ? 'Init' : 'Update'}
+                      </button>
+                      <button type="button" onClick={() => openSubmodule(submodule)} disabled={busy || submodule.status === 'uninitialized'}>
+                        <FolderOpen size={16} />
+                        Open
+                      </button>
+                      <button type="button" onClick={() => runOperationAction('Submodule opened in editor.', () => api!.openInEditor({ targetPath: submodule.absolutePath }))} disabled={busy || submodule.status === 'uninitialized'}>
+                        <Code2 size={16} />
+                        Editor
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
             )}
           </section>
         </div>
@@ -4759,6 +4834,21 @@ function worktreeSummaryLabel(worktree: WorktreeSummary): string {
   ].filter((value): value is string => Boolean(value))
 
   return parts.length > 0 ? parts.join(' · ') : 'linked worktree'
+}
+
+function submoduleStatusLabel(submodule: SubmoduleSummary): string {
+  const status = submodule.status === 'initialized'
+    ? 'initialized'
+    : submodule.status === 'uninitialized'
+      ? 'not initialized'
+      : submodule.status
+  const parts = [
+    status,
+    submodule.head ? submodule.head.slice(0, 12) : undefined,
+    submodule.description
+  ].filter((value): value is string => Boolean(value))
+
+  return parts.join(' · ')
 }
 
 function formatBytes(sizeBytes: number): string {

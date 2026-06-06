@@ -486,6 +486,57 @@ describe('RepositoryService', () => {
     expect(git(repoPath, ['config', '--local', '--get', 'user.name'])).toBe('BranchPilot Local')
   })
 
+  it('lists and updates configured submodules', async () => {
+    const repoPath = createTempRepository()
+    const childRepoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(childRepoPath, 'child.txt'), 'child\n')
+    git(childRepoPath, ['add', 'child.txt'])
+    git(childRepoPath, ['commit', '-m', 'Add child fixture'])
+    git(repoPath, ['config', 'protocol.file.allow', 'always'])
+    git(repoPath, ['-c', 'protocol.file.allow=always', 'submodule', 'add', childRepoPath, 'libs/child'])
+    git(repoPath, ['commit', '-m', 'Add child submodule'])
+
+    const snapshot = await service.openRepository(repoPath)
+    expect(snapshot.submodules).toHaveLength(1)
+    expect(snapshot.submodules[0]).toMatchObject({
+      path: 'libs/child',
+      absolutePath: path.join(realpathSync(repoPath), 'libs/child'),
+      url: childRepoPath,
+      status: 'initialized'
+    })
+    expect(snapshot.submodules[0].head).toMatch(/^[a-f0-9]{40}$/)
+
+    git(repoPath, ['submodule', 'deinit', '-f', '--', 'libs/child'])
+    expect((await service.listSubmodules(repoPath))[0]).toMatchObject({
+      path: 'libs/child',
+      status: 'uninitialized'
+    })
+
+    await expect(service.updateSubmodule({
+      repoPath,
+      path: 'libs/missing',
+      init: true,
+      recursive: false
+    })).rejects.toMatchObject({
+      code: 'submodule_not_found'
+    })
+
+    const updated = await service.updateSubmodule({
+      repoPath,
+      path: 'libs/child',
+      init: true,
+      recursive: false
+    })
+
+    expect(updated.submodules[0]).toMatchObject({
+      path: 'libs/child',
+      status: 'initialized'
+    })
+    expect(readFileSync(path.join(repoPath, 'libs/child/child.txt'), 'utf8')).toBe('child\n')
+  })
+
   it('detects and aborts a real merge conflict', async () => {
     const repoPath = createConflictedRepository()
     const service = createService()

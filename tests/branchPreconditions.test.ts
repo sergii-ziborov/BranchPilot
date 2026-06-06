@@ -176,6 +176,7 @@ function makeSnapshot(overrides: {
     })),
     tags: [],
     worktrees: [],
+    submodules: [],
     recentRepositories: []
   }
 }

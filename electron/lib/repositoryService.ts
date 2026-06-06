@@ -40,8 +40,11 @@ import type {
   RepositorySummary,
   StashActionRequest,
   StashEntry,
+  SubmoduleStatus,
+  SubmoduleSummary,
   TagSummary,
-  WorktreeSummary
+  WorktreeSummary,
+  UpdateSubmoduleRequest
 } from '../../src/shared/branchPilot.js'
 import { CommandExecutionError, CommandRunner } from './commandRunner.js'
 import { parseUnifiedDiff } from './diffParser.js'
@@ -154,6 +157,7 @@ export class RepositoryService {
       branches: await this.listBranches(rootPath),
       tags: await this.listTags(rootPath),
       worktrees: await this.listRepositoryWorktrees(rootPath),
+      submodules: await this.listRepositorySubmodules(rootPath),
       recentRepositories: await this.settings.getRecentRepositories()
     }
   }
@@ -758,6 +762,43 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async listSubmodules(repoPath: string): Promise<SubmoduleSummary[]> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    return this.listRepositorySubmodules(rootPath)
+  }
+
+  async updateSubmodule(request: UpdateSubmoduleRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const submodulePath = request.path ? normalizeRelativePath(request.path) : undefined
+    const submodules = await this.listRepositorySubmodules(rootPath)
+
+    if (submodulePath && !submodules.some((submodule) => submodule.path === submodulePath)) {
+      throw new BranchPilotUserError('submodule_not_found', 'Submodule is not configured in this repository.')
+    }
+
+    const syncArgs = ['submodule', 'sync']
+    const updateArgs = ['submodule', 'update']
+
+    if (request.recursive) {
+      syncArgs.push('--recursive')
+      updateArgs.push('--recursive')
+    }
+
+    if (request.init) {
+      updateArgs.push('--init')
+    }
+
+    if (submodulePath) {
+      syncArgs.push('--', submodulePath)
+      updateArgs.push('--', submodulePath)
+    }
+
+    await this.git(rootPath, syncArgs, { timeoutMs: 120_000 })
+    await this.git(rootPath, updateArgs, { timeoutMs: 120_000 })
+
+    return this.getSnapshot(rootPath)
+  }
+
   async exportPatch(request: ExportPatchRequest): Promise<ExportedPatch> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     const outputPath = normalizePatchOutputPath(request.outputPath)
@@ -940,6 +981,38 @@ export class RepositoryService {
   private async listRepositoryWorktrees(rootPath: string): Promise<WorktreeSummary[]> {
     const result = await this.git(rootPath, ['worktree', 'list', '--porcelain', '-z'], { allowedExitCodes: [0, 1] })
     return parseWorktreeList(result.stdout, rootPath)
+  }
+
+  private async listRepositorySubmodules(rootPath: string): Promise<SubmoduleSummary[]> {
+    if (!await pathExists(path.join(rootPath, '.gitmodules'))) {
+      return []
+    }
+
+    const config = await this.git(rootPath, [
+      'config',
+      '-z',
+      '--file',
+      '.gitmodules',
+      '--get-regexp',
+      '^submodule\\..*\\.(path|url|branch)$'
+    ], { allowedExitCodes: [0, 1] })
+    const submoduleConfigs = parseGitmodulesConfig(config.stdout)
+    const status = await this.git(rootPath, ['submodule', 'status', '--recursive'], { allowedExitCodes: [0, 1] })
+    const statusByPath = new Map(parseSubmoduleStatus(status.stdout).map((entry) => [entry.path, entry]))
+
+    return submoduleConfigs.map((entry) => {
+      const statusEntry = statusByPath.get(entry.path)
+
+      return {
+        path: entry.path,
+        absolutePath: path.join(rootPath, entry.path),
+        url: entry.url,
+        branch: entry.branch,
+        head: statusEntry?.head,
+        status: statusEntry?.status ?? 'unknown',
+        description: statusEntry?.description
+      }
+    })
   }
 
   private async assertValidTagName(rootPath: string, tagName: string): Promise<void> {
@@ -1481,6 +1554,106 @@ function parseTagSummary(line: string): TagSummary {
     createdAt: createdAt || undefined,
     subject: subject || undefined
   }
+}
+
+interface ParsedSubmoduleConfig {
+  name: string
+  path?: string
+  url?: string
+  branch?: string
+}
+
+interface ParsedSubmoduleStatus {
+  path: string
+  head?: string
+  status: SubmoduleStatus
+  description?: string
+}
+
+function parseGitmodulesConfig(output: string): Array<Required<Pick<ParsedSubmoduleConfig, 'name' | 'path'>> & Partial<ParsedSubmoduleConfig>> {
+  const entries = new Map<string, ParsedSubmoduleConfig>()
+
+  for (const record of output.split('\0').filter(Boolean)) {
+    const separatorIndex = record.indexOf('\n')
+
+    if (separatorIndex === -1) {
+      continue
+    }
+
+    const key = record.slice(0, separatorIndex)
+    const value = record.slice(separatorIndex + 1)
+    const match = key.match(/^submodule\.(.+)\.(path|url|branch)$/)
+
+    if (!match) {
+      continue
+    }
+
+    const [, name, property] = match
+    const entry = entries.get(name) ?? { name }
+
+    if (property === 'path') {
+      entry.path = value
+    } else if (property === 'url') {
+      entry.url = value
+    } else if (property === 'branch') {
+      entry.branch = value
+    }
+
+    entries.set(name, entry)
+  }
+
+  return [...entries.values()]
+    .filter((entry): entry is Required<Pick<ParsedSubmoduleConfig, 'name' | 'path'>> & Partial<ParsedSubmoduleConfig> =>
+      Boolean(entry.path)
+    )
+    .map((entry) => ({
+      ...entry,
+      path: normalizeRelativePath(entry.path)
+    }))
+}
+
+function parseSubmoduleStatus(output: string): ParsedSubmoduleStatus[] {
+  return output
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map(parseSubmoduleStatusLine)
+    .filter((entry): entry is ParsedSubmoduleStatus => Boolean(entry))
+}
+
+function parseSubmoduleStatusLine(line: string): ParsedSubmoduleStatus | null {
+  const prefix = line[0]
+  const rest = line.slice(1)
+  const firstSpaceIndex = rest.indexOf(' ')
+
+  if (firstSpaceIndex === -1) {
+    return null
+  }
+
+  const head = rest.slice(0, firstSpaceIndex)
+  let pathAndDescription = rest.slice(firstSpaceIndex + 1)
+  let description: string | undefined
+  const descriptionIndex = pathAndDescription.lastIndexOf(' (')
+
+  if (descriptionIndex !== -1 && pathAndDescription.endsWith(')')) {
+    description = pathAndDescription.slice(descriptionIndex + 2, -1)
+    pathAndDescription = pathAndDescription.slice(0, descriptionIndex)
+  }
+
+  return {
+    path: normalizeRelativePath(pathAndDescription),
+    head: head || undefined,
+    status: mapSubmoduleStatus(prefix),
+    description
+  }
+}
+
+function mapSubmoduleStatus(prefix: string): SubmoduleStatus {
+  if (prefix === ' ') return 'initialized'
+  if (prefix === '-') return 'uninitialized'
+  if (prefix === '+') return 'modified'
+  if (prefix === 'U') return 'conflicted'
+  return 'unknown'
 }
 
 function parseWorktreeList(output: string, rootPath: string): WorktreeSummary[] {
