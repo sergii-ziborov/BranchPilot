@@ -1804,9 +1804,14 @@ function App() {
                 <X size={17} />
                 Unstage
               </button>
-              <button type="button" onClick={discardSelected} disabled={!selectedChange || (!selectedChange.unstaged && !selectedChange.untracked)}>
+              <button
+                className="danger-button"
+                type="button"
+                onClick={discardSelected}
+                disabled={!selectedChange || (!selectedChange.unstaged && !selectedChange.untracked)}
+              >
                 <Trash2 size={17} />
-                Discard
+                {selectedChange?.untracked ? 'Delete' : 'Discard'}
               </button>
             </div>
           </div>
@@ -2194,7 +2199,7 @@ function App() {
                     <RefreshCcw size={15} />
                     Reload
                   </button>
-                  <button type="button" onClick={clearActivityLog} disabled={memoryLoading || !activityLog?.totalCount}>
+                  <button className="danger-button" type="button" onClick={clearActivityLog} disabled={memoryLoading || !activityLog?.totalCount}>
                     <Trash2 size={15} />
                     Clear
                   </button>
@@ -2438,7 +2443,7 @@ function App() {
                       <ArrowDownToLine size={17} />
                       Apply
                     </button>
-                    <button type="button" onClick={() => dropStash(stash)} disabled={busy}>
+                    <button className="danger-button" type="button" onClick={() => dropStash(stash)} disabled={busy}>
                       <Trash2 size={17} />
                       Drop
                     </button>
@@ -2471,6 +2476,7 @@ function App() {
               Continue
             </button>
             <button
+              className="danger-button"
               type="button"
               disabled={!hasOperation || busy}
               onClick={() => currentRepoPath && window.confirm('Abort the current Git operation?') && runSnapshotAction('Operation aborted.', () => api!.abortMergeOperation(currentRepoPath))}

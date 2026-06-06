@@ -339,13 +339,13 @@ h3 {
   background: #f9fafb;
 }
 
-.panel-actions button.danger-button {
+button.danger-button {
   border-color: #fecaca;
   color: #b91c1c;
   background: #fff7f7;
 }
 
-.panel-actions button.danger-button:hover {
+button.danger-button:hover {
   border-color: #fca5a5;
   background: #fef2f2;
 }
