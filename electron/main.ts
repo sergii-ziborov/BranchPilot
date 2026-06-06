@@ -50,6 +50,7 @@ import type {
   RepositoryPinRequest,
   RepositorySnapshot,
   ReviewReportRequest,
+  SetBranchUpstreamRequest,
   StashActionRequest,
   UpdateSubmoduleRequest,
   UpdateBranchDescriptionRequest
@@ -711,6 +712,18 @@ function registerIpcHandlers() {
     })
   }, async (request: RenameBranchRequest) =>
     withProjectMemoryRefresh(await repositoryService.renameBranch(request.repoPath, request.oldBranchName, request.newBranchName))
+  )
+  handleLogged('git:setBranchUpstream', {
+    type: 'branch_upstream_updated',
+    actor: 'user',
+    title: 'Branch upstream updated',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      branch: request.branchName,
+      upstream: request.upstream
+    })
+  }, async (request: SetBranchUpstreamRequest) =>
+    withProjectMemoryRefresh(await repositoryService.setBranchUpstream(request.repoPath, request.branchName, request.upstream))
   )
   handleLogged('git:updateBranchDescription', {
     type: 'branch_description_updated',

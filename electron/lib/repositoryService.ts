@@ -821,6 +821,18 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async setBranchUpstream(repoPath: string, branchName: string, upstream: string): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const normalizedName = normalizeBranchName(branchName)
+    const normalizedUpstream = normalizeGitRef(upstream)
+
+    await this.assertLocalBranchExists(rootPath, normalizedName)
+    await this.assertRemoteTrackingBranchExists(rootPath, normalizedUpstream)
+    await this.git(rootPath, ['branch', `--set-upstream-to=${normalizedUpstream}`, normalizedName])
+
+    return this.getSnapshot(rootPath)
+  }
+
   async updateBranchDescription(repoPath: string, branchName: string, description: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const normalizedName = normalizeBranchName(branchName)
@@ -1528,6 +1540,16 @@ export class RepositoryService {
 
     if (result.exitCode === 0) {
       throw new BranchPilotUserError('branch_exists', 'Local branch already exists.')
+    }
+  }
+
+  private async assertRemoteTrackingBranchExists(rootPath: string, upstream: string): Promise<void> {
+    const result = await this.git(rootPath, ['show-ref', '--verify', '--quiet', `refs/remotes/${upstream}`], {
+      allowedExitCodes: [0, 1]
+    })
+
+    if (result.exitCode !== 0) {
+      throw new BranchPilotUserError('invalid_upstream', 'Remote tracking branch does not exist. Fetch first or choose another upstream.')
     }
   }
 

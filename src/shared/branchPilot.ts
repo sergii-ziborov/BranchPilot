@@ -393,6 +393,7 @@ export type ActivityLogEventType =
   | 'branch_created'
   | 'branch_description_updated'
   | 'branch_renamed'
+  | 'branch_upstream_updated'
   | 'branch_switched'
   | 'branch_deleted'
   | 'remote_added'
@@ -800,6 +801,12 @@ export interface RenameBranchRequest {
   newBranchName: string
 }
 
+export interface SetBranchUpstreamRequest {
+  repoPath: string
+  branchName: string
+  upstream: string
+}
+
 export interface DeleteBranchRequest extends BranchActionRequest {
   confirmed: boolean
   force: boolean
@@ -1030,6 +1037,7 @@ export interface BranchPilotApi {
   publishBranch: (request: PublishBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   createBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   renameBranch: (request: RenameBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
+  setBranchUpstream: (request: SetBranchUpstreamRequest) => Promise<ApiResult<RepositorySnapshot>>
   updateBranchDescription: (request: UpdateBranchDescriptionRequest) => Promise<ApiResult<RepositorySnapshot>>
   compareBranch: (request: BranchCompareRequest) => Promise<ApiResult<BranchComparison>>
   switchBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>

@@ -980,6 +980,22 @@ describe('RepositoryService', () => {
     expect(git(remotePath, ['log', '-1', '--pretty=%s', 'main'])).toBe('Initial commit')
   })
 
+  it('sets upstream for an existing local branch', async () => {
+    const { repoPath } = createRemoteBackedRepository()
+    const service = createService()
+
+    git(repoPath, ['push', '--quiet', 'origin', 'main:tracked-main'])
+    git(repoPath, ['fetch', '--quiet', 'origin'])
+
+    const snapshot = await service.setBranchUpstream(repoPath, 'main', 'origin/tracked-main')
+
+    expect(snapshot.summary.upstream).toBe('origin/tracked-main')
+    expect(git(repoPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])).toBe('origin/tracked-main')
+    await expect(service.setBranchUpstream(repoPath, 'main', 'origin/missing')).rejects.toMatchObject({
+      code: 'invalid_upstream'
+    })
+  })
+
   it('blocks branch sync operations from detached HEAD', async () => {
     const { repoPath } = createRemoteBackedRepository()
     const service = createService()

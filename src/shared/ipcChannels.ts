@@ -40,6 +40,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'git:renameBranch',
   'git:revertCommit',
   'git:setRemoteUrl',
+  'git:setBranchUpstream',
   'git:stageAll',
   'git:stageFile',
   'git:stageHunk',

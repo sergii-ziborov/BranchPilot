@@ -2033,6 +2033,22 @@ function App() {
     )
   }
 
+  async function setBranchUpstream(branch: BranchSummary) {
+    if (!api || !currentRepoPath || !snapshot?.summary.remoteName) return
+    const defaultUpstream = `${snapshot.summary.remoteName}/${branch.name}`
+    const upstream = window.prompt('Set upstream branch', defaultUpstream)?.trim()
+
+    if (!upstream) return
+
+    await runSnapshotAction('Branch upstream updated.', () =>
+      api.setBranchUpstream({
+        repoPath: currentRepoPath,
+        branchName: branch.name,
+        upstream
+      })
+    )
+  }
+
   async function compareBranch(branch: BranchSummary) {
     if (!api || !currentRepoPath || branch.current) return
 
@@ -4291,6 +4307,12 @@ function App() {
                     }))}>
                       <UploadCloud size={16} />
                       Publish
+                    </button>
+                  )}
+                  {!branch.upstream && snapshot?.summary.remoteName && (
+                    <button type="button" onClick={() => setBranchUpstream(branch)} disabled={busy || isEditingDescription}>
+                      <UploadCloud size={16} />
+                      Track
                     </button>
                   )}
                   <button
