@@ -144,6 +144,7 @@ function makeSnapshot(overrides: {
       }
     },
     branches: [],
+    tags: [],
     recentRepositories: []
   }
 }

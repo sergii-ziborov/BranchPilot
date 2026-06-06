@@ -1643,6 +1643,101 @@ button.danger-button:hover {
   background: #ffffff;
 }
 
+.tag-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.tag-composer {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 9px 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.tag-composer label {
+  padding-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tag-composer textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.tag-composer-actions {
+  display: flex;
+  grid-column: 2;
+  justify-content: flex-end;
+}
+
+.tag-composer-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.tag-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.tag-row > div:first-child {
+  min-width: 0;
+}
+
+.tag-row strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-row span {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-row p {
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 13px;
+}
+
 .config-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3168,13 +3263,15 @@ button.secondary:hover {
   }
 
   .branch-row,
-  .conflict-row {
+  .conflict-row,
+  .tag-row {
     align-items: stretch;
     flex-direction: column;
   }
 
   .branch-row .panel-actions,
-  .conflict-row .panel-actions {
+  .conflict-row .panel-actions,
+  .tag-row .panel-actions {
     max-width: 100%;
   }
 
@@ -3190,6 +3287,7 @@ button.secondary:hover {
   .review-controls,
   .assistant-policy-actions,
   .branch-composer-grid,
+  .tag-composer,
   .merge-start,
   .pr-details-meta,
   .pr-diff-panel,
@@ -3222,7 +3320,9 @@ button.secondary:hover {
 
   .dashboard-repo-row,
   .dashboard-repo-metrics,
-  .dashboard-compact-row {
+  .dashboard-compact-row,
+  .tag-composer-actions {
     grid-template-columns: 1fr;
+    grid-column: auto;
   }
 }

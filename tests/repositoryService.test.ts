@@ -665,6 +665,42 @@ describe('RepositoryService', () => {
     })
   })
 
+  it('creates lightweight and annotated tags and deletes tags with confirmation', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    const lightweight = await service.createTag({
+      repoPath,
+      tagName: 'v0.1.0'
+    })
+    expect(lightweight.tags.find((tag) => tag.name === 'v0.1.0')).toMatchObject({
+      targetShortSha: git(repoPath, ['rev-parse', '--short', 'HEAD'])
+    })
+
+    const annotated = await service.createTag({
+      repoPath,
+      tagName: 'release/v0.1.1',
+      message: 'Release v0.1.1'
+    })
+    expect(annotated.tags.find((tag) => tag.name === 'release/v0.1.1')?.subject).toBe('Release v0.1.1')
+
+    await expect(service.deleteTag({
+      repoPath,
+      tagName: 'v0.1.0',
+      confirmed: false
+    })).rejects.toMatchObject({
+      code: 'confirmation_required'
+    })
+
+    const deleted = await service.deleteTag({
+      repoPath,
+      tagName: 'v0.1.0',
+      confirmed: true
+    })
+    expect(deleted.tags.map((tag) => tag.name)).not.toContain('v0.1.0')
+    expect(deleted.tags.map((tag) => tag.name)).toContain('release/v0.1.1')
+  })
+
   it('blocks deleting the current branch and reports unmerged safe-delete failures', async () => {
     const repoPath = createTempRepository()
     const service = createService()

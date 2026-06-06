@@ -93,6 +93,7 @@ function makeSnapshot(overrides: Partial<RepositorySnapshot['summary']> = {}): R
       }
     },
     branches: [],
+    tags: [],
     recentRepositories: []
   }
 }

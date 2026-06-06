@@ -23,8 +23,10 @@ import type {
   ConfirmedFileActionRequest,
   CreateStashRequest,
   CreatePullRequestRequest,
+  CreateTagRequest,
   DailyReviewRequest,
   DeleteBranchRequest,
+  DeleteTagRequest,
   DiffRequest,
   EditorOpenRequest,
   FileActionRequest,
@@ -584,6 +586,27 @@ function registerIpcHandlers() {
     metadata: ([request]) => ({ branch: request.branchName, force: request.force })
   }, async (request: DeleteBranchRequest) =>
     withProjectMemoryRefresh(await repositoryService.deleteBranch(request.repoPath, request.branchName, request.force))
+  )
+  handleLogged('git:createTag', {
+    type: 'tag_created',
+    actor: 'user',
+    title: 'Tag created',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      tag: request.tagName,
+      annotated: Boolean(request.message?.trim())
+    })
+  }, async (request: CreateTagRequest) =>
+    withProjectMemoryRefresh(await repositoryService.createTag(request))
+  )
+  handleLogged('git:deleteTag', {
+    type: 'tag_deleted',
+    actor: 'user',
+    title: 'Tag deleted',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({ tag: request.tagName })
+  }, async (request: DeleteTagRequest) =>
+    withProjectMemoryRefresh(await repositoryService.deleteTag(request))
   )
 
   handleLogged('merge:acceptOurs', {

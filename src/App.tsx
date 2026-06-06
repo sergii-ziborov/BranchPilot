@@ -75,7 +75,8 @@ import type {
   ReviewReport,
   ReviewScope,
   ReviewSeverity,
-  StashEntry
+  StashEntry,
+  TagSummary
 } from './shared/branchPilot'
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
 import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
@@ -146,6 +147,9 @@ function App() {
   const [newBranchDescription, setNewBranchDescription] = useState('')
   const [branchDraftGoal, setBranchDraftGoal] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagMessage, setNewTagMessage] = useState('')
   const [editingBranchName, setEditingBranchName] = useState<string | null>(null)
   const [branchDescriptionDraft, setBranchDescriptionDraft] = useState('')
   const [branchDescriptionGenerating, setBranchDescriptionGenerating] = useState<string | null>(null)
@@ -1581,6 +1585,44 @@ function App() {
     setBranchDraftGoal('')
   }
 
+  async function createTag() {
+    if (!api || !currentRepoPath) return
+
+    const tagName = newTagName.trim()
+    if (!tagName) {
+      setNotice('Create tag blocked: add a tag name.')
+      return
+    }
+
+    const created = await runSnapshotAction('Tag created.', () =>
+      api.createTag({
+        repoPath: currentRepoPath,
+        tagName,
+        message: newTagMessage
+      })
+    )
+
+    if (created) {
+      setNewTagName('')
+      setNewTagMessage('')
+    }
+  }
+
+  async function deleteTag(tag: TagSummary) {
+    if (!api || !currentRepoPath) return
+
+    const confirmed = window.confirm(`Delete local tag ${tag.name}?`)
+    if (!confirmed) return
+
+    await runSnapshotAction('Tag deleted.', () =>
+      api.deleteTag({
+        repoPath: currentRepoPath,
+        tagName: tag.name,
+        confirmed
+      })
+    )
+  }
+
   function startBranchDescriptionEdit(branch: BranchSummary) {
     setEditingBranchName(branch.name)
     setBranchDescriptionDraft(branch.description ?? '')
@@ -1879,7 +1921,7 @@ function App() {
             {viewMode === 'changes' && renderChangesView()}
             {viewMode === 'history' && renderHistoryView()}
             {viewMode === 'merge' && renderMergeView()}
-            {viewMode === 'branches' && renderBranchesView(snapshot.branches)}
+            {viewMode === 'branches' && renderBranchesView(snapshot.branches, snapshot.tags)}
             {viewMode === 'config' && renderConfigView()}
             {viewMode === 'stash' && renderStashView()}
             {viewMode === 'review' && renderReviewView()}
@@ -3049,7 +3091,7 @@ function App() {
     )
   }
 
-  function renderBranchesView(branches: BranchSummary[]) {
+  function renderBranchesView(branches: BranchSummary[], tags: TagSummary[]) {
     const branchQuery = branchFilter.trim().toLowerCase()
     const filteredBranches = branchQuery
       ? branches.filter((branch) =>
@@ -3063,6 +3105,14 @@ function App() {
           .some((value) => value.toLowerCase().includes(branchQuery))
       )
       : branches
+    const tagQuery = tagFilter.trim().toLowerCase()
+    const filteredTags = tagQuery
+      ? tags.filter((tag) =>
+        [tag.name, tag.targetSha, tag.targetShortSha, tag.subject]
+          .filter((value): value is string => Boolean(value))
+          .some((value) => value.toLowerCase().includes(tagQuery))
+      )
+      : tags
 
     return (
       <section className="single-panel">
@@ -3260,6 +3310,87 @@ function App() {
             )
           })}
         </div>
+
+        <section className="tag-panel">
+          <div className="panel-heading">
+            <div>
+              <h3>Tags</h3>
+              <p>Create lightweight or annotated local tags at the current HEAD.</p>
+            </div>
+            <span>{tags.length} tag{tags.length === 1 ? '' : 's'}</span>
+          </div>
+
+          <div className="tag-composer">
+            <label htmlFor="tag-name">Tag name</label>
+            <input
+              id="tag-name"
+              value={newTagName}
+              onChange={(event) => setNewTagName(event.target.value)}
+              placeholder="v1.0.0"
+            />
+            <label htmlFor="tag-message">Annotation</label>
+            <textarea
+              id="tag-message"
+              value={newTagMessage}
+              onChange={(event) => setNewTagMessage(event.target.value)}
+              placeholder="Optional annotated tag message"
+            />
+            <div className="tag-composer-actions">
+              <button type="button" onClick={createTag} disabled={busy || !newTagName.trim()}>
+                <Plus size={17} />
+                Create tag
+              </button>
+            </div>
+          </div>
+
+          <div className="list-filter-bar">
+            <label className="list-filter-input" htmlFor="tag-filter">
+              <Search size={16} />
+              <input
+                id="tag-filter"
+                value={tagFilter}
+                onChange={(event) => setTagFilter(event.target.value)}
+                placeholder="Search tags"
+              />
+            </label>
+            <span>{filteredTags.length} / {tags.length}</span>
+            {tagFilter && (
+              <button type="button" className="secondary" onClick={() => setTagFilter('')}>
+                <X size={15} />
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="tag-list">
+            {tags.length === 0 ? (
+              <div className="quiet-box">No local tags.</div>
+            ) : filteredTags.length === 0 ? (
+              <div className="quiet-box">No tags match this search.</div>
+            ) : (
+              filteredTags.map((tag) => (
+                <article className="tag-row" key={tag.name}>
+                  <div>
+                    <strong>{tag.name}</strong>
+                    <span>{tag.targetShortSha}{tag.createdAt ? ` · ${formatDate(tag.createdAt)}` : ''}</span>
+                    {tag.subject && <p>{tag.subject}</p>}
+                  </div>
+                  <div className="panel-actions">
+                    <button
+                      className="danger-button"
+                      type="button"
+                      onClick={() => deleteTag(tag)}
+                      disabled={busy}
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
       </section>
     )
   }

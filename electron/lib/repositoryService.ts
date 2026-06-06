@@ -12,8 +12,10 @@ import type {
   ConfirmedStashActionRequest,
   CommitRequest,
   CreateStashRequest,
+  CreateTagRequest,
   DashboardRepositorySummary,
   DashboardStaleBranch,
+  DeleteTagRequest,
   CommitSummary,
   DiffRequest,
   DiffResult,
@@ -32,7 +34,8 @@ import type {
   RepositoryStatus,
   RepositorySummary,
   StashActionRequest,
-  StashEntry
+  StashEntry,
+  TagSummary
 } from '../../src/shared/branchPilot.js'
 import { CommandExecutionError, CommandRunner } from './commandRunner.js'
 import { parseUnifiedDiff } from './diffParser.js'
@@ -143,6 +146,7 @@ export class RepositoryService {
       summary,
       status,
       branches: await this.listBranches(rootPath),
+      tags: await this.listTags(rootPath),
       recentRepositories: await this.settings.getRecentRepositories()
     }
   }
@@ -670,6 +674,35 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async createTag(request: CreateTagRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const tagName = normalizeTagName(request.tagName)
+    await this.assertValidTagName(rootPath, tagName)
+
+    const message = request.message?.trim()
+
+    if (message) {
+      await this.git(rootPath, ['tag', '-a', tagName, '-m', normalizeConfigValue(message, 'Tag message')])
+    } else {
+      await this.git(rootPath, ['tag', tagName])
+    }
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async deleteTag(request: DeleteTagRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Deleting a tag requires explicit confirmation.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const tagName = normalizeTagName(request.tagName)
+    await this.assertValidTagName(rootPath, tagName)
+    await this.git(rootPath, ['tag', '-d', tagName])
+
+    return this.getSnapshot(rootPath)
+  }
+
   async acceptOurs(request: FileActionRequest): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     const filePath = normalizeRelativePath(request.filePath)
@@ -781,6 +814,30 @@ export class RepositoryService {
       ...branch,
       description: await this.getConfig(rootPath, `branch.${branch.name}.description`)
     })))
+  }
+
+  private async listTags(rootPath: string): Promise<TagSummary[]> {
+    const result = await this.git(rootPath, [
+      'tag',
+      '--list',
+      '--sort=-creatordate',
+      '--format=%(refname:short)%00%(objectname)%00%(objectname:short)%00%(*objectname)%00%(*objectname:short)%00%(creatordate:iso-strict)%00%(subject)'
+    ])
+
+    return result.stdout
+      .split('\n')
+      .filter(Boolean)
+      .map(parseTagSummary)
+  }
+
+  private async assertValidTagName(rootPath: string, tagName: string): Promise<void> {
+    const result = await this.git(rootPath, ['check-ref-format', `refs/tags/${tagName}`], {
+      allowedExitCodes: [0, 1]
+    })
+
+    if (result.exitCode !== 0) {
+      throw new BranchPilotUserError('invalid_tag', 'Invalid tag name.')
+    }
   }
 
   private async resolveRepositoryRoot(selectedPath: string): Promise<string> {
@@ -1103,6 +1160,16 @@ function normalizeBranchName(branchName: string): string {
   return trimmed
 }
 
+function normalizeTagName(tagName: string): string {
+  const trimmed = tagName.trim()
+
+  if (!trimmed || trimmed.startsWith('-') || trimmed.includes('\0')) {
+    throw new BranchPilotUserError('invalid_tag', 'Invalid tag name.')
+  }
+
+  return trimmed
+}
+
 function normalizeCommitSha(commitSha: string): string {
   const trimmed = commitSha.trim()
 
@@ -1173,6 +1240,18 @@ function parseStashEntry(line: string): StashEntry {
     sha,
     createdAtLabel,
     message
+  }
+}
+
+function parseTagSummary(line: string): TagSummary {
+  const [name, objectSha, objectShortSha, dereferencedSha, dereferencedShortSha, createdAt, subject] = line.split('\0')
+
+  return {
+    name,
+    targetSha: dereferencedSha || objectSha,
+    targetShortSha: dereferencedShortSha || objectShortSha,
+    createdAt: createdAt || undefined,
+    subject: subject || undefined
   }
 }
 

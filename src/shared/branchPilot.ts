@@ -81,6 +81,7 @@ export interface RepositorySnapshot {
   summary: RepositorySummary
   status: RepositoryStatus
   branches: BranchSummary[]
+  tags: TagSummary[]
   recentRepositories: RecentRepository[]
 }
 
@@ -152,6 +153,14 @@ export interface BranchSummary {
   description?: string
   lastCommit?: string
   lastCommitAt?: string
+}
+
+export interface TagSummary {
+  name: string
+  targetSha: string
+  targetShortSha: string
+  createdAt?: string
+  subject?: string
 }
 
 export interface CommitSummary {
@@ -312,6 +321,8 @@ export type ActivityLogEventType =
   | 'branch_description_updated'
   | 'branch_switched'
   | 'branch_deleted'
+  | 'tag_created'
+  | 'tag_deleted'
   | 'git_fetched'
   | 'git_pulled'
   | 'git_pushed'
@@ -663,6 +674,18 @@ export interface DeleteBranchRequest extends BranchActionRequest {
   force: boolean
 }
 
+export interface CreateTagRequest {
+  repoPath: string
+  tagName: string
+  message?: string
+}
+
+export interface DeleteTagRequest {
+  repoPath: string
+  tagName: string
+  confirmed: boolean
+}
+
 export interface EditorOpenRequest {
   targetPath: string
   line?: number
@@ -823,6 +846,8 @@ export interface BranchPilotApi {
   updateBranchDescription: (request: UpdateBranchDescriptionRequest) => Promise<ApiResult<RepositorySnapshot>>
   switchBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   deleteBranch: (request: DeleteBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
+  createTag: (request: CreateTagRequest) => Promise<ApiResult<RepositorySnapshot>>
+  deleteTag: (request: DeleteTagRequest) => Promise<ApiResult<RepositorySnapshot>>
   acceptOurs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   acceptTheirs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   markResolved: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>

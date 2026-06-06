@@ -174,6 +174,7 @@ function makeSnapshot(overrides: {
       name,
       current: name === 'main'
     })),
+    tags: [],
     recentRepositories: []
   }
 }
