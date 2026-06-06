@@ -235,6 +235,46 @@ describe('RepositoryService', () => {
     expect(subject).toBe('Update tracked file')
   })
 
+  it('commits staged changes with co-author trailers', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'coauthored change\n')
+    git(repoPath, ['add', 'tracked.txt'])
+
+    await service.commit({
+      repoPath,
+      title: 'Update with coauthors',
+      description: 'Adds commit trailers through BranchPilot.',
+      coAuthors: [
+        'Ada Lovelace <ada@example.com>',
+        'Co-authored-by: Grace Hopper <grace@example.com>'
+      ].join('\n')
+    })
+
+    const body = git(repoPath, ['log', '-1', '--pretty=%b'])
+    expect(body).toContain('Adds commit trailers through BranchPilot.')
+    expect(body).toContain('Co-authored-by: Ada Lovelace <ada@example.com>')
+    expect(body).toContain('Co-authored-by: Grace Hopper <grace@example.com>')
+  })
+
+  it('rejects invalid co-author lines before committing', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'invalid coauthor\n')
+    git(repoPath, ['add', 'tracked.txt'])
+
+    await expect(service.commit({
+      repoPath,
+      title: 'Invalid coauthor',
+      description: '',
+      coAuthors: 'Not an email'
+    })).rejects.toMatchObject({
+      code: 'invalid_co_author'
+    })
+  })
+
   it('amends the last commit with confirmation and a multiline message', async () => {
     const repoPath = createTempRepository()
     const service = createService()
@@ -253,6 +293,7 @@ describe('RepositoryService', () => {
       repoPath,
       title: 'Amended initial commit',
       description: 'Keeps the tree and rewrites the commit message.',
+      coAuthors: 'Alan Turing <alan@example.com>',
       confirmed: true
     })
 
@@ -260,6 +301,7 @@ describe('RepositoryService', () => {
     expect(git(repoPath, ['rev-parse', 'HEAD'])).not.toBe(originalHead)
     expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Amended initial commit')
     expect(git(repoPath, ['log', '-1', '--pretty=%b'])).toContain('Keeps the tree')
+    expect(git(repoPath, ['log', '-1', '--pretty=%b'])).toContain('Co-authored-by: Alan Turing <alan@example.com>')
   })
 
   it('reverts a selected commit with confirmation', async () => {

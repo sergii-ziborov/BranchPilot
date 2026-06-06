@@ -622,6 +622,7 @@ export interface CommitRequest {
   repoPath: string
   title: string
   description: string
+  coAuthors?: string
 }
 
 export interface ConfirmedCommitRequest extends CommitRequest {

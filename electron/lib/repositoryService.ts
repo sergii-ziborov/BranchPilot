@@ -598,7 +598,7 @@ export class RepositoryService {
       throw new BranchPilotUserError('nothing_to_commit', 'Stage at least one change before committing.')
     }
 
-    const message = [title, request.description.trim()].filter(Boolean).join('\n\n')
+    const message = buildCommitMessage(title, request.description, request.coAuthors)
     await this.gitCommitWithMessageFile(rootPath, ['commit', '-F'], message)
 
     return this.getSnapshot(rootPath)
@@ -630,7 +630,7 @@ export class RepositoryService {
       throw new BranchPilotUserError('conflicts_present', 'Resolve conflicted files before amending.')
     }
 
-    const message = [title, request.description.trim()].filter(Boolean).join('\n\n')
+    const message = buildCommitMessage(title, request.description, request.coAuthors)
     await this.gitCommitWithMessageFile(rootPath, ['commit', '--amend', '-F'], message)
 
     return this.getSnapshot(rootPath)
@@ -2133,6 +2133,41 @@ function parseGitLfsPatterns(content: string, sourcePath: string): GitLfsPattern
     .split('\n')
     .map((line, index) => parseGitLfsPatternLine(line, sourcePath, index + 1))
     .filter((pattern): pattern is GitLfsPattern => Boolean(pattern))
+}
+
+function buildCommitMessage(title: string, description: string, coAuthors?: string): string {
+  const parts = [title.trim()]
+  const body = description.trim()
+  const coAuthorTrailers = normalizeCoAuthorTrailers(coAuthors)
+
+  if (body) {
+    parts.push(body)
+  }
+
+  if (coAuthorTrailers.length > 0) {
+    parts.push(coAuthorTrailers.join('\n'))
+  }
+
+  return parts.join('\n\n')
+}
+
+function normalizeCoAuthorTrailers(input?: string): string[] {
+  return (input ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const identity = line.replace(/^co-authored-by:\s*/i, '').trim()
+
+      if (!/^.+\s<[^<>\s]+@[^<>\s]+>$/.test(identity)) {
+        throw new BranchPilotUserError(
+          'invalid_co_author',
+          'Co-author lines must use Name <email@example.com> format.'
+        )
+      }
+
+      return `Co-authored-by: ${identity}`
+    })
 }
 
 function parseGitLfsPatternLine(line: string, sourcePath: string, lineNumber: number): GitLfsPattern | null {

@@ -198,6 +198,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [commitTitle, setCommitTitle] = useState('')
   const [commitDescription, setCommitDescription] = useState('')
+  const [commitCoAuthors, setCommitCoAuthors] = useState('')
   const [newBranchName, setNewBranchName] = useState('')
   const [newBranchDescription, setNewBranchDescription] = useState('')
   const [branchDraftGoal, setBranchDraftGoal] = useState('')
@@ -1422,7 +1423,8 @@ function App() {
         api.commit({
           repoPath: currentRepoPath,
           title: commitTitle,
-          description: commitDescription
+          description: commitDescription,
+          coAuthors: commitCoAuthors
         }),
       'Creating commit...'
     )
@@ -1430,6 +1432,7 @@ function App() {
     if (committed) {
       setCommitTitle('')
       setCommitDescription('')
+      setCommitCoAuthors('')
       resetPreCommitReview()
     }
 
@@ -1457,6 +1460,7 @@ function App() {
           repoPath: currentRepoPath,
           title: commitTitle,
           description: commitDescription,
+          coAuthors: commitCoAuthors,
           confirmed
         }),
       'Amending commit...'
@@ -1465,6 +1469,7 @@ function App() {
     if (amended) {
       setCommitTitle('')
       setCommitDescription('')
+      setCommitCoAuthors('')
       resetPreCommitReview()
     }
 
@@ -2962,6 +2967,14 @@ function App() {
               value={commitDescription}
               onChange={(event) => setCommitDescription(event.target.value)}
               placeholder="Description"
+            />
+            <textarea
+              id="commit-coauthors"
+              className="commit-coauthors"
+              aria-label="Commit co-authors"
+              value={commitCoAuthors}
+              onChange={(event) => setCommitCoAuthors(event.target.value)}
+              placeholder="Co-authors: Name <email>, one per line"
             />
             <div className="commit-assistant-row">
               <select

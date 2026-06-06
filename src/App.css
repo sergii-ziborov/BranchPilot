@@ -1361,6 +1361,11 @@ button.danger-button:hover {
   padding: 10px;
 }
 
+.changes-panel-compact .commit-box .commit-coauthors,
+.commit-box .commit-coauthors {
+  min-height: 46px;
+}
+
 .commit-actions button:first-child {
   color: #ffffff;
   border-color: #2563eb;
