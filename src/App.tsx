@@ -252,6 +252,7 @@ function App() {
   const [preCommitRunningMode, setPreCommitRunningMode] = useState<ReviewMode | null>(null)
   const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationRequest | null>(null)
   const confirmationIdRef = useRef(0)
+  const diffRequestIdRef = useRef(0)
 
   const filteredChanges = useMemo(() => {
     const changes = snapshot?.status.changes ?? []
@@ -432,6 +433,7 @@ function App() {
 
   useEffect(() => {
     if (!snapshot || !selectedChange) {
+      diffRequestIdRef.current += 1
       setDiff(null)
       return
     }
@@ -1000,6 +1002,8 @@ function App() {
 
   async function loadDiff(change: FileChange, mode: DiffMode) {
     if (!api || !currentRepoPath) return
+    const requestId = diffRequestIdRef.current + 1
+    diffRequestIdRef.current = requestId
     const staged = mode === 'staged' && change.staged
     const result = await api.getDiff({
       repoPath: currentRepoPath,
@@ -1007,6 +1011,8 @@ function App() {
       staged,
       ignoreWhitespace: diffIgnoreWhitespace
     })
+
+    if (diffRequestIdRef.current !== requestId) return
 
     if (result.ok) {
       setDiff(result.data)
