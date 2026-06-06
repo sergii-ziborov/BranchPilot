@@ -55,6 +55,7 @@ import type {
   DiffResult,
   FileChange,
   GitLfsFileStatus,
+  GitHubAccountSummary,
   GitHubCliStatus,
   GitHubPullRequest,
   GitHubPullRequestCheck,
@@ -200,6 +201,8 @@ function App() {
   const [editingRemoteName, setEditingRemoteName] = useState<string | null>(null)
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
   const [githubCliStatus, setGithubCliStatus] = useState<GitHubCliStatus | null>(null)
+  const [githubAccounts, setGithubAccounts] = useState<GitHubAccountSummary[]>([])
+  const [githubAccountsLoading, setGithubAccountsLoading] = useState(false)
   const [githubRepositories, setGithubRepositories] = useState<GitHubRepositorySummary[]>([])
   const [githubRepoOwner, setGithubRepoOwner] = useState('')
   const [githubRepoQuery, setGithubRepoQuery] = useState('')
@@ -741,6 +744,35 @@ function App() {
     }
   }
 
+  async function loadGitHubAccounts(statusOverride?: GitHubCliStatus | null) {
+    if (!api) return
+
+    setGithubAccountsLoading(true)
+    setError(null)
+    const status = statusOverride ?? githubCliStatus ?? await loadGitHubCliStatus()
+
+    if (!status?.authenticated) {
+      setGithubAccounts([])
+      setNotice('Run gh auth login or sign in with GitHub Desktop before loading GitHub accounts.')
+      setGithubAccountsLoading(false)
+      return
+    }
+
+    const result = await api.listGitHubAccounts()
+
+    if (result.ok) {
+      setGithubAccounts(result.data)
+      setGithubRepoOwner((currentOwner) => currentOwner || result.data[0]?.login || '')
+      setNotice(`Loaded ${result.data.length} GitHub account${result.data.length === 1 ? '' : 's'}.`)
+    } else {
+      setGithubAccounts([])
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setGithubAccountsLoading(false)
+  }
+
   async function loadGitHubRepositories() {
     if (!api) return
 
@@ -806,6 +838,12 @@ function App() {
   async function refreshProvidersPanel() {
     void loadProviders()
     const status = await loadGitHubCliStatus()
+
+    if (status?.authenticated) {
+      await loadGitHubAccounts(status)
+    } else {
+      setGithubAccounts([])
+    }
 
     if (status?.ghAuthenticated && currentRepoPath) {
       await loadGitHubPullRequests()
@@ -4933,12 +4971,18 @@ function App() {
         <div className="panel-heading compact-heading">
           <div>
             <h3>GitHub repositories</h3>
-            <p>{repoBrowserReady ? `${githubRepositories.length} repositories loaded from ${githubRepositoryBrowserSourceLabel(githubCliStatus)}.` : 'Repository list requires GitHub CLI or GitHub Desktop auth.'}</p>
+            <p>{repoBrowserReady ? `${githubRepositories.length} repositories loaded from ${githubRepositoryBrowserSourceLabel(githubCliStatus)} · ${githubAccounts.length} accounts available.` : 'Repository list requires GitHub CLI or GitHub Desktop auth.'}</p>
           </div>
-          <button type="button" className="secondary" onClick={loadGitHubRepositories} disabled={busy || githubRepoLoading}>
-            {githubRepoLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
-            Load repositories
-          </button>
+          <div className="pr-actions">
+            <button type="button" className="secondary" onClick={() => void loadGitHubAccounts()} disabled={busy || githubAccountsLoading}>
+              {githubAccountsLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
+              Load accounts
+            </button>
+            <button type="button" className="secondary" onClick={loadGitHubRepositories} disabled={busy || githubRepoLoading}>
+              {githubRepoLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
+              Load repositories
+            </button>
+          </div>
         </div>
 
         {!repoBrowserReady && (
@@ -4949,11 +4993,19 @@ function App() {
           <label>
             <span>Owner/org</span>
             <input
+              list="github-account-options"
               value={githubRepoOwner}
               onChange={(event) => setGithubRepoOwner(event.target.value)}
               placeholder={githubCliStatus?.username ?? 'default account'}
               disabled={busy || githubRepoLoading}
             />
+            <datalist id="github-account-options">
+              {githubAccounts.map((account) => (
+                <option key={account.login} value={account.login}>
+                  {githubAccountOptionLabel(account)}
+                </option>
+              ))}
+            </datalist>
           </label>
           <label>
             <span>Search</span>
@@ -5672,6 +5724,10 @@ function githubRepositoryBrowserSourceLabel(status: GitHubCliStatus | null): str
   }
 
   return 'gh'
+}
+
+function githubAccountOptionLabel(account: GitHubAccountSummary): string {
+  return `${account.label} · ${account.type === 'organization' ? 'organization' : 'user'}`
 }
 
 function githubRepositoryMeta(repository: GitHubRepositorySummary): string {

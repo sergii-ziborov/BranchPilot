@@ -13,6 +13,7 @@ import {
   getGitHubPullRequestChecks,
   getGitHubPullRequestDetails,
   getGitHubPullRequestDiff,
+  listGitHubAccounts,
   listGitHubRepositories,
   listGitHubPullRequests
 } from '../electron/providers/githubCliService'
@@ -22,6 +23,7 @@ import type {
   GitHubDesktopCredential
 } from '../electron/providers/githubCliService'
 import type {
+  GitHubAccountSummary,
   GitHubPullRequest,
   GitHubPullRequestCheck,
   GitHubPullRequestDetails,
@@ -89,6 +91,51 @@ describe('GitHub CLI bridge', () => {
       gitCredentialAuthenticated: true,
       authProvider: 'git-credential',
       username: 'desktop-user'
+    })
+  })
+
+  it('lists GitHub user and organization accounts through gh', async () => {
+    const runner = new GitHubCliTestRunner({
+      accounts: [
+        makeAccount({ login: 'branchpilot-user', type: 'user' }),
+        makeAccount({ login: 'branchpilot-org', label: 'BranchPilot Org', type: 'organization' })
+      ]
+    })
+
+    await expect(listGitHubAccounts(runner)).resolves.toEqual([
+      makeAccount({ login: 'branchpilot-user', type: 'user' }),
+      makeAccount({ login: 'branchpilot-org', label: 'BranchPilot Org', type: 'organization' })
+    ])
+
+    expect(runner.ghApiArgs).toEqual([
+      ['api', 'user'],
+      ['api', 'user/orgs', '--paginate']
+    ])
+  })
+
+  it('lists GitHub accounts through GitHub Desktop credentials when gh is not authenticated', async () => {
+    const apiClient = new FakeGitHubApiClient([], [
+      makeAccount({ login: 'desktop-user', type: 'user' }),
+      makeAccount({ login: 'desktop-org', type: 'organization' })
+    ])
+
+    await expect(listGitHubAccounts(
+      new GitHubCliTestRunner({ ghAuthenticated: false }),
+      new FakeGitHubCredentialProvider(),
+      apiClient
+    )).resolves.toEqual([
+      makeAccount({ login: 'desktop-user', type: 'user' }),
+      makeAccount({ login: 'desktop-org', type: 'organization' })
+    ])
+  })
+
+  it('blocks GitHub account listing when no authentication is available', async () => {
+    await expect(listGitHubAccounts(
+      new GitHubCliTestRunner({ ghAuthenticated: false }),
+      new FakeGitHubCredentialProvider(null),
+      new FakeGitHubApiClient()
+    )).rejects.toMatchObject({
+      code: 'github_cli_unauthenticated'
     })
   })
 
@@ -475,6 +522,7 @@ interface GitHubCliTestRunnerOptions {
   originHead?: string
   currentPullRequest?: GitHubPullRequest | null
   pullRequests?: GitHubPullRequest[]
+  accounts?: GitHubAccountSummary[]
   repositories?: GitHubRepositorySummary[]
   repoListOutput?: string
   prViewOutput?: string
@@ -511,10 +559,20 @@ class FakeGitHubApiClient implements GitHubApiClient {
     }
   }
 
-  constructor(private readonly repositories: GitHubRepositorySummary[] = [makeRepository()]) {}
+  constructor(
+    private readonly repositories: GitHubRepositorySummary[] = [makeRepository()],
+    private readonly accounts: GitHubAccountSummary[] = [
+      makeAccount({ login: 'desktop-user', type: 'user' }),
+      makeAccount({ login: 'desktop-org', type: 'organization' })
+    ]
+  ) {}
 
   async getViewer(): Promise<{ login: string }> {
     return { login: 'desktop-user' }
+  }
+
+  async listAccounts(): Promise<GitHubAccountSummary[]> {
+    return this.accounts
   }
 
   async listRepositories(
@@ -576,6 +634,7 @@ class GitHubCliTestRunner extends CommandRunner {
   ghPrDetailsArgs: string[] = []
   ghPrChecksArgs: string[] = []
   ghPrDiffArgs: string[] = []
+  ghApiArgs: string[][] = []
   ghRepoListArgs: string[] = []
 
   constructor(private readonly options: GitHubCliTestRunnerOptions = {}) {
@@ -657,6 +716,26 @@ class GitHubCliTestRunner extends CommandRunner {
         '',
         options
       )
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'api' && args[1] === 'user') {
+      this.ghApiArgs.push(args)
+      const accounts = this.options.accounts ?? [
+        makeAccount({ login: 'branchpilot-user', type: 'user' }),
+        makeAccount({ login: 'branchpilot-org', type: 'organization' })
+      ]
+      const viewer = accounts.find((account) => account.type === 'user') ?? accounts[0]
+      return this.complete(command, args, 0, `${JSON.stringify(toGhAccountJson(viewer))}\n`, '', options)
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'api' && args[1] === 'user/orgs') {
+      this.ghApiArgs.push(args)
+      const accounts = this.options.accounts ?? [
+        makeAccount({ login: 'branchpilot-user', type: 'user' }),
+        makeAccount({ login: 'branchpilot-org', type: 'organization' })
+      ]
+      const orgs = accounts.filter((account) => account.type === 'organization')
+      return this.complete(command, args, 0, `${JSON.stringify(orgs.map(toGhAccountJson))}\n`, '', options)
     }
 
     if (command === '/tmp/branchpilot-gh' && args[0] === 'repo' && args[1] === 'list') {
@@ -828,6 +907,18 @@ function makeRepository(overrides: Partial<GitHubRepositorySummary> = {}): GitHu
   }
 }
 
+function makeAccount(overrides: Partial<GitHubAccountSummary> = {}): GitHubAccountSummary {
+  const login = overrides.login ?? 'branchpilot-user'
+
+  return {
+    login,
+    label: overrides.label ?? login,
+    type: overrides.type ?? 'user',
+    url: `https://github.com/${login}`,
+    ...overrides
+  }
+}
+
 function toGhPullRequestJson(pullRequest: GitHubPullRequest) {
   return {
     number: pullRequest.number,
@@ -837,6 +928,16 @@ function toGhPullRequestJson(pullRequest: GitHubPullRequest) {
     headRefName: pullRequest.headBranch,
     baseRefName: pullRequest.baseBranch,
     isDraft: pullRequest.draft
+  }
+}
+
+function toGhAccountJson(account: GitHubAccountSummary) {
+  return {
+    login: account.login,
+    name: account.label,
+    description: account.label,
+    type: account.type === 'organization' ? 'Organization' : 'User',
+    html_url: account.url
   }
 }
 

@@ -6,6 +6,7 @@ import type {
   CheckoutPullRequestRequest,
   CreatePullRequestRequest,
   CreatedPullRequest,
+  GitHubAccountSummary,
   GitHubCliStatus,
   GitHubPullRequest,
   GitHubPullRequestCheck,
@@ -38,6 +39,7 @@ export interface GitHubApiPullRequest {
 
 export interface GitHubApiClient {
   getViewer(credential: GitHubDesktopCredential): Promise<{ login: string }>
+  listAccounts(credential: GitHubDesktopCredential): Promise<GitHubAccountSummary[]>
   listRepositories(
     credential: GitHubDesktopCredential,
     request: ListGitHubRepositoriesRequest
@@ -66,6 +68,7 @@ const DEFAULT_CREDENTIAL_PROVIDER: GitHubCredentialProvider = {
 
 const DEFAULT_API_CLIENT: GitHubApiClient = {
   getViewer: getGitHubApiViewer,
+  listAccounts: listGitHubApiAccounts,
   listRepositories: listGitHubApiRepositories,
   createPullRequest: createGitHubApiPullRequest
 }
@@ -261,6 +264,42 @@ export async function listGitHubPullRequests(
   })
 
   return parseGitHubPullRequestList(result.stdout)
+}
+
+export async function listGitHubAccounts(
+  runner: CommandRunner,
+  credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient = DEFAULT_API_CLIENT
+): Promise<GitHubAccountSummary[]> {
+  const status = await getGitHubCliStatus(runner, undefined, credentialProvider, apiClient)
+
+  if (status.authProvider === 'git-credential') {
+    const credential = await credentialProvider.getCredential()
+
+    if (credential) {
+      return apiClient.listAccounts(credential)
+    }
+  }
+
+  if (status.state === 'missing') {
+    throw new BranchPilotUserError('github_cli_missing', 'GitHub CLI is not installed and no GitHub Desktop credential is available.')
+  }
+
+  if (status.authProvider !== 'gh' || !status.executable) {
+    throw new BranchPilotUserError('github_cli_unauthenticated', 'Run gh auth login or sign in with GitHub Desktop before browsing GitHub accounts.')
+  }
+
+  const viewerResult = await runner.run(status.executable, ['api', 'user'], {
+    timeoutMs: 30_000
+  })
+  const orgsResult = await runner.run(status.executable, ['api', 'user/orgs', '--paginate'], {
+    timeoutMs: 45_000
+  })
+
+  return uniqueGitHubAccounts([
+    normalizeGitHubAccount(parseGitHubJson(viewerResult.stdout, 'github_account_parse_failed', 'GitHub CLI did not return a valid account.'), 'user'),
+    ...parseGitHubAccountList(orgsResult.stdout, 'organization')
+  ])
 }
 
 export async function listGitHubRepositories(
@@ -718,6 +757,46 @@ async function getGitHubApiViewer(credential: GitHubDesktopCredential): Promise<
   return { login }
 }
 
+async function listGitHubApiAccounts(credential: GitHubDesktopCredential): Promise<GitHubAccountSummary[]> {
+  const [viewerResponse, orgsResponse] = await Promise.all([
+    fetch('https://api.github.com/user', {
+      headers: githubApiHeaders(credential)
+    }),
+    fetch('https://api.github.com/user/orgs?per_page=100', {
+      headers: githubApiHeaders(credential)
+    })
+  ])
+  const [viewerBody, orgsBody] = await Promise.all([
+    readGitHubApiJson(viewerResponse),
+    readGitHubApiJson(orgsResponse)
+  ])
+
+  if (!viewerResponse.ok) {
+    throw new BranchPilotUserError(
+      'github_account_list_failed',
+      'GitHub API could not load the authenticated account.',
+      githubApiErrorMessage(viewerBody, viewerResponse.status)
+    )
+  }
+
+  if (!orgsResponse.ok) {
+    throw new BranchPilotUserError(
+      'github_account_list_failed',
+      'GitHub API could not load organizations.',
+      githubApiErrorMessage(orgsBody, orgsResponse.status)
+    )
+  }
+
+  if (!Array.isArray(orgsBody)) {
+    throw new BranchPilotUserError('github_account_parse_failed', 'GitHub API did not return an organization list.')
+  }
+
+  return uniqueGitHubAccounts([
+    normalizeGitHubAccount(viewerBody, 'user'),
+    ...orgsBody.map((value) => normalizeGitHubAccount(value, 'organization'))
+  ])
+}
+
 async function createGitHubApiPullRequest(
   credential: GitHubDesktopCredential,
   repository: GitHubRepositoryInfo,
@@ -920,6 +999,23 @@ function parseGitHubRepositoryList(output: string): GitHubRepositorySummary[] {
   return parsed.map((value) => normalizeGitHubRepository(value))
 }
 
+function parseGitHubAccountList(
+  output: string,
+  fallbackType: GitHubAccountSummary['type']
+): GitHubAccountSummary[] {
+  if (!output.trim()) {
+    return []
+  }
+
+  const parsed = parseGitHubJson(output, 'github_account_parse_failed', 'GitHub CLI did not return a valid account list.')
+
+  if (!Array.isArray(parsed)) {
+    throw new BranchPilotUserError('github_account_parse_failed', 'GitHub CLI did not return an account list.', output)
+  }
+
+  return parsed.map((value) => normalizeGitHubAccount(value, fallbackType))
+}
+
 function parseGitHubPullRequestChecks(output: string): GitHubPullRequestCheck[] {
   if (!output.trim()) {
     return []
@@ -967,6 +1063,34 @@ function parseGitHubJson(
     return JSON.parse(output) as unknown
   } catch {
     throw new BranchPilotUserError(code, message, output)
+  }
+}
+
+function normalizeGitHubAccount(
+  value: unknown,
+  fallbackType: GitHubAccountSummary['type']
+): GitHubAccountSummary {
+  if (!value || typeof value !== 'object') {
+    throw new BranchPilotUserError('github_account_parse_failed', 'GitHub returned an invalid account.')
+  }
+
+  const record = value as Record<string, unknown>
+  const login = typeof record.login === 'string' ? record.login.trim() : ''
+
+  if (!login || !isSafeGitHubPathSegment(login)) {
+    throw new BranchPilotUserError('github_account_parse_failed', 'GitHub returned an incomplete account.')
+  }
+
+  const rawType = typeof record.type === 'string' ? record.type.toLowerCase() : ''
+  const type: GitHubAccountSummary['type'] = rawType === 'organization' || rawType === 'org'
+    ? 'organization'
+    : fallbackType
+
+  return {
+    login,
+    label: optionalString(record.name) ?? optionalString(record.description) ?? login,
+    type,
+    url: optionalString(record.html_url) ?? optionalString(record.url) ?? `https://github.com/${login}`
   }
 }
 
@@ -1168,6 +1292,22 @@ function filterGitHubRepositories(
 
     return query ? matchesGitHubRepositoryQuery(repository, query) : true
   })
+}
+
+function uniqueGitHubAccounts(accounts: GitHubAccountSummary[]): GitHubAccountSummary[] {
+  const seen = new Set<string>()
+  const unique: GitHubAccountSummary[] = []
+
+  for (const account of accounts) {
+    const key = account.login.toLowerCase()
+
+    if (!seen.has(key)) {
+      unique.push(account)
+      seen.add(key)
+    }
+  }
+
+  return unique
 }
 
 function matchesGitHubRepositoryQuery(repository: GitHubRepositorySummary, query: string): boolean {

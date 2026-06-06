@@ -83,6 +83,7 @@ import {
   getGitHubPullRequestChecks,
   getGitHubPullRequestDetails,
   getGitHubPullRequestDiff,
+  listGitHubAccounts,
   listGitHubRepositories,
   listGitHubPullRequests
 } from './providers/githubCliService.js'
@@ -944,6 +945,9 @@ function registerIpcHandlers() {
   )
   handle('providers:listGitHubPullRequests', (repoPath: string) =>
     listGitHubPullRequests(commandRunner, repoPath)
+  )
+  handle('providers:listGitHubAccounts', () =>
+    listGitHubAccounts(commandRunner)
   )
   handle('providers:listGitHubRepositories', (request: ListGitHubRepositoriesRequest) =>
     listGitHubRepositories(commandRunner, request)

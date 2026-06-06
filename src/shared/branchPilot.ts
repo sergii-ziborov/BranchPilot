@@ -938,6 +938,13 @@ export interface GitHubRepositorySummary {
   pushedAt: string
 }
 
+export interface GitHubAccountSummary {
+  login: string
+  label: string
+  type: 'user' | 'organization'
+  url: string
+}
+
 export interface PullRequestDetailsRequest {
   repoPath: string
   prNumber: number
@@ -1047,6 +1054,7 @@ export interface BranchPilotApi {
   createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>
   getCurrentBranchPullRequest: (repoPath: string) => Promise<ApiResult<GitHubPullRequest | null>>
   listGitHubPullRequests: (repoPath: string) => Promise<ApiResult<GitHubPullRequest[]>>
+  listGitHubAccounts: () => Promise<ApiResult<GitHubAccountSummary[]>>
   listGitHubRepositories: (request: ListGitHubRepositoriesRequest) => Promise<ApiResult<GitHubRepositorySummary[]>>
   getGitHubPullRequestDetails: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestDetails>>
   getGitHubPullRequestChecks: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestCheck[]>>
