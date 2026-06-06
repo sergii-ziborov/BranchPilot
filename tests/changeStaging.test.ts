@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from '../src/shared/changeStaging'
+import {
+  getAvailableChangeDiffMode,
+  getBulkStageToggleAction,
+  getBulkStageToggleState,
+  getChangeStageToggleAction,
+  getChangeStageToggleState,
+  getDefaultChangeDiffMode
+} from '../src/shared/changeStaging'
 import type { FileChange, FileChangeStatus, RepositoryCounts } from '../src/shared/branchPilot'
 
 describe('change staging toggle', () => {
@@ -84,6 +91,23 @@ describe('change staging toggle', () => {
       label: 'No bulk staging action available',
       summary: '0 staged / 1 unstaged / 1 conflicted'
     })
+  })
+
+  it('keeps the diff on the available side after staging changes', () => {
+    expect(getAvailableChangeDiffMode(makeChange({ staged: true }), 'unstaged')).toBe('staged')
+    expect(getDefaultChangeDiffMode(makeChange({ staged: true }))).toBe('staged')
+  })
+
+  it('keeps the diff on the available side after unstaging changes', () => {
+    expect(getAvailableChangeDiffMode(makeChange({ unstaged: true }), 'staged')).toBe('unstaged')
+    expect(getDefaultChangeDiffMode(makeChange({ unstaged: true }))).toBe('unstaged')
+  })
+
+  it('prefers unstaged diff for mixed files because the next checkbox action stages remaining changes', () => {
+    const change = makeChange({ staged: true, unstaged: true })
+
+    expect(getAvailableChangeDiffMode(change, 'staged')).toBe('staged')
+    expect(getDefaultChangeDiffMode(change)).toBe('unstaged')
   })
 })
 

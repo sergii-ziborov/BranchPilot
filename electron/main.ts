@@ -121,7 +121,7 @@ function createMainWindow() {
     backgroundColor: '#f6f7f9',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
@@ -1069,36 +1069,9 @@ function registerIpcHandlers() {
 }
 
 function withProjectMemoryRefresh(snapshot: RepositorySnapshot): RepositorySnapshot {
-  void projectMemoryService.scanProjectMemory(snapshot.summary.rootPath)
-    .then((result) => recordActivity({
-      repoPath: snapshot.summary.rootPath,
-      type: 'project_memory_scanned',
-      actor: 'branchpilot',
-      status: 'success',
-      title: 'Project Memory refreshed',
-      metadata: {
-        scanned_files: result.scannedFileCount,
-        skipped_files: result.skippedFileCount,
-        duration_ms: result.durationMs,
-        symbols: result.snapshot.symbols.length
-      }
-    }))
-    .catch((error: unknown) => {
-      console.error('Project Memory refresh failed', error)
-      const branchPilotError = toBranchPilotError(error)
-      void recordActivity({
-        repoPath: snapshot.summary.rootPath,
-        type: 'project_memory_scanned',
-        actor: 'branchpilot',
-        status: 'failure',
-        title: 'Project Memory refreshed',
-        metadata: {
-          error_code: branchPilotError.code,
-          error_message: branchPilotError.message
-        }
-      })
-    })
-
+  // Project Memory scans can be expensive and run inside the Electron main
+  // process. Keep Git actions responsive; Memory and Wiki tabs trigger scans
+  // explicitly when the user asks for them.
   return snapshot
 }
 

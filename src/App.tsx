@@ -88,7 +88,15 @@ import type {
   WorktreeSummary
 } from './shared/branchPilot'
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
-import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
+import {
+  getAvailableChangeDiffMode,
+  getBulkStageToggleAction,
+  getBulkStageToggleState,
+  getChangeStageToggleAction,
+  getChangeStageToggleState,
+  getDefaultChangeDiffMode,
+  type ChangeDiffMode
+} from './shared/changeStaging'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
@@ -97,7 +105,7 @@ import { getVirtualListWindow, type VirtualListWindow } from './shared/virtualLi
 import './App.css'
 
 type ViewMode = 'dashboard' | 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily'
-type DiffMode = 'unstaged' | 'staged'
+type DiffMode = ChangeDiffMode
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
 type AssistantReadinessState = AssistantStatus['state'] | 'unknown'
@@ -127,7 +135,7 @@ const assistantPolicyModes: AssistantPolicyMode[] = [
   'allow-local-commands',
   'allow-file-edits'
 ]
-const CHANGE_LIST_ITEM_HEIGHT = 54
+const CHANGE_LIST_ITEM_HEIGHT = 42
 const HISTORY_LIST_ITEM_HEIGHT = 64
 const VIRTUAL_LIST_OVERSCAN = 8
 const VIRTUAL_LIST_FALLBACK_HEIGHT = 520
@@ -398,7 +406,7 @@ function App() {
 
     if (!selectedFilePath || !visibleChanges.some((change) => change.path === selectedFilePath)) {
       setSelectedFilePath(firstChange?.path ?? null)
-      setDiffMode(firstChange?.staged && !firstChange.unstaged ? 'staged' : 'unstaged')
+      setDiffMode(firstChange ? getDefaultChangeDiffMode(firstChange) : 'unstaged')
     }
   }, [changeFilter, filteredChanges, selectedFilePath, snapshot])
 
@@ -408,7 +416,14 @@ function App() {
       return
     }
 
-    void loadDiff(selectedChange, diffMode)
+    const availableMode = getAvailableChangeDiffMode(selectedChange, diffMode)
+
+    if (availableMode !== diffMode) {
+      setDiffMode(availableMode)
+      return
+    }
+
+    void loadDiff(selectedChange, availableMode)
   }, [diffMode, selectedChange, snapshot])
 
   useEffect(() => {
@@ -1277,6 +1292,7 @@ function App() {
     await runSnapshotAction('File staged.', () =>
       api.stageFile({ repoPath: currentRepoPath, filePath: selectedChange.path })
     )
+    setDiffMode('staged')
   }
 
   async function unstageSelected() {
@@ -1284,6 +1300,7 @@ function App() {
     await runSnapshotAction('File unstaged.', () =>
       api.unstageFile({ repoPath: currentRepoPath, filePath: selectedChange.path })
     )
+    setDiffMode('unstaged')
   }
 
   async function toggleChangeStage(change: FileChange) {
@@ -1295,17 +1312,17 @@ function App() {
     setSelectedFilePath(change.path)
 
     if (action === 'unstage') {
-      setDiffMode('staged')
       await runSnapshotAction('File unstaged.', () =>
         api.unstageFile({ repoPath: currentRepoPath, filePath: change.path })
       )
+      setDiffMode('unstaged')
       return
     }
 
-    setDiffMode('unstaged')
     await runSnapshotAction('File staged.', () =>
       api.stageFile({ repoPath: currentRepoPath, filePath: change.path })
     )
+    setDiffMode('staged')
   }
 
   async function toggleBulkStage() {
@@ -2775,60 +2792,37 @@ function App() {
   }
 
   function renderChangesView() {
+    const totalChanges = snapshot?.status.changes.length ?? 0
+    const visibleRange = virtualRangeLabel(virtualChanges.window, filteredChanges.length)
+    const visibleSummary = changeFilter
+      ? `${filteredChanges.length} of ${totalChanges}`
+      : `${totalChanges}`
+
     return (
       <section className="content-grid">
-        <div className="changes-panel">
-          <div className="panel-heading changes-heading">
-            <div className="changes-title-block">
-              <h2>Changes</h2>
-              <p>Real status from system Git.</p>
-            </div>
-            <BulkStageCheckbox
-              state={bulkStageToggleState}
-              disabled={busy}
-              onToggle={toggleBulkStage}
-            />
-          </div>
-
-          <div className="changes-utility-bar">
-            <button className="changes-stash-action" type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
-              <Save size={17} />
-              Stash changes
-            </button>
-            {canUnstageAll && bulkStageToggleState.action !== 'unstage_all' && (
+        <div className="changes-panel changes-panel-compact">
+          <div className="changes-topbar">
+            <h2>
+              Changes
+              <span>{counts?.changed ?? 0}</span>
+            </h2>
+            <div className="changes-topbar-actions">
+              <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
+                <Save size={15} />
+                Stash
+              </button>
               <button
-                className="changes-unstage-action"
                 type="button"
                 onClick={() => currentRepoPath && runSnapshotAction('All changes unstaged.', () => api!.unstageAll(currentRepoPath))}
-                disabled={busy}
+                disabled={busy || !canUnstageAll}
               >
-                <X size={17} />
+                <X size={15} />
                 Unstage all
-              </button>
-            )}
-            <div className="changes-patch-tools">
-              <select
-                aria-label="Patch export scope"
-                className="changes-patch-scope"
-                value={patchScope}
-                onChange={(event) => setPatchScope(event.target.value as PatchScope)}
-                disabled={busy}
-              >
-                <option value="working-tree">Working tree patch</option>
-                <option value="staged">Staged patch</option>
-              </select>
-              <button className="changes-patch-action" type="button" onClick={exportPatch} disabled={busy || !snapshot}>
-                <Copy size={17} />
-                Export patch
-              </button>
-              <button className="changes-patch-action" type="button" onClick={applyPatch} disabled={busy || !snapshot || snapshot.status.merge.operation !== 'none'}>
-                <ArrowDownToLine size={17} />
-                Apply patch
               </button>
             </div>
           </div>
 
-          <div className="change-filter-bar">
+          <div className="change-filter-bar change-filter-bar-compact">
             <label className="change-filter-input" htmlFor="change-filter">
               <Search size={16} />
               <input
@@ -2838,16 +2832,43 @@ function App() {
                 placeholder="Search changed files"
               />
             </label>
-            <span>
-              {filteredChanges.length} / {snapshot?.status.changes.length ?? 0}
-              {virtualRangeLabel(virtualChanges.window, filteredChanges.length)}
-            </span>
+            <span>{visibleSummary}{visibleRange}</span>
             {changeFilter && (
               <button type="button" className="secondary" onClick={() => setChangeFilter('')}>
                 <X size={15} />
                 Clear
               </button>
             )}
+          </div>
+
+          <div className="changes-secondary-tools">
+            <select
+              aria-label="Patch export scope"
+              className="changes-patch-scope"
+              value={patchScope}
+              onChange={(event) => setPatchScope(event.target.value as PatchScope)}
+              disabled={busy}
+            >
+              <option value="working-tree">Working tree patch</option>
+              <option value="staged">Staged patch</option>
+            </select>
+            <button type="button" onClick={exportPatch} disabled={busy || !snapshot}>
+              <Copy size={15} />
+              Export
+            </button>
+            <button type="button" onClick={applyPatch} disabled={busy || !snapshot || snapshot.status.merge.operation !== 'none'}>
+              <ArrowDownToLine size={15} />
+              Apply
+            </button>
+          </div>
+
+          <div className="change-list-header">
+            <BulkStageCheckbox
+              state={bulkStageToggleState}
+              disabled={busy}
+              changedCount={totalChanges}
+              onToggle={toggleBulkStage}
+            />
           </div>
 
           <div className="change-list virtual-list-viewport" ref={virtualChanges.containerRef} onScroll={virtualChanges.onScroll}>
@@ -2876,11 +2897,11 @@ function App() {
                         aria-label={`${change.path}, ${changeLabel(change)}`}
                         onClick={() => {
                           setSelectedFilePath(change.path)
-                          setDiffMode(change.staged && !change.unstaged ? 'staged' : 'unstaged')
+                          setDiffMode(getDefaultChangeDiffMode(change))
                         }}
                       >
-                        <span className={`file-status status-${change.status}`}>{statusToken(change)}</span>
                         <span className="file-name">{change.path}</span>
+                        <span className={`file-status status-${change.status}`}>{statusToken(change)}</span>
                       </button>
                     </div>
                   </div>
@@ -5354,13 +5375,16 @@ function StageCheckbox({
 function BulkStageCheckbox({
   state,
   disabled,
+  changedCount,
   onToggle
 }: {
   state: ReturnType<typeof getBulkStageToggleState>
   disabled: boolean
+  changedCount: number
   onToggle: () => void | Promise<void>
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const changedLabel = changedCount === 1 ? '1 changed file' : `${changedCount} changed files`
 
   useEffect(() => {
     if (inputRef.current) {
@@ -5382,8 +5406,7 @@ function BulkStageCheckbox({
         }}
       />
       <span>
-        <strong>{state.action === 'unstage_all' ? 'Unstage' : 'Stage'}</strong>
-        <small>{state.summary}</small>
+        <strong>{changedLabel}</strong>
       </span>
     </label>
   )

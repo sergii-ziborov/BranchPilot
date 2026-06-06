@@ -20,7 +20,7 @@ describe('BranchPilot IPC channels', () => {
   it('keeps main and preload IPC usage inside the allowlist', () => {
     const allowlist = new Set<string>(BRANCH_PILOT_IPC_CHANNELS)
     const mainChannels = collectIpcChannels('electron/main.ts')
-    const preloadChannels = collectIpcChannels('electron/preload.ts')
+    const preloadChannels = collectIpcChannels('electron/preload.cts')
 
     expect(mainChannels).toEqual(preloadChannels)
     expect([...mainChannels].filter((channel) => !allowlist.has(channel))).toEqual([])

@@ -2,6 +2,7 @@ import type { FileChange, RepositoryCounts } from './branchPilot.js'
 
 export type ChangeStageToggleAction = 'stage' | 'unstage' | 'none'
 export type BulkStageToggleAction = 'stage_all' | 'unstage_all' | 'none'
+export type ChangeDiffMode = 'unstaged' | 'staged'
 
 export interface ChangeStageToggleState {
   checked: boolean
@@ -73,6 +74,22 @@ export function getBulkStageToggleAction(counts: RepositoryCounts | null | undef
   if (counts.staged > 0 && stageable === 0) return 'unstage_all'
   if (stageable > 0) return 'stage_all'
   return 'none'
+}
+
+export function getAvailableChangeDiffMode(change: FileChange, preferredMode: ChangeDiffMode): ChangeDiffMode {
+  if (hasChangeDiffMode(change, preferredMode)) return preferredMode
+  if (hasChangeDiffMode(change, 'unstaged')) return 'unstaged'
+  return 'staged'
+}
+
+export function getDefaultChangeDiffMode(change: FileChange): ChangeDiffMode {
+  return getAvailableChangeDiffMode(change, 'unstaged')
+}
+
+function hasChangeDiffMode(change: FileChange, mode: ChangeDiffMode): boolean {
+  return mode === 'staged'
+    ? change.staged
+    : change.unstaged || change.untracked
 }
 
 function bulkStageLabel(action: BulkStageToggleAction): string {

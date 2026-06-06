@@ -14,5 +14,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["electron/**/*.ts", "src/shared/**/*.ts"]
+  "include": ["electron/**/*.ts", "electron/**/*.cts", "src/shared/**/*.ts"]
 }
