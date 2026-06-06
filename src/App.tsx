@@ -1264,6 +1264,36 @@ function App() {
     }
   }
 
+  async function revertSelectedCommit() {
+    if (!api || !currentRepoPath || !commitDetails) return
+
+    const confirmed = window.confirm(`Revert ${commitDetails.shortSha}? This creates a new commit that reverses the selected commit.`)
+    if (!confirmed) return
+
+    setBusy(true)
+    setError(null)
+    const result = await api.revertCommit({
+      repoPath: currentRepoPath,
+      commitSha: commitDetails.sha,
+      confirmed
+    })
+
+    if (result.ok) {
+      const hasConflicts = result.data.status.merge.operation !== 'none' || result.data.status.counts.conflicted > 0
+      applySnapshot(result.data, hasConflicts ? 'Revert has conflicts.' : 'Commit reverted.')
+      void loadHistory()
+
+      if (hasConflicts) {
+        setViewMode('merge')
+      }
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
   async function generateCommitText() {
     if (!api || !currentRepoPath) return
     if (!canGenerateCommitText) {
@@ -2411,6 +2441,17 @@ function App() {
                   ? `${commitDetails.shortSha} · ${commitDetails.authorName} · ${formatDate(commitDetails.authoredAt)}`
                   : 'Select a commit'}
               </p>
+            </div>
+            <div className="panel-actions">
+              <button
+                className="danger-button"
+                type="button"
+                onClick={revertSelectedCommit}
+                disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
+              >
+                <Trash2 size={17} />
+                Revert
+              </button>
             </div>
           </div>
 

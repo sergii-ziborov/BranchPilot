@@ -17,6 +17,7 @@ import type {
   CommitFileDiffRequest,
   CommitMessageGenerationRequest,
   CommitRequest,
+  ConfirmedCommitReferenceRequest,
   ConfirmedCommitRequest,
   ConfirmedStashActionRequest,
   ConfirmedFileActionRequest,
@@ -455,6 +456,19 @@ function registerIpcHandlers() {
     })
   }, async (request: ConfirmedCommitRequest) =>
     withProjectMemoryRefresh(await repositoryService.amendCommit(request))
+  )
+  handleLogged('git:revertCommit', {
+    type: 'commit_reverted',
+    actor: 'user',
+    title: 'Commit reverted',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      commit: request.commitSha.slice(0, 12),
+      branch: snapshot?.summary.currentBranch ?? 'unknown',
+      conflicts: snapshot?.status.counts.conflicted ?? 0
+    })
+  }, async (request: ConfirmedCommitReferenceRequest) =>
+    withProjectMemoryRefresh(await repositoryService.revertCommit(request))
   )
   handle('stash:list', (repoPath: string) => repositoryService.listStashes(repoPath))
   handleLogged('stash:create', {

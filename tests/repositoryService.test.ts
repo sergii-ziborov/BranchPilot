@@ -174,6 +174,34 @@ describe('RepositoryService', () => {
     expect(git(repoPath, ['log', '-1', '--pretty=%b'])).toContain('Keeps the tree')
   })
 
+  it('reverts a selected commit with confirmation', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'changed for revert\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Change tracked file'])
+    const commitToRevert = git(repoPath, ['rev-parse', 'HEAD'])
+
+    await expect(service.revertCommit({
+      repoPath,
+      commitSha: commitToRevert,
+      confirmed: false
+    })).rejects.toMatchObject({
+      code: 'confirmation_required'
+    })
+
+    const snapshot = await service.revertCommit({
+      repoPath,
+      commitSha: commitToRevert,
+      confirmed: true
+    })
+
+    expect(snapshot.status.counts.changed).toBe(0)
+    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('initial\n')
+    expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Revert "Change tracked file"')
+  })
+
   it('stages and unstages individual hunks', async () => {
     const repoPath = createTempRepository()
     const service = createService()

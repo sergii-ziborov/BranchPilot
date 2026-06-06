@@ -306,6 +306,7 @@ export type ActivityLogEventType =
   | 'assistant_action_blocked'
   | 'commit_created'
   | 'commit_amended'
+  | 'commit_reverted'
   | 'branch_created'
   | 'branch_description_updated'
   | 'branch_switched'
@@ -511,6 +512,12 @@ export interface CommitRequest {
 }
 
 export interface ConfirmedCommitRequest extends CommitRequest {
+  confirmed: boolean
+}
+
+export interface ConfirmedCommitReferenceRequest {
+  repoPath: string
+  commitSha: string
   confirmed: boolean
 }
 
@@ -801,6 +808,7 @@ export interface BranchPilotApi {
   deleteUntrackedFile: (request: ConfirmedFileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   commit: (request: CommitRequest) => Promise<ApiResult<RepositorySnapshot>>
   amendCommit: (request: ConfirmedCommitRequest) => Promise<ApiResult<RepositorySnapshot>>
+  revertCommit: (request: ConfirmedCommitReferenceRequest) => Promise<ApiResult<RepositorySnapshot>>
   listStashes: (repoPath: string) => Promise<ApiResult<StashEntry[]>>
   createStash: (request: CreateStashRequest) => Promise<ApiResult<RepositorySnapshot>>
   applyStash: (request: StashActionRequest) => Promise<ApiResult<RepositorySnapshot>>

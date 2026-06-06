@@ -7,6 +7,7 @@ import type {
   CommitDetailsRequest,
   CommitFileChange,
   CommitFileDiffRequest,
+  ConfirmedCommitReferenceRequest,
   ConfirmedCommitRequest,
   ConfirmedStashActionRequest,
   CommitRequest,
@@ -461,6 +462,36 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async revertCommit(request: ConfirmedCommitReferenceRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Reverting a commit requires explicit confirmation.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const commitSha = normalizeCommitSha(request.commitSha)
+
+    await this.assertNoActiveOperation(rootPath)
+    await this.assertNoConflicts(rootPath, 'reverting')
+
+    const result = await this.git(rootPath, ['revert', '--no-edit', commitSha], {
+      allowedExitCodes: [0, 1],
+      timeoutMs: 120_000
+    })
+
+    if (result.exitCode === 0) {
+      return this.getSnapshot(rootPath)
+    }
+
+    const snapshot = await this.getSnapshot(rootPath)
+    const output = [result.stderr, result.stdout].filter(Boolean).join('\n')
+
+    if (snapshot.status.merge.operation !== 'none' || isConflictOutput(output)) {
+      return snapshot
+    }
+
+    throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
+  }
+
   async listStashes(repoPath: string): Promise<StashEntry[]> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const result = await this.git(rootPath, ['stash', 'list', '--format=%gd%x00%H%x00%cr%x00%gs'], {
@@ -885,6 +916,15 @@ export class RepositoryService {
 
     if (mergeState.operation !== 'none') {
       throw new BranchPilotUserError('git_operation_active', `A ${mergeState.operation} operation is already in progress.`)
+    }
+  }
+
+  private async assertNoConflicts(rootPath: string, actionLabel: string): Promise<void> {
+    const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
+    const parsedStatus = parseGitStatus(statusOutput.stdout)
+
+    if (parsedStatus.counts.conflicted > 0) {
+      throw new BranchPilotUserError('conflicts_present', `Resolve conflicted files before ${actionLabel}.`)
     }
   }
 
