@@ -40,6 +40,23 @@ describe('ExternalEditorService', () => {
     expect(runner.commands()).toEqual(['cursor'])
   })
 
+  it('passes line numbers to editor CLIs', async () => {
+    const runner = new FakeRunner()
+    const service = new ExternalEditorService(runner as unknown as CommandRunner)
+
+    const result = await service.openInEditor('/repo/src/app.ts', 27, {
+      preference: 'vscode'
+    })
+
+    expect(result.message).toBe('Opened in Visual Studio Code')
+    expect(runner.calls()).toEqual([
+      {
+        command: 'code',
+        args: ['/repo/src/app.ts:27']
+      }
+    ])
+  })
+
   it('falls back to macOS open when editor CLIs fail', async () => {
     const runner = new FakeRunner(new Set(['code', 'cursor', 'webstorm', 'rider', 'subl']))
     const service = new ExternalEditorService(runner as unknown as CommandRunner)

@@ -2446,6 +2446,14 @@ function App() {
     await runOperationAction('File opened in editor.', () => api.openInEditor({ targetPath: selectedFileTarget }))
   }
 
+  async function openSelectedFileLineInEditor(line?: number) {
+    if (!api || !selectedFileTarget || !line) return
+    await runOperationAction(`File opened at line ${line}.`, () => api.openInEditor({
+      targetPath: selectedFileTarget,
+      line
+    }))
+  }
+
   async function openRepositoryTerminal() {
     if (!api || !currentRepoPath) return
     await runOperationAction('Terminal opened.', () => api.openTerminal(currentRepoPath))
@@ -2929,7 +2937,6 @@ function App() {
     const visibleSummary = changeFilter
       ? `${filteredChanges.length} of ${totalChanges}`
       : `${totalChanges}`
-    const commitAssistantReadiness = assistantReadinessSummary(assistants, selectedAssistant)
 
     return (
       <section className="content-grid changes-workflow-grid">
@@ -3089,19 +3096,6 @@ function App() {
             {!canGenerateCommitText && (
               <div className="assistant-policy-note">{assistantPolicyBlockedLabel('commit_message', assistantPolicy)}</div>
             )}
-            {commitAssistantReadiness.state !== 'ready' && (
-              <div className={`commit-assistant-note state-${commitAssistantReadiness.state}`}>
-                <strong>{commitAssistantReadiness.title}</strong>
-                <span>{commitAssistantReadiness.message}</span>
-              </div>
-            )}
-            <div className="assistant-detections">
-              {assistants.map((assistant) => (
-                <span className={`assistant-state state-${assistant.state}`} key={assistant.id}>
-                  {assistant.label}: {assistantStatusLabel(assistant)}
-                </span>
-              ))}
-            </div>
             {renderPreCommitReviewPanel()}
             {commitActionState.reasons.length > 0 && (
               <ActionBlockers
@@ -3219,6 +3213,7 @@ function App() {
             busy={busy}
             onStageHunk={stageSelectedHunk}
             onUnstageHunk={unstageSelectedHunk}
+            onOpenLine={openSelectedFileLineInEditor}
           />
         </div>
       </section>
@@ -5690,7 +5685,8 @@ function DiffPreview({
   displayMode = 'unified',
   busy = false,
   onStageHunk,
-  onUnstageHunk
+  onUnstageHunk,
+  onOpenLine
 }: {
   diff: DiffResult | null
   mode?: DiffMode
@@ -5698,6 +5694,7 @@ function DiffPreview({
   busy?: boolean
   onStageHunk?: (hunk: DiffHunk) => void
   onUnstageHunk?: (hunk: DiffHunk) => void
+  onOpenLine?: (line?: number) => void
 }) {
   if (!diff) {
     return <div className="diff-empty">No diff selected.</div>
@@ -5740,7 +5737,9 @@ function DiffPreview({
                   </button>
                 )}
               </div>
-              {displayMode === 'split' ? <SplitDiffLines lines={hunk.lines} /> : <UnifiedDiffLines lines={hunk.lines} />}
+              {displayMode === 'split'
+                ? <SplitDiffLines lines={hunk.lines} onOpenLine={onOpenLine} />
+                : <UnifiedDiffLines lines={hunk.lines} onOpenLine={onOpenLine} />}
             </article>
           ))}
         </section>
@@ -5749,13 +5748,13 @@ function DiffPreview({
   )
 }
 
-function UnifiedDiffLines({ lines }: { lines: DiffLine[] }) {
+function UnifiedDiffLines({ lines, onOpenLine }: { lines: DiffLine[]; onOpenLine?: (line?: number) => void }) {
   return (
     <div className="diff-lines">
       {lines.map((line, lineIndex) => (
         <code className={`diff-line line-${line.type}`} key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}>
-          <span className="line-number">{formatLineNumber(line.oldLineNumber)}</span>
-          <span className="line-number">{formatLineNumber(line.newLineNumber)}</span>
+          <DiffLineNumber lineNumber={line.oldLineNumber} onOpenLine={onOpenLine} />
+          <DiffLineNumber lineNumber={line.newLineNumber} onOpenLine={onOpenLine} />
           <span className="line-marker">{diffLinePrefix(line)}</span>
           <span className="line-content">{line.content}</span>
         </code>
@@ -5764,28 +5763,60 @@ function UnifiedDiffLines({ lines }: { lines: DiffLine[] }) {
   )
 }
 
-function SplitDiffLines({ lines }: { lines: DiffLine[] }) {
+function SplitDiffLines({ lines, onOpenLine }: { lines: DiffLine[]; onOpenLine?: (line?: number) => void }) {
   return (
     <div className="split-diff-lines">
       {buildSplitDiffRows(lines).map((row, rowIndex) => (
         <div className="split-diff-row" key={`${rowIndex}-${row.oldLine?.content ?? ''}-${row.newLine?.content ?? ''}`}>
-          <SplitDiffCell line={row.oldLine} side="old" />
-          <SplitDiffCell line={row.newLine} side="new" />
+          <SplitDiffCell line={row.oldLine} side="old" onOpenLine={onOpenLine} />
+          <SplitDiffCell line={row.newLine} side="new" onOpenLine={onOpenLine} />
         </div>
       ))}
     </div>
   )
 }
 
-function SplitDiffCell({ line, side }: { line?: DiffLine; side: 'old' | 'new' }) {
+function SplitDiffCell({
+  line,
+  side,
+  onOpenLine
+}: {
+  line?: DiffLine
+  side: 'old' | 'new'
+  onOpenLine?: (line?: number) => void
+}) {
   const lineNumber = side === 'old' ? line?.oldLineNumber : line?.newLineNumber
 
   return (
     <code className={`split-diff-cell ${line ? `line-${line.type}` : 'line-empty'}`}>
-      <span className="line-number">{formatLineNumber(lineNumber)}</span>
+      <DiffLineNumber lineNumber={lineNumber} onOpenLine={onOpenLine} />
       <span className="line-marker">{line ? diffLinePrefix(line) : ''}</span>
       <span className="line-content">{line?.content ?? ''}</span>
     </code>
+  )
+}
+
+function DiffLineNumber({
+  lineNumber,
+  onOpenLine
+}: {
+  lineNumber?: number
+  onOpenLine?: (line?: number) => void
+}) {
+  if (!lineNumber || !onOpenLine) {
+    return <span className="line-number">{formatLineNumber(lineNumber)}</span>
+  }
+
+  return (
+    <button
+      className="line-number line-number-button"
+      type="button"
+      title={`Open line ${lineNumber} in editor`}
+      aria-label={`Open line ${lineNumber} in editor`}
+      onClick={() => onOpenLine(lineNumber)}
+    >
+      {formatLineNumber(lineNumber)}
+    </button>
   )
 }
 
