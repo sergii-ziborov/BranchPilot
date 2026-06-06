@@ -339,6 +339,17 @@ h3 {
   background: #f9fafb;
 }
 
+.panel-actions button.danger-button {
+  border-color: #fecaca;
+  color: #b91c1c;
+  background: #fff7f7;
+}
+
+.panel-actions button.danger-button:hover {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
 .message {
   gap: 8px;
   min-height: 36px;
@@ -1100,9 +1111,16 @@ h3 {
   background: #f8fafc;
 }
 
-.branch-row > div:first-child {
+.branch-row > div:first-child,
+.conflict-row > div:first-child {
   flex: 1 1 320px;
   min-width: 0;
+}
+
+.branch-row .panel-actions,
+.conflict-row .panel-actions {
+  flex: 0 0 auto;
+  max-width: min(100%, 560px);
 }
 
 .branch-composer {
@@ -1244,15 +1262,21 @@ h3 {
 .branch-row strong,
 .conflict-row strong {
   display: block;
+  overflow: hidden;
   color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .branch-row span,
 .conflict-row span {
   display: block;
   margin-top: 3px;
+  overflow: hidden;
   color: var(--muted);
   font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .branch-row p {
@@ -2807,6 +2831,17 @@ h3 {
   .toolbar,
   .panel-actions {
     justify-content: flex-start;
+  }
+
+  .branch-row,
+  .conflict-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .branch-row .panel-actions,
+  .conflict-row .panel-actions {
+    max-width: 100%;
   }
 
   .commit-file-grid,

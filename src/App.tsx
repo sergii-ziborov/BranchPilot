@@ -2536,12 +2536,15 @@ function App() {
                     Editor
                   </button>
                   <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Accepted ours.', () => api!.acceptOurs({ repoPath: currentRepoPath, filePath: file.path }))}>
+                    <ArrowDownToLine size={16} />
                     Ours
                   </button>
                   <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Accepted theirs.', () => api!.acceptTheirs({ repoPath: currentRepoPath, filePath: file.path }))}>
+                    <ArrowUpFromLine size={16} />
                     Theirs
                   </button>
                   <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Marked resolved.', () => api!.markResolved({ repoPath: currentRepoPath, filePath: file.path }))}>
+                    <Check size={16} />
                     Mark resolved
                   </button>
                 </div>
@@ -2703,6 +2706,7 @@ function App() {
                       branch: branch.name,
                       remote: snapshot.summary.remoteName
                     }))}>
+                      <UploadCloud size={16} />
                       Publish
                     </button>
                   )}
@@ -2711,13 +2715,16 @@ function App() {
                     disabled={branch.current || isEditingDescription}
                     onClick={() => currentRepoPath && runSnapshotAction('Branch switched.', () => api!.switchBranch({ repoPath: currentRepoPath, branchName: branch.name }))}
                   >
+                    <GitBranch size={16} />
                     Switch
                   </button>
                   <button
+                    className="danger-button"
                     type="button"
                     disabled={branch.current || isEditingDescription}
                     onClick={() => currentRepoPath && window.confirm(`Delete local branch ${branch.name}?`) && runSnapshotAction('Branch deleted.', () => api!.deleteBranch({ repoPath: currentRepoPath, branchName: branch.name, force: false }))}
                   >
+                    <Trash2 size={16} />
                     Delete
                   </button>
                 </div>
