@@ -38,6 +38,10 @@ export interface GitHubApiPullRequest {
 
 export interface GitHubApiClient {
   getViewer(credential: GitHubDesktopCredential): Promise<{ login: string }>
+  listRepositories(
+    credential: GitHubDesktopCredential,
+    request: ListGitHubRepositoriesRequest
+  ): Promise<GitHubRepositorySummary[]>
   createPullRequest(
     credential: GitHubDesktopCredential,
     repository: GitHubRepositoryInfo,
@@ -62,6 +66,7 @@ const DEFAULT_CREDENTIAL_PROVIDER: GitHubCredentialProvider = {
 
 const DEFAULT_API_CLIENT: GitHubApiClient = {
   getViewer: getGitHubApiViewer,
+  listRepositories: listGitHubApiRepositories,
   createPullRequest: createGitHubApiPullRequest
 }
 
@@ -260,11 +265,38 @@ export async function listGitHubPullRequests(
 
 export async function listGitHubRepositories(
   runner: CommandRunner,
-  request: ListGitHubRepositoriesRequest = {}
+  request: ListGitHubRepositoriesRequest = {},
+  credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient = DEFAULT_API_CLIENT
 ): Promise<GitHubRepositorySummary[]> {
-  const status = await assertGitHubCliAuthenticated(runner)
+  const status = await getGitHubCliStatus(runner, undefined, credentialProvider, apiClient)
   const limit = normalizeRepositoryListLimit(request.limit)
   const owner = normalizeOptionalGitHubOwner(request.owner)
+
+  if (status.authProvider === 'git-credential') {
+    const credential = await credentialProvider.getCredential()
+
+    if (credential) {
+      return filterGitHubRepositories(await apiClient.listRepositories(credential, {
+        ...request,
+        owner,
+        limit
+      }), {
+        ...request,
+        owner,
+        limit
+      })
+    }
+  }
+
+  if (status.state === 'missing') {
+    throw new BranchPilotUserError('github_cli_missing', 'GitHub CLI is not installed and no GitHub Desktop credential is available.')
+  }
+
+  if (status.authProvider !== 'gh' || !status.executable) {
+    throw new BranchPilotUserError('github_cli_unauthenticated', 'Run gh auth login or sign in with GitHub Desktop before browsing repositories.')
+  }
+
   const args = [
     'repo',
     'list',
@@ -283,14 +315,12 @@ export async function listGitHubRepositories(
   const result = await runner.run(status.executable, args, {
     timeoutMs: 45_000
   })
-  const repositories = parseGitHubRepositoryList(result.stdout)
-  const query = request.query?.trim().toLowerCase()
 
-  if (!query) {
-    return repositories
-  }
-
-  return repositories.filter((repository) => matchesGitHubRepositoryQuery(repository, query))
+  return filterGitHubRepositories(parseGitHubRepositoryList(result.stdout), {
+    ...request,
+    owner,
+    limit
+  })
 }
 
 export async function getGitHubPullRequestDetails(
@@ -738,6 +768,40 @@ async function createGitHubApiPullRequest(
   }
 }
 
+async function listGitHubApiRepositories(
+  credential: GitHubDesktopCredential,
+  request: ListGitHubRepositoriesRequest
+): Promise<GitHubRepositorySummary[]> {
+  const limit = normalizeRepositoryListLimit(request.limit)
+  const url = new URL('https://api.github.com/user/repos')
+  url.searchParams.set('per_page', String(limit))
+  url.searchParams.set('sort', 'pushed')
+  url.searchParams.set('direction', 'desc')
+  url.searchParams.set('affiliation', 'owner,collaborator,organization_member')
+  url.searchParams.set('visibility', request.visibility === 'public' || request.visibility === 'private'
+    ? request.visibility
+    : 'all')
+
+  const response = await fetch(url, {
+    headers: githubApiHeaders(credential)
+  })
+  const body = await readGitHubApiJson(response)
+
+  if (!response.ok) {
+    throw new BranchPilotUserError(
+      'github_repo_list_failed',
+      'GitHub API could not list repositories.',
+      githubApiErrorMessage(body, response.status)
+    )
+  }
+
+  if (!Array.isArray(body)) {
+    throw new BranchPilotUserError('github_repo_parse_failed', 'GitHub API did not return a repository list.')
+  }
+
+  return filterGitHubRepositories(body.map((value) => normalizeGitHubRepository(value)), request)
+}
+
 function githubApiHeaders(credential: GitHubDesktopCredential): HeadersInit {
   return {
     Accept: 'application/vnd.github+json',
@@ -747,7 +811,7 @@ function githubApiHeaders(credential: GitHubDesktopCredential): HeadersInit {
   }
 }
 
-async function readGitHubApiBody(response: Response): Promise<Record<string, unknown>> {
+async function readGitHubApiJson(response: Response): Promise<unknown> {
   const text = await response.text()
 
   if (!text.trim()) {
@@ -761,10 +825,23 @@ async function readGitHubApiBody(response: Response): Promise<Record<string, unk
   }
 }
 
-function githubApiErrorMessage(body: Record<string, unknown>, status: number): string {
-  const message = typeof body.message === 'string' ? body.message : `HTTP ${status}`
-  const errors = Array.isArray(body.errors)
-    ? body.errors
+async function readGitHubApiBody(response: Response): Promise<Record<string, unknown>> {
+  const body = await readGitHubApiJson(response)
+
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    return body as Record<string, unknown>
+  }
+
+  return {}
+}
+
+function githubApiErrorMessage(body: unknown, status: number): string {
+  const record = body && typeof body === 'object' && !Array.isArray(body)
+    ? body as Record<string, unknown>
+    : {}
+  const message = typeof record.message === 'string' ? record.message : `HTTP ${status}`
+  const errors = Array.isArray(record.errors)
+    ? record.errors
         .map((error) => typeof error === 'string'
           ? error
           : error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
@@ -899,14 +976,22 @@ function normalizeGitHubRepository(value: unknown): GitHubRepositorySummary {
   }
 
   const record = value as Record<string, unknown>
-  const explicitNameWithOwner = typeof record.nameWithOwner === 'string' ? record.nameWithOwner : ''
+  const explicitNameWithOwner = typeof record.nameWithOwner === 'string'
+    ? record.nameWithOwner
+    : typeof record.full_name === 'string'
+      ? record.full_name
+      : ''
   const nameWithOwnerParts = explicitNameWithOwner.split('/').filter(Boolean)
   const name = typeof record.name === 'string' && record.name.trim()
     ? record.name.trim()
     : nameWithOwnerParts[1] ?? ''
   const owner = normalizeRepositoryOwner(record.owner) || nameWithOwnerParts[0] || ''
   const normalizedPath = normalizeGitHubRepositoryPath(owner, name)
-  const url = typeof record.url === 'string' ? record.url.trim() : ''
+  const url = typeof record.url === 'string'
+    ? record.url.trim()
+    : typeof record.html_url === 'string'
+      ? record.html_url.trim()
+      : ''
 
   if (!normalizedPath || !url) {
     throw new BranchPilotUserError('github_repo_parse_failed', 'GitHub CLI returned an incomplete repository.')
@@ -917,15 +1002,15 @@ function normalizeGitHubRepository(value: unknown): GitHubRepositorySummary {
     nameWithOwner: `${normalizedPath.owner}/${normalizedPath.repo}`,
     owner: normalizedPath.owner,
     description: optionalString(record.description) ?? '',
-    visibility: optionalString(record.visibility) ?? (record.isPrivate ? 'PRIVATE' : 'PUBLIC'),
-    isPrivate: Boolean(record.isPrivate),
-    isFork: Boolean(record.isFork),
-    isArchived: Boolean(record.isArchived),
+    visibility: optionalString(record.visibility) ?? (record.isPrivate || record.private ? 'PRIVATE' : 'PUBLIC'),
+    isPrivate: Boolean(record.isPrivate ?? record.private),
+    isFork: Boolean(record.isFork ?? record.fork),
+    isArchived: Boolean(record.isArchived ?? record.archived),
     url,
-    sshUrl: optionalString(record.sshUrl) ?? '',
-    defaultBranch: normalizeRepositoryDefaultBranch(record.defaultBranchRef),
-    updatedAt: optionalString(record.updatedAt) ?? '',
-    pushedAt: optionalString(record.pushedAt) ?? ''
+    sshUrl: optionalString(record.sshUrl) ?? optionalString(record.ssh_url) ?? '',
+    defaultBranch: normalizeRepositoryDefaultBranch(record.defaultBranchRef ?? record.default_branch),
+    updatedAt: optionalString(record.updatedAt) ?? optionalString(record.updated_at) ?? '',
+    pushedAt: optionalString(record.pushedAt) ?? optionalString(record.pushed_at) ?? ''
   }
 }
 
@@ -1028,6 +1113,10 @@ function normalizeRepositoryOwner(value: unknown): string {
 }
 
 function normalizeRepositoryDefaultBranch(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim()
+  }
+
   if (!value || typeof value !== 'object') {
     return ''
   }
@@ -1056,6 +1145,29 @@ function normalizeOptionalGitHubOwner(owner: string | undefined): string | undef
   }
 
   return trimmed
+}
+
+function filterGitHubRepositories(
+  repositories: GitHubRepositorySummary[],
+  request: ListGitHubRepositoriesRequest
+): GitHubRepositorySummary[] {
+  const owner = normalizeOptionalGitHubOwner(request.owner)?.toLowerCase()
+  const query = request.query?.trim().toLowerCase()
+  const visibility = request.visibility && request.visibility !== 'all'
+    ? request.visibility.toLowerCase()
+    : undefined
+
+  return repositories.filter((repository) => {
+    if (owner && repository.owner.toLowerCase() !== owner) {
+      return false
+    }
+
+    if (visibility && repository.visibility.toLowerCase() !== visibility) {
+      return false
+    }
+
+    return query ? matchesGitHubRepositoryQuery(repository, query) : true
+  })
 }
 
 function matchesGitHubRepositoryQuery(repository: GitHubRepositorySummary, query: string): boolean {

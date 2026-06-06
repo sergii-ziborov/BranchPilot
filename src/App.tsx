@@ -748,9 +748,9 @@ function App() {
     setError(null)
     const status = githubCliStatus ?? await loadGitHubCliStatus()
 
-    if (!status?.ghAuthenticated) {
+    if (!status?.authenticated) {
       setGithubRepositories([])
-      setNotice('Run gh auth login before browsing GitHub repositories.')
+      setNotice('Run gh auth login or sign in with GitHub Desktop before browsing repositories.')
       setGithubRepoLoading(false)
       return
     }
@@ -4926,14 +4926,14 @@ function App() {
   }
 
   function renderGitHubRepositoryBrowser() {
-    const repoBrowserReady = Boolean(githubCliStatus?.ghAuthenticated)
+    const repoBrowserReady = Boolean(githubCliStatus?.authenticated)
 
     return (
       <section className="github-repo-browser">
         <div className="panel-heading compact-heading">
           <div>
             <h3>GitHub repositories</h3>
-            <p>{repoBrowserReady ? `${githubRepositories.length} repositories loaded from gh.` : 'Repository list requires gh auth login.'}</p>
+            <p>{repoBrowserReady ? `${githubRepositories.length} repositories loaded from ${githubRepositoryBrowserSourceLabel(githubCliStatus)}.` : 'Repository list requires GitHub CLI or GitHub Desktop auth.'}</p>
           </div>
           <button type="button" className="secondary" onClick={loadGitHubRepositories} disabled={busy || githubRepoLoading}>
             {githubRepoLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
@@ -4942,7 +4942,7 @@ function App() {
         </div>
 
         {!repoBrowserReady && (
-          <div className="command-hint">Run <code>gh auth login</code>, then load repositories.</div>
+          <div className="command-hint">Run <code>gh auth login</code> or sign in with GitHub Desktop, then load repositories.</div>
         )}
 
         <div className="github-repo-controls">
@@ -4991,7 +4991,7 @@ function App() {
         </div>
 
         {!repoBrowserReady ? (
-          <div className="quiet-box">GitHub Desktop credentials can create PRs, but repository browsing uses authenticated GitHub CLI.</div>
+          <div className="quiet-box">BranchPilot can browse repositories through authenticated GitHub CLI or an available GitHub Desktop credential.</div>
         ) : githubRepoLoading ? (
           <div className="quiet-box">Loading GitHub repositories.</div>
         ) : githubRepositories.length === 0 ? (
@@ -5660,6 +5660,18 @@ function githubStatusLabel(status: GitHubCliStatus): string {
   }
 
   return 'GitHub auth missing'
+}
+
+function githubRepositoryBrowserSourceLabel(status: GitHubCliStatus | null): string {
+  if (!status) {
+    return 'GitHub'
+  }
+
+  if (status.authProvider === 'git-credential') {
+    return 'GitHub Desktop'
+  }
+
+  return 'gh'
 }
 
 function githubRepositoryMeta(repository: GitHubRepositorySummary): string {

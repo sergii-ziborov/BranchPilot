@@ -21,7 +21,13 @@ import type {
   GitHubCredentialProvider,
   GitHubDesktopCredential
 } from '../electron/providers/githubCliService'
-import type { GitHubPullRequest, GitHubPullRequestCheck, GitHubPullRequestDetails, GitHubRepositorySummary } from '../src/shared/branchPilot'
+import type {
+  GitHubPullRequest,
+  GitHubPullRequestCheck,
+  GitHubPullRequestDetails,
+  GitHubRepositorySummary,
+  ListGitHubRepositoriesRequest
+} from '../src/shared/branchPilot'
 
 describe('GitHub CLI bridge', () => {
   it('detects missing, unauthenticated, and authenticated gh states', async () => {
@@ -117,14 +123,48 @@ describe('GitHub CLI bridge', () => {
     ])
   })
 
+  it('lists GitHub repositories through GitHub Desktop credentials when gh is not authenticated', async () => {
+    const apiClient = new FakeGitHubApiClient([
+      makeRepository({ name: 'BranchPilot', nameWithOwner: 'sergii-ziborov/BranchPilot', description: 'Desktop Git client' }),
+      makeRepository({ name: 'private-tools', nameWithOwner: 'sergii-ziborov/private-tools', visibility: 'PRIVATE' }),
+      makeRepository({ name: 'public-site', nameWithOwner: 'sergii-ziborov/public-site', visibility: 'PUBLIC', isPrivate: false })
+    ])
+
+    await expect(listGitHubRepositories(
+      new GitHubCliTestRunner({ ghAuthenticated: false }),
+      {
+        owner: 'sergii-ziborov',
+        query: 'pilot',
+        visibility: 'private',
+        limit: 75
+      },
+      new FakeGitHubCredentialProvider(),
+      apiClient
+    )).resolves.toEqual([
+      makeRepository({ name: 'BranchPilot', nameWithOwner: 'sergii-ziborov/BranchPilot', description: 'Desktop Git client' })
+    ])
+
+    expect(apiClient.listRequest).toMatchObject({
+      owner: 'sergii-ziborov',
+      query: 'pilot',
+      visibility: 'private',
+      limit: 75
+    })
+  })
+
   it('rejects invalid GitHub repository list output', async () => {
     await expect(listGitHubRepositories(new GitHubCliTestRunner({ repoListOutput: 'not-json' }))).rejects.toMatchObject({
       code: 'github_repo_parse_failed'
     })
   })
 
-  it('blocks GitHub repository listing when gh is not authenticated', async () => {
-    await expect(listGitHubRepositories(new GitHubCliTestRunner({ ghAuthenticated: false }))).rejects.toMatchObject({
+  it('blocks GitHub repository listing when no authentication is available', async () => {
+    await expect(listGitHubRepositories(
+      new GitHubCliTestRunner({ ghAuthenticated: false }),
+      {},
+      new FakeGitHubCredentialProvider(null),
+      new FakeGitHubApiClient()
+    )).rejects.toMatchObject({
       code: 'github_cli_unauthenticated'
     })
   })
@@ -459,6 +499,7 @@ class FakeGitHubCredentialProvider implements GitHubCredentialProvider {
 }
 
 class FakeGitHubApiClient implements GitHubApiClient {
+  listRequest?: ListGitHubRepositoriesRequest
   createdPullRequest?: {
     credential: GitHubDesktopCredential
     repository: { owner: string; repo: string; remoteUrl: string }
@@ -470,8 +511,38 @@ class FakeGitHubApiClient implements GitHubApiClient {
     }
   }
 
+  constructor(private readonly repositories: GitHubRepositorySummary[] = [makeRepository()]) {}
+
   async getViewer(): Promise<{ login: string }> {
     return { login: 'desktop-user' }
+  }
+
+  async listRepositories(
+    _credential: GitHubDesktopCredential,
+    request: ListGitHubRepositoriesRequest
+  ): Promise<GitHubRepositorySummary[]> {
+    this.listRequest = request
+    const owner = request.owner?.toLowerCase()
+    const query = request.query?.toLowerCase()
+    const visibility = request.visibility && request.visibility !== 'all'
+      ? request.visibility.toLowerCase()
+      : undefined
+
+    return this.repositories.filter((repository) => {
+      if (owner && repository.owner.toLowerCase() !== owner) {
+        return false
+      }
+
+      if (visibility && repository.visibility.toLowerCase() !== visibility) {
+        return false
+      }
+
+      return query ? [
+        repository.name,
+        repository.nameWithOwner,
+        repository.description
+      ].some((value) => value.toLowerCase().includes(query)) : true
+    })
   }
 
   async createPullRequest(
