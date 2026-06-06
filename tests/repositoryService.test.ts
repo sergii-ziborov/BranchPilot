@@ -346,6 +346,24 @@ describe('RepositoryService', () => {
     }
   })
 
+  it('truncates large untracked file previews without treating them as parsed diffs', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'large-untracked.txt'), `${'x'.repeat(400_000)}\n`)
+
+    const diff = await service.getDiff({
+      repoPath,
+      filePath: 'large-untracked.txt',
+      staged: false
+    })
+
+    expect(diff.tooLarge).toBe(true)
+    expect(diff.binary).toBe(false)
+    expect(diff.text.length).toBeLessThan(360_000)
+    expect(diff.files).toEqual([])
+  })
+
   it('exports and applies a working tree patch with confirmation', async () => {
     const repoPath = createTempRepository()
     const patchRoot = mkdtempSync(path.join(tmpdir(), 'branchpilot-patch-test-'))

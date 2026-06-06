@@ -57,6 +57,7 @@ import { parseGitStatus } from './gitStatusParser.js'
 import { SettingsStore } from './settingsStore.js'
 
 const MAX_DIFF_BYTES = 350_000
+const MAX_DIFF_OUTPUT_BYTES = MAX_DIFF_BYTES + 1
 const DEFAULT_REMOTE = 'origin'
 const STALE_BRANCH_THRESHOLD_DAYS = 30
 
@@ -283,9 +284,12 @@ export class RepositoryService {
 
     args.push('--', relativePath)
 
-    const result = await this.git(rootPath, args, { allowedExitCodes: [0, 1] })
+    const result = await this.git(rootPath, args, {
+      allowedExitCodes: [0, 1],
+      maxOutputBytes: MAX_DIFF_OUTPUT_BYTES
+    })
     const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
-    const tooLarge = result.stdout.length > MAX_DIFF_BYTES
+    const tooLarge = Boolean(result.stdoutTruncated) || result.stdout.length > MAX_DIFF_BYTES
 
     const text = tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout
 
@@ -349,10 +353,11 @@ export class RepositoryService {
     const commitSha = normalizeCommitSha(request.commitSha)
     const filePath = normalizeRelativePath(request.filePath)
     const result = await this.git(rootPath, ['show', '--format=', '--no-ext-diff', commitSha, '--', filePath], {
-      allowedExitCodes: [0, 1]
+      allowedExitCodes: [0, 1],
+      maxOutputBytes: MAX_DIFF_OUTPUT_BYTES
     })
     const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
-    const tooLarge = result.stdout.length > MAX_DIFF_BYTES
+    const tooLarge = Boolean(result.stdoutTruncated) || result.stdout.length > MAX_DIFF_BYTES
 
     const text = tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout
 
@@ -1384,9 +1389,10 @@ export class RepositoryService {
 
   private async getUntrackedFilePreview(rootPath: string, filePath: string): Promise<DiffResult> {
     const fullPath = resolveRepositoryPath(rootPath, filePath)
-    const file = await fs.readFile(fullPath)
+    const fileStats = await fs.stat(fullPath)
+    const file = await readFilePrefix(fullPath, MAX_DIFF_OUTPUT_BYTES)
     const binary = file.includes(0)
-    const tooLarge = file.byteLength > MAX_DIFF_BYTES
+    const tooLarge = fileStats.size > MAX_DIFF_BYTES
     const text = binary
       ? 'Binary untracked file.'
       : file
@@ -1421,13 +1427,14 @@ export class RepositoryService {
   private async git(
     cwd: string,
     args: string[],
-    options: { allowedExitCodes?: number[]; input?: string; timeoutMs?: number } = {}
+    options: { allowedExitCodes?: number[]; input?: string; timeoutMs?: number; maxOutputBytes?: number } = {}
   ) {
     return this.runner.run('/usr/bin/git', args, {
       cwd,
       allowedExitCodes: options.allowedExitCodes,
       input: options.input,
-      timeoutMs: options.timeoutMs
+      timeoutMs: options.timeoutMs,
+      maxOutputBytes: options.maxOutputBytes
     })
   }
 }
@@ -1959,6 +1966,19 @@ function resolveRepositoryPath(rootPath: string, relativePath: string): string {
   }
 
   return fullPath
+}
+
+async function readFilePrefix(filePath: string, maxBytes: number): Promise<Buffer> {
+  const file = await fs.open(filePath, 'r')
+
+  try {
+    const buffer = Buffer.alloc(Math.max(0, maxBytes))
+    const { bytesRead } = await file.read(buffer, 0, buffer.length, 0)
+
+    return buffer.subarray(0, bytesRead)
+  } finally {
+    await file.close()
+  }
 }
 
 async function pathExists(filePath: string): Promise<boolean> {

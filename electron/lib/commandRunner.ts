@@ -5,6 +5,7 @@ export interface CommandRunOptions {
   input?: string
   timeoutMs?: number
   allowedExitCodes?: number[]
+  maxOutputBytes?: number
 }
 
 export interface CommandRunResult {
@@ -14,6 +15,8 @@ export interface CommandRunResult {
   exitCode: number
   stdout: string
   stderr: string
+  stdoutTruncated?: boolean
+  stderrTruncated?: boolean
   durationMs: number
 }
 
@@ -49,6 +52,7 @@ export class CommandRunner {
     const startedAt = Date.now()
     const allowedExitCodes = options.allowedExitCodes ?? [0]
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    const maxOutputBytes = normalizeMaxOutputBytes(options.maxOutputBytes)
 
     const result = await new Promise<CommandRunResult>((resolve, reject) => {
       const child = spawn(command, args, {
@@ -60,6 +64,10 @@ export class CommandRunner {
 
       let stdout = ''
       let stderr = ''
+      let stdoutBytes = 0
+      let stderrBytes = 0
+      let stdoutTruncated = false
+      let stderrTruncated = false
       let timedOut = false
 
       const timeout = setTimeout(() => {
@@ -71,11 +79,17 @@ export class CommandRunner {
       child.stderr.setEncoding('utf8')
 
       child.stdout.on('data', (chunk: string) => {
-        stdout += chunk
+        const appended = appendLimitedOutput(stdout, chunk, stdoutBytes, maxOutputBytes)
+        stdout = appended.text
+        stdoutBytes = appended.bytes
+        stdoutTruncated = stdoutTruncated || appended.truncated
       })
 
       child.stderr.on('data', (chunk: string) => {
-        stderr += chunk
+        const appended = appendLimitedOutput(stderr, chunk, stderrBytes, maxOutputBytes)
+        stderr = appended.text
+        stderrBytes = appended.bytes
+        stderrTruncated = stderrTruncated || appended.truncated
       })
 
       child.on('error', (error) => {
@@ -92,6 +106,8 @@ export class CommandRunner {
           exitCode: exitCode ?? 1,
           stdout: redact(stdout),
           stderr: redact(timedOut ? `${stderr}\nCommand timed out after ${timeoutMs}ms.` : stderr),
+          stdoutTruncated,
+          stderrTruncated,
           durationMs: Date.now() - startedAt
         }
 
@@ -126,6 +142,54 @@ function buildSafeEnv(): NodeJS.ProcessEnv {
   }
 
   return env
+}
+
+function normalizeMaxOutputBytes(value?: number): number | undefined {
+  if (!Number.isFinite(value) || value === undefined || value <= 0) {
+    return undefined
+  }
+
+  return Math.floor(value)
+}
+
+function appendLimitedOutput(current: string, chunk: string, currentBytes: number, maxBytes?: number): {
+  text: string
+  bytes: number
+  truncated: boolean
+} {
+  const chunkBytes = Buffer.byteLength(chunk)
+
+  if (!maxBytes) {
+    return {
+      text: current + chunk,
+      bytes: currentBytes + chunkBytes,
+      truncated: false
+    }
+  }
+
+  if (currentBytes >= maxBytes) {
+    return {
+      text: current,
+      bytes: currentBytes,
+      truncated: chunkBytes > 0
+    }
+  }
+
+  const remainingBytes = maxBytes - currentBytes
+
+  if (chunkBytes <= remainingBytes) {
+    return {
+      text: current + chunk,
+      bytes: currentBytes + chunkBytes,
+      truncated: false
+    }
+  }
+
+  return {
+    text: current + Buffer.from(chunk).subarray(0, remainingBytes).toString('utf8'),
+    bytes: maxBytes,
+    truncated: true
+  }
 }
 
 export function redact(text: string): string {
