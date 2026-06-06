@@ -331,6 +331,7 @@ function registerIpcHandlers() {
   )
   handle('repository:recent', () => repositoryService.getRecentRepositories())
   handle('repository:setPinned', (request: RepositoryPinRequest) => repositoryService.setRepositoryPinned(request))
+  handle('repository:dashboard', (repoPath?: string) => repositoryService.getRepositoryDashboard(repoPath))
   handleLogged('repository:refresh', {
     type: 'repository_refreshed',
     actor: 'user',

@@ -10,6 +10,8 @@ import type {
   ConfirmedStashActionRequest,
   CommitRequest,
   CreateStashRequest,
+  DashboardRepositorySummary,
+  DashboardStaleBranch,
   CommitSummary,
   DiffRequest,
   DiffResult,
@@ -22,6 +24,7 @@ import type {
   PublishBranchRequest,
   RecentRepository,
   RepositoryPinRequest,
+  RepositoryDashboardSnapshot,
   RemoteSummary,
   RepositorySnapshot,
   RepositoryStatus,
@@ -37,6 +40,7 @@ import { SettingsStore } from './settingsStore.js'
 
 const MAX_DIFF_BYTES = 350_000
 const DEFAULT_REMOTE = 'origin'
+const STALE_BRANCH_THRESHOLD_DAYS = 30
 
 export class RepositoryService {
   constructor(
@@ -60,6 +64,47 @@ export class RepositoryService {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
 
     return this.settings.setRepositoryPinned(rootPath, request.pinned)
+  }
+
+  async getRepositoryDashboard(repoPath?: string): Promise<RepositoryDashboardSnapshot> {
+    const recentRepositories = await this.settings.getRecentRepositories()
+    const activeRootPath = repoPath ? await this.resolveRepositoryRoot(repoPath) : undefined
+    const activeRecent = activeRootPath
+      ? recentRepositories.find((repo) => repo.path === activeRootPath)
+      : undefined
+    const repositories = activeRootPath && !activeRecent
+      ? [
+          {
+            path: activeRootPath,
+            name: path.basename(activeRootPath),
+            lastOpenedAt: new Date().toISOString(),
+            pinned: false
+          },
+          ...recentRepositories
+        ]
+      : recentRepositories
+
+    const entries = await Promise.all(
+      repositories.map((repo) => this.getDashboardRepository(repo, activeRootPath))
+    )
+    const staleBranches = entries.flatMap((entry) => entry.staleBranches)
+    const dashboardRepositories = entries.map((entry) => entry.repository)
+
+    return {
+      generatedAt: new Date().toISOString(),
+      staleBranchThresholdDays: STALE_BRANCH_THRESHOLD_DAYS,
+      repositories: dashboardRepositories,
+      staleBranches,
+      totals: {
+        repositories: dashboardRepositories.length,
+        dirty: dashboardRepositories.filter((repo) => repo.state === 'dirty').length,
+        conflicted: dashboardRepositories.filter((repo) => repo.state === 'conflicted').length,
+        unavailable: dashboardRepositories.filter((repo) => repo.state === 'unavailable').length,
+        ahead: dashboardRepositories.reduce((sum, repo) => sum + repo.ahead, 0),
+        behind: dashboardRepositories.reduce((sum, repo) => sum + repo.behind, 0),
+        staleBranches: staleBranches.length
+      }
+    }
   }
 
   async getSnapshot(repoPath: string): Promise<RepositorySnapshot> {
@@ -97,6 +142,64 @@ export class RepositoryService {
       status,
       branches: await this.listBranches(rootPath),
       recentRepositories: await this.settings.getRecentRepositories()
+    }
+  }
+
+  private async getDashboardRepository(repo: RecentRepository, activeRootPath?: string): Promise<{
+    repository: DashboardRepositorySummary
+    staleBranches: DashboardStaleBranch[]
+  }> {
+    try {
+      const snapshot = await this.getSnapshot(repo.path)
+      const state = snapshot.status.counts.conflicted > 0 || snapshot.status.merge.operation !== 'none'
+        ? 'conflicted'
+        : snapshot.status.counts.changed > 0
+          ? 'dirty'
+          : 'clean'
+
+      return {
+        repository: {
+          path: snapshot.summary.rootPath,
+          name: snapshot.summary.name,
+          pinned: repo.pinned,
+          active: snapshot.summary.rootPath === activeRootPath,
+          state,
+          currentBranch: snapshot.summary.currentBranch,
+          upstream: snapshot.summary.upstream,
+          remoteName: snapshot.summary.remoteName,
+          ahead: snapshot.summary.ahead,
+          behind: snapshot.summary.behind,
+          changed: snapshot.status.counts.changed,
+          staged: snapshot.status.counts.staged,
+          unstaged: snapshot.status.counts.unstaged,
+          untracked: snapshot.status.counts.untracked,
+          conflicted: snapshot.status.counts.conflicted,
+          mergeOperation: snapshot.status.merge.operation,
+          lastOpenedAt: repo.lastOpenedAt
+        },
+        staleBranches: staleBranchesForRepository(snapshot.summary.rootPath, snapshot.summary.name, snapshot.branches)
+      }
+    } catch (error) {
+      return {
+        repository: {
+          path: repo.path,
+          name: repo.name,
+          pinned: repo.pinned,
+          active: repo.path === activeRootPath,
+          state: 'unavailable',
+          ahead: 0,
+          behind: 0,
+          changed: 0,
+          staged: 0,
+          unstaged: 0,
+          untracked: 0,
+          conflicted: 0,
+          mergeOperation: 'none',
+          lastOpenedAt: repo.lastOpenedAt,
+          error: error instanceof Error ? error.message : 'Repository is unavailable.'
+        },
+        staleBranches: []
+      }
     }
   }
 
@@ -858,6 +961,29 @@ function normalizeRelativePath(filePath: string): string {
   }
 
   return filePath
+}
+
+function staleBranchesForRepository(repoPath: string, repoName: string, branches: BranchSummary[]): DashboardStaleBranch[] {
+  const now = Date.now()
+
+  return branches
+    .filter((branch) => !branch.current && Boolean(branch.lastCommitAt))
+    .map((branch) => {
+      const committedAt = Date.parse(branch.lastCommitAt ?? '')
+      const daysSinceCommit = Number.isNaN(committedAt)
+        ? 0
+        : Math.floor((now - committedAt) / (1000 * 60 * 60 * 24))
+
+      return {
+        repoPath,
+        repoName,
+        name: branch.name,
+        lastCommitAt: branch.lastCommitAt ?? '',
+        daysSinceCommit
+      }
+    })
+    .filter((branch) => branch.daysSinceCommit >= STALE_BRANCH_THRESHOLD_DAYS)
+    .sort((first, second) => second.daysSinceCommit - first.daysSinceCommit)
 }
 
 function normalizeBranchName(branchName: string): string {

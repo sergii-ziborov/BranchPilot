@@ -9,6 +9,7 @@ const branchPilot: BranchPilotApi = {
   openRepository: (path) => invoke('repository:open', path),
   getRecentRepositories: () => invoke('repository:recent'),
   setRepositoryPinned: (request) => invoke('repository:setPinned', request),
+  getRepositoryDashboard: (repoPath) => invoke('repository:dashboard', repoPath),
   refreshRepository: (repoPath) => invoke('repository:refresh', repoPath),
   getDiff: (request) => invoke('repository:diff', request),
   getHistory: (repoPath) => invoke('repository:history', repoPath),

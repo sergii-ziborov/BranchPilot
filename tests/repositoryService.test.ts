@@ -81,6 +81,54 @@ describe('RepositoryService', () => {
     })
   })
 
+  it('builds a repository dashboard from recent repositories', async () => {
+    const dirtyRepoPath = createTempRepository()
+    const activeRepoPath = createTempRepository()
+    const dirtyRepoRoot = realpathSync(dirtyRepoPath)
+    const activeRepoRoot = realpathSync(activeRepoPath)
+    const service = createService()
+
+    git(dirtyRepoPath, ['switch', '--quiet', '-c', 'stale/topic'])
+    writeFileSync(path.join(dirtyRepoPath, 'stale.txt'), 'stale branch\n')
+    git(dirtyRepoPath, ['add', 'stale.txt'])
+    gitWithEnv(dirtyRepoPath, ['commit', '-m', 'Old branch work'], {
+      GIT_AUTHOR_DATE: '2024-01-01T00:00:00Z',
+      GIT_COMMITTER_DATE: '2024-01-01T00:00:00Z'
+    })
+    git(dirtyRepoPath, ['switch', '--quiet', 'main'])
+    writeFileSync(path.join(dirtyRepoPath, 'tracked.txt'), 'dirty\n')
+
+    await service.openRepository(dirtyRepoPath)
+    await service.openRepository(activeRepoPath)
+    await service.setRepositoryPinned({
+      repoPath: dirtyRepoPath,
+      pinned: true
+    })
+
+    const dashboard = await service.getRepositoryDashboard(activeRepoPath)
+    const dirtyRepo = dashboard.repositories.find((repo) => repo.path === dirtyRepoRoot)
+    const activeRepo = dashboard.repositories.find((repo) => repo.path === activeRepoRoot)
+
+    expect(dashboard.totals.repositories).toBe(2)
+    expect(dashboard.totals.dirty).toBe(1)
+    expect(dashboard.totals.staleBranches).toBe(1)
+    expect(dirtyRepo).toMatchObject({
+      pinned: true,
+      state: 'dirty',
+      changed: 1
+    })
+    expect(activeRepo).toMatchObject({
+      active: true,
+      state: 'clean'
+    })
+    expect(dashboard.staleBranches[0]).toMatchObject({
+      repoPath: dirtyRepoRoot,
+      repoName: path.basename(dirtyRepoRoot),
+      name: 'stale/topic'
+    })
+    expect(dashboard.staleBranches[0].daysSinceCommit).toBeGreaterThan(30)
+  })
+
   it('commits staged changes with a multiline message', async () => {
     const repoPath = createTempRepository()
     const service = createService()
@@ -641,5 +689,16 @@ function git(cwd: string, args: string[]) {
   return execFileSync('/usr/bin/git', args, {
     cwd,
     encoding: 'utf8'
+  }).trim()
+}
+
+function gitWithEnv(cwd: string, args: string[], env: Record<string, string>) {
+  return execFileSync('/usr/bin/git', args, {
+    cwd,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      ...env
+    }
   }).trim()
 }

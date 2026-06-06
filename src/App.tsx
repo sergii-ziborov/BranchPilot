@@ -16,6 +16,7 @@ import {
   GitCommitHorizontal,
   GitMerge,
   GitPullRequest,
+  LayoutDashboard,
   Loader2,
   Pencil,
   Plus,
@@ -48,6 +49,7 @@ import type {
   DiffLine,
   CreatedPullRequest,
   DailyReviewReport,
+  DashboardRepositorySummary,
   DiffResult,
   FileChange,
   GitHubCliStatus,
@@ -67,6 +69,7 @@ import type {
   ProjectWikiSnapshot,
   RecentRepository,
   RepositorySnapshot,
+  RepositoryDashboardSnapshot,
   ReviewFinding,
   ReviewMode,
   ReviewReport,
@@ -80,7 +83,7 @@ import { getCommitActionState, getCommitAndPushActionState } from './shared/comm
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import './App.css'
 
-type ViewMode = 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily'
+type ViewMode = 'dashboard' | 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily'
 type DiffMode = 'unstaged' | 'staged'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
@@ -101,6 +104,8 @@ const assistantPolicyModes: AssistantPolicyMode[] = [
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
+  const [repositoryDashboard, setRepositoryDashboard] = useState<RepositoryDashboardSnapshot | null>(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
   const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
   const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
   const [providers, setProviders] = useState<ProviderStatus[]>([])
@@ -131,7 +136,7 @@ function App() {
   const [dailyReviewDate, setDailyReviewDate] = useState(() => formatDateInputValue(new Date()))
   const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
   const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('changes')
+  const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('Open a repository to begin.')
   const [error, setError] = useState<string | null>(null)
@@ -316,6 +321,15 @@ function App() {
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
   useEffect(() => {
+    if (!api || viewMode !== 'dashboard') return
+    void loadRepositoryDashboard()
+
+    if (snapshot) {
+      void refreshProvidersPanel()
+    }
+  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
+
+  useEffect(() => {
     if (viewMode !== 'history') return
 
     const filterActive = historyFilter.trim().length > 0
@@ -454,6 +468,22 @@ function App() {
     if (result.ok) setRecentRepositories(result.data)
   }
 
+  async function loadRepositoryDashboard() {
+    if (!api) return
+
+    setDashboardLoading(true)
+    const result = await api.getRepositoryDashboard(currentRepoPath)
+
+    if (result.ok) {
+      setRepositoryDashboard(result.data)
+    } else {
+      setRepositoryDashboard(null)
+      setError(result.error.message)
+    }
+
+    setDashboardLoading(false)
+  }
+
   async function toggleRepositoryPinned(repo: RecentRepository) {
     if (!api) return
 
@@ -464,6 +494,9 @@ function App() {
 
     if (result.ok) {
       setRecentRepositories(result.data)
+      if (viewMode === 'dashboard') {
+        void loadRepositoryDashboard()
+      }
     } else {
       setError(result.error.message)
     }
@@ -1549,6 +1582,7 @@ function App() {
   }
 
   const navigation = [
+    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'changes' as const, label: 'Changes', icon: GitCommitHorizontal },
     { id: 'history' as const, label: 'History', icon: Clock3 },
     { id: 'merge' as const, label: 'Merge', icon: GitMerge },
@@ -1752,6 +1786,7 @@ function App() {
               <Stat label="Remote" value={snapshot.summary.upstream ?? snapshot.summary.remoteName ?? 'None'} />
             </section>
 
+            {viewMode === 'dashboard' && renderDashboardView()}
             {viewMode === 'changes' && renderChangesView()}
             {viewMode === 'history' && renderHistoryView()}
             {viewMode === 'merge' && renderMergeView()}
@@ -1767,6 +1802,175 @@ function App() {
       </section>
     </main>
   )
+
+  function renderDashboardView() {
+    const dashboard = repositoryDashboard
+    const repositories = dashboard?.repositories ?? []
+    const attentionRepositories = repositories.filter((repo) => repo.state !== 'clean' || repo.ahead > 0 || repo.behind > 0)
+    const conflictedRepositories = repositories.filter((repo) => repo.state === 'conflicted')
+    const staleBranches = dashboard?.staleBranches ?? []
+    const currentPrSummary = currentPullRequest
+      ? `#${currentPullRequest.number} · ${currentPullRequest.state}${currentPullRequest.draft ? ' · draft' : ''}`
+      : githubCliStatus?.ghAuthenticated
+        ? 'No current branch PR detected.'
+        : 'GitHub CLI auth is needed for PR attention.'
+
+    return (
+      <section className="single-panel dashboard-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Dashboard</h2>
+            <p>
+              {dashboard
+                ? `${dashboard.totals.repositories} repositories scanned · generated ${formatDate(dashboard.generatedAt)}`
+                : 'Scan recent repositories for worktree, sync, conflict, PR, and stale branch signals.'}
+            </p>
+          </div>
+          <button type="button" onClick={loadRepositoryDashboard} disabled={dashboardLoading || busy}>
+            {dashboardLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
+            Refresh
+          </button>
+        </div>
+
+        {dashboardLoading && !dashboard ? (
+          <div className="quiet-box">Scanning recent repositories.</div>
+        ) : !dashboard ? (
+          <div className="quiet-box">Dashboard is not loaded yet.</div>
+        ) : (
+          <>
+            <div className="dashboard-stat-grid" aria-label="Dashboard totals">
+              <Stat label="Dirty repos" value={dashboard.totals.dirty} />
+              <Stat label="Conflicts" value={dashboard.totals.conflicted} />
+              <Stat label="Ahead / behind" value={`${dashboard.totals.ahead} / ${dashboard.totals.behind}`} />
+              <Stat label="Stale branches" value={dashboard.totals.staleBranches} />
+            </div>
+
+            <div className="dashboard-workspace">
+              <section className="dashboard-section">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <h3>Repository attention</h3>
+                    <p>Dirty, conflicted, ahead, behind, and unavailable repositories.</p>
+                  </div>
+                  <span>{attentionRepositories.length}</span>
+                </div>
+                {attentionRepositories.length === 0 ? (
+                  <div className="quiet-box">No repository needs attention.</div>
+                ) : (
+                  <div className="dashboard-repo-list">
+                    {attentionRepositories.map((repo) => (
+                      <article className={`dashboard-repo-row state-${repo.state}`} key={repo.path}>
+                        <div>
+                          <strong>{repo.name}</strong>
+                          <span>{dashboardRepoMeta(repo)}</span>
+                          <p>{repo.error ?? repo.path}</p>
+                        </div>
+                        <div className="dashboard-repo-metrics">
+                          <span>{dashboardStateLabel(repo)}</span>
+                          <span>{repo.changed} changed</span>
+                          <span>{repo.ahead} / {repo.behind}</span>
+                        </div>
+                        <button type="button" className="secondary" onClick={() => openRepository(repo.path)} disabled={busy || repo.state === 'unavailable'}>
+                          <FolderOpen size={16} />
+                          Open
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="dashboard-section">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <h3>PR/MR attention</h3>
+                    <p>Current branch pull request signal from the GitHub CLI bridge.</p>
+                  </div>
+                  <GitPullRequest size={18} />
+                </div>
+                <article className="dashboard-callout">
+                  <strong>{currentPullRequest?.title ?? 'Current branch PR'}</strong>
+                  <span>{currentPrSummary}</span>
+                  {pullRequests.length > 0 && <p>{pullRequests.length} recent GitHub pull request{pullRequests.length === 1 ? '' : 's'} loaded.</p>}
+                  <div className="panel-actions">
+                    <button type="button" onClick={() => setViewMode('providers')} disabled={busy}>
+                      <GitPullRequest size={16} />
+                      Providers
+                    </button>
+                    {currentPullRequest && (
+                      <button type="button" className="secondary" onClick={() => window.open(currentPullRequest.url, '_blank', 'noopener,noreferrer')}>
+                        <ExternalLink size={16} />
+                        Open PR
+                      </button>
+                    )}
+                  </div>
+                </article>
+              </section>
+
+              <section className="dashboard-section">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <h3>Conflicts</h3>
+                    <p>Merge, rebase, cherry-pick, and conflicted-file signals.</p>
+                  </div>
+                  <span>{conflictedRepositories.length}</span>
+                </div>
+                {conflictedRepositories.length === 0 ? (
+                  <div className="quiet-box">No conflicts detected.</div>
+                ) : (
+                  <div className="dashboard-repo-list">
+                    {conflictedRepositories.map((repo) => (
+                      <article className="dashboard-compact-row" key={repo.path}>
+                        <div>
+                          <strong>{repo.name}</strong>
+                          <span>{repo.mergeOperation} · {repo.conflicted} conflicted files</span>
+                        </div>
+                        <button type="button" className="secondary" onClick={() => {
+                          void openRepository(repo.path)
+                          setViewMode('merge')
+                        }}>
+                          <GitMerge size={16} />
+                          Merge
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="dashboard-section">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <h3>Stale branches</h3>
+                    <p>Local branches older than {dashboard.staleBranchThresholdDays} days.</p>
+                  </div>
+                  <span>{staleBranches.length}</span>
+                </div>
+                {staleBranches.length === 0 ? (
+                  <div className="quiet-box">No stale local branches detected.</div>
+                ) : (
+                  <div className="dashboard-repo-list">
+                    {staleBranches.slice(0, 10).map((branch) => (
+                      <article className="dashboard-compact-row" key={`${branch.repoPath}-${branch.name}`}>
+                        <div>
+                          <strong>{branch.name}</strong>
+                          <span>{branch.repoName} · {branch.daysSinceCommit} days · {formatDate(branch.lastCommitAt)}</span>
+                        </div>
+                        <button type="button" className="secondary" onClick={() => openRepository(branch.repoPath)} disabled={busy}>
+                          <FolderOpen size={16} />
+                          Open
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          </>
+        )}
+      </section>
+    )
+  }
 
   function renderChangesView() {
     return (
@@ -3994,6 +4198,24 @@ function providerStateLabel(state: ProviderStatus['state']): string {
   if (state === 'unauthenticated') return 'auth required'
   if (state === 'missing') return 'auth missing'
   return state
+}
+
+function dashboardStateLabel(repo: DashboardRepositorySummary): string {
+  if (repo.state === 'unavailable') return 'Unavailable'
+  if (repo.state === 'conflicted') return `${repo.mergeOperation === 'none' ? 'Conflict' : repo.mergeOperation} active`
+  if (repo.state === 'dirty') return 'Dirty'
+  return 'Clean'
+}
+
+function dashboardRepoMeta(repo: DashboardRepositorySummary): string {
+  const parts = [
+    repo.active ? 'active' : undefined,
+    repo.pinned ? 'pinned' : undefined,
+    repo.currentBranch,
+    repo.upstream ?? repo.remoteName
+  ].filter((value): value is string => Boolean(value))
+
+  return parts.length > 0 ? parts.join(' · ') : 'No branch metadata'
 }
 
 function githubStatusLabel(status: GitHubCliStatus): string {

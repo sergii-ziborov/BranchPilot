@@ -96,6 +96,55 @@ export interface RepositoryPinRequest {
   pinned: boolean
 }
 
+export type DashboardRepositoryState = 'clean' | 'dirty' | 'conflicted' | 'unavailable'
+
+export interface DashboardRepositorySummary {
+  path: string
+  name: string
+  pinned: boolean
+  active: boolean
+  state: DashboardRepositoryState
+  currentBranch?: string
+  upstream?: string
+  remoteName?: string
+  ahead: number
+  behind: number
+  changed: number
+  staged: number
+  unstaged: number
+  untracked: number
+  conflicted: number
+  mergeOperation: InProgressOperation
+  lastOpenedAt?: string
+  error?: string
+}
+
+export interface DashboardStaleBranch {
+  repoPath: string
+  repoName: string
+  name: string
+  lastCommitAt: string
+  daysSinceCommit: number
+}
+
+export interface RepositoryDashboardTotals {
+  repositories: number
+  dirty: number
+  conflicted: number
+  unavailable: number
+  ahead: number
+  behind: number
+  staleBranches: number
+}
+
+export interface RepositoryDashboardSnapshot {
+  generatedAt: string
+  staleBranchThresholdDays: number
+  repositories: DashboardRepositorySummary[]
+  staleBranches: DashboardStaleBranch[]
+  totals: RepositoryDashboardTotals
+}
+
 export interface BranchSummary {
   name: string
   current: boolean
@@ -719,6 +768,7 @@ export interface BranchPilotApi {
   openRepository: (path: string) => Promise<ApiResult<RepositorySnapshot>>
   getRecentRepositories: () => Promise<ApiResult<RecentRepository[]>>
   setRepositoryPinned: (request: RepositoryPinRequest) => Promise<ApiResult<RecentRepository[]>>
+  getRepositoryDashboard: (repoPath?: string) => Promise<ApiResult<RepositoryDashboardSnapshot>>
   refreshRepository: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   getDiff: (request: DiffRequest) => Promise<ApiResult<DiffResult>>
   getHistory: (repoPath: string) => Promise<ApiResult<CommitSummary[]>>

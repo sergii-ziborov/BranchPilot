@@ -635,6 +635,159 @@ button.danger-button:hover {
   gap: 10px;
 }
 
+.dashboard-panel {
+  gap: 16px;
+}
+
+.dashboard-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.dashboard-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.dashboard-section-heading,
+.dashboard-compact-row,
+.dashboard-repo-row {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+}
+
+.dashboard-section-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.dashboard-section-heading h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 15px;
+}
+
+.dashboard-section-heading p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dashboard-section-heading > span {
+  display: inline-flex;
+  min-width: 28px;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--text-strong);
+  background: #f1f5f9;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-repo-list {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-repo-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.dashboard-repo-row.state-dirty {
+  border-color: #facc15;
+  background: #fefce8;
+}
+
+.dashboard-repo-row.state-conflicted {
+  border-color: #fb7185;
+  background: #fff1f2;
+}
+
+.dashboard-repo-row.state-unavailable {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.dashboard-repo-row strong,
+.dashboard-compact-row strong,
+.dashboard-callout strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-repo-row span,
+.dashboard-repo-row p,
+.dashboard-compact-row span,
+.dashboard-callout span,
+.dashboard-callout p {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dashboard-repo-row p {
+  overflow: hidden;
+  margin-top: 3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-repo-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 6px;
+}
+
+.dashboard-repo-metrics span {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.dashboard-callout {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.dashboard-compact-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
 .change-row {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
@@ -2993,6 +3146,7 @@ button.secondary:hover {
   }
 
   .stats-grid,
+  .dashboard-stat-grid,
   .memory-summary-grid,
   .daily-summary-grid,
   .review-grid,
@@ -3025,6 +3179,7 @@ button.secondary:hover {
   }
 
   .commit-file-grid,
+  .dashboard-workspace,
   .config-grid,
   .memory-grid,
   .memory-meta,
@@ -3062,6 +3217,12 @@ button.secondary:hover {
   }
 
   .list-filter-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-repo-row,
+  .dashboard-repo-metrics,
+  .dashboard-compact-row {
     grid-template-columns: 1fr;
   }
 }
