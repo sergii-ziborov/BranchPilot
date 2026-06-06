@@ -11,6 +11,7 @@ import type {
   ConfirmedCommitRequest,
   ConfirmedStashActionRequest,
   CommitRequest,
+  ApplyPatchRequest,
   CreateStashRequest,
   CreateTagRequest,
   DashboardRepositorySummary,
@@ -19,6 +20,8 @@ import type {
   CommitSummary,
   DiffRequest,
   DiffResult,
+  ExportedPatch,
+  ExportPatchRequest,
   FileActionRequest,
   GitConfigSnapshot,
   GitIdentityUpdate,
@@ -703,6 +706,58 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async exportPatch(request: ExportPatchRequest): Promise<ExportedPatch> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const outputPath = normalizePatchOutputPath(request.outputPath)
+    const scope = normalizePatchScope(request.scope)
+    const args = ['diff', '--binary', '--no-ext-diff']
+
+    if (scope === 'staged') {
+      args.push('--cached')
+    } else {
+      args.push('HEAD')
+    }
+
+    const result = await this.git(rootPath, args, {
+      allowedExitCodes: [0, 1],
+      timeoutMs: 120_000
+    })
+    const patch = result.stdout.endsWith('\n') ? result.stdout : `${result.stdout}\n`
+
+    if (!patch.trim()) {
+      throw new BranchPilotUserError('empty_patch', scope === 'staged'
+        ? 'No staged changes are available to export.'
+        : 'No tracked working tree changes are available to export.')
+    }
+
+    await fs.mkdir(path.dirname(outputPath), { recursive: true })
+    await fs.writeFile(outputPath, patch, 'utf8')
+
+    return {
+      path: outputPath,
+      fileName: path.basename(outputPath),
+      scope,
+      bytes: Buffer.byteLength(patch)
+    }
+  }
+
+  async applyPatch(request: ApplyPatchRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Applying a patch requires explicit confirmation.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const patchPath = normalizePatchInputPath(request.patchPath)
+
+    await assertPatchFileExists(patchPath)
+    await this.assertNoActiveOperation(rootPath)
+    await this.assertNoConflicts(rootPath, 'applying a patch')
+    await this.git(rootPath, ['apply', '--check', '--whitespace=nowarn', patchPath], { timeoutMs: 120_000 })
+    await this.git(rootPath, ['apply', '--whitespace=nowarn', patchPath], { timeoutMs: 120_000 })
+
+    return this.getSnapshot(rootPath)
+  }
+
   async acceptOurs(request: FileActionRequest): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     const filePath = normalizeRelativePath(request.filePath)
@@ -1165,6 +1220,46 @@ function normalizeTagName(tagName: string): string {
 
   if (!trimmed || trimmed.startsWith('-') || trimmed.includes('\0')) {
     throw new BranchPilotUserError('invalid_tag', 'Invalid tag name.')
+  }
+
+  return trimmed
+}
+
+function normalizePatchScope(scope: ExportPatchRequest['scope']): ExportPatchRequest['scope'] {
+  if (scope !== 'working-tree' && scope !== 'staged') {
+    throw new BranchPilotUserError('invalid_patch_scope', 'Invalid patch scope.')
+  }
+
+  return scope
+}
+
+function normalizePatchOutputPath(outputPath?: string): string {
+  const normalized = normalizePatchFilePath(outputPath, 'Patch output path is required.')
+
+  if (!normalized.endsWith('.patch') && !normalized.endsWith('.diff')) {
+    return `${normalized}.patch`
+  }
+
+  return normalized
+}
+
+function normalizePatchInputPath(patchPath?: string): string {
+  return normalizePatchFilePath(patchPath, 'Patch file path is required.')
+}
+
+async function assertPatchFileExists(patchPath: string): Promise<void> {
+  try {
+    await fs.access(patchPath)
+  } catch {
+    throw new BranchPilotUserError('patch_not_found', 'Patch file could not be read.')
+  }
+}
+
+function normalizePatchFilePath(filePath: string | undefined, message: string): string {
+  const trimmed = filePath?.trim()
+
+  if (!trimmed || trimmed.includes('\0') || !path.isAbsolute(trimmed)) {
+    throw new BranchPilotUserError('invalid_patch_path', message)
   }
 
   return trimmed

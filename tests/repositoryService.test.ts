@@ -318,6 +318,57 @@ describe('RepositoryService', () => {
     }
   })
 
+  it('exports and applies a working tree patch with confirmation', async () => {
+    const repoPath = createTempRepository()
+    const patchRoot = mkdtempSync(path.join(tmpdir(), 'branchpilot-patch-test-'))
+    tempRoots.push(patchRoot)
+    const patchPath = path.join(patchRoot, 'tracked-change.patch')
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'initial\npatched\n')
+
+    const exported = await service.exportPatch({
+      repoPath,
+      scope: 'working-tree',
+      outputPath: patchPath
+    })
+
+    expect(exported).toMatchObject({
+      path: patchPath,
+      fileName: 'tracked-change.patch',
+      scope: 'working-tree'
+    })
+    expect(exported.bytes).toBeGreaterThan(0)
+    expect(readFileSync(patchPath, 'utf8')).toContain('+patched')
+
+    git(repoPath, ['restore', '--', 'tracked.txt'])
+
+    await expect(service.applyPatch({
+      repoPath,
+      patchPath,
+      confirmed: false
+    })).rejects.toMatchObject({
+      code: 'confirmation_required'
+    })
+
+    await expect(service.applyPatch({
+      repoPath,
+      patchPath: path.join(patchRoot, 'missing.patch'),
+      confirmed: true
+    })).rejects.toMatchObject({
+      code: 'patch_not_found'
+    })
+
+    const snapshot = await service.applyPatch({
+      repoPath,
+      patchPath,
+      confirmed: true
+    })
+
+    expect(snapshot.status.counts.changed).toBe(1)
+    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('initial\npatched\n')
+  })
+
   it('creates, lists, applies, and drops stashes with untracked files', async () => {
     const repoPath = createTempRepository()
     const service = createService()

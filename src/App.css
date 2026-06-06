@@ -573,6 +573,18 @@ button.danger-button:hover {
   max-width: none;
 }
 
+.changes-actions .changes-patch-scope {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
+  font: inherit;
+}
+
 .change-filter-bar,
 .list-filter-bar {
   display: grid;

@@ -7,6 +7,7 @@ import type {
   ActivityLogEventType,
   ActivityLogMetadata,
   ActivityLogQuery,
+  ApplyPatchRequest,
   AssistantActionKind,
   AssistantPolicyUpdate,
   BranchDescriptionGenerationRequest,
@@ -29,6 +30,7 @@ import type {
   DeleteTagRequest,
   DiffRequest,
   EditorOpenRequest,
+  ExportPatchRequest,
   FileActionRequest,
   GitIdentityUpdate,
   HunkActionRequest,
@@ -292,6 +294,34 @@ function requestRepoPath<T extends { repoPath: string }>(args: [T]): string {
 
 function snapshotRepoPath(_args: unknown[], snapshot?: RepositorySnapshot | null): string | undefined {
   return snapshot?.summary.rootPath
+}
+
+async function choosePatchOutputPath(request: ExportPatchRequest): Promise<string | undefined> {
+  const repoName = path.basename(request.repoPath)
+  const scopeLabel = request.scope === 'staged' ? 'staged' : 'working-tree'
+  const result = await dialog.showSaveDialog({
+    title: 'Export patch',
+    defaultPath: `${repoName}-${scopeLabel}.patch`,
+    filters: [
+      { name: 'Patch files', extensions: ['patch', 'diff'] },
+      { name: 'All files', extensions: ['*'] }
+    ]
+  })
+
+  return result.canceled ? undefined : result.filePath
+}
+
+async function choosePatchInputPath(): Promise<string | undefined> {
+  const result = await dialog.showOpenDialog({
+    title: 'Apply patch',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Patch files', extensions: ['patch', 'diff'] },
+      { name: 'All files', extensions: ['*'] }
+    ]
+  })
+
+  return result.canceled ? undefined : result.filePaths[0]
 }
 
 function registerIpcHandlers() {
@@ -608,6 +638,49 @@ function registerIpcHandlers() {
   }, async (request: DeleteTagRequest) =>
     withProjectMemoryRefresh(await repositoryService.deleteTag(request))
   )
+  handleLogged('git:exportPatch', {
+    type: 'patch_exported',
+    actor: 'user',
+    title: 'Patch exported',
+    repoPath: requestRepoPath,
+    metadata: ([request], patch) => ({
+      scope: request.scope,
+      bytes: patch?.bytes ?? 0,
+      file: patch?.fileName ?? 'cancelled'
+    })
+  }, async (request: ExportPatchRequest) => {
+    const outputPath = request.outputPath ?? await choosePatchOutputPath(request)
+
+    if (!outputPath) {
+      return null
+    }
+
+    return repositoryService.exportPatch({
+      ...request,
+      outputPath
+    })
+  })
+  handleLogged('git:applyPatch', {
+    type: 'patch_applied',
+    actor: 'user',
+    title: 'Patch applied',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      file: request.patchPath ? path.basename(request.patchPath) : 'selected',
+      changed: snapshot?.status.counts.changed ?? 0
+    })
+  }, async (request: ApplyPatchRequest) => {
+    const patchPath = request.patchPath ?? await choosePatchInputPath()
+
+    if (!patchPath) {
+      return null
+    }
+
+    return withProjectMemoryRefresh(await repositoryService.applyPatch({
+      ...request,
+      patchPath
+    }))
+  })
 
   handleLogged('merge:acceptOurs', {
     type: 'merge_resolved',

@@ -323,6 +323,8 @@ export type ActivityLogEventType =
   | 'branch_deleted'
   | 'tag_created'
   | 'tag_deleted'
+  | 'patch_exported'
+  | 'patch_applied'
   | 'git_fetched'
   | 'git_pulled'
   | 'git_pushed'
@@ -530,6 +532,27 @@ export interface ConfirmedCommitRequest extends CommitRequest {
 export interface ConfirmedCommitReferenceRequest {
   repoPath: string
   commitSha: string
+  confirmed: boolean
+}
+
+export type PatchScope = 'working-tree' | 'staged'
+
+export interface ExportPatchRequest {
+  repoPath: string
+  scope: PatchScope
+  outputPath?: string
+}
+
+export interface ExportedPatch {
+  path: string
+  fileName: string
+  scope: PatchScope
+  bytes: number
+}
+
+export interface ApplyPatchRequest {
+  repoPath: string
+  patchPath?: string
   confirmed: boolean
 }
 
@@ -848,6 +871,8 @@ export interface BranchPilotApi {
   deleteBranch: (request: DeleteBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   createTag: (request: CreateTagRequest) => Promise<ApiResult<RepositorySnapshot>>
   deleteTag: (request: DeleteTagRequest) => Promise<ApiResult<RepositorySnapshot>>
+  exportPatch: (request: ExportPatchRequest) => Promise<ApiResult<ExportedPatch | null>>
+  applyPatch: (request: ApplyPatchRequest) => Promise<ApiResult<RepositorySnapshot | null>>
   acceptOurs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   acceptTheirs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   markResolved: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>

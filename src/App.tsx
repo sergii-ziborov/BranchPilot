@@ -67,6 +67,7 @@ import type {
   ProjectWikiPage,
   ProjectWikiPageId,
   ProjectWikiSnapshot,
+  PatchScope,
   RecentRepository,
   RepositorySnapshot,
   RepositoryDashboardSnapshot,
@@ -150,6 +151,7 @@ function App() {
   const [tagFilter, setTagFilter] = useState('')
   const [newTagName, setNewTagName] = useState('')
   const [newTagMessage, setNewTagMessage] = useState('')
+  const [patchScope, setPatchScope] = useState<PatchScope>('working-tree')
   const [editingBranchName, setEditingBranchName] = useState<string | null>(null)
   const [branchDescriptionDraft, setBranchDescriptionDraft] = useState('')
   const [branchDescriptionGenerating, setBranchDescriptionGenerating] = useState<string | null>(null)
@@ -1195,6 +1197,53 @@ function App() {
     await createStash(message)
   }
 
+  async function exportPatch() {
+    if (!api || !currentRepoPath) return
+
+    setBusy(true)
+    setError(null)
+    const result = await api.exportPatch({
+      repoPath: currentRepoPath,
+      scope: patchScope
+    })
+
+    if (result.ok) {
+      setNotice(result.data ? `Patch exported: ${result.data.fileName}` : 'Patch export cancelled.')
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
+  async function applyPatch() {
+    if (!api || !currentRepoPath) return
+
+    const confirmed = window.confirm('Apply a patch file to the working tree?')
+    if (!confirmed) return
+
+    setBusy(true)
+    setError(null)
+    const result = await api.applyPatch({
+      repoPath: currentRepoPath,
+      confirmed
+    })
+
+    if (result.ok) {
+      if (result.data) {
+        applySnapshot(result.data, 'Patch applied.')
+      } else {
+        setNotice('Patch apply cancelled.')
+      }
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
   async function applyStash(stash: StashEntry) {
     if (!api || !currentRepoPath) return
     const applied = await runSnapshotAction('Stash applied.', () =>
@@ -2118,6 +2167,24 @@ function App() {
                 disabled={busy}
                 onToggle={toggleBulkStage}
               />
+              <select
+                aria-label="Patch export scope"
+                className="changes-patch-scope"
+                value={patchScope}
+                onChange={(event) => setPatchScope(event.target.value as PatchScope)}
+                disabled={busy}
+              >
+                <option value="working-tree">Working tree patch</option>
+                <option value="staged">Staged patch</option>
+              </select>
+              <button className="changes-patch-action" type="button" onClick={exportPatch} disabled={busy || !snapshot}>
+                <Copy size={17} />
+                Export patch
+              </button>
+              <button className="changes-patch-action" type="button" onClick={applyPatch} disabled={busy || !snapshot || snapshot.status.merge.operation !== 'none'}>
+                <ArrowDownToLine size={17} />
+                Apply patch
+              </button>
               <button className="changes-stash-action" type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
                 <Save size={17} />
                 Stash changes
