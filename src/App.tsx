@@ -2013,6 +2013,26 @@ function App() {
     )
   }
 
+  async function renameBranch(branch: BranchSummary) {
+    if (!api || !currentRepoPath) return
+    const nextName = window.prompt('Rename branch', branch.name)?.trim()
+
+    if (!nextName) return
+
+    if (nextName === branch.name) {
+      setNotice('Rename blocked: choose a different branch name.')
+      return
+    }
+
+    await runSnapshotAction('Branch renamed.', () =>
+      api.renameBranch({
+        repoPath: currentRepoPath,
+        oldBranchName: branch.name,
+        newBranchName: nextName
+      })
+    )
+  }
+
   async function compareBranch(branch: BranchSummary) {
     if (!api || !currentRepoPath || branch.current) return
 
@@ -4246,6 +4266,14 @@ function App() {
                   >
                     <Pencil size={16} />
                     Edit description
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => renameBranch(branch)}
+                    disabled={busy || isEditingDescription}
+                  >
+                    <GitBranch size={16} />
+                    Rename
                   </button>
                   <button
                     type="button"

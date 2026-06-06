@@ -37,6 +37,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'git:push',
   'git:removeRemote',
   'git:removeWorktree',
+  'git:renameBranch',
   'git:revertCommit',
   'git:setRemoteUrl',
   'git:stageAll',

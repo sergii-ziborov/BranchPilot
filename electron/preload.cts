@@ -53,6 +53,7 @@ const branchPilot: BranchPilotApi = {
   push: (repoPath) => invoke('git:push', repoPath),
   publishBranch: (request) => invoke('git:publishBranch', request),
   createBranch: (request) => invoke('git:createBranch', request),
+  renameBranch: (request) => invoke('git:renameBranch', request),
   updateBranchDescription: (request) => invoke('git:updateBranchDescription', request),
   compareBranch: (request) => invoke('git:compareBranch', request),
   switchBranch: (request) => invoke('git:switchBranch', request),

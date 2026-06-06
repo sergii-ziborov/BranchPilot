@@ -1059,18 +1059,31 @@ describe('RepositoryService', () => {
     expect(created.summary.currentBranch).toBe('feature/work')
     expect(created.branches.find((branch) => branch.name === 'feature/work')?.description).toBe('Tracks the generated branch purpose.')
 
+    const renamed = await service.renameBranch(repoPath, 'feature/work', 'feature/renamed')
+    expect(renamed.summary.currentBranch).toBe('feature/renamed')
+    expect(renamed.branches.map((branch) => branch.name)).not.toContain('feature/work')
+    expect(renamed.branches.find((branch) => branch.name === 'feature/renamed')?.description).toBe('Tracks the generated branch purpose.')
+
+    await expect(service.renameBranch(repoPath, 'feature/renamed', 'feature/renamed')).rejects.toMatchObject({
+      code: 'same_branch'
+    })
+
     const switched = await service.switchBranch(repoPath, 'main')
     expect(switched.summary.currentBranch).toBe('main')
 
-    await expect(service.deleteBranch(repoPath, 'feature/work', false, false)).rejects.toMatchObject({
+    await expect(service.renameBranch(repoPath, 'feature/renamed', 'main')).rejects.toMatchObject({
+      code: 'branch_exists'
+    })
+
+    await expect(service.deleteBranch(repoPath, 'feature/renamed', false, false)).rejects.toMatchObject({
       code: 'confirmation_required'
     })
-    await expect(service.deleteBranch(repoPath, 'feature/work', true, true)).rejects.toMatchObject({
+    await expect(service.deleteBranch(repoPath, 'feature/renamed', true, true)).rejects.toMatchObject({
       code: 'unsupported_force_delete'
     })
 
-    const deleted = await service.deleteBranch(repoPath, 'feature/work', false, true)
-    expect(deleted.branches.map((branch) => branch.name)).not.toContain('feature/work')
+    const deleted = await service.deleteBranch(repoPath, 'feature/renamed', false, true)
+    expect(deleted.branches.map((branch) => branch.name)).not.toContain('feature/renamed')
   })
 
   it('updates and clears local branch descriptions', async () => {

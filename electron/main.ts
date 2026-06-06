@@ -43,6 +43,7 @@ import type {
   PullRequestDetailsRequest,
   PullRequestTextGenerationRequest,
   PublishBranchRequest,
+  RenameBranchRequest,
   RemoteRemoveRequest,
   RemoteUpsertRequest,
   RemoveWorktreeRequest,
@@ -698,6 +699,18 @@ function registerIpcHandlers() {
     metadata: ([request]) => ({ branch: request.branchName })
   }, async (request: BranchActionRequest) =>
     withProjectMemoryRefresh(await repositoryService.createBranch(request.repoPath, request.branchName, request.description))
+  )
+  handleLogged('git:renameBranch', {
+    type: 'branch_renamed',
+    actor: 'user',
+    title: 'Branch renamed',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      old_branch: request.oldBranchName,
+      new_branch: request.newBranchName
+    })
+  }, async (request: RenameBranchRequest) =>
+    withProjectMemoryRefresh(await repositoryService.renameBranch(request.repoPath, request.oldBranchName, request.newBranchName))
   )
   handleLogged('git:updateBranchDescription', {
     type: 'branch_description_updated',

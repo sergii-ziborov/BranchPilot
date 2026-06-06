@@ -392,6 +392,7 @@ export type ActivityLogEventType =
   | 'commit_cherry_picked'
   | 'branch_created'
   | 'branch_description_updated'
+  | 'branch_renamed'
   | 'branch_switched'
   | 'branch_deleted'
   | 'remote_added'
@@ -793,6 +794,12 @@ export interface UpdateBranchDescriptionRequest {
   description: string
 }
 
+export interface RenameBranchRequest {
+  repoPath: string
+  oldBranchName: string
+  newBranchName: string
+}
+
 export interface DeleteBranchRequest extends BranchActionRequest {
   confirmed: boolean
   force: boolean
@@ -1022,6 +1029,7 @@ export interface BranchPilotApi {
   push: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   publishBranch: (request: PublishBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   createBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>
+  renameBranch: (request: RenameBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   updateBranchDescription: (request: UpdateBranchDescriptionRequest) => Promise<ApiResult<RepositorySnapshot>>
   compareBranch: (request: BranchCompareRequest) => Promise<ApiResult<BranchComparison>>
   switchBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>

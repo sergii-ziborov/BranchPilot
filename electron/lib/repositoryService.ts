@@ -805,6 +805,22 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async renameBranch(repoPath: string, oldBranchName: string, newBranchName: string): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const oldName = normalizeBranchName(oldBranchName)
+    const newName = normalizeBranchName(newBranchName)
+
+    if (oldName === newName) {
+      throw new BranchPilotUserError('same_branch', 'Choose a different branch name.')
+    }
+
+    await this.assertLocalBranchExists(rootPath, oldName)
+    await this.assertBranchDoesNotExist(rootPath, newName)
+    await this.git(rootPath, ['branch', '-m', oldName, newName])
+
+    return this.getSnapshot(rootPath)
+  }
+
   async updateBranchDescription(repoPath: string, branchName: string, description: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const normalizedName = normalizeBranchName(branchName)
