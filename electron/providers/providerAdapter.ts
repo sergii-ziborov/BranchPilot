@@ -1,6 +1,10 @@
 import type { ProviderStatus } from '../../src/shared/branchPilot.js'
 import { CommandRunner } from '../lib/commandRunner.js'
-import { getGitHubCliStatus } from './githubCliService.js'
+import {
+  getGitHubCliStatus,
+  type GitHubApiClient,
+  type GitHubCredentialProvider
+} from './githubCliService.js'
 
 export interface ProviderAdapter {
   id: ProviderStatus['id']
@@ -8,8 +12,21 @@ export interface ProviderAdapter {
   state: ProviderStatus['state']
 }
 
-export async function listProviderStatuses(runner: CommandRunner): Promise<ProviderStatus[]> {
-  const github = await getGitHubCliStatus(runner)
+export interface ProviderStatusOptions {
+  githubCredentialProvider?: GitHubCredentialProvider
+  githubApiClient?: GitHubApiClient
+}
+
+export async function listProviderStatuses(
+  runner: CommandRunner,
+  options: ProviderStatusOptions = {}
+): Promise<ProviderStatus[]> {
+  const github = await getGitHubCliStatus(
+    runner,
+    undefined,
+    options.githubCredentialProvider,
+    options.githubApiClient
+  )
 
   return [
     { id: 'github', label: 'GitHub', state: mapGitHubState(github.state) },
