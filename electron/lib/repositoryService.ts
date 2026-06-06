@@ -492,6 +492,36 @@ export class RepositoryService {
     throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
   }
 
+  async cherryPickCommit(request: ConfirmedCommitReferenceRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Cherry-picking a commit requires explicit confirmation.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const commitSha = normalizeCommitSha(request.commitSha)
+
+    await this.assertNoActiveOperation(rootPath)
+    await this.assertNoConflicts(rootPath, 'cherry-picking')
+
+    const result = await this.git(rootPath, ['cherry-pick', commitSha], {
+      allowedExitCodes: [0, 1],
+      timeoutMs: 120_000
+    })
+
+    if (result.exitCode === 0) {
+      return this.getSnapshot(rootPath)
+    }
+
+    const snapshot = await this.getSnapshot(rootPath)
+    const output = [result.stderr, result.stdout].filter(Boolean).join('\n')
+
+    if (snapshot.status.merge.operation !== 'none' || isConflictOutput(output)) {
+      return snapshot
+    }
+
+    throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
+  }
+
   async listStashes(repoPath: string): Promise<StashEntry[]> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const result = await this.git(rootPath, ['stash', 'list', '--format=%gd%x00%H%x00%cr%x00%gs'], {

@@ -202,6 +202,37 @@ describe('RepositoryService', () => {
     expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Revert "Change tracked file"')
   })
 
+  it('cherry-picks a selected commit with confirmation', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    git(repoPath, ['switch', '--quiet', '-c', 'feature/pick'])
+    writeFileSync(path.join(repoPath, 'picked.txt'), 'picked\n')
+    git(repoPath, ['add', 'picked.txt'])
+    git(repoPath, ['commit', '-m', 'Add picked file'])
+    const commitToPick = git(repoPath, ['rev-parse', 'HEAD'])
+
+    git(repoPath, ['switch', '--quiet', 'main'])
+
+    await expect(service.cherryPickCommit({
+      repoPath,
+      commitSha: commitToPick,
+      confirmed: false
+    })).rejects.toMatchObject({
+      code: 'confirmation_required'
+    })
+
+    const snapshot = await service.cherryPickCommit({
+      repoPath,
+      commitSha: commitToPick,
+      confirmed: true
+    })
+
+    expect(snapshot.status.counts.changed).toBe(0)
+    expect(readFileSync(path.join(repoPath, 'picked.txt'), 'utf8')).toBe('picked\n')
+    expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Add picked file')
+  })
+
   it('stages and unstages individual hunks', async () => {
     const repoPath = createTempRepository()
     const service = createService()

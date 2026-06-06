@@ -307,6 +307,7 @@ export type ActivityLogEventType =
   | 'commit_created'
   | 'commit_amended'
   | 'commit_reverted'
+  | 'commit_cherry_picked'
   | 'branch_created'
   | 'branch_description_updated'
   | 'branch_switched'
@@ -809,6 +810,7 @@ export interface BranchPilotApi {
   commit: (request: CommitRequest) => Promise<ApiResult<RepositorySnapshot>>
   amendCommit: (request: ConfirmedCommitRequest) => Promise<ApiResult<RepositorySnapshot>>
   revertCommit: (request: ConfirmedCommitReferenceRequest) => Promise<ApiResult<RepositorySnapshot>>
+  cherryPickCommit: (request: ConfirmedCommitReferenceRequest) => Promise<ApiResult<RepositorySnapshot>>
   listStashes: (repoPath: string) => Promise<ApiResult<StashEntry[]>>
   createStash: (request: CreateStashRequest) => Promise<ApiResult<RepositorySnapshot>>
   applyStash: (request: StashActionRequest) => Promise<ApiResult<RepositorySnapshot>>

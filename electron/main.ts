@@ -470,6 +470,19 @@ function registerIpcHandlers() {
   }, async (request: ConfirmedCommitReferenceRequest) =>
     withProjectMemoryRefresh(await repositoryService.revertCommit(request))
   )
+  handleLogged('git:cherryPickCommit', {
+    type: 'commit_cherry_picked',
+    actor: 'user',
+    title: 'Commit cherry-picked',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      commit: request.commitSha.slice(0, 12),
+      branch: snapshot?.summary.currentBranch ?? 'unknown',
+      conflicts: snapshot?.status.counts.conflicted ?? 0
+    })
+  }, async (request: ConfirmedCommitReferenceRequest) =>
+    withProjectMemoryRefresh(await repositoryService.cherryPickCommit(request))
+  )
   handle('stash:list', (repoPath: string) => repositoryService.listStashes(repoPath))
   handleLogged('stash:create', {
     type: 'stash_created',

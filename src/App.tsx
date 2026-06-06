@@ -1294,6 +1294,36 @@ function App() {
     setBusy(false)
   }
 
+  async function cherryPickSelectedCommit() {
+    if (!api || !currentRepoPath || !commitDetails) return
+
+    const confirmed = window.confirm(`Cherry-pick ${commitDetails.shortSha} onto ${snapshot?.summary.currentBranch ?? 'the current branch'}?`)
+    if (!confirmed) return
+
+    setBusy(true)
+    setError(null)
+    const result = await api.cherryPickCommit({
+      repoPath: currentRepoPath,
+      commitSha: commitDetails.sha,
+      confirmed
+    })
+
+    if (result.ok) {
+      const hasConflicts = result.data.status.merge.operation !== 'none' || result.data.status.counts.conflicted > 0
+      applySnapshot(result.data, hasConflicts ? 'Cherry-pick has conflicts.' : 'Commit cherry-picked.')
+      void loadHistory()
+
+      if (hasConflicts) {
+        setViewMode('merge')
+      }
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
   async function generateCommitText() {
     if (!api || !currentRepoPath) return
     if (!canGenerateCommitText) {
@@ -2443,6 +2473,14 @@ function App() {
               </p>
             </div>
             <div className="panel-actions">
+              <button
+                type="button"
+                onClick={cherryPickSelectedCommit}
+                disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
+              >
+                <GitCommitHorizontal size={17} />
+                Cherry-pick
+              </button>
               <button
                 className="danger-button"
                 type="button"
