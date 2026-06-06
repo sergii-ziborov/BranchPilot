@@ -845,6 +845,9 @@ describe('RepositoryService', () => {
     await expect(service.deleteBranch(repoPath, 'feature/work', false, false)).rejects.toMatchObject({
       code: 'confirmation_required'
     })
+    await expect(service.deleteBranch(repoPath, 'feature/work', true, true)).rejects.toMatchObject({
+      code: 'unsupported_force_delete'
+    })
 
     const deleted = await service.deleteBranch(repoPath, 'feature/work', false, true)
     expect(deleted.branches.map((branch) => branch.name)).not.toContain('feature/work')

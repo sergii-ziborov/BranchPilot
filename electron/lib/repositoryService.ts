@@ -729,6 +729,10 @@ export class RepositoryService {
       throw new BranchPilotUserError('confirmation_required', 'Deleting a branch requires explicit confirmation.')
     }
 
+    if (force) {
+      throw new BranchPilotUserError('unsupported_force_delete', 'Force deleting branches is not available in BranchPilot v1.')
+    }
+
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const normalizedName = normalizeBranchName(branchName)
     const currentBranch = await this.getCurrentBranch(rootPath)
