@@ -30,6 +30,7 @@ import type {
   GitLfsPattern,
   GitLfsSummary,
   GitConfigSnapshot,
+  GitDefaultBranchSource,
   GitIdentityUpdate,
   HunkActionRequest,
   MergeBranchRequest,
@@ -62,6 +63,12 @@ const MAX_DIFF_BYTES = 350_000
 const MAX_DIFF_OUTPUT_BYTES = MAX_DIFF_BYTES + 1
 const DEFAULT_REMOTE = 'origin'
 const STALE_BRANCH_THRESHOLD_DAYS = 30
+
+interface GitDefaultBranchResult {
+  name?: string
+  source: GitDefaultBranchSource
+  remote?: string
+}
 
 export class RepositoryService {
   constructor(
@@ -382,6 +389,8 @@ export class RepositoryService {
     const localSigning = await this.getConfig(rootPath, 'commit.gpgsign', 'local')
     const globalSigning = await this.getConfig(rootPath, 'commit.gpgsign', 'global')
     const signingValue = localSigning ?? globalSigning
+    const remotes = await this.listRemotes(rootPath)
+    const defaultBranch = await this.getDefaultBranch(rootPath, remotes)
 
     return {
       localUserName,
@@ -390,9 +399,12 @@ export class RepositoryService {
       globalUserEmail,
       effectiveUserName: localUserName ?? globalUserName,
       effectiveUserEmail: localUserEmail ?? globalUserEmail,
+      defaultBranch: defaultBranch.name,
+      defaultBranchSource: defaultBranch.source,
+      defaultBranchRemote: defaultBranch.remote,
       commitSigningEnabled: signingValue ? signingValue === 'true' : undefined,
       commitSigningSource: localSigning ? 'local' : globalSigning ? 'global' : 'unset',
-      remotes: await this.listRemotes(rootPath)
+      remotes
     }
   }
 
@@ -1276,6 +1288,51 @@ export class RepositoryService {
     }
 
     return [...remotes.values()]
+  }
+
+  private async getDefaultBranch(rootPath: string, remotes: RemoteSummary[]): Promise<GitDefaultBranchResult> {
+    for (const remote of remotes) {
+      const result = await this.git(rootPath, ['symbolic-ref', '--quiet', '--short', `refs/remotes/${remote.name}/HEAD`], {
+        allowedExitCodes: [0, 1, 128]
+      })
+      const refName = result.stdout.trim()
+
+      if (result.exitCode === 0 && refName) {
+        return {
+          name: refName.startsWith(`${remote.name}/`) ? refName.slice(remote.name.length + 1) : refName,
+          source: 'remote',
+          remote: remote.name
+        }
+      }
+    }
+
+    for (const branchName of ['main', 'master']) {
+      if (await this.localBranchExists(rootPath, branchName)) {
+        return {
+          name: branchName,
+          source: 'local'
+        }
+      }
+    }
+
+    const currentBranch = await this.getCurrentBranch(rootPath)
+
+    if (currentBranch) {
+      return {
+        name: currentBranch,
+        source: 'current'
+      }
+    }
+
+    return { source: 'unknown' }
+  }
+
+  private async localBranchExists(rootPath: string, branchName: string): Promise<boolean> {
+    const result = await this.git(rootPath, ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], {
+      allowedExitCodes: [0, 1]
+    })
+
+    return result.exitCode === 0
   }
 
   private async getCommitFiles(rootPath: string, commitSha: string): Promise<CommitFileChange[]> {

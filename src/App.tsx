@@ -3392,14 +3392,8 @@ function App() {
             <InfoRow label="Email" value={gitConfig?.effectiveUserEmail ?? 'Unset'} />
             <InfoRow label="Global name" value={gitConfig?.globalUserName ?? 'Unset'} />
             <InfoRow label="Global email" value={gitConfig?.globalUserEmail ?? 'Unset'} />
-            <InfoRow
-              label="Commit signing"
-              value={
-                gitConfig?.commitSigningSource === 'unset'
-                  ? 'Unset'
-                  : `${gitConfig?.commitSigningEnabled ? 'Enabled' : 'Disabled'} (${gitConfig?.commitSigningSource})`
-              }
-            />
+            <InfoRow label="Default branch" value={gitDefaultBranchLabel(gitConfig)} />
+            <InfoRow label="Commit signing" value={gitSigningLabel(gitConfig)} />
           </section>
 
           <section className="config-card remotes-card">
@@ -4822,6 +4816,37 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   )
+}
+
+function gitDefaultBranchLabel(config: GitConfigSnapshot | null): string {
+  if (!config?.defaultBranch) {
+    return 'Unset'
+  }
+
+  if (config.defaultBranchSource === 'remote') {
+    return `${config.defaultBranch} (${config.defaultBranchRemote ?? 'remote'}/HEAD)`
+  }
+
+  if (config.defaultBranchSource === 'local') {
+    return `${config.defaultBranch} (local branch fallback)`
+  }
+
+  if (config.defaultBranchSource === 'current') {
+    return `${config.defaultBranch} (current branch fallback)`
+  }
+
+  return config.defaultBranch
+}
+
+function gitSigningLabel(config: GitConfigSnapshot | null): string {
+  if (!config || config.commitSigningSource === 'unset') {
+    return 'Unset'
+  }
+
+  const state = config.commitSigningEnabled ? 'Enabled' : 'Disabled'
+  const source = config.commitSigningSource === 'local' ? 'repository local' : 'global'
+
+  return `${state} (${source}, read-only)`
 }
 
 function ProviderRemoteCard({

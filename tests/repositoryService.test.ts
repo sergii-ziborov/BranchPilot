@@ -536,6 +536,8 @@ describe('RepositoryService', () => {
     const before = await service.getGitConfig(repoPath)
     expect(before.localUserName).toBe('BranchPilot Test')
     expect(before.localUserEmail).toBe('branchpilot@example.com')
+    expect(before.defaultBranch).toBe('main')
+    expect(before.defaultBranchSource).toBe('local')
 
     const after = await service.setLocalGitIdentity({
       repoPath,
@@ -588,6 +590,13 @@ describe('RepositoryService', () => {
         pushUrl: secondUrl
       }
     ])
+    git(repoPath, ['update-ref', 'refs/remotes/origin/trunk', 'HEAD'])
+    git(repoPath, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk'])
+    expect(await service.getGitConfig(repoPath)).toMatchObject({
+      defaultBranch: 'trunk',
+      defaultBranchSource: 'remote',
+      defaultBranchRemote: 'origin'
+    })
     await expect(service.addRemote({
       repoPath,
       name: '-bad',
