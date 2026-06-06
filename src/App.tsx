@@ -48,6 +48,8 @@ import type {
   CommitSummary,
   DiffHunk,
   DiffLine,
+  EditorPreference,
+  EditorSettings,
   CreatedPullRequest,
   DailyReviewReport,
   DashboardStaleBranch,
@@ -138,6 +140,7 @@ const assistantPolicyModes: AssistantPolicyMode[] = [
   'allow-local-commands',
   'allow-file-edits'
 ]
+const editorPreferences: EditorPreference[] = ['auto', 'vscode', 'cursor', 'webstorm', 'rider', 'sublime', 'custom']
 const CHANGE_LIST_ITEM_HEIGHT = 42
 const HISTORY_LIST_ITEM_HEIGHT = 64
 const VIRTUAL_LIST_OVERSCAN = 8
@@ -192,6 +195,10 @@ function App() {
   const [dailyReviewDate, setDailyReviewDate] = useState(() => formatDateInputValue(new Date()))
   const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
   const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
+  const [editorSettings, setEditorSettings] = useState<EditorSettings | null>(null)
+  const [editorPreference, setEditorPreference] = useState<EditorPreference>('auto')
+  const [editorCustomCommand, setEditorCustomCommand] = useState('')
+  const [editorSettingsLoading, setEditorSettingsLoading] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [busy, setBusy] = useState(false)
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
@@ -402,6 +409,7 @@ function App() {
     void loadRecentRepositories()
     void loadProviders()
     void loadAssistants()
+    void loadEditorSettings()
   }, [])
 
   useEffect(() => {
@@ -729,6 +737,45 @@ function App() {
     }
 
     setAssistantPolicyLoading(false)
+  }
+
+  async function loadEditorSettings() {
+    if (!api) return
+    setEditorSettingsLoading(true)
+    const result = await api.getEditorSettings()
+
+    if (result.ok) {
+      setEditorSettings(result.data)
+      setEditorPreference(result.data.preference)
+      setEditorCustomCommand(result.data.customCommand ?? '')
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setEditorSettingsLoading(false)
+  }
+
+  async function saveEditorSettings() {
+    if (!api) return
+    setEditorSettingsLoading(true)
+    setError(null)
+    const result = await api.setEditorSettings({
+      preference: editorPreference,
+      customCommand: editorCustomCommand
+    })
+
+    if (result.ok) {
+      setEditorSettings(result.data)
+      setEditorPreference(result.data.preference)
+      setEditorCustomCommand(result.data.customCommand ?? '')
+      setNotice(`Default editor set to ${editorPreferenceLabel(result.data.preference)}.`)
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setEditorSettingsLoading(false)
   }
 
   async function loadGitHubCliStatus(): Promise<GitHubCliStatus | null> {
@@ -3776,6 +3823,43 @@ function App() {
             <InfoRow label="Commit signing" value={gitSigningLabel(gitConfig)} />
           </section>
 
+          <section className="config-card">
+            <h3>Editor</h3>
+            <label htmlFor="editor-preference">Default editor</label>
+            <select
+              id="editor-preference"
+              value={editorPreference}
+              onChange={(event) => setEditorPreference(event.target.value as EditorPreference)}
+              disabled={editorSettingsLoading || busy}
+            >
+              {editorPreferences.map((preference) => (
+                <option value={preference} key={preference}>
+                  {editorPreferenceLabel(preference)}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="editor-custom-command">Custom command</label>
+            <input
+              id="editor-custom-command"
+              value={editorCustomCommand}
+              onChange={(event) => setEditorCustomCommand(event.target.value)}
+              placeholder="code --goto %TARGET_PATH%"
+              disabled={editorPreference !== 'custom' || editorSettingsLoading || busy}
+            />
+            <p className="muted-text">Use <code>%TARGET_PATH%</code> where BranchPilot should place the repository or file path.</p>
+            <button
+              type="button"
+              onClick={saveEditorSettings}
+              disabled={editorSettingsLoading || busy || (editorPreference === 'custom' && !editorCustomCommand.trim())}
+            >
+              <Save size={17} />
+              Save editor settings
+            </button>
+            {editorSettings?.updatedAt && (
+              <p className="muted-text">Updated {formatDate(editorSettings.updatedAt)}</p>
+            )}
+          </section>
+
           <section className="config-card remotes-card">
             <div className="config-card-heading">
               <div>
@@ -5763,6 +5847,16 @@ function checkBucketClass(bucket: string): string {
 
 function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string {
   return assistant === 'claude' ? 'Claude Code' : 'Codex'
+}
+
+function editorPreferenceLabel(preference: EditorPreference): string {
+  if (preference === 'auto') return 'Auto'
+  if (preference === 'vscode') return 'Visual Studio Code'
+  if (preference === 'cursor') return 'Cursor'
+  if (preference === 'webstorm') return 'WebStorm'
+  if (preference === 'rider') return 'Rider'
+  if (preference === 'sublime') return 'Sublime Text'
+  return 'Custom command'
 }
 
 function assistantStatusLabel(assistant: AssistantStatus): string {

@@ -1,17 +1,27 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import type { AssistantPolicySettings, RecentRepository } from '../../src/shared/branchPilot.js'
+import type {
+  AssistantPolicySettings,
+  EditorPreference,
+  EditorSettings,
+  EditorSettingsUpdate,
+  RecentRepository
+} from '../../src/shared/branchPilot.js'
 
 interface PersistedSettings {
   recentRepositories: RecentRepository[]
   pinnedRepositoryPaths: string[]
   assistantPolicies: Record<string, AssistantPolicySettings>
+  editorSettings: EditorSettings
 }
 
 const DEFAULT_SETTINGS: PersistedSettings = {
   recentRepositories: [],
   pinnedRepositoryPaths: [],
-  assistantPolicies: {}
+  assistantPolicies: {},
+  editorSettings: {
+    preference: 'auto'
+  }
 }
 
 export class SettingsStore {
@@ -83,6 +93,24 @@ export class SettingsStore {
     return settings
   }
 
+  async getEditorSettings(): Promise<EditorSettings> {
+    return (await this.read()).editorSettings
+  }
+
+  async setEditorSettings(update: EditorSettingsUpdate): Promise<EditorSettings> {
+    const persisted = await this.read()
+    const settings: EditorSettings = {
+      preference: normalizeEditorPreference(update.preference),
+      customCommand: normalizeOptionalString(update.customCommand),
+      updatedAt: new Date().toISOString()
+    }
+
+    persisted.editorSettings = settings
+    await this.write(persisted)
+
+    return settings
+  }
+
   private async read(): Promise<PersistedSettings> {
     try {
       const raw = await fs.readFile(this.filePath, 'utf8')
@@ -94,13 +122,15 @@ export class SettingsStore {
       return {
         recentRepositories: normalizeRecentRepositories(parsed.recentRepositories, pinnedRepositoryPaths),
         pinnedRepositoryPaths,
-        assistantPolicies: isAssistantPolicyRecord(parsed.assistantPolicies) ? parsed.assistantPolicies : {}
+        assistantPolicies: isAssistantPolicyRecord(parsed.assistantPolicies) ? parsed.assistantPolicies : {},
+        editorSettings: normalizeEditorSettings(parsed.editorSettings)
       }
     } catch {
       return {
         recentRepositories: [...DEFAULT_SETTINGS.recentRepositories],
         pinnedRepositoryPaths: [...DEFAULT_SETTINGS.pinnedRepositoryPaths],
-        assistantPolicies: { ...DEFAULT_SETTINGS.assistantPolicies }
+        assistantPolicies: { ...DEFAULT_SETTINGS.assistantPolicies },
+        editorSettings: { ...DEFAULT_SETTINGS.editorSettings }
       }
     }
   }
@@ -153,6 +183,38 @@ function extractInlinePinnedRepositoryPaths(value: unknown): string[] {
 
 function isString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
+}
+
+function normalizeEditorSettings(value: unknown): EditorSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...DEFAULT_SETTINGS.editorSettings }
+  }
+
+  const candidate = value as Partial<EditorSettings>
+
+  return {
+    preference: normalizeEditorPreference(candidate.preference),
+    customCommand: normalizeOptionalString(candidate.customCommand),
+    updatedAt: normalizeOptionalString(candidate.updatedAt)
+  }
+}
+
+function normalizeEditorPreference(value: unknown): EditorPreference {
+  return isEditorPreference(value) ? value : DEFAULT_SETTINGS.editorSettings.preference
+}
+
+function isEditorPreference(value: unknown): value is EditorPreference {
+  return value === 'auto' ||
+    value === 'vscode' ||
+    value === 'cursor' ||
+    value === 'webstorm' ||
+    value === 'rider' ||
+    value === 'sublime' ||
+    value === 'custom'
 }
 
 function isAssistantPolicyRecord(value: unknown): value is Record<string, AssistantPolicySettings> {

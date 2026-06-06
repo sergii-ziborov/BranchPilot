@@ -859,6 +859,19 @@ export interface EditorOpenRequest {
   line?: number
 }
 
+export type EditorPreference = 'auto' | 'vscode' | 'cursor' | 'webstorm' | 'rider' | 'sublime' | 'custom'
+
+export interface EditorSettings {
+  preference: EditorPreference
+  customCommand?: string
+  updatedAt?: string
+}
+
+export interface EditorSettingsUpdate {
+  preference: EditorPreference
+  customCommand?: string
+}
+
 export type GitHubCliState = 'missing' | 'unauthenticated' | 'authenticated'
 export type GitHubAuthProvider = 'none' | 'gh' | 'git-credential'
 
@@ -1016,6 +1029,8 @@ export interface BranchPilotApi {
   generateProjectWiki: (repoPath: string) => Promise<ApiResult<ProjectWikiGenerationResult>>
   getAssistantPolicy: (repoPath: string) => Promise<ApiResult<AssistantPolicyStatus>>
   setAssistantPolicy: (update: AssistantPolicyUpdate) => Promise<ApiResult<AssistantPolicyStatus>>
+  getEditorSettings: () => Promise<ApiResult<EditorSettings>>
+  setEditorSettings: (update: EditorSettingsUpdate) => Promise<ApiResult<EditorSettings>>
   getActivityLog: (query: ActivityLogQuery) => Promise<ApiResult<ActivityLogSnapshot>>
   clearActivityLog: (repoPath: string, confirmed: boolean) => Promise<ApiResult<ActivityLogSnapshot>>
   generateDailyReview: (request: DailyReviewRequest) => Promise<ApiResult<DailyReviewReport>>

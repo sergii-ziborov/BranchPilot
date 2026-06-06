@@ -33,6 +33,7 @@ import type {
   DeleteTagRequest,
   DiffRequest,
   EditorOpenRequest,
+  EditorSettingsUpdate,
   ExportPatchRequest,
   FileActionRequest,
   GitIdentityUpdate,
@@ -948,7 +949,11 @@ function registerIpcHandlers() {
     withProjectMemoryRefresh(await repositoryService.abortMergeOperation(repoPath))
   )
 
-  handle('editor:open', (request: EditorOpenRequest) => editorService.openInEditor(request.targetPath, request.line))
+  handle('editor:getSettings', () => settingsStore.getEditorSettings())
+  handle('editor:setSettings', (update: EditorSettingsUpdate) => settingsStore.setEditorSettings(update))
+  handle('editor:open', async (request: EditorOpenRequest) =>
+    editorService.openInEditor(request.targetPath, request.line, await settingsStore.getEditorSettings())
+  )
   handle('terminal:open', (targetPath: string) => editorService.openTerminal(targetPath))
 
   handle('providers:list', () => listProviderStatuses(commandRunner))
