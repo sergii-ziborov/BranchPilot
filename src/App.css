@@ -621,6 +621,11 @@ button.danger-button:hover {
   min-height: 0;
 }
 
+.changes-workflow-grid {
+  grid-template-columns: minmax(380px, 0.78fr) minmax(520px, 1.22fr);
+  align-items: start;
+}
+
 .changes-panel,
 .diff-panel,
 .single-panel {
@@ -644,9 +649,13 @@ button.danger-button:hover {
 
 .changes-panel-compact {
   display: grid;
+  grid-template-rows: auto auto auto auto minmax(160px, 1fr) auto;
   align-content: start;
   gap: 8px;
+  max-height: calc(100vh - 210px);
+  min-height: 0;
   padding: 10px;
+  overflow: hidden;
 }
 
 .changes-topbar {
@@ -813,6 +822,11 @@ button.danger-button:hover {
   border: 1px solid var(--border);
   border-radius: 0 0 8px 8px;
   background: #ffffff;
+}
+
+.changes-panel-compact .virtual-list-viewport {
+  max-height: none;
+  min-height: 0;
 }
 
 .virtual-list-viewport {
@@ -1221,6 +1235,17 @@ button.danger-button:hover {
   gap: 9px;
   margin-top: 16px;
   padding: 14px;
+}
+
+.changes-panel-compact .commit-box {
+  max-height: min(39vh, 360px);
+  margin-top: 0;
+  padding: 10px;
+  overflow: auto;
+}
+
+.changes-panel-compact .commit-box textarea {
+  min-height: 72px;
 }
 
 .commit-box label {

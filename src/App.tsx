@@ -1287,22 +1287,6 @@ function App() {
     return `WIP on ${branch} at ${timestamp}`
   }
 
-  async function stageSelected() {
-    if (!api || !currentRepoPath || !selectedChange) return
-    await runSnapshotAction('File staged.', () =>
-      api.stageFile({ repoPath: currentRepoPath, filePath: selectedChange.path })
-    )
-    setDiffMode('staged')
-  }
-
-  async function unstageSelected() {
-    if (!api || !currentRepoPath || !selectedChange) return
-    await runSnapshotAction('File unstaged.', () =>
-      api.unstageFile({ repoPath: currentRepoPath, filePath: selectedChange.path })
-    )
-    setDiffMode('unstaged')
-  }
-
   async function toggleChangeStage(change: FileChange) {
     if (!api || !currentRepoPath) return
     const action = getChangeStageToggleAction(change)
@@ -2541,14 +2525,16 @@ function App() {
           </section>
         ) : (
           <>
-            <section className="stats-grid" aria-label="Repository status">
-              <Stat label="Changed files" value={counts?.changed ?? 0} />
-              <Stat label="Staged" value={counts?.staged ?? 0} />
-              <Stat label="Unstaged" value={counts?.unstaged ?? 0} />
-              <Stat label="Conflicts" value={counts?.conflicted ?? 0} />
-              <Stat label="Ahead / behind" value={`${snapshot.summary.ahead} / ${snapshot.summary.behind}`} />
-              <Stat label="Remote" value={snapshot.summary.upstream ?? snapshot.summary.remoteName ?? 'None'} />
-            </section>
+            {viewMode !== 'changes' && (
+              <section className="stats-grid" aria-label="Repository status">
+                <Stat label="Changed files" value={counts?.changed ?? 0} />
+                <Stat label="Staged" value={counts?.staged ?? 0} />
+                <Stat label="Unstaged" value={counts?.unstaged ?? 0} />
+                <Stat label="Conflicts" value={counts?.conflicted ?? 0} />
+                <Stat label="Ahead / behind" value={`${snapshot.summary.ahead} / ${snapshot.summary.behind}`} />
+                <Stat label="Remote" value={snapshot.summary.upstream ?? snapshot.summary.remoteName ?? 'None'} />
+              </section>
+            )}
 
             {viewMode === 'dashboard' && renderDashboardView()}
             {viewMode === 'changes' && renderChangesView()}
@@ -2799,7 +2785,7 @@ function App() {
       : `${totalChanges}`
 
     return (
-      <section className="content-grid">
+      <section className="content-grid changes-workflow-grid">
         <div className="changes-panel changes-panel-compact">
           <div className="changes-topbar">
             <h2>
@@ -2999,13 +2985,9 @@ function App() {
               <p>{selectedChange?.path ?? 'Select a changed file'}</p>
             </div>
             <div className="panel-actions">
-              <button type="button" onClick={stageSelected} disabled={!selectedChange || !selectedChange.unstaged}>
-                <Plus size={17} />
-                Stage
-              </button>
-              <button type="button" onClick={unstageSelected} disabled={!selectedChange || !selectedChange.staged}>
-                <X size={17} />
-                Unstage
+              <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
+                <Save size={17} />
+                Stash
               </button>
               <button
                 className="danger-button"
