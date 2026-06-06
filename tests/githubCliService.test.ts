@@ -134,6 +134,36 @@ describe('GitHub CLI bridge', () => {
     })
   })
 
+  it('accepts ssh URL GitHub remotes', async () => {
+    const runner = new GitHubCliTestRunner({
+      remoteUrl: 'ssh://git@github.com/example/project.git',
+      upstream: 'origin/feature/test'
+    })
+
+    await expect(createGitHubPullRequest(runner, {
+      repoPath: '/repo',
+      title: 'Add SSH URL remote support',
+      description: '',
+      baseBranch: 'main'
+    })).resolves.toMatchObject({
+      url: 'https://github.com/example/project/pull/42'
+    })
+  })
+
+  it('rejects remotes that only mention github.com outside the host', async () => {
+    for (const remoteUrl of [
+      'https://gitlab.com/github.com/example/project.git',
+      'https://github.com.evil.test/example/project.git',
+      'ssh://git@example.test/github.com/example/project.git'
+    ]) {
+      await expect(createGitHubPullRequest(new GitHubCliTestRunner({ remoteUrl }), {
+        repoPath: '/repo',
+        title: 'Wrong remote',
+        description: ''
+      })).rejects.toMatchObject({ code: 'github_remote_missing' })
+    }
+  })
+
   it('creates a pull request through GitHub API when GitHub Desktop credentials are available', async () => {
     const runner = new GitHubCliTestRunner({
       ghAuthenticated: false,

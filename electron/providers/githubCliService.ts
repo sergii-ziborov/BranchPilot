@@ -18,8 +18,6 @@ import { parseUnifiedDiff } from '../lib/diffParser.js'
 import { CommandRunner } from '../lib/commandRunner.js'
 import { BranchPilotUserError } from '../lib/errors.js'
 
-const GITHUB_REMOTE_PATTERN = /(?:github\.com[:/])([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i
-
 export interface GitHubDesktopCredential {
   username?: string
   token: string
@@ -443,7 +441,7 @@ async function getGitHubRemoteUrl(runner: CommandRunner, rootPath: string): Prom
   for (const line of result.stdout.split('\n')) {
     const match = line.trim().match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/)
 
-    if (match && GITHUB_REMOTE_PATTERN.test(match[2])) {
+    if (match && parseGitHubRemoteUrl(match[2])) {
       return match[2]
     }
   }
@@ -453,17 +451,64 @@ async function getGitHubRemoteUrl(runner: CommandRunner, rootPath: string): Prom
 
 async function getGitHubRepositoryInfo(runner: CommandRunner, rootPath: string): Promise<GitHubRepositoryInfo> {
   const remoteUrl = await getGitHubRemoteUrl(runner, rootPath)
-  const match = remoteUrl.match(GITHUB_REMOTE_PATTERN)
+  const parsed = parseGitHubRemoteUrl(remoteUrl)
 
-  if (!match) {
+  if (!parsed) {
     throw new BranchPilotUserError('github_remote_missing', 'No GitHub remote was found for this repository.')
   }
 
   return {
-    owner: match[1],
-    repo: match[2],
+    owner: parsed.owner,
+    repo: parsed.repo,
     remoteUrl
   }
+}
+
+function parseGitHubRemoteUrl(remoteUrl: string): Pick<GitHubRepositoryInfo, 'owner' | 'repo'> | undefined {
+  const trimmed = remoteUrl.trim()
+  const scpMatch = trimmed.match(/^(?:[^@\s]+@)?github\.com:([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i)
+
+  if (scpMatch) {
+    return normalizeGitHubRepositoryPath(scpMatch[1], scpMatch[2])
+  }
+
+  try {
+    const parsedUrl = new URL(trimmed)
+
+    if (parsedUrl.hostname.toLowerCase() !== 'github.com') {
+      return undefined
+    }
+
+    const parts = parsedUrl.pathname
+      .replace(/^\/+|\/+$/g, '')
+      .split('/')
+      .filter(Boolean)
+
+    if (parts.length !== 2) {
+      return undefined
+    }
+
+    return normalizeGitHubRepositoryPath(parts[0], parts[1])
+  } catch {
+    return undefined
+  }
+}
+
+function normalizeGitHubRepositoryPath(owner: string, repo: string): Pick<GitHubRepositoryInfo, 'owner' | 'repo'> | undefined {
+  const normalizedRepo = repo.replace(/\.git$/i, '')
+
+  if (!isSafeGitHubPathSegment(owner) || !isSafeGitHubPathSegment(normalizedRepo)) {
+    return undefined
+  }
+
+  return {
+    owner,
+    repo: normalizedRepo
+  }
+}
+
+function isSafeGitHubPathSegment(value: string): boolean {
+  return /^[A-Za-z0-9_.-]+$/.test(value)
 }
 
 async function getCurrentBranch(runner: CommandRunner, rootPath: string): Promise<string> {
