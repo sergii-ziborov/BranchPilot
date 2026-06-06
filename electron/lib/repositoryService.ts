@@ -799,6 +799,10 @@ export class RepositoryService {
       throw new BranchPilotUserError('confirmation_required', 'Removing a worktree requires explicit confirmation.')
     }
 
+    if (request.force) {
+      throw new BranchPilotUserError('unsupported_force_remove', 'Force removing worktrees is not available in BranchPilot v1.')
+    }
+
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     const targetPath = await normalizeExistingWorktreePath(rootPath, request.targetPath)
     const worktree = (await this.listRepositoryWorktrees(rootPath))

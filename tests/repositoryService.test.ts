@@ -967,6 +967,15 @@ describe('RepositoryService', () => {
       code: 'current_worktree'
     })
 
+    await expect(service.removeWorktree({
+      repoPath,
+      targetPath,
+      confirmed: true,
+      force: true
+    })).rejects.toMatchObject({
+      code: 'unsupported_force_remove'
+    })
+
     const removed = await service.removeWorktree({
       repoPath,
       targetPath,
