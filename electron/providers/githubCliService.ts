@@ -474,13 +474,20 @@ export async function getGitHubPullRequestDiff(
 
 export async function checkoutGitHubPullRequest(
   runner: CommandRunner,
-  request: CheckoutPullRequestRequest
+  request: CheckoutPullRequestRequest,
+  credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient = DEFAULT_API_CLIENT
 ): Promise<string> {
   const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
-  const status = await assertGitHubCliReady(runner, rootPath)
+  const auth = await resolveGitHubAuth(runner, rootPath, credentialProvider, apiClient)
   const prNumber = normalizePullRequestNumber(request.prNumber)
 
-  await runner.run(status.executable, ['pr', 'checkout', String(prNumber)], {
+  if (auth.provider === 'git-credential') {
+    await checkoutGitHubPullRequestWithGit(runner, rootPath, prNumber)
+    return rootPath
+  }
+
+  await runner.run(auth.executable, ['pr', 'checkout', String(prNumber)], {
     cwd: rootPath,
     timeoutMs: 120_000
   })
@@ -592,6 +599,10 @@ async function resolveRepositoryRoot(runner: CommandRunner, repoPath: string): P
 }
 
 async function getGitHubRemoteUrl(runner: CommandRunner, rootPath: string): Promise<string> {
+  return (await getGitHubRemote(runner, rootPath)).remoteUrl
+}
+
+async function getGitHubRemote(runner: CommandRunner, rootPath: string): Promise<GitHubRepositoryInfo & { remoteName: string }> {
   const result = await runner.run('/usr/bin/git', ['remote', '-v'], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
@@ -600,9 +611,15 @@ async function getGitHubRemoteUrl(runner: CommandRunner, rootPath: string): Prom
 
   for (const line of result.stdout.split('\n')) {
     const match = line.trim().match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/)
+    const parsed = match ? parseGitHubRemoteUrl(match[2]) : undefined
 
-    if (match && parseGitHubRemoteUrl(match[2])) {
-      return match[2]
+    if (match && parsed) {
+      return {
+        remoteName: match[1],
+        remoteUrl: match[2],
+        owner: parsed.owner,
+        repo: parsed.repo
+      }
     }
   }
 
@@ -610,18 +627,50 @@ async function getGitHubRemoteUrl(runner: CommandRunner, rootPath: string): Prom
 }
 
 async function getGitHubRepositoryInfo(runner: CommandRunner, rootPath: string): Promise<GitHubRepositoryInfo> {
-  const remoteUrl = await getGitHubRemoteUrl(runner, rootPath)
-  const parsed = parseGitHubRemoteUrl(remoteUrl)
-
-  if (!parsed) {
-    throw new BranchPilotUserError('github_remote_missing', 'No GitHub remote was found for this repository.')
-  }
+  const remote = await getGitHubRemote(runner, rootPath)
 
   return {
-    owner: parsed.owner,
-    repo: parsed.repo,
-    remoteUrl
+    owner: remote.owner,
+    repo: remote.repo,
+    remoteUrl: remote.remoteUrl
   }
+}
+
+async function checkoutGitHubPullRequestWithGit(
+  runner: CommandRunner,
+  rootPath: string,
+  prNumber: number
+): Promise<void> {
+  const remote = await getGitHubRemote(runner, rootPath)
+  const branchName = `branchpilot/pr-${prNumber}`
+
+  await runner.run('/usr/bin/git', ['fetch', remote.remoteName, `pull/${prNumber}/head`], {
+    cwd: rootPath,
+    timeoutMs: 120_000
+  })
+
+  const branchExists = await runner.run('/usr/bin/git', ['rev-parse', '--verify', `refs/heads/${branchName}`], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1],
+    timeoutMs: 10_000
+  })
+
+  if (branchExists.exitCode === 0) {
+    await runner.run('/usr/bin/git', ['switch', branchName], {
+      cwd: rootPath,
+      timeoutMs: 30_000
+    })
+    await runner.run('/usr/bin/git', ['merge', '--ff-only', 'FETCH_HEAD'], {
+      cwd: rootPath,
+      timeoutMs: 120_000
+    })
+    return
+  }
+
+  await runner.run('/usr/bin/git', ['switch', '-c', branchName, 'FETCH_HEAD'], {
+    cwd: rootPath,
+    timeoutMs: 30_000
+  })
 }
 
 function parseGitHubRemoteUrl(remoteUrl: string): Pick<GitHubRepositoryInfo, 'owner' | 'repo'> | undefined {

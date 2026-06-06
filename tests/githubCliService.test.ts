@@ -415,6 +415,45 @@ describe('GitHub CLI bridge', () => {
     expect(runner.ghPrCheckoutArgs).toEqual(['pr', 'checkout', '42'])
   })
 
+  it('checks out a pull request through system Git when using GitHub Desktop credentials', async () => {
+    const runner = new GitHubCliTestRunner({ ghAuthenticated: false })
+
+    await expect(checkoutGitHubPullRequest(
+      runner,
+      {
+        repoPath: '/repo',
+        prNumber: 42
+      },
+      new FakeGitHubCredentialProvider(),
+      new FakeGitHubApiClient()
+    )).resolves.toBe('/repo')
+
+    expect(runner.gitFetchArgs).toEqual(['fetch', 'origin', 'pull/42/head'])
+    expect(runner.gitSwitchArgs).toEqual(['switch', '-c', 'branchpilot/pr-42', 'FETCH_HEAD'])
+    expect(runner.gitMergeArgs).toEqual([])
+  })
+
+  it('fast-forwards an existing local pull request branch on checkout fallback', async () => {
+    const runner = new GitHubCliTestRunner({
+      ghAuthenticated: false,
+      localPullRequestBranchExists: true
+    })
+
+    await expect(checkoutGitHubPullRequest(
+      runner,
+      {
+        repoPath: '/repo',
+        prNumber: 42
+      },
+      new FakeGitHubCredentialProvider(),
+      new FakeGitHubApiClient()
+    )).resolves.toBe('/repo')
+
+    expect(runner.gitFetchArgs).toEqual(['fetch', 'origin', 'pull/42/head'])
+    expect(runner.gitSwitchArgs).toEqual(['switch', 'branchpilot/pr-42'])
+    expect(runner.gitMergeArgs).toEqual(['merge', '--ff-only', 'FETCH_HEAD'])
+  })
+
   it('reads pull request details, checks, and patch diff', async () => {
     const details = makePullRequestDetails({
       number: 7,
@@ -662,6 +701,7 @@ interface GitHubCliTestRunnerOptions {
   currentBranch?: string
   upstream?: string
   originHead?: string
+  localPullRequestBranchExists?: boolean
   currentPullRequest?: GitHubPullRequest | null
   pullRequests?: GitHubPullRequest[]
   accounts?: GitHubAccountSummary[]
@@ -807,6 +847,9 @@ class GitHubCliTestRunner extends CommandRunner {
   ghPrDiffArgs: string[] = []
   ghApiArgs: string[][] = []
   ghRepoListArgs: string[] = []
+  gitFetchArgs: string[] = []
+  gitSwitchArgs: string[] = []
+  gitMergeArgs: string[] = []
 
   constructor(private readonly options: GitHubCliTestRunnerOptions = {}) {
     super()
@@ -961,6 +1004,32 @@ class GitHubCliTestRunner extends CommandRunner {
   private git(command: string, args: string[], options: CommandRunOptions): Promise<CommandRunResult> {
     if (args.join(' ') === 'rev-parse --show-toplevel') {
       return Promise.resolve(this.complete(command, args, 0, '/repo\n', '', options))
+    }
+
+    if (args[0] === 'fetch') {
+      this.gitFetchArgs = args
+      return Promise.resolve(this.complete(command, args, 0, 'From github.com:example/project\n', '', options))
+    }
+
+    if (args.join(' ') === 'rev-parse --verify refs/heads/branchpilot/pr-42') {
+      return Promise.resolve(this.complete(
+        command,
+        args,
+        this.options.localPullRequestBranchExists ? 0 : 1,
+        this.options.localPullRequestBranchExists ? 'refs/heads/branchpilot/pr-42\n' : '',
+        'not found',
+        options
+      ))
+    }
+
+    if (args[0] === 'switch') {
+      this.gitSwitchArgs = args
+      return Promise.resolve(this.complete(command, args, 0, `Switched to ${args.at(-1) ?? 'branch'}\n`, '', options))
+    }
+
+    if (args[0] === 'merge') {
+      this.gitMergeArgs = args
+      return Promise.resolve(this.complete(command, args, 0, 'Fast-forward\n', '', options))
     }
 
     if (args.join(' ') === 'remote -v') {

@@ -4753,7 +4753,7 @@ function App() {
           )}
 
           {githubCliStatus?.authProvider === 'git-credential' && (
-            <div className="command-hint">Using GitHub Desktop credential for PR creation, list, details, and diff. Run <code>gh auth login</code> to enable checks and checkout.</div>
+            <div className="command-hint">Using GitHub Desktop credential for PR creation, list, details, diff, and checkout. Run <code>gh auth login</code> to enable checks.</div>
           )}
 
           {snapshot && providerRemote.kind !== 'github' && (
@@ -4928,7 +4928,7 @@ function App() {
                               event.stopPropagation()
                               void checkoutPullRequest(pullRequest)
                             }}
-                            disabled={busy || !githubCliStatus?.ghAuthenticated}
+                            disabled={busy || !githubCliStatus?.authenticated}
                           >
                             <GitPullRequest size={17} />
                             Checkout
@@ -5129,7 +5129,7 @@ function App() {
             </div>
 
             {!githubCliStatus?.ghAuthenticated && (
-              <div className="command-hint">Checks and PR checkout require <code>gh auth login</code>. Details and diff are loaded through the current GitHub credential.</div>
+              <div className="command-hint">Checks require <code>gh auth login</code>. Details, diff, and checkout use the current GitHub/Git credentials.</div>
             )}
 
             <div className="pr-body">
