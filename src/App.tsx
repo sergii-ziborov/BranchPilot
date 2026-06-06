@@ -4323,6 +4323,14 @@ function App() {
             <div className="command-hint">Using GitHub Desktop credential for PR creation. Run <code>gh auth login</code> to enable PR list, checks, diff, and checkout.</div>
           )}
 
+          {snapshot && providerRemote.kind !== 'github' && (
+            <div className="command-hint">
+              {providerRemote.kind === 'none'
+                ? 'Add a GitHub remote before using GitHub pull request workflows.'
+                : `${providerRemote.label} remote detected. GitHub pull request workflows require a GitHub remote.`}
+            </div>
+          )}
+
           {snapshot && !snapshot.summary.upstream && (
             <div className="command-hint">
               Publish the current branch before creating a pull request.

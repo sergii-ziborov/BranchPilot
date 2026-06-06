@@ -53,6 +53,47 @@ describe('provider preconditions', () => {
       reasons: []
     })
   })
+
+  it('blocks GitHub pull request actions for non-GitHub remotes', () => {
+    expect(getCreatePullRequestState({
+      snapshot: makeSnapshot({
+        remoteUrl: 'https://gitlab.com/example/repo.git'
+      }),
+      githubStatus: makeGitHubStatus({ authProvider: 'gh' }),
+      title: 'Create merge request',
+      currentPullRequestExists: false
+    })).toEqual({
+      enabled: false,
+      reasons: ['Current remote is GitLab; GitHub pull requests require a GitHub remote.']
+    })
+
+    expect(getPullRequestBrowseState(
+      makeSnapshot({
+        remoteUrl: 'git@bitbucket.org:workspace/repo.git'
+      }),
+      makeGitHubStatus({ authProvider: 'gh' })
+    )).toEqual({
+      enabled: false,
+      reasons: ['Current remote is Bitbucket; GitHub pull requests require a GitHub remote.']
+    })
+
+    expect(getCreatePullRequestState({
+      snapshot: makeSnapshot({
+        remoteName: undefined,
+        remoteUrl: undefined,
+        upstream: undefined
+      }),
+      githubStatus: makeGitHubStatus({ authProvider: 'gh' }),
+      title: 'Create pull request',
+      currentPullRequestExists: false
+    })).toMatchObject({
+      enabled: false,
+      reasons: expect.arrayContaining([
+        'Publish the current branch.',
+        'Add a GitHub remote.'
+      ])
+    })
+  })
 })
 
 function makeSnapshot(overrides: Partial<RepositorySnapshot['summary']> = {}): RepositorySnapshot {

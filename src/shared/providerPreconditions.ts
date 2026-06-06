@@ -1,4 +1,5 @@
 import type { GitHubCliStatus, RepositorySnapshot } from './branchPilot.js'
+import { getProviderRemoteSummary } from './providerRemote.js'
 
 export interface PullRequestActionInput {
   snapshot: RepositorySnapshot | null
@@ -19,12 +20,18 @@ export function getCreatePullRequestState(input: PullRequestActionInput): PullRe
   if (!summary) {
     reasons.push('Open a repository.')
   } else {
+    const remote = getProviderRemoteSummary(summary.remoteUrl)
+
     if (summary.isDetached) {
       reasons.push('Switch from detached HEAD to a branch.')
     }
 
     if (!summary.upstream) {
       reasons.push('Publish the current branch.')
+    }
+
+    if (remote.kind !== 'github') {
+      reasons.push(githubRemoteReason(remote.label))
     }
   }
 
@@ -54,6 +61,12 @@ export function getPullRequestBrowseState(
 
   if (!snapshot) {
     reasons.push('Open a repository.')
+  } else {
+    const remote = getProviderRemoteSummary(snapshot.summary.remoteUrl)
+
+    if (remote.kind !== 'github') {
+      reasons.push(githubRemoteReason(remote.label))
+    }
   }
 
   if (!githubStatus?.ghAuthenticated) {
@@ -64,4 +77,9 @@ export function getPullRequestBrowseState(
     enabled: reasons.length === 0,
     reasons
   }
+}
+
+function githubRemoteReason(label: string): string {
+  if (label === 'No remote') return 'Add a GitHub remote.'
+  return `Current remote is ${label}; GitHub pull requests require a GitHub remote.`
 }
