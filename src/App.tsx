@@ -102,6 +102,7 @@ function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
   const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
+  const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
   const [providers, setProviders] = useState<ProviderStatus[]>([])
   const [assistants, setAssistants] = useState<AssistantStatus[]>([])
   const [assistantsChecking, setAssistantsChecking] = useState(false)
@@ -200,6 +201,20 @@ function App() {
         .some((value) => value.toLowerCase().includes(query))
     )
   }, [history, historyFilter])
+
+  const filteredRecentRepositories = useMemo(() => {
+    const query = recentRepositoryFilter.trim().toLowerCase()
+
+    if (!query) return recentRepositories
+
+    return recentRepositories.filter((repo) =>
+      [
+        repo.name,
+        repo.path,
+        repo.pinned ? 'pinned favorite starred repository' : 'recent repository'
+      ].some((value) => value.toLowerCase().includes(query))
+    )
+  }, [recentRepositories, recentRepositoryFilter])
 
   const selectedChange = useMemo(
     () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
@@ -1577,11 +1592,34 @@ function App() {
         </nav>
 
         <div className="recent-list">
-          <span className="section-label">Recent repositories</span>
+          <div className="recent-list-heading">
+            <span className="section-label">Recent repositories</span>
+            <span>{filteredRecentRepositories.length} / {recentRepositories.length}</span>
+          </div>
+          {recentRepositories.length > 0 && (
+            <div className="recent-filter">
+              <label htmlFor="recent-repository-filter">
+                <Search size={14} />
+                <input
+                  id="recent-repository-filter"
+                  value={recentRepositoryFilter}
+                  onChange={(event) => setRecentRepositoryFilter(event.target.value)}
+                  placeholder="Search repos"
+                />
+              </label>
+              {recentRepositoryFilter && (
+                <button type="button" aria-label="Clear repository search" onClick={() => setRecentRepositoryFilter('')}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
           {recentRepositories.length === 0 ? (
             <p>No recent repositories.</p>
+          ) : filteredRecentRepositories.length === 0 ? (
+            <p>No repositories match this search.</p>
           ) : (
-            recentRepositories.map((repo) => (
+            filteredRecentRepositories.map((repo) => (
               <article className={repo.pinned ? 'recent-repo-row pinned' : 'recent-repo-row'} key={repo.path}>
                 <button className="recent-repo-open" type="button" onClick={() => openRepository(repo.path)}>
                   <strong>{repo.name}</strong>

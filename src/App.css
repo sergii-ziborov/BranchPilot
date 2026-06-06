@@ -141,6 +141,60 @@ button:disabled {
   font-size: 13px;
 }
 
+.recent-list-heading,
+.recent-filter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.recent-list-heading > span:last-child {
+  color: var(--sidebar-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.recent-filter label {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  color: var(--sidebar-muted);
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.recent-filter input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: var(--sidebar-text);
+  background: transparent;
+  font-size: 13px;
+}
+
+.recent-filter button {
+  display: inline-flex;
+  width: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  color: var(--sidebar-muted);
+  background: transparent;
+}
+
+.recent-filter button:hover {
+  color: #ffffff;
+  background: rgba(148, 163, 184, 0.14);
+}
+
 .recent-repo-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 38px;
