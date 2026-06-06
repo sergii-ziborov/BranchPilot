@@ -25,6 +25,7 @@ import type {
   CreateStashRequest,
   CreatePullRequestRequest,
   CreateTagRequest,
+  CreateWorktreeRequest,
   DailyReviewRequest,
   DeleteBranchRequest,
   DeleteTagRequest,
@@ -39,6 +40,7 @@ import type {
   PullRequestDetailsRequest,
   PullRequestTextGenerationRequest,
   PublishBranchRequest,
+  RemoveWorktreeRequest,
   RepositoryPinRequest,
   RepositorySnapshot,
   ReviewReportRequest,
@@ -322,6 +324,22 @@ async function choosePatchInputPath(): Promise<string | undefined> {
   })
 
   return result.canceled ? undefined : result.filePaths[0]
+}
+
+async function chooseWorktreeTargetPath(request: CreateWorktreeRequest): Promise<string | undefined> {
+  const repoName = path.basename(request.repoPath)
+  const branchSlug = request.branchName
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'worktree'
+  const result = await dialog.showSaveDialog({
+    title: 'Create worktree folder',
+    defaultPath: path.join(path.dirname(request.repoPath), `${repoName}-${branchSlug}`),
+    buttonLabel: 'Use folder'
+  })
+
+  return result.canceled ? undefined : result.filePath
 }
 
 function registerIpcHandlers() {
@@ -637,6 +655,43 @@ function registerIpcHandlers() {
     metadata: ([request]) => ({ tag: request.tagName })
   }, async (request: DeleteTagRequest) =>
     withProjectMemoryRefresh(await repositoryService.deleteTag(request))
+  )
+  handle('git:listWorktrees', async (repoPath: string) =>
+    repositoryService.listWorktrees(repoPath)
+  )
+  handleLogged('git:createWorktree', {
+    type: 'worktree_created',
+    actor: 'user',
+    title: 'Worktree created',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      branch: request.branchName,
+      base: request.baseRef ?? 'current',
+      target: request.targetPath ? path.basename(request.targetPath) : 'selected'
+    })
+  }, async (request: CreateWorktreeRequest) => {
+    const targetPath = request.targetPath ?? await chooseWorktreeTargetPath(request)
+
+    if (!targetPath) {
+      return null
+    }
+
+    return withProjectMemoryRefresh(await repositoryService.createWorktree({
+      ...request,
+      targetPath
+    }))
+  })
+  handleLogged('git:removeWorktree', {
+    type: 'worktree_removed',
+    actor: 'user',
+    title: 'Worktree removed',
+    repoPath: requestRepoPath,
+    metadata: ([request]) => ({
+      target: path.basename(request.targetPath),
+      force: Boolean(request.force)
+    })
+  }, async (request: RemoveWorktreeRequest) =>
+    withProjectMemoryRefresh(await repositoryService.removeWorktree(request))
   )
   handleLogged('git:exportPatch', {
     type: 'patch_exported',

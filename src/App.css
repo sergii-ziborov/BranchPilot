@@ -1655,12 +1655,113 @@ button.danger-button:hover {
   background: #ffffff;
 }
 
+.worktree-panel,
 .tag-panel {
   display: grid;
   gap: 12px;
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+}
+
+.worktree-composer {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 9px 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.worktree-composer label {
+  padding-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.worktree-composer-actions {
+  display: flex;
+  grid-column: 2;
+  justify-content: flex-end;
+}
+
+.worktree-composer-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.worktree-list {
+  display: grid;
+  gap: 10px;
+}
+
+.worktree-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.worktree-row.current {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.worktree-row > div:first-child {
+  flex: 1 1 360px;
+  min-width: 0;
+}
+
+.worktree-row strong,
+.worktree-row span,
+.worktree-row code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worktree-row strong {
+  color: var(--text-strong);
+}
+
+.worktree-row span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.worktree-row code {
+  margin-top: 6px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.worktree-row p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.worktree-row .panel-actions {
+  flex: 0 0 auto;
+  max-width: min(100%, 420px);
 }
 
 .tag-composer {
@@ -3276,6 +3377,7 @@ button.secondary:hover {
 
   .branch-row,
   .conflict-row,
+  .worktree-row,
   .tag-row {
     align-items: stretch;
     flex-direction: column;
@@ -3283,6 +3385,7 @@ button.secondary:hover {
 
   .branch-row .panel-actions,
   .conflict-row .panel-actions,
+  .worktree-row .panel-actions,
   .tag-row .panel-actions {
     max-width: 100%;
   }
@@ -3299,6 +3402,7 @@ button.secondary:hover {
   .review-controls,
   .assistant-policy-actions,
   .branch-composer-grid,
+  .worktree-composer,
   .tag-composer,
   .merge-start,
   .pr-details-meta,
@@ -3313,6 +3417,12 @@ button.secondary:hover {
   }
 
   .pr-actions {
+    justify-content: flex-start;
+  }
+
+  .worktree-composer-actions,
+  .tag-composer-actions {
+    grid-column: auto;
     justify-content: flex-start;
   }
 }

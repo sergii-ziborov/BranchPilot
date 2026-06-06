@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -750,6 +750,72 @@ describe('RepositoryService', () => {
     })
     expect(deleted.tags.map((tag) => tag.name)).not.toContain('v0.1.0')
     expect(deleted.tags.map((tag) => tag.name)).toContain('release/v0.1.1')
+  })
+
+  it('creates, lists, and removes linked worktrees with confirmation', async () => {
+    const repoPath = createTempRepository()
+    const worktreeParent = mkdtempSync(path.join(tmpdir(), 'branchpilot-worktree-test-'))
+    tempRoots.push(worktreeParent)
+    const targetPath = path.join(worktreeParent, 'repo-experiment')
+    const service = createService()
+
+    const initialWorktrees = await service.listWorktrees(repoPath)
+    expect(initialWorktrees).toHaveLength(1)
+    expect(initialWorktrees[0]).toMatchObject({
+      path: realpathSync(repoPath),
+      branch: 'main',
+      current: true
+    })
+
+    await expect(service.createWorktree({
+      repoPath,
+      branchName: 'main',
+      baseRef: 'main',
+      targetPath
+    })).rejects.toMatchObject({
+      code: 'branch_exists'
+    })
+
+    const created = await service.createWorktree({
+      repoPath,
+      branchName: 'experiment/worktree',
+      baseRef: 'main',
+      targetPath
+    })
+
+    expect(created.worktrees).toHaveLength(2)
+    const createdWorktree = created.worktrees.find((worktree) => realpathSync(worktree.path) === realpathSync(targetPath))
+    expect(createdWorktree).toMatchObject({
+      branch: 'experiment/worktree',
+      current: false
+    })
+    expect(git(targetPath, ['branch', '--show-current'])).toBe('experiment/worktree')
+    expect(readFileSync(path.join(targetPath, 'tracked.txt'), 'utf8')).toBe('initial\n')
+
+    await expect(service.removeWorktree({
+      repoPath,
+      targetPath,
+      confirmed: false
+    })).rejects.toMatchObject({
+      code: 'confirmation_required'
+    })
+
+    await expect(service.removeWorktree({
+      repoPath,
+      targetPath: repoPath,
+      confirmed: true
+    })).rejects.toMatchObject({
+      code: 'current_worktree'
+    })
+
+    const removed = await service.removeWorktree({
+      repoPath,
+      targetPath,
+      confirmed: true
+    })
+
+    expect(removed.worktrees).toHaveLength(1)
+    expect(existsSync(targetPath)).toBe(false)
   })
 
   it('blocks deleting the current branch and reports unmerged safe-delete failures', async () => {

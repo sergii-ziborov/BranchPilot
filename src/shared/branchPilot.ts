@@ -82,6 +82,7 @@ export interface RepositorySnapshot {
   status: RepositoryStatus
   branches: BranchSummary[]
   tags: TagSummary[]
+  worktrees: WorktreeSummary[]
   recentRepositories: RecentRepository[]
 }
 
@@ -161,6 +162,18 @@ export interface TagSummary {
   targetShortSha: string
   createdAt?: string
   subject?: string
+}
+
+export interface WorktreeSummary {
+  path: string
+  branch?: string
+  head?: string
+  detached: boolean
+  bare: boolean
+  locked: boolean
+  prunable: boolean
+  current: boolean
+  reason?: string
 }
 
 export interface CommitSummary {
@@ -323,6 +336,8 @@ export type ActivityLogEventType =
   | 'branch_deleted'
   | 'tag_created'
   | 'tag_deleted'
+  | 'worktree_created'
+  | 'worktree_removed'
   | 'patch_exported'
   | 'patch_applied'
   | 'git_fetched'
@@ -709,6 +724,20 @@ export interface DeleteTagRequest {
   confirmed: boolean
 }
 
+export interface CreateWorktreeRequest {
+  repoPath: string
+  branchName: string
+  baseRef?: string
+  targetPath?: string
+}
+
+export interface RemoveWorktreeRequest {
+  repoPath: string
+  targetPath: string
+  confirmed: boolean
+  force?: boolean
+}
+
 export interface EditorOpenRequest {
   targetPath: string
   line?: number
@@ -871,6 +900,9 @@ export interface BranchPilotApi {
   deleteBranch: (request: DeleteBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   createTag: (request: CreateTagRequest) => Promise<ApiResult<RepositorySnapshot>>
   deleteTag: (request: DeleteTagRequest) => Promise<ApiResult<RepositorySnapshot>>
+  listWorktrees: (repoPath: string) => Promise<ApiResult<WorktreeSummary[]>>
+  createWorktree: (request: CreateWorktreeRequest) => Promise<ApiResult<RepositorySnapshot | null>>
+  removeWorktree: (request: RemoveWorktreeRequest) => Promise<ApiResult<RepositorySnapshot>>
   exportPatch: (request: ExportPatchRequest) => Promise<ApiResult<ExportedPatch | null>>
   applyPatch: (request: ApplyPatchRequest) => Promise<ApiResult<RepositorySnapshot | null>>
   acceptOurs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>

@@ -14,9 +14,11 @@ import type {
   ApplyPatchRequest,
   CreateStashRequest,
   CreateTagRequest,
+  CreateWorktreeRequest,
   DashboardRepositorySummary,
   DashboardStaleBranch,
   DeleteTagRequest,
+  RemoveWorktreeRequest,
   CommitSummary,
   DiffRequest,
   DiffResult,
@@ -38,7 +40,8 @@ import type {
   RepositorySummary,
   StashActionRequest,
   StashEntry,
-  TagSummary
+  TagSummary,
+  WorktreeSummary
 } from '../../src/shared/branchPilot.js'
 import { CommandExecutionError, CommandRunner } from './commandRunner.js'
 import { parseUnifiedDiff } from './diffParser.js'
@@ -150,6 +153,7 @@ export class RepositoryService {
       status,
       branches: await this.listBranches(rootPath),
       tags: await this.listTags(rootPath),
+      worktrees: await this.listRepositoryWorktrees(rootPath),
       recentRepositories: await this.settings.getRecentRepositories()
     }
   }
@@ -706,6 +710,54 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
+  async listWorktrees(repoPath: string): Promise<WorktreeSummary[]> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    return this.listRepositoryWorktrees(rootPath)
+  }
+
+  async createWorktree(request: CreateWorktreeRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const branchName = normalizeBranchName(request.branchName)
+    const baseRef = normalizeGitRef(request.baseRef || await this.getCurrentBranch(rootPath) || 'HEAD')
+    const targetPath = normalizeWorktreePath(rootPath, request.targetPath)
+
+    await this.assertValidBranchName(rootPath, branchName)
+    await this.assertBranchDoesNotExist(rootPath, branchName)
+    await this.assertValidBaseRef(rootPath, baseRef)
+    await assertWorktreeTargetAvailable(targetPath)
+    await this.git(rootPath, ['worktree', 'add', '-b', branchName, targetPath, baseRef], { timeoutMs: 120_000 })
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async removeWorktree(request: RemoveWorktreeRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Removing a worktree requires explicit confirmation.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const targetPath = await normalizeExistingWorktreePath(rootPath, request.targetPath)
+    const worktree = (await this.listRepositoryWorktrees(rootPath))
+      .find((candidate) => path.resolve(candidate.path) === targetPath)
+
+    if (!worktree) {
+      throw new BranchPilotUserError('worktree_not_found', 'Worktree is not linked to this repository.')
+    }
+
+    if (worktree.current) {
+      throw new BranchPilotUserError('current_worktree', 'Cannot remove the currently open worktree.')
+    }
+
+    await this.git(rootPath, [
+      'worktree',
+      'remove',
+      ...(request.force ? ['--force'] : []),
+      worktree.path
+    ], { timeoutMs: 120_000 })
+
+    return this.getSnapshot(rootPath)
+  }
+
   async exportPatch(request: ExportPatchRequest): Promise<ExportedPatch> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     const outputPath = normalizePatchOutputPath(request.outputPath)
@@ -885,6 +937,11 @@ export class RepositoryService {
       .map(parseTagSummary)
   }
 
+  private async listRepositoryWorktrees(rootPath: string): Promise<WorktreeSummary[]> {
+    const result = await this.git(rootPath, ['worktree', 'list', '--porcelain', '-z'], { allowedExitCodes: [0, 1] })
+    return parseWorktreeList(result.stdout, rootPath)
+  }
+
   private async assertValidTagName(rootPath: string, tagName: string): Promise<void> {
     const result = await this.git(rootPath, ['check-ref-format', `refs/tags/${tagName}`], {
       allowedExitCodes: [0, 1]
@@ -892,6 +949,16 @@ export class RepositoryService {
 
     if (result.exitCode !== 0) {
       throw new BranchPilotUserError('invalid_tag', 'Invalid tag name.')
+    }
+  }
+
+  private async assertValidBranchName(rootPath: string, branchName: string): Promise<void> {
+    const result = await this.git(rootPath, ['check-ref-format', `refs/heads/${branchName}`], {
+      allowedExitCodes: [0, 1]
+    })
+
+    if (result.exitCode !== 0) {
+      throw new BranchPilotUserError('invalid_branch', 'Invalid branch name.')
     }
   }
 
@@ -1040,6 +1107,26 @@ export class RepositoryService {
 
     if (result.exitCode !== 0) {
       throw new BranchPilotUserError('invalid_branch', 'Local branch does not exist.')
+    }
+  }
+
+  private async assertBranchDoesNotExist(rootPath: string, branchName: string): Promise<void> {
+    const result = await this.git(rootPath, ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], {
+      allowedExitCodes: [0, 1]
+    })
+
+    if (result.exitCode === 0) {
+      throw new BranchPilotUserError('branch_exists', 'Local branch already exists.')
+    }
+  }
+
+  private async assertValidBaseRef(rootPath: string, baseRef: string): Promise<void> {
+    const result = await this.git(rootPath, ['rev-parse', '--verify', `${baseRef}^{commit}`], {
+      allowedExitCodes: [0, 128]
+    })
+
+    if (result.exitCode !== 0) {
+      throw new BranchPilotUserError('invalid_ref', 'Base ref does not resolve to a commit.')
     }
   }
 
@@ -1215,6 +1302,16 @@ function normalizeBranchName(branchName: string): string {
   return trimmed
 }
 
+function normalizeGitRef(ref: string): string {
+  const trimmed = ref.trim()
+
+  if (!trimmed || trimmed.startsWith('-') || trimmed.includes('\0')) {
+    throw new BranchPilotUserError('invalid_ref', 'Invalid base ref.')
+  }
+
+  return trimmed
+}
+
 function normalizeTagName(tagName: string): string {
   const trimmed = tagName.trim()
 
@@ -1223,6 +1320,42 @@ function normalizeTagName(tagName: string): string {
   }
 
   return trimmed
+}
+
+function normalizeWorktreePath(rootPath: string, targetPath: string | undefined, options: { allowInsideRoot?: boolean } = {}): string {
+  const trimmed = targetPath?.trim()
+
+  if (!trimmed || trimmed.includes('\0') || !path.isAbsolute(trimmed)) {
+    throw new BranchPilotUserError('invalid_worktree_path', 'Worktree target path is required.')
+  }
+
+  const normalizedTarget = path.resolve(trimmed)
+  const normalizedRoot = path.resolve(rootPath)
+
+  if (!options.allowInsideRoot && (
+    normalizedTarget === normalizedRoot
+    || normalizedTarget.startsWith(`${normalizedRoot}${path.sep}`)
+  )) {
+    throw new BranchPilotUserError('invalid_worktree_path', 'Choose a worktree folder outside the current repository.')
+  }
+
+  return normalizedTarget
+}
+
+async function normalizeExistingWorktreePath(rootPath: string, targetPath: string | undefined): Promise<string> {
+  const normalizedTarget = normalizeWorktreePath(rootPath, targetPath, { allowInsideRoot: true })
+
+  try {
+    return path.resolve(await fs.realpath(normalizedTarget))
+  } catch {
+    return normalizedTarget
+  }
+}
+
+async function assertWorktreeTargetAvailable(targetPath: string): Promise<void> {
+  if (await pathExists(targetPath)) {
+    throw new BranchPilotUserError('worktree_path_exists', 'Worktree target folder already exists.')
+  }
 }
 
 function normalizePatchScope(scope: ExportPatchRequest['scope']): ExportPatchRequest['scope'] {
@@ -1347,6 +1480,81 @@ function parseTagSummary(line: string): TagSummary {
     targetShortSha: dereferencedShortSha || objectShortSha,
     createdAt: createdAt || undefined,
     subject: subject || undefined
+  }
+}
+
+function parseWorktreeList(output: string, rootPath: string): WorktreeSummary[] {
+  const entries: WorktreeSummary[] = []
+  const records = output.split('\0')
+  let current: Partial<WorktreeSummary> | null = null
+  const normalizedRootPath = path.resolve(rootPath)
+
+  for (const record of records) {
+    if (!record) {
+      if (current?.path) {
+        entries.push(finalizeWorktreeSummary(current, normalizedRootPath))
+      }
+      current = null
+      continue
+    }
+
+    const [key, ...valueParts] = record.split(' ')
+    const value = valueParts.join(' ')
+
+    if (key === 'worktree') {
+      if (current?.path) {
+        entries.push(finalizeWorktreeSummary(current, normalizedRootPath))
+      }
+      current = {
+        path: value,
+        detached: false,
+        bare: false,
+        locked: false,
+        prunable: false,
+        current: false
+      }
+      continue
+    }
+
+    if (!current) {
+      continue
+    }
+
+    if (key === 'HEAD') {
+      current.head = value || undefined
+    } else if (key === 'branch') {
+      current.branch = value.startsWith('refs/heads/') ? value.slice('refs/heads/'.length) : value
+    } else if (key === 'detached') {
+      current.detached = true
+    } else if (key === 'bare') {
+      current.bare = true
+    } else if (key === 'locked') {
+      current.locked = true
+      current.reason = value || current.reason
+    } else if (key === 'prunable') {
+      current.prunable = true
+      current.reason = value || current.reason
+    }
+  }
+
+  if (current?.path) {
+    entries.push(finalizeWorktreeSummary(current, normalizedRootPath))
+  }
+
+  return entries
+}
+
+function finalizeWorktreeSummary(worktree: Partial<WorktreeSummary>, normalizedRootPath: string): WorktreeSummary {
+  return {
+    path: worktree.path ?? '',
+    branch: worktree.branch,
+    head: worktree.head,
+    detached: Boolean(worktree.detached),
+    bare: Boolean(worktree.bare),
+    locked: Boolean(worktree.locked),
+    prunable: Boolean(worktree.prunable),
+    current: path.resolve(worktree.path ?? '') === normalizedRootPath,
+    reason: worktree.reason
   }
 }
 

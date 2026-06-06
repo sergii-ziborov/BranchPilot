@@ -77,7 +77,8 @@ import type {
   ReviewScope,
   ReviewSeverity,
   StashEntry,
-  TagSummary
+  TagSummary,
+  WorktreeSummary
 } from './shared/branchPilot'
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
 import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
@@ -148,6 +149,8 @@ function App() {
   const [newBranchDescription, setNewBranchDescription] = useState('')
   const [branchDraftGoal, setBranchDraftGoal] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [newWorktreeBranchName, setNewWorktreeBranchName] = useState('')
+  const [newWorktreeBaseRef, setNewWorktreeBaseRef] = useState('')
   const [tagFilter, setTagFilter] = useState('')
   const [newTagName, setNewTagName] = useState('')
   const [newTagMessage, setNewTagMessage] = useState('')
@@ -354,6 +357,8 @@ function App() {
 
   useEffect(() => {
     setDailyReview(null)
+    setNewWorktreeBaseRef(snapshot?.summary.currentBranch && !snapshot.summary.isDetached ? snapshot.summary.currentBranch : 'HEAD')
+    setNewWorktreeBranchName('')
   }, [snapshot?.summary.rootPath])
 
   useEffect(() => {
@@ -1672,6 +1677,72 @@ function App() {
     )
   }
 
+  async function createWorktree() {
+    if (!api || !currentRepoPath) return
+
+    const branchName = newWorktreeBranchName.trim()
+    if (!branchName) {
+      setNotice('Create worktree blocked: add a new branch name.')
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+    const result = await api.createWorktree({
+      repoPath: currentRepoPath,
+      branchName,
+      baseRef: newWorktreeBaseRef.trim() || undefined
+    })
+
+    if (result.ok) {
+      if (result.data) {
+        applySnapshot(result.data, 'Worktree created.')
+        setNewWorktreeBranchName('')
+      } else {
+        setNotice('Worktree creation cancelled.')
+      }
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
+  async function openWorktree(worktree: WorktreeSummary) {
+    if (!api) return
+
+    setBusy(true)
+    setError(null)
+    const result = await api.openRepository(worktree.path)
+
+    if (result.ok) {
+      applySnapshot(result.data, 'Worktree opened.')
+      setViewMode('changes')
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
+  async function removeWorktree(worktree: WorktreeSummary) {
+    if (!api || !currentRepoPath) return
+
+    const label = worktree.branch ?? worktree.path
+    const confirmed = window.confirm(`Remove linked worktree ${label}? Git will refuse if it contains uncommitted changes.`)
+    if (!confirmed) return
+
+    await runSnapshotAction('Worktree removed.', () =>
+      api.removeWorktree({
+        repoPath: currentRepoPath,
+        targetPath: worktree.path,
+        confirmed
+      })
+    )
+  }
+
   function startBranchDescriptionEdit(branch: BranchSummary) {
     setEditingBranchName(branch.name)
     setBranchDescriptionDraft(branch.description ?? '')
@@ -1970,7 +2041,7 @@ function App() {
             {viewMode === 'changes' && renderChangesView()}
             {viewMode === 'history' && renderHistoryView()}
             {viewMode === 'merge' && renderMergeView()}
-            {viewMode === 'branches' && renderBranchesView(snapshot.branches, snapshot.tags)}
+            {viewMode === 'branches' && renderBranchesView(snapshot.branches, snapshot.tags, snapshot.worktrees)}
             {viewMode === 'config' && renderConfigView()}
             {viewMode === 'stash' && renderStashView()}
             {viewMode === 'review' && renderReviewView()}
@@ -3158,7 +3229,7 @@ function App() {
     )
   }
 
-  function renderBranchesView(branches: BranchSummary[], tags: TagSummary[]) {
+  function renderBranchesView(branches: BranchSummary[], tags: TagSummary[], worktrees: WorktreeSummary[]) {
     const branchQuery = branchFilter.trim().toLowerCase()
     const filteredBranches = branchQuery
       ? branches.filter((branch) =>
@@ -3377,6 +3448,81 @@ function App() {
             )
           })}
         </div>
+
+        <section className="worktree-panel">
+          <div className="panel-heading">
+            <div>
+              <h3>Worktrees</h3>
+              <p>Create a linked worktree for safe branch experiments without disturbing this checkout.</p>
+            </div>
+            <span>{worktrees.length} worktree{worktrees.length === 1 ? '' : 's'}</span>
+          </div>
+
+          <div className="worktree-composer">
+            <label htmlFor="worktree-branch">New branch</label>
+            <input
+              id="worktree-branch"
+              value={newWorktreeBranchName}
+              onChange={(event) => setNewWorktreeBranchName(event.target.value)}
+              placeholder="experiment/safe-change"
+            />
+            <label htmlFor="worktree-base">Base ref</label>
+            <input
+              id="worktree-base"
+              list="worktree-base-refs"
+              value={newWorktreeBaseRef}
+              onChange={(event) => setNewWorktreeBaseRef(event.target.value)}
+              placeholder={snapshot?.summary.currentBranch ?? 'HEAD'}
+            />
+            <datalist id="worktree-base-refs">
+              {branches.map((branch) => (
+                <option value={branch.name} key={branch.name} />
+              ))}
+            </datalist>
+            <div className="worktree-composer-actions">
+              <button type="button" onClick={createWorktree} disabled={busy || !newWorktreeBranchName.trim()}>
+                <FolderOpen size={17} />
+                Create worktree
+              </button>
+            </div>
+          </div>
+
+          <div className="worktree-list">
+            {worktrees.length === 0 ? (
+              <div className="quiet-box">No linked worktrees.</div>
+            ) : (
+              worktrees.map((worktree) => (
+                <article className={worktree.current ? 'worktree-row current' : 'worktree-row'} key={worktree.path}>
+                  <div>
+                    <strong>{worktree.branch ?? 'Detached HEAD'}</strong>
+                    <span>{worktreeSummaryLabel(worktree)}</span>
+                    <code>{worktree.path}</code>
+                    {worktree.reason && <p>{worktree.reason}</p>}
+                  </div>
+                  <div className="panel-actions">
+                    <button type="button" onClick={() => openWorktree(worktree)} disabled={busy || worktree.current}>
+                      <FolderOpen size={16} />
+                      Open
+                    </button>
+                    <button type="button" onClick={() => runOperationAction('Worktree opened in editor.', () => api!.openInEditor({ targetPath: worktree.path }))} disabled={busy}>
+                      <Code2 size={16} />
+                      Editor
+                    </button>
+                    <button
+                      className="danger-button"
+                      type="button"
+                      onClick={() => removeWorktree(worktree)}
+                      disabled={busy || worktree.current}
+                    >
+                      <Trash2 size={16} />
+                      Remove
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
 
         <section className="tag-panel">
           <div className="panel-heading">
@@ -4600,6 +4746,19 @@ function activityMetadataLabel(entry: ActivityLogEntry): string {
     .map(([key, value]) => `${key}: ${String(value)}`)
 
   return parts.length > 0 ? parts.join(' · ') : entry.title
+}
+
+function worktreeSummaryLabel(worktree: WorktreeSummary): string {
+  const parts = [
+    worktree.current ? 'current checkout' : undefined,
+    worktree.detached ? 'detached' : undefined,
+    worktree.bare ? 'bare' : undefined,
+    worktree.locked ? 'locked' : undefined,
+    worktree.prunable ? 'prunable' : undefined,
+    worktree.head ? worktree.head.slice(0, 12) : undefined
+  ].filter((value): value is string => Boolean(value))
+
+  return parts.length > 0 ? parts.join(' · ') : 'linked worktree'
 }
 
 function formatBytes(sizeBytes: number): string {
