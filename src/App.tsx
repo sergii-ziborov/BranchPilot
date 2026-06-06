@@ -343,7 +343,7 @@ function App() {
     void loadRepositoryDashboard()
 
     if (snapshot) {
-      void refreshProvidersPanel()
+      void refreshProviderStatusOnly()
     }
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
@@ -368,6 +368,20 @@ function App() {
     setDailyReview(null)
     setNewWorktreeBaseRef(snapshot?.summary.currentBranch && !snapshot.summary.isDetached ? snapshot.summary.currentBranch : 'HEAD')
     setNewWorktreeBranchName('')
+  }, [snapshot?.summary.rootPath])
+
+  useEffect(() => {
+    setCurrentPullRequest(null)
+    setPullRequests([])
+    setSelectedPullRequestNumber(null)
+    setSelectedPullRequestDetails(null)
+    setSelectedPullRequestChecks([])
+    setSelectedPullRequestDiff(null)
+    setSelectedPullRequestFilePath(null)
+    setPrTitle('')
+    setPrDescription('')
+    setPrBaseBranch('')
+    setCreatedPullRequest(null)
   }, [snapshot?.summary.rootPath])
 
   useEffect(() => {
@@ -664,6 +678,11 @@ function App() {
       setPullRequests([])
       setSelectedPullRequestNumber(null)
     }
+  }
+
+  async function refreshProviderStatusOnly() {
+    void loadProviders()
+    await loadGitHubCliStatus()
   }
 
   async function loadPullRequestDetails(prNumber: number) {
@@ -2111,7 +2130,7 @@ function App() {
     const currentPrSummary = currentPullRequest
       ? `#${currentPullRequest.number} · ${currentPullRequest.state}${currentPullRequest.draft ? ' · draft' : ''}`
       : githubCliStatus?.ghAuthenticated
-        ? 'No current branch PR detected.'
+        ? 'Open Providers to load pull requests.'
         : 'GitHub CLI auth is needed for PR attention.'
 
     return (
