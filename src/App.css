@@ -393,6 +393,7 @@ h3 {
 .toolbar button,
 .panel-actions button,
 .changes-utility-bar button,
+.confirmation-actions button,
 .commit-actions button,
 .daily-controls button,
 .empty-state button,
@@ -413,6 +414,7 @@ h3 {
 .toolbar button:hover,
 .panel-actions button:hover,
 .changes-utility-bar button:hover,
+.confirmation-actions button:hover,
 .commit-actions button:hover,
 .daily-controls button:hover,
 .empty-state button:hover,
@@ -448,6 +450,51 @@ button.danger-button:hover {
   color: #991b1b;
   border-color: #fecaca;
   background: #fef2f2;
+}
+
+.confirmation-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.confirmation-dialog {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 440px);
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.24);
+}
+
+.confirmation-dialog.danger {
+  border-color: #fecaca;
+}
+
+.confirmation-dialog h2 {
+  color: var(--text-strong);
+  font-size: 18px;
+}
+
+.confirmation-dialog p {
+  margin-top: 8px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .spin {

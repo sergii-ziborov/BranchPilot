@@ -94,6 +94,20 @@ type DiffMode = 'unstaged' | 'staged'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
 type AssistantReadinessState = AssistantStatus['state'] | 'unknown'
+type ConfirmationVariant = 'default' | 'danger'
+
+interface ConfirmationOptions {
+  title?: string
+  confirmLabel?: string
+  cancelLabel?: string
+  variant?: ConfirmationVariant
+}
+
+interface ConfirmationRequest extends Required<ConfirmationOptions> {
+  id: number
+  message: string
+  resolve: (confirmed: boolean) => void
+}
 
 const api = window.branchPilot
 const reviewModes: ReviewMode[] = ['consistency', 'security', 'quality']
@@ -190,6 +204,8 @@ function App() {
   const [preCommitReviewModes, setPreCommitReviewModes] = useState<ReviewMode[]>(reviewModes)
   const [preCommitReports, setPreCommitReports] = useState<ReviewReport[]>([])
   const [preCommitRunningMode, setPreCommitRunningMode] = useState<ReviewMode | null>(null)
+  const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationRequest | null>(null)
+  const confirmationIdRef = useRef(0)
 
   const filteredChanges = useMemo(() => {
     const changes = snapshot?.status.changes ?? []
@@ -299,6 +315,30 @@ function App() {
     [activityCategory, activityLog]
   )
 
+  function requestConfirmation(message: string, options: ConfirmationOptions = {}): Promise<boolean> {
+    if (confirmationRequest) return Promise.resolve(false)
+
+    return new Promise((resolve) => {
+      confirmationIdRef.current += 1
+      setConfirmationRequest({
+        id: confirmationIdRef.current,
+        title: options.title ?? 'Confirm action',
+        message,
+        confirmLabel: options.confirmLabel ?? 'Confirm',
+        cancelLabel: options.cancelLabel ?? 'Cancel',
+        variant: options.variant ?? 'default',
+        resolve
+      })
+    })
+  }
+
+  function answerConfirmation(confirmed: boolean) {
+    if (!confirmationRequest) return
+    const request = confirmationRequest
+    setConfirmationRequest(null)
+    request.resolve(confirmed)
+  }
+
   useEffect(() => {
     if (!api) {
       setError('BranchPilot desktop runtime is not available. Open the Electron app to use Git features.')
@@ -310,6 +350,21 @@ function App() {
     void loadProviders()
     void loadAssistants()
   }, [])
+
+  useEffect(() => {
+    if (!confirmationRequest) return
+
+    const request = confirmationRequest
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setConfirmationRequest(null)
+      request.resolve(false)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [confirmationRequest])
 
   useEffect(() => {
     if (!snapshot) return
@@ -893,7 +948,11 @@ function App() {
 
   async function clearActivityLog() {
     if (!api || !currentRepoPath) return
-    const confirmed = window.confirm('Clear BranchPilot activity for this repository? This cannot be undone.')
+    const confirmed = await requestConfirmation('Clear BranchPilot activity for this repository? This cannot be undone.', {
+      title: 'Clear Activity Log',
+      confirmLabel: 'Clear log',
+      variant: 'danger'
+    })
 
     if (!confirmed) return
 
@@ -1129,10 +1188,15 @@ function App() {
   async function discardSelected() {
     if (!api || !currentRepoPath || !selectedChange) return
     const isUntracked = selectedChange.untracked
-    const confirmed = window.confirm(
+    const confirmed = await requestConfirmation(
       isUntracked
         ? `Delete untracked file ${selectedChange.path}?`
-        : `Discard local changes in ${selectedChange.path}?`
+        : `Discard local changes in ${selectedChange.path}?`,
+      {
+        title: isUntracked ? 'Delete Untracked File' : 'Discard File Changes',
+        confirmLabel: isUntracked ? 'Delete file' : 'Discard changes',
+        variant: 'danger'
+      }
     )
     if (!confirmed) return
 
@@ -1174,7 +1238,11 @@ function App() {
       return false
     }
 
-    const confirmed = window.confirm('Amend the last commit? This rewrites the current branch HEAD.')
+    const confirmed = await requestConfirmation('Amend the last commit? This rewrites the current branch HEAD.', {
+      title: 'Amend Commit',
+      confirmLabel: 'Amend commit',
+      variant: 'danger'
+    })
     if (!confirmed) return false
 
     const amended = await runSnapshotAction('Commit amended.', () =>
@@ -1252,7 +1320,10 @@ function App() {
   async function applyPatch() {
     if (!api || !currentRepoPath) return
 
-    const confirmed = window.confirm('Apply a patch file to the working tree?')
+    const confirmed = await requestConfirmation('Apply a patch file to the working tree?', {
+      title: 'Apply Patch',
+      confirmLabel: 'Apply patch'
+    })
     if (!confirmed) return
 
     setBusy(true)
@@ -1302,7 +1373,11 @@ function App() {
 
   async function dropStash(stash: StashEntry) {
     if (!api || !currentRepoPath) return
-    const confirmed = window.confirm(`Drop ${stash.ref}? This cannot be undone.`)
+    const confirmed = await requestConfirmation(`Drop ${stash.ref}? This cannot be undone.`, {
+      title: 'Drop Stash',
+      confirmLabel: 'Drop stash',
+      variant: 'danger'
+    })
 
     if (!confirmed) return
 
@@ -1349,10 +1424,26 @@ function App() {
     }
   }
 
+  async function abortCurrentOperation() {
+    if (!api || !currentRepoPath) return
+    const confirmed = await requestConfirmation('Abort the current Git operation?', {
+      title: 'Abort Git Operation',
+      confirmLabel: 'Abort operation',
+      variant: 'danger'
+    })
+    if (!confirmed) return
+
+    await runSnapshotAction('Operation aborted.', () => api.abortMergeOperation(currentRepoPath))
+  }
+
   async function revertSelectedCommit() {
     if (!api || !currentRepoPath || !commitDetails) return
 
-    const confirmed = window.confirm(`Revert ${commitDetails.shortSha}? This creates a new commit that reverses the selected commit.`)
+    const confirmed = await requestConfirmation(`Revert ${commitDetails.shortSha}? This creates a new commit that reverses the selected commit.`, {
+      title: 'Revert Commit',
+      confirmLabel: 'Revert commit',
+      variant: 'danger'
+    })
     if (!confirmed) return
 
     setBusy(true)
@@ -1382,7 +1473,10 @@ function App() {
   async function cherryPickSelectedCommit() {
     if (!api || !currentRepoPath || !commitDetails) return
 
-    const confirmed = window.confirm(`Cherry-pick ${commitDetails.shortSha} onto ${snapshot?.summary.currentBranch ?? 'the current branch'}?`)
+    const confirmed = await requestConfirmation(`Cherry-pick ${commitDetails.shortSha} onto ${snapshot?.summary.currentBranch ?? 'the current branch'}?`, {
+      title: 'Cherry-Pick Commit',
+      confirmLabel: 'Cherry-pick'
+    })
     if (!confirmed) return
 
     setBusy(true)
@@ -1416,7 +1510,13 @@ function App() {
       return
     }
 
-    if ((commitTitle.trim() || commitDescription.trim()) && !window.confirm('Replace the current commit title and description?')) {
+    if (
+      (commitTitle.trim() || commitDescription.trim()) &&
+      !(await requestConfirmation('Replace the current commit title and description?', {
+        title: 'Replace Commit Text',
+        confirmLabel: 'Replace text'
+      }))
+    ) {
       return
     }
 
@@ -1446,7 +1546,13 @@ function App() {
       return
     }
 
-    if ((prTitle.trim() || prDescription.trim()) && !window.confirm('Replace the current pull request title and description?')) {
+    if (
+      (prTitle.trim() || prDescription.trim()) &&
+      !(await requestConfirmation('Replace the current pull request title and description?', {
+        title: 'Replace Pull Request Text',
+        confirmLabel: 'Replace text'
+      }))
+    ) {
       return
     }
 
@@ -1623,7 +1729,13 @@ function App() {
       return
     }
 
-    if ((newBranchName.trim() || newBranchDescription.trim()) && !window.confirm('Replace the current branch name and description?')) {
+    if (
+      (newBranchName.trim() || newBranchDescription.trim()) &&
+      !(await requestConfirmation('Replace the current branch name and description?', {
+        title: 'Replace Branch Draft',
+        confirmLabel: 'Replace draft'
+      }))
+    ) {
       return
     }
 
@@ -1666,6 +1778,24 @@ function App() {
     setBranchDraftGoal('')
   }
 
+  async function deleteBranch(branch: BranchSummary) {
+    if (!api || !currentRepoPath) return
+    const confirmed = await requestConfirmation(`Delete local branch ${branch.name}?`, {
+      title: 'Delete Branch',
+      confirmLabel: 'Delete branch',
+      variant: 'danger'
+    })
+    if (!confirmed) return
+
+    await runSnapshotAction('Branch deleted.', () =>
+      api.deleteBranch({
+        repoPath: currentRepoPath,
+        branchName: branch.name,
+        force: false
+      })
+    )
+  }
+
   async function createTag() {
     if (!api || !currentRepoPath) return
 
@@ -1692,7 +1822,11 @@ function App() {
   async function deleteTag(tag: TagSummary) {
     if (!api || !currentRepoPath) return
 
-    const confirmed = window.confirm(`Delete local tag ${tag.name}?`)
+    const confirmed = await requestConfirmation(`Delete local tag ${tag.name}?`, {
+      title: 'Delete Tag',
+      confirmLabel: 'Delete tag',
+      variant: 'danger'
+    })
     if (!confirmed) return
 
     await runSnapshotAction('Tag deleted.', () =>
@@ -1758,7 +1892,11 @@ function App() {
     if (!api || !currentRepoPath) return
 
     const label = worktree.branch ?? worktree.path
-    const confirmed = window.confirm(`Remove linked worktree ${label}? Git will refuse if it contains uncommitted changes.`)
+    const confirmed = await requestConfirmation(`Remove linked worktree ${label}? Git will refuse if it contains uncommitted changes.`, {
+      title: 'Remove Worktree',
+      confirmLabel: 'Remove worktree',
+      variant: 'danger'
+    })
     if (!confirmed) return
 
     await runSnapshotAction('Worktree removed.', () =>
@@ -2117,6 +2255,33 @@ function App() {
           </>
         )}
       </section>
+      {confirmationRequest && (
+        <div className="confirmation-backdrop" role="presentation">
+          <section
+            className={`confirmation-dialog ${confirmationRequest.variant === 'danger' ? 'danger' : ''}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`confirmation-title-${confirmationRequest.id}`}
+          >
+            <div>
+              <h2 id={`confirmation-title-${confirmationRequest.id}`}>{confirmationRequest.title}</h2>
+              <p>{confirmationRequest.message}</p>
+            </div>
+            <div className="confirmation-actions">
+              <button type="button" className="secondary" onClick={() => answerConfirmation(false)}>
+                {confirmationRequest.cancelLabel}
+              </button>
+              <button
+                type="button"
+                className={confirmationRequest.variant === 'danger' ? 'danger-button' : ''}
+                onClick={() => answerConfirmation(true)}
+              >
+                {confirmationRequest.confirmLabel}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   )
 
@@ -3323,7 +3488,7 @@ function App() {
               className="danger-button"
               type="button"
               disabled={!hasOperation || busy}
-              onClick={() => currentRepoPath && window.confirm('Abort the current Git operation?') && runSnapshotAction('Operation aborted.', () => api!.abortMergeOperation(currentRepoPath))}
+              onClick={abortCurrentOperation}
             >
               <X size={17} />
               Abort
@@ -3618,7 +3783,7 @@ function App() {
                     className="danger-button"
                     type="button"
                     disabled={branch.current || isEditingDescription}
-                    onClick={() => currentRepoPath && window.confirm(`Delete local branch ${branch.name}?`) && runSnapshotAction('Branch deleted.', () => api!.deleteBranch({ repoPath: currentRepoPath, branchName: branch.name, force: false }))}
+                    onClick={() => deleteBranch(branch)}
                   >
                     <Trash2 size={16} />
                     Delete
