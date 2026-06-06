@@ -48,6 +48,7 @@ import type {
   UpdateSubmoduleRequest,
   UpdateBranchDescriptionRequest
 } from '../src/shared/branchPilot.js'
+import { isBranchPilotIpcChannel, type BranchPilotIpcChannel } from '../src/shared/ipcChannels.js'
 import {
   checkAssistantStatuses,
   generateBranchDescription,
@@ -132,7 +133,19 @@ function createMainWindow() {
   })
 }
 
-function handle<Args extends unknown[], T>(channel: string, callback: (...args: Args) => Promise<T> | T) {
+function assertKnownIpcChannel(channel: BranchPilotIpcChannel): void {
+  if (!isBranchPilotIpcChannel(channel)) {
+    throw new Error(`Unknown BranchPilot IPC channel: ${channel}`)
+  }
+}
+
+function handleUnwrapped<Args extends unknown[], T>(channel: BranchPilotIpcChannel, callback: (...args: Args) => Promise<T> | T) {
+  assertKnownIpcChannel(channel)
+  ipcMain.handle(channel, async (_event, ...args): Promise<T> => callback(...(args as Args)))
+}
+
+function handle<Args extends unknown[], T>(channel: BranchPilotIpcChannel, callback: (...args: Args) => Promise<T> | T) {
+  assertKnownIpcChannel(channel)
   ipcMain.handle(channel, async (_event, ...args): Promise<ApiResult<T>> => {
     try {
       return {
@@ -157,10 +170,11 @@ interface ActivityDescriptor<Args extends unknown[], T> {
 }
 
 function handleLogged<Args extends unknown[], T>(
-  channel: string,
+  channel: BranchPilotIpcChannel,
   descriptor: ActivityDescriptor<Args, T>,
   callback: (...args: Args) => Promise<T> | T
 ) {
+  assertKnownIpcChannel(channel)
   ipcMain.handle(channel, async (_event, ...rawArgs): Promise<ApiResult<T>> => {
     const args = rawArgs as Args
 
@@ -203,11 +217,12 @@ function handleLogged<Args extends unknown[], T>(
 }
 
 function handleAssistantAction<Args extends [{ repoPath: string }], T>(
-  channel: string,
+  channel: BranchPilotIpcChannel,
   action: AssistantActionKind,
   descriptor: ActivityDescriptor<Args, T>,
   callback: (...args: Args) => Promise<T> | T
 ) {
+  assertKnownIpcChannel(channel)
   ipcMain.handle(channel, async (_event, ...rawArgs): Promise<ApiResult<T>> => {
     const args = rawArgs as Args
     const repoPath = descriptor.repoPath(args)
@@ -344,7 +359,7 @@ async function chooseWorktreeTargetPath(request: CreateWorktreeRequest): Promise
 }
 
 function registerIpcHandlers() {
-  ipcMain.handle('app:version', () => app.getVersion())
+  handleUnwrapped('app:version', () => app.getVersion())
 
   handleLogged('repository:chooseAndOpen', {
     type: 'repository_opened',

@@ -1,7 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { BranchPilotApi } from '../src/shared/branchPilot.js'
+import type { BranchPilotIpcChannel } from '../src/shared/ipcChannels.js'
 
-const invoke = <T>(channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args) as Promise<T>
+const invoke = <T>(channel: BranchPilotIpcChannel, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args) as Promise<T>
 
 const branchPilot: BranchPilotApi = {
   getVersion: () => invoke('app:version'),
