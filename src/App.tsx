@@ -111,6 +111,7 @@ function App() {
   const [diffMode, setDiffMode] = useState<DiffMode>('unstaged')
   const [diff, setDiff] = useState<DiffResult | null>(null)
   const [history, setHistory] = useState<CommitSummary[]>([])
+  const [historyFilter, setHistoryFilter] = useState('')
   const [selectedCommitSha, setSelectedCommitSha] = useState<string | null>(null)
   const [commitDetails, setCommitDetails] = useState<CommitDetails | null>(null)
   const [selectedCommitFilePath, setSelectedCommitFilePath] = useState<string | null>(null)
@@ -179,6 +180,25 @@ function App() {
         .some((value) => value.toLowerCase().includes(query))
     )
   }, [changeFilter, snapshot])
+
+  const filteredHistory = useMemo(() => {
+    const query = historyFilter.trim().toLowerCase()
+
+    if (!query) return history
+
+    return history.filter((commit) =>
+      [
+        commit.sha,
+        commit.shortSha,
+        commit.subject,
+        commit.authorName,
+        commit.authorEmail,
+        formatDate(commit.authoredAt)
+      ]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => value.toLowerCase().includes(query))
+    )
+  }, [history, historyFilter])
 
   const selectedChange = useMemo(
     () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
@@ -278,6 +298,18 @@ function App() {
     if (!snapshot || viewMode !== 'history') return
     void loadHistory()
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
+
+  useEffect(() => {
+    if (viewMode !== 'history') return
+
+    const filterActive = historyFilter.trim().length > 0
+    const visibleHistory = filterActive ? filteredHistory : history
+    const firstCommit = visibleHistory[0]
+
+    if (!selectedCommitSha || !visibleHistory.some((commit) => commit.sha === selectedCommitSha)) {
+      setSelectedCommitSha(firstCommit?.sha ?? null)
+    }
+  }, [filteredHistory, history, historyFilter, selectedCommitSha, viewMode])
 
   useEffect(() => {
     if (!snapshot || viewMode !== 'memory') return
@@ -2021,11 +2053,32 @@ function App() {
             </button>
           </div>
 
+          <div className="list-filter-bar">
+            <label className="list-filter-input" htmlFor="history-filter">
+              <Search size={16} />
+              <input
+                id="history-filter"
+                value={historyFilter}
+                onChange={(event) => setHistoryFilter(event.target.value)}
+                placeholder="Search commits"
+              />
+            </label>
+            <span>{filteredHistory.length} / {history.length}</span>
+            {historyFilter && (
+              <button type="button" className="secondary" onClick={() => setHistoryFilter('')}>
+                <X size={15} />
+                Clear
+              </button>
+            )}
+          </div>
+
           <div className="history-list">
             {history.length === 0 ? (
               <div className="quiet-box">No commits found.</div>
+            ) : filteredHistory.length === 0 ? (
+              <div className="quiet-box">No commits match this search.</div>
             ) : (
-              history.map((commit) => (
+              filteredHistory.map((commit) => (
                 <button
                   className={selectedCommitSha === commit.sha ? 'history-row selected' : 'history-row'}
                   type="button"
