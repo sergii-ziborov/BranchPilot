@@ -566,6 +566,7 @@ export interface DiffRequest {
   repoPath: string
   filePath: string
   staged: boolean
+  ignoreWhitespace?: boolean
 }
 
 export type DiffLineType = 'context' | 'add' | 'remove' | 'meta'

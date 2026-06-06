@@ -388,6 +388,25 @@ describe('RepositoryService', () => {
     expect(git(repoPath, ['diff', '--', 'tracked.txt'])).toContain('line 10 changed')
   })
 
+  it('can ignore whitespace-only changes when previewing a diff', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'initial  \n')
+
+    const defaultDiff = await service.getDiff({ repoPath, filePath: 'tracked.txt', staged: false })
+    const whitespaceIgnoredDiff = await service.getDiff({
+      repoPath,
+      filePath: 'tracked.txt',
+      staged: false,
+      ignoreWhitespace: true
+    })
+
+    expect(defaultDiff.text).toContain('+initial  ')
+    expect(whitespaceIgnoredDiff.text).toBe('')
+    expect(whitespaceIgnoredDiff.files).toEqual([])
+  })
+
   it('reports stale hunk patches as readable Git patch failures', async () => {
     const repoPath = createTempRepository()
     const service = createService()

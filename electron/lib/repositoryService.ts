@@ -343,6 +343,10 @@ export class RepositoryService {
       args.push('--cached')
     }
 
+    if (request.ignoreWhitespace) {
+      args.push('--ignore-all-space')
+    }
+
     args.push('--', relativePath)
 
     const result = await this.git(rootPath, args, {

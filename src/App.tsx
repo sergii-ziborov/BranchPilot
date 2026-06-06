@@ -167,6 +167,7 @@ function App() {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [changeFilter, setChangeFilter] = useState('')
   const [diffMode, setDiffMode] = useState<DiffMode>('unstaged')
+  const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
   const [diff, setDiff] = useState<DiffResult | null>(null)
   const [history, setHistory] = useState<CommitSummary[]>([])
   const [historyFilter, setHistoryFilter] = useState('')
@@ -434,7 +435,7 @@ function App() {
     }
 
     void loadDiff(selectedChange, availableMode)
-  }, [diffMode, selectedChange, snapshot])
+  }, [diffIgnoreWhitespace, diffMode, selectedChange, snapshot])
 
   useEffect(() => {
     if (!snapshot || viewMode !== 'history') return
@@ -994,7 +995,8 @@ function App() {
     const result = await api.getDiff({
       repoPath: currentRepoPath,
       filePath: change.path,
-      staged
+      staged,
+      ignoreWhitespace: diffIgnoreWhitespace
     })
 
     if (result.ok) {
@@ -3047,23 +3049,33 @@ function App() {
           </div>
 
           {selectedChange && (
-            <div className="segmented">
-              <button
-                className={diffMode === 'unstaged' ? 'active' : ''}
-                type="button"
-                onClick={() => setDiffMode('unstaged')}
-                disabled={!selectedChange.unstaged && !selectedChange.untracked}
-              >
-                Unstaged
-              </button>
-              <button
-                className={diffMode === 'staged' ? 'active' : ''}
-                type="button"
-                onClick={() => setDiffMode('staged')}
-                disabled={!selectedChange.staged}
-              >
-                Staged
-              </button>
+            <div className="diff-options">
+              <div className="segmented">
+                <button
+                  className={diffMode === 'unstaged' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setDiffMode('unstaged')}
+                  disabled={!selectedChange.unstaged && !selectedChange.untracked}
+                >
+                  Unstaged
+                </button>
+                <button
+                  className={diffMode === 'staged' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setDiffMode('staged')}
+                  disabled={!selectedChange.staged}
+                >
+                  Staged
+                </button>
+              </div>
+              <label className="diff-whitespace-toggle">
+                <input
+                  type="checkbox"
+                  checked={diffIgnoreWhitespace}
+                  onChange={(event) => setDiffIgnoreWhitespace(event.target.checked)}
+                />
+                Ignore whitespace
+              </label>
             </div>
           )}
 

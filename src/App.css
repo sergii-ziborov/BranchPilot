@@ -1626,6 +1626,40 @@ button.danger-button:hover {
   margin-bottom: 12px;
 }
 
+.diff-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.diff-options .segmented {
+  margin-bottom: 0;
+}
+
+.diff-whitespace-toggle {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #ffffff;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.diff-whitespace-toggle input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #2563eb;
+}
+
 .segmented button.active {
   color: #ffffff;
   border-color: #2563eb;
