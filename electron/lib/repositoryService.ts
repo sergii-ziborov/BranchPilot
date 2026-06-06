@@ -353,7 +353,8 @@ export class RepositoryService {
       authorName,
       authorEmail,
       authoredAt: authoredAt.trim(),
-      files: await this.getCommitFiles(rootPath, commitSha)
+      files: await this.getCommitFiles(rootPath, commitSha),
+      containingBranches: await this.getCommitContainingBranches(rootPath, commitSha)
     }
   }
 
@@ -1363,6 +1364,15 @@ export class RepositoryService {
     }
 
     return files
+  }
+
+  private async getCommitContainingBranches(rootPath: string, commitSha: string): Promise<string[]> {
+    const result = await this.git(rootPath, ['branch', '--format=%(refname:short)', '--contains', commitSha])
+
+    return result.stdout
+      .split('\n')
+      .map((branch) => branch.trim())
+      .filter(Boolean)
   }
 
   private async getCurrentBranch(rootPath: string): Promise<string> {

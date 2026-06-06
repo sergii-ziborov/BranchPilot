@@ -3036,6 +3036,20 @@ function App() {
           </div>
 
           {commitDetails?.body && <div className="commit-body">{commitDetails.body}</div>}
+          {commitDetails && (
+            <div className="commit-branch-strip">
+              <span>Contained in</span>
+              <div>
+                {commitDetails.containingBranches.length === 0 ? (
+                  <strong>No local branches</strong>
+                ) : (
+                  commitDetails.containingBranches.map((branch) => (
+                    <strong key={branch}>{branch}</strong>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="commit-file-grid">
             <div className="commit-file-list">

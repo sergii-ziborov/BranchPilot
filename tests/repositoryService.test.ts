@@ -501,6 +501,7 @@ describe('RepositoryService', () => {
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'history change\n')
     git(repoPath, ['add', 'tracked.txt'])
     git(repoPath, ['commit', '-m', 'Update history fixture'])
+    git(repoPath, ['branch', 'feature/history'])
 
     const history = await service.getHistory(repoPath)
     expect(history[0]).toMatchObject({
@@ -520,6 +521,7 @@ describe('RepositoryService', () => {
         status: 'modified'
       }
     ])
+    expect(details.containingBranches).toEqual(expect.arrayContaining(['main', 'feature/history']))
 
     const diff = await service.getCommitFileDiff({
       repoPath,

@@ -486,6 +486,7 @@ export interface CommitFileChange {
 export interface CommitDetails extends CommitSummary {
   body: string
   files: CommitFileChange[]
+  containingBranches: string[]
 }
 
 export interface CommitDetailsRequest {

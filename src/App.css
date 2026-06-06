@@ -973,6 +973,40 @@ button.danger-button:hover {
   white-space: pre-wrap;
 }
 
+.commit-branch-strip {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.commit-branch-strip > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.commit-branch-strip > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.commit-branch-strip strong {
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  background: #f8fafc;
+  font-size: 12px;
+}
+
 .commit-file-grid {
   display: grid;
   grid-template-columns: minmax(220px, 0.45fr) minmax(0, 1fr);
