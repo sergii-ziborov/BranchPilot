@@ -494,7 +494,8 @@ button.danger-button:hover {
   max-width: none;
 }
 
-.change-filter-bar {
+.change-filter-bar,
+.list-filter-bar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
@@ -502,7 +503,8 @@ button.danger-button:hover {
   margin-bottom: 10px;
 }
 
-.change-filter-input {
+.change-filter-input,
+.list-filter-input {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
@@ -515,7 +517,8 @@ button.danger-button:hover {
   background: #ffffff;
 }
 
-.change-filter-input input {
+.change-filter-input input,
+.list-filter-input input {
   width: 100%;
   min-width: 0;
   border: 0;
@@ -524,13 +527,15 @@ button.danger-button:hover {
   background: transparent;
 }
 
-.change-filter-bar > span {
+.change-filter-bar > span,
+.list-filter-bar > span {
   color: var(--muted);
   font-size: 12px;
   white-space: nowrap;
 }
 
-.change-filter-bar button {
+.change-filter-bar button,
+.list-filter-bar button {
   display: inline-flex;
   min-height: 36px;
   align-items: center;
@@ -2974,6 +2979,10 @@ button.secondary:hover {
   }
 
   .change-filter-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .list-filter-bar {
     grid-template-columns: 1fr;
   }
 }

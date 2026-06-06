@@ -137,6 +137,7 @@ function App() {
   const [newBranchName, setNewBranchName] = useState('')
   const [newBranchDescription, setNewBranchDescription] = useState('')
   const [branchDraftGoal, setBranchDraftGoal] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
   const [editingBranchName, setEditingBranchName] = useState<string | null>(null)
   const [branchDescriptionDraft, setBranchDescriptionDraft] = useState('')
   const [branchDescriptionGenerating, setBranchDescriptionGenerating] = useState<string | null>(null)
@@ -2610,6 +2611,20 @@ function App() {
   }
 
   function renderBranchesView(branches: BranchSummary[]) {
+    const branchQuery = branchFilter.trim().toLowerCase()
+    const filteredBranches = branchQuery
+      ? branches.filter((branch) =>
+        [
+          branch.name,
+          branch.upstream,
+          branch.description,
+          branch.current ? 'current branch' : 'local branch'
+        ]
+          .filter((value): value is string => Boolean(value))
+          .some((value) => value.toLowerCase().includes(branchQuery))
+      )
+      : branches
+
     return (
       <section className="single-panel">
         <div className="panel-heading">
@@ -2697,8 +2712,29 @@ function App() {
           />
         </section>
 
+        <div className="list-filter-bar">
+          <label className="list-filter-input" htmlFor="branch-filter">
+            <Search size={16} />
+            <input
+              id="branch-filter"
+              value={branchFilter}
+              onChange={(event) => setBranchFilter(event.target.value)}
+              placeholder="Search branches"
+            />
+          </label>
+          <span>{filteredBranches.length} / {branches.length}</span>
+          {branchFilter && (
+            <button type="button" className="secondary" onClick={() => setBranchFilter('')}>
+              <X size={15} />
+              Clear
+            </button>
+          )}
+        </div>
+
         <div className="branch-list">
-          {branches.map((branch) => {
+          {filteredBranches.length === 0 ? (
+            <div className="quiet-box">No branches match this search.</div>
+          ) : filteredBranches.map((branch) => {
             const isEditingDescription = editingBranchName === branch.name
             const isGeneratingDescription = branchDescriptionGenerating === branch.name
 
