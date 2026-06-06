@@ -76,6 +76,7 @@ const branchPilot: BranchPilotApi = {
   acceptTheirs: (request) => invoke('merge:acceptTheirs', request),
   markResolved: (request) => invoke('merge:markResolved', request),
   mergeBranch: (request) => invoke('merge:start', request),
+  rebaseBranch: (request) => invoke('rebase:start', request),
   continueMergeOperation: (repoPath) => invoke('merge:continue', repoPath),
   abortMergeOperation: (repoPath) => invoke('merge:abort', repoPath),
   openInEditor: (request) => invoke('editor:open', request),

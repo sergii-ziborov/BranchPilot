@@ -1685,6 +1685,27 @@ function App() {
     setBusy(false)
   }
 
+  async function rebaseSelectedBranch() {
+    if (!api || !currentRepoPath || !selectedMergeBranch) return
+    setBusy(true)
+    setError(null)
+    const result = await api.rebaseBranch({
+      repoPath: currentRepoPath,
+      branchName: selectedMergeBranch
+    })
+
+    if (result.ok) {
+      applySnapshot(result.data, result.data.status.merge.operation === 'none' ? 'Rebase complete.' : 'Rebase has conflicts.')
+      setViewMode('merge')
+      void loadHistory()
+    } else {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+  }
+
   async function continueMergeOperation() {
     if (!api || !currentRepoPath) return
     const continued = await runSnapshotAction('Operation continued.', () => api.continueMergeOperation(currentRepoPath))
@@ -4115,8 +4136,8 @@ function App() {
         {!hasOperation && (
           <section className="merge-start">
             <div>
-              <h3>Start merge</h3>
-              <p>Merge a local branch into {snapshot?.summary.currentBranch ?? 'the current branch'}.</p>
+              <h3>Merge or rebase</h3>
+              <p>Merge a local branch into {snapshot?.summary.currentBranch ?? 'the current branch'}, or rebase the current branch onto it.</p>
             </div>
             <select
               value={selectedMergeBranch}
@@ -4140,6 +4161,14 @@ function App() {
             >
               <GitMerge size={17} />
               Merge into {snapshot?.summary.currentBranch ?? 'current'}
+            </button>
+            <button
+              type="button"
+              onClick={rebaseSelectedBranch}
+              disabled={busy || !selectedMergeBranch || mergeCandidates.length === 0 || hasDirtyWorktree}
+            >
+              <GitBranch size={17} />
+              Rebase current
             </button>
           </section>
         )}

@@ -424,6 +424,7 @@ export type ActivityLogEventType =
   | 'stash_applied'
   | 'stash_dropped'
   | 'merge_started'
+  | 'rebase_started'
   | 'merge_continued'
   | 'merge_aborted'
   | 'merge_resolved'
@@ -1081,6 +1082,7 @@ export interface BranchPilotApi {
   acceptTheirs: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   markResolved: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   mergeBranch: (request: MergeBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
+  rebaseBranch: (request: MergeBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   continueMergeOperation: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   abortMergeOperation: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   openInEditor: (request: EditorOpenRequest) => Promise<ApiResult<GitOperationResult>>

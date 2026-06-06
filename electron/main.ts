@@ -932,6 +932,19 @@ function registerIpcHandlers() {
   }, async (request: MergeBranchRequest) =>
     withProjectMemoryRefresh(await repositoryService.mergeBranch(request))
   )
+  handleLogged('rebase:start', {
+    type: 'rebase_started',
+    actor: 'user',
+    title: 'Rebase started',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      branch: request.branchName,
+      operation: snapshot?.status.merge.operation ?? 'none',
+      conflicts: snapshot?.status.merge.files.length ?? 0
+    })
+  }, async (request: MergeBranchRequest) =>
+    withProjectMemoryRefresh(await repositoryService.rebaseBranch(request))
+  )
   handleLogged('merge:continue', {
     type: 'merge_continued',
     actor: 'user',

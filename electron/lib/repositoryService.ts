@@ -1162,6 +1162,36 @@ export class RepositoryService {
     throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
   }
 
+  async rebaseBranch(request: MergeBranchRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const currentBranch = await this.assertCurrentBranch(rootPath, 'rebase')
+    const branchName = normalizeBranchName(request.branchName)
+
+    if (branchName === currentBranch) {
+      throw new BranchPilotUserError('invalid_branch', 'Cannot rebase the current branch onto itself.')
+    }
+
+    await this.assertNoActiveOperation(rootPath)
+
+    const result = await this.git(rootPath, ['rebase', branchName], {
+      allowedExitCodes: [0, 1],
+      timeoutMs: 120_000
+    })
+
+    if (result.exitCode === 0) {
+      return this.getSnapshot(rootPath)
+    }
+
+    const snapshot = await this.getSnapshot(rootPath)
+    const output = [result.stderr, result.stdout].filter(Boolean).join('\n')
+
+    if (snapshot.status.merge.operation !== 'none' || isConflictOutput(output)) {
+      return snapshot
+    }
+
+    throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
+  }
+
   async continueMergeOperation(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const mergeState = await this.getMergeState(rootPath, [])

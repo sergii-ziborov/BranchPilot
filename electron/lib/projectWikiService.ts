@@ -172,6 +172,7 @@ function workflowsMarkdown(snapshot: ProjectMemorySnapshot, activity: ActivityLo
     {
       title: 'Merge And Conflict Resolution',
       detected: activityTypes.has('merge_started') ||
+        activityTypes.has('rebase_started') ||
         activityTypes.has('merge_resolved') ||
         paths.some((filePath) => filePath.includes('merge'))
     },

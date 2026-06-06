@@ -59,6 +59,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'merge:markResolved',
   'merge:start',
   'providers:checkoutGitHubPullRequest',
+  'rebase:start',
   'providers:createGitHubPullRequest',
   'providers:currentGitHubPullRequest',
   'providers:getGitHubPullRequestChecks',

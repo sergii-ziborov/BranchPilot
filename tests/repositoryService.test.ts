@@ -922,6 +922,50 @@ describe('RepositoryService', () => {
     expect(conflicted.status.merge.files[0].path).toBe('tracked.txt')
   })
 
+  it('rebases the current branch onto a clean local branch', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    git(repoPath, ['switch', '--quiet', '-c', 'feature/clean-rebase'])
+    writeFileSync(path.join(repoPath, 'feature.txt'), 'feature\n')
+    git(repoPath, ['add', 'feature.txt'])
+    git(repoPath, ['commit', '-m', 'Feature clean rebase'])
+    git(repoPath, ['switch', '--quiet', 'main'])
+    writeFileSync(path.join(repoPath, 'main.txt'), 'main\n')
+    git(repoPath, ['add', 'main.txt'])
+    git(repoPath, ['commit', '-m', 'Main rebase base'])
+    git(repoPath, ['switch', '--quiet', 'feature/clean-rebase'])
+
+    const rebased = await service.rebaseBranch({
+      repoPath,
+      branchName: 'main'
+    })
+
+    expect(rebased.status.merge.operation).toBe('none')
+    expect(rebased.status.counts.changed).toBe(0)
+    expect(rebased.summary.currentBranch).toBe('feature/clean-rebase')
+    expect(readFileSync(path.join(repoPath, 'feature.txt'), 'utf8')).toBe('feature\n')
+    expect(readFileSync(path.join(repoPath, 'main.txt'), 'utf8')).toBe('main\n')
+    expect(git(repoPath, ['log', '--max-count=2', '--pretty=%s']).split('\n')).toEqual([
+      'Feature clean rebase',
+      'Main rebase base'
+    ])
+  })
+
+  it('returns a refreshed snapshot when rebase creates conflicts', async () => {
+    const repoPath = createRebaseConflictReadyRepository()
+    const service = createService()
+
+    const conflicted = await service.rebaseBranch({
+      repoPath,
+      branchName: 'main'
+    })
+
+    expect(conflicted.status.merge.operation).toBe('rebase')
+    expect(conflicted.status.counts.conflicted).toBe(1)
+    expect(conflicted.status.merge.files[0].path).toBe('tracked.txt')
+  })
+
   it('continues a merge after conflicts are resolved', async () => {
     const repoPath = createMergeConflictReadyRepository()
     const service = createService()
@@ -940,6 +984,25 @@ describe('RepositoryService', () => {
     expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toContain('feature/conflict')
   })
 
+  it('continues a rebase after conflicts are resolved', async () => {
+    const repoPath = createRebaseConflictReadyRepository()
+    const service = createService()
+
+    await service.rebaseBranch({
+      repoPath,
+      branchName: 'main'
+    })
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'resolved\n')
+    await service.markResolved({ repoPath, filePath: 'tracked.txt' })
+
+    const continued = await service.continueMergeOperation(repoPath)
+
+    expect(continued.status.merge.operation).toBe('none')
+    expect(continued.status.counts.changed).toBe(0)
+    expect(continued.summary.currentBranch).toBe('feature/rebase-conflict')
+    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('resolved\n')
+  })
+
   it('blocks invalid merge starts and continue without active operations', async () => {
     const repoPath = createTempRepository()
     const service = createService()
@@ -950,9 +1013,17 @@ describe('RepositoryService', () => {
       repoPath,
       branchName: 'main'
     })).rejects.toMatchObject({ code: 'invalid_branch' })
+    await expect(service.rebaseBranch({
+      repoPath,
+      branchName: 'main'
+    })).rejects.toMatchObject({ code: 'invalid_branch' })
 
     git(repoPath, ['checkout', '--quiet', '--detach', 'HEAD'])
     await expect(service.mergeBranch({
+      repoPath,
+      branchName: 'feature/blocked'
+    })).rejects.toMatchObject({ code: 'git_detached_head' })
+    await expect(service.rebaseBranch({
       repoPath,
       branchName: 'feature/blocked'
     })).rejects.toMatchObject({ code: 'git_detached_head' })
@@ -966,6 +1037,10 @@ describe('RepositoryService', () => {
     const service = createService()
 
     await expect(service.mergeBranch({
+      repoPath,
+      branchName: 'feature'
+    })).rejects.toMatchObject({ code: 'git_operation_active' })
+    await expect(service.rebaseBranch({
       repoPath,
       branchName: 'feature'
     })).rejects.toMatchObject({ code: 'git_operation_active' })
@@ -1379,6 +1454,24 @@ function createMergeConflictReadyRepository() {
   writeFileSync(path.join(repoPath, 'tracked.txt'), 'main\n')
   git(repoPath, ['add', 'tracked.txt'])
   git(repoPath, ['commit', '-m', 'Main conflict change'])
+
+  return repoPath
+}
+
+function createRebaseConflictReadyRepository() {
+  const repoPath = createTempRepository()
+
+  git(repoPath, ['switch', '--quiet', '-c', 'feature/rebase-conflict'])
+  writeFileSync(path.join(repoPath, 'tracked.txt'), 'feature\n')
+  git(repoPath, ['add', 'tracked.txt'])
+  git(repoPath, ['commit', '-m', 'Feature rebase conflict change'])
+
+  git(repoPath, ['switch', '--quiet', 'main'])
+  writeFileSync(path.join(repoPath, 'tracked.txt'), 'main\n')
+  git(repoPath, ['add', 'tracked.txt'])
+  git(repoPath, ['commit', '-m', 'Main rebase conflict change'])
+
+  git(repoPath, ['switch', '--quiet', 'feature/rebase-conflict'])
 
   return repoPath
 }
