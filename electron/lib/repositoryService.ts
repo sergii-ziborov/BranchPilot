@@ -127,43 +127,25 @@ export class RepositoryService {
 
   async getSnapshot(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
-    const parsedStatus = parseGitStatus(statusOutput.stdout)
-    const remote = await this.getPrimaryRemote(rootPath)
-    const gitUserName = await this.getConfig(rootPath, 'user.name')
-    const gitUserEmail = await this.getConfig(rootPath, 'user.email')
-
-    const summary: RepositorySummary = {
-      rootPath,
-      name: path.basename(rootPath),
-      currentBranch: parsedStatus.branch || 'Unknown',
-      headOid: parsedStatus.headOid,
-      upstream: parsedStatus.upstream,
-      ahead: parsedStatus.ahead,
-      behind: parsedStatus.behind,
-      remoteName: remote?.name,
-      remoteUrl: remote?.url,
-      isDetached: parsedStatus.isDetached,
-      gitUserName,
-      gitUserEmail
-    }
-
-    const status: RepositoryStatus = {
-      summary,
-      changes: parsedStatus.changes,
-      counts: parsedStatus.counts,
-      merge: await this.getMergeState(rootPath, parsedStatus.conflicts)
-    }
+    const { summary, status } = await this.getRepositoryStatusContext(rootPath, { includeGitIdentity: true })
+    const [branches, tags, worktrees, submodules, lfs, recentRepositories] = await Promise.all([
+      this.listBranches(rootPath),
+      this.listTags(rootPath),
+      this.listRepositoryWorktrees(rootPath),
+      this.listRepositorySubmodules(rootPath),
+      this.getRepositoryGitLfsSummary(rootPath),
+      this.settings.getRecentRepositories()
+    ])
 
     return {
       summary,
       status,
-      branches: await this.listBranches(rootPath),
-      tags: await this.listTags(rootPath),
-      worktrees: await this.listRepositoryWorktrees(rootPath),
-      submodules: await this.listRepositorySubmodules(rootPath),
-      lfs: await this.getRepositoryGitLfsSummary(rootPath),
-      recentRepositories: await this.settings.getRecentRepositories()
+      branches,
+      tags,
+      worktrees,
+      submodules,
+      lfs,
+      recentRepositories
     }
   }
 
@@ -172,34 +154,34 @@ export class RepositoryService {
     staleBranches: DashboardStaleBranch[]
   }> {
     try {
-      const snapshot = await this.getSnapshot(repo.path)
-      const state = snapshot.status.counts.conflicted > 0 || snapshot.status.merge.operation !== 'none'
+      const context = await this.getDashboardRepositoryContext(repo.path)
+      const state = context.status.counts.conflicted > 0 || context.status.merge.operation !== 'none'
         ? 'conflicted'
-        : snapshot.status.counts.changed > 0
+        : context.status.counts.changed > 0
           ? 'dirty'
           : 'clean'
 
       return {
         repository: {
-          path: snapshot.summary.rootPath,
-          name: snapshot.summary.name,
+          path: context.summary.rootPath,
+          name: context.summary.name,
           pinned: repo.pinned,
-          active: snapshot.summary.rootPath === activeRootPath,
+          active: context.summary.rootPath === activeRootPath,
           state,
-          currentBranch: snapshot.summary.currentBranch,
-          upstream: snapshot.summary.upstream,
-          remoteName: snapshot.summary.remoteName,
-          ahead: snapshot.summary.ahead,
-          behind: snapshot.summary.behind,
-          changed: snapshot.status.counts.changed,
-          staged: snapshot.status.counts.staged,
-          unstaged: snapshot.status.counts.unstaged,
-          untracked: snapshot.status.counts.untracked,
-          conflicted: snapshot.status.counts.conflicted,
-          mergeOperation: snapshot.status.merge.operation,
+          currentBranch: context.summary.currentBranch,
+          upstream: context.summary.upstream,
+          remoteName: context.summary.remoteName,
+          ahead: context.summary.ahead,
+          behind: context.summary.behind,
+          changed: context.status.counts.changed,
+          staged: context.status.counts.staged,
+          unstaged: context.status.counts.unstaged,
+          untracked: context.status.counts.untracked,
+          conflicted: context.status.counts.conflicted,
+          mergeOperation: context.status.merge.operation,
           lastOpenedAt: repo.lastOpenedAt
         },
-        staleBranches: staleBranchesForRepository(snapshot.summary.rootPath, snapshot.summary.name, snapshot.branches)
+        staleBranches: staleBranchesForRepository(context.summary.rootPath, context.summary.name, context.branches)
       }
     } catch (error) {
       return {
@@ -221,6 +203,66 @@ export class RepositoryService {
           error: error instanceof Error ? error.message : 'Repository is unavailable.'
         },
         staleBranches: []
+      }
+    }
+  }
+
+  private async getDashboardRepositoryContext(repoPath: string): Promise<{
+    summary: RepositorySummary
+    status: RepositoryStatus
+    branches: BranchSummary[]
+  }> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const [context, branches] = await Promise.all([
+      this.getRepositoryStatusContext(rootPath),
+      this.listBranches(rootPath, { includeDescriptions: false })
+    ])
+
+    return {
+      ...context,
+      branches
+    }
+  }
+
+  private async getRepositoryStatusContext(rootPath: string, options: {
+    includeGitIdentity?: boolean
+  } = {}): Promise<{
+    summary: RepositorySummary
+    status: RepositoryStatus
+  }> {
+    const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
+    const parsedStatus = parseGitStatus(statusOutput.stdout)
+    const gitUserName = options.includeGitIdentity ? this.getConfig(rootPath, 'user.name') : Promise.resolve(undefined)
+    const gitUserEmail = options.includeGitIdentity ? this.getConfig(rootPath, 'user.email') : Promise.resolve(undefined)
+    const [remote, resolvedUserName, resolvedUserEmail, merge] = await Promise.all([
+      this.getPrimaryRemote(rootPath),
+      gitUserName,
+      gitUserEmail,
+      this.getMergeState(rootPath, parsedStatus.conflicts)
+    ])
+
+    const summary: RepositorySummary = {
+      rootPath,
+      name: path.basename(rootPath),
+      currentBranch: parsedStatus.branch || 'Unknown',
+      headOid: parsedStatus.headOid,
+      upstream: parsedStatus.upstream,
+      ahead: parsedStatus.ahead,
+      behind: parsedStatus.behind,
+      remoteName: remote?.name,
+      remoteUrl: remote?.url,
+      isDetached: parsedStatus.isDetached,
+      gitUserName: resolvedUserName,
+      gitUserEmail: resolvedUserEmail
+    }
+
+    return {
+      summary,
+      status: {
+        summary,
+        changes: parsedStatus.changes,
+        counts: parsedStatus.counts,
+        merge
       }
     }
   }
@@ -962,7 +1004,9 @@ export class RepositoryService {
     return this.getSnapshot(rootPath)
   }
 
-  private async listBranches(rootPath: string): Promise<BranchSummary[]> {
+  private async listBranches(rootPath: string, options: {
+    includeDescriptions?: boolean
+  } = {}): Promise<BranchSummary[]> {
     const result = await this.git(rootPath, [
       'branch',
       '--format=%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(committerdate:iso-strict)%00%(objectname)'
@@ -982,6 +1026,10 @@ export class RepositoryService {
           lastCommitAt: lastCommitAt || undefined
         }
       })
+
+    if (options.includeDescriptions === false) {
+      return branches
+    }
 
     return Promise.all(branches.map(async (branch) => ({
       ...branch,

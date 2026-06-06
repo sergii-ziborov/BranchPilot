@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileS
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { CommandRunner } from '../electron/lib/commandRunner'
+import { CommandRunner, type CommandRunOptions, type CommandRunResult } from '../electron/lib/commandRunner'
 import { toBranchPilotError } from '../electron/lib/errors'
 import { RepositoryService } from '../electron/lib/repositoryService'
 import { SettingsStore } from '../electron/lib/settingsStore'
@@ -127,6 +127,34 @@ describe('RepositoryService', () => {
       name: 'stale/topic'
     })
     expect(dashboard.staleBranches[0].daysSinceCommit).toBeGreaterThan(30)
+  })
+
+  it('uses lightweight repository reads for dashboard scans', async () => {
+    const repoPath = createTempRepository()
+    const activeRepoPath = createTempRepository()
+    const runner = new RecordingCommandRunner()
+    const service = createService(runner)
+
+    git(repoPath, ['switch', '--quiet', '-c', 'old/topic'])
+    git(repoPath, ['config', 'branch.old/topic.description', 'Expensive dashboard detail'])
+    gitWithEnv(repoPath, ['commit', '--allow-empty', '-m', 'Old topic work'], {
+      GIT_AUTHOR_DATE: '2024-01-01T00:00:00Z',
+      GIT_COMMITTER_DATE: '2024-01-01T00:00:00Z'
+    })
+
+    await service.openRepository(repoPath)
+    await service.openRepository(activeRepoPath)
+
+    runner.reset()
+    const dashboard = await service.getRepositoryDashboard(activeRepoPath)
+    const commandLines = runner.calls.map((call) => call.args.join(' '))
+
+    expect(dashboard.totals.repositories).toBe(2)
+    expect(commandLines.some((line) => line.startsWith('lfs '))).toBe(false)
+    expect(commandLines.some((line) => line.startsWith('submodule '))).toBe(false)
+    expect(commandLines.some((line) => line.startsWith('tag '))).toBe(false)
+    expect(commandLines.some((line) => line.startsWith('worktree '))).toBe(false)
+    expect(commandLines.some((line) => line.includes('branch.old/topic.description'))).toBe(false)
   })
 
   it('commits staged changes with a multiline message', async () => {
@@ -1004,14 +1032,27 @@ function cloneRemote(remotePath: string) {
   return clonePath
 }
 
-function createService() {
+function createService(runner: CommandRunner = new CommandRunner()) {
   const settingsDir = mkdtempSync(path.join(tmpdir(), 'branchpilot-settings-test-'))
   tempRoots.push(settingsDir)
 
   return new RepositoryService(
-    new CommandRunner(),
+    runner,
     new SettingsStore(path.join(settingsDir, 'settings.json'))
   )
+}
+
+class RecordingCommandRunner extends CommandRunner {
+  calls: Array<{ command: string; args: string[]; options: CommandRunOptions }> = []
+
+  async run(command: string, args: string[], options: CommandRunOptions = {}): Promise<CommandRunResult> {
+    this.calls.push({ command, args, options })
+    return super.run(command, args, options)
+  }
+
+  reset() {
+    this.calls = []
+  }
 }
 
 function git(cwd: string, args: string[]) {
