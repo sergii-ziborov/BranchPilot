@@ -98,7 +98,7 @@ import {
   type ChangeDiffMode
 } from './shared/changeStaging'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
-import { buildSplitDiffRows } from './shared/diffView'
+import { buildSplitDiffRows, getDiffStats } from './shared/diffView'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -333,6 +333,11 @@ function App() {
       files: [selectedPullRequestFile]
     }
   }, [selectedPullRequestFile])
+
+  const selectedDiffStats = useMemo(() => {
+    if (!diff || diff.binary || !diff.text.trim()) return null
+    return getDiffStats(diff)
+  }, [diff])
   const virtualChanges = useVirtualList(filteredChanges, CHANGE_LIST_ITEM_HEIGHT)
   const virtualHistory = useVirtualList(filteredHistory, HISTORY_LIST_ITEM_HEIGHT)
 
@@ -3033,6 +3038,12 @@ function App() {
             <div>
               <h2>Diff</h2>
               <p>{selectedChange?.path ?? 'Select a changed file'}</p>
+              {selectedDiffStats && (
+                <div className="diff-stats" aria-label="Selected file diff stats">
+                  <span className="additions">+{selectedDiffStats.additions}</span>
+                  <span className="deletions">-{selectedDiffStats.deletions}</span>
+                </div>
+              )}
             </div>
             <div className="panel-actions">
               <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>

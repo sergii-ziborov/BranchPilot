@@ -1747,6 +1747,32 @@ button.danger-button:hover {
   font-size: 12px;
 }
 
+.diff-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.diff-stats span {
+  min-width: 28px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.diff-stats .additions {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.diff-stats .deletions {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
 .diff-hunk-heading {
   background: #1e293b;
 }

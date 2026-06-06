@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { DiffLine } from '../src/shared/branchPilot'
-import { buildSplitDiffRows } from '../src/shared/diffView'
+import type { DiffLine, DiffResult } from '../src/shared/branchPilot'
+import { buildSplitDiffRows, getDiffStats } from '../src/shared/diffView'
 
 describe('buildSplitDiffRows', () => {
   it('pairs adjacent removed and added lines into side-by-side rows', () => {
@@ -49,6 +49,53 @@ describe('buildSplitDiffRows', () => {
   })
 })
 
+describe('getDiffStats', () => {
+  it('counts additions and deletions from parsed diff files', () => {
+    expect(getDiffStats({
+      filePath: 'tracked.txt',
+      staged: false,
+      text: 'diff',
+      binary: false,
+      tooLarge: false,
+      files: [{
+        newPath: 'tracked.txt',
+        hunks: [{
+          header: '@@ -1,3 +1,4 @@',
+          oldStart: 1,
+          oldLines: 3,
+          newStart: 1,
+          newLines: 4,
+          patch: '',
+          lines: [
+            line('context', 'kept', 1, 1),
+            line('remove', 'old', 2),
+            line('add', 'new', undefined, 2),
+            line('add', 'created', undefined, 3)
+          ]
+        }]
+      }]
+    })).toEqual({
+      additions: 2,
+      deletions: 1
+    })
+  })
+
+  it('counts raw diff lines without treating file headers as changed lines', () => {
+    expect(getDiffStats(makeRawDiff([
+      'diff --git a/file.txt b/file.txt',
+      '--- a/file.txt',
+      '+++ b/file.txt',
+      '@@ -1,2 +1,2 @@',
+      '-old',
+      '+new',
+      ' context'
+    ].join('\n')))).toEqual({
+      additions: 1,
+      deletions: 1
+    })
+  })
+})
+
 function line(
   type: DiffLine['type'],
   content: string,
@@ -60,5 +107,16 @@ function line(
     content,
     oldLineNumber,
     newLineNumber
+  }
+}
+
+function makeRawDiff(text: string): DiffResult {
+  return {
+    filePath: 'file.txt',
+    staged: false,
+    text,
+    binary: false,
+    tooLarge: false,
+    files: []
   }
 }
