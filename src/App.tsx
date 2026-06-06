@@ -86,7 +86,7 @@ import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchAct
 import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { isSafeExternalUrl } from './shared/externalUrl'
-import { getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
+import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import { getVirtualListWindow, type VirtualListWindow } from './shared/virtualList'
 import './App.css'
@@ -2836,6 +2836,8 @@ function App() {
   }
 
   function renderHistoryView() {
+    const selectedCommitProviderUrl = getProviderCommitUrl(snapshot?.summary.remoteUrl, commitDetails?.sha)
+
     return (
       <section className="content-grid history-grid">
         <div className="changes-panel">
@@ -2913,6 +2915,17 @@ function App() {
               </p>
             </div>
             <div className="panel-actions">
+              {selectedCommitProviderUrl && (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => openExternalLink(selectedCommitProviderUrl, 'Commit link')}
+                  disabled={busy}
+                >
+                  <ExternalLink size={17} />
+                  Open commit
+                </button>
+              )}
               <button
                 type="button"
                 onClick={cherryPickSelectedCommit}

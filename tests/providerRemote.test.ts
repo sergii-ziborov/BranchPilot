@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getProviderRemoteSummary } from '../src/shared/providerRemote'
+import { getProviderCommitUrl, getProviderRemoteSummary } from '../src/shared/providerRemote'
 
 describe('provider remote detection', () => {
   it('detects GitHub HTTPS and SSH remotes', () => {
@@ -72,5 +72,19 @@ describe('provider remote detection', () => {
       kind: 'none',
       supported: false
     })
+  })
+
+  it('builds provider commit URLs for known remotes only', () => {
+    const sha = '1234567890abcdef'
+
+    expect(getProviderCommitUrl('https://github.com/example/project.git', sha))
+      .toBe('https://github.com/example/project/commit/1234567890abcdef')
+    expect(getProviderCommitUrl('https://gitlab.com/group/subgroup/project.git', sha))
+      .toBe('https://gitlab.com/group/subgroup/project/-/commit/1234567890abcdef')
+    expect(getProviderCommitUrl('git@bitbucket.org:workspace/project.git', sha))
+      .toBe('https://bitbucket.org/workspace/project/commits/1234567890abcdef')
+
+    expect(getProviderCommitUrl('https://example.com/group/project.git', sha)).toBeNull()
+    expect(getProviderCommitUrl('https://github.com/example/project.git', 'not-a-sha')).toBeNull()
   })
 })

@@ -59,6 +59,25 @@ export function getProviderRemoteSummary(remoteUrl: string | null | undefined): 
   }
 }
 
+export function getProviderCommitUrl(remoteUrl: string | null | undefined, commitSha: string | null | undefined): string | null {
+  const parsed = parseRemoteUrl(remoteUrl)
+  const sha = commitSha?.trim()
+
+  if (!parsed?.owner || !parsed.repository || !sha || !/^[0-9a-f]{7,64}$/i.test(sha)) {
+    return null
+  }
+
+  const kind = providerKindForHost(parsed.host)
+  const ownerPath = encodePath(parsed.owner)
+  const repository = encodeURIComponent(parsed.repository)
+
+  if (kind === 'github') return `https://github.com/${ownerPath}/${repository}/commit/${sha}`
+  if (kind === 'gitlab') return `https://gitlab.com/${ownerPath}/${repository}/-/commit/${sha}`
+  if (kind === 'bitbucket') return `https://bitbucket.org/${ownerPath}/${repository}/commits/${sha}`
+
+  return null
+}
+
 function parseRemoteUrl(remoteUrl: string | null | undefined) {
   const trimmed = remoteUrl?.trim()
   if (!trimmed) return null
@@ -129,4 +148,8 @@ function providerMessage(kind: ProviderRemoteKind): string {
 
 function stripGitSuffix(value: string): string {
   return value.endsWith('.git') ? value.slice(0, -4) : value
+}
+
+function encodePath(value: string): string {
+  return value.split('/').map(encodeURIComponent).join('/')
 }
