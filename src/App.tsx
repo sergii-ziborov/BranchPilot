@@ -463,7 +463,6 @@ function App() {
   const counts = snapshot?.status.counts
   const mergeState = snapshot?.status.merge
   const canCreateStash = Boolean(snapshot && counts?.changed && mergeState?.operation === 'none')
-  const canStageAll = Boolean(snapshot && counts && counts.conflicted === 0 && (counts.unstaged > 0 || counts.untracked > 0))
   const canUnstageAll = Boolean(snapshot && counts && counts.staged > 0)
   const bulkStageToggleState = getBulkStageToggleState(counts)
   const hasRemote = Boolean(snapshot?.summary.remoteName)
@@ -2295,16 +2294,34 @@ function App() {
       <section className="content-grid">
         <div className="changes-panel">
           <div className="panel-heading changes-heading">
-            <div>
+            <div className="changes-title-block">
               <h2>Changes</h2>
               <p>Real status from system Git.</p>
             </div>
-            <div className="panel-actions changes-actions">
-              <BulkStageCheckbox
-                state={bulkStageToggleState}
+            <BulkStageCheckbox
+              state={bulkStageToggleState}
+              disabled={busy}
+              onToggle={toggleBulkStage}
+            />
+          </div>
+
+          <div className="changes-utility-bar">
+            <button className="changes-stash-action" type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
+              <Save size={17} />
+              Stash changes
+            </button>
+            {canUnstageAll && bulkStageToggleState.action !== 'unstage_all' && (
+              <button
+                className="changes-unstage-action"
+                type="button"
+                onClick={() => currentRepoPath && runSnapshotAction('All changes unstaged.', () => api!.unstageAll(currentRepoPath))}
                 disabled={busy}
-                onToggle={toggleBulkStage}
-              />
+              >
+                <X size={17} />
+                Unstage all
+              </button>
+            )}
+            <div className="changes-patch-tools">
               <select
                 aria-label="Patch export scope"
                 className="changes-patch-scope"
@@ -2322,28 +2339,6 @@ function App() {
               <button className="changes-patch-action" type="button" onClick={applyPatch} disabled={busy || !snapshot || snapshot.status.merge.operation !== 'none'}>
                 <ArrowDownToLine size={17} />
                 Apply patch
-              </button>
-              <button className="changes-stash-action" type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
-                <Save size={17} />
-                Stash changes
-              </button>
-              <button
-                className="changes-stage-action"
-                type="button"
-                onClick={() => currentRepoPath && runSnapshotAction('All changes staged.', () => api!.stageAll(currentRepoPath))}
-                disabled={busy || !canStageAll}
-              >
-                <Plus size={17} />
-                Stage all
-              </button>
-              <button
-                className="changes-stage-action"
-                type="button"
-                onClick={() => currentRepoPath && runSnapshotAction('All changes unstaged.', () => api!.unstageAll(currentRepoPath))}
-                disabled={busy || !canUnstageAll}
-              >
-                <X size={17} />
-                Unstage all
               </button>
             </div>
           </div>

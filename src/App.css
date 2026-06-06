@@ -325,6 +325,8 @@ h3 {
 
 .toolbar,
 .panel-actions,
+.changes-utility-bar,
+.changes-patch-tools,
 .commit-actions,
 .daily-controls,
 .segmented,
@@ -390,6 +392,7 @@ h3 {
 
 .toolbar button,
 .panel-actions button,
+.changes-utility-bar button,
 .commit-actions button,
 .daily-controls button,
 .empty-state button,
@@ -409,6 +412,7 @@ h3 {
 
 .toolbar button:hover,
 .panel-actions button:hover,
+.changes-utility-bar button:hover,
 .commit-actions button:hover,
 .daily-controls button:hover,
 .empty-state button:hover,
@@ -549,32 +553,53 @@ button.danger-button:hover {
   display: grid;
   grid-template-columns: minmax(170px, 1fr) minmax(250px, 330px);
   align-items: start;
+  margin-bottom: 10px;
 }
 
-.changes-heading > div:first-child {
+.changes-title-block {
   min-width: 0;
 }
 
-.changes-actions {
+.changes-heading > .bulk-stage-toggle {
+  justify-self: end;
+  width: min(100%, 330px);
+  max-width: none;
+  min-height: 46px;
+  padding: 0 14px;
+}
+
+.changes-heading > .bulk-stage-toggle strong {
+  font-size: 13px;
+}
+
+.changes-heading > .bulk-stage-toggle small {
+  font-size: 12px;
+}
+
+.changes-utility-bar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  justify-content: stretch;
+  margin-bottom: 10px;
 }
 
-.changes-actions .bulk-stage-toggle,
-.changes-actions .changes-stash-action {
+.changes-patch-tools {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
 }
 
-.changes-actions .bulk-stage-toggle,
-.changes-actions button {
+.changes-utility-bar button,
+.changes-patch-tools button {
   width: 100%;
-  max-width: none;
 }
 
-.changes-actions .changes-patch-scope {
-  grid-column: 1 / -1;
+.changes-patch-tools button {
+  white-space: nowrap;
+}
+
+.changes-patch-scope {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
@@ -3619,6 +3644,16 @@ button.secondary:hover {
 
 @media (max-width: 760px) {
   .changes-heading {
+    grid-template-columns: 1fr;
+  }
+
+  .changes-heading > .bulk-stage-toggle {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .changes-utility-bar,
+  .changes-patch-tools {
     grid-template-columns: 1fr;
   }
 
