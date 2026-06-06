@@ -444,6 +444,19 @@ button.danger-button:hover {
   background: #ffffff;
 }
 
+.message span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message.busy {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
 .message.error {
   color: #991b1b;
   border-color: #fecaca;

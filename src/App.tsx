@@ -140,6 +140,15 @@ const HISTORY_LIST_ITEM_HEIGHT = 64
 const VIRTUAL_LIST_OVERSCAN = 8
 const VIRTUAL_LIST_FALLBACK_HEIGHT = 520
 
+function progressLabelFromSuccess(label: string): string {
+  const trimmed = label.trim()
+
+  if (!trimmed) return 'Working...'
+  if (trimmed.endsWith('...')) return trimmed
+
+  return `${trimmed.replace(/[.!?]+$/, '')}...`
+}
+
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
@@ -180,6 +189,7 @@ function App() {
   const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [busy, setBusy] = useState(false)
+  const [operationLabel, setOperationLabel] = useState<string | null>(null)
   const [notice, setNotice] = useState('Open a repository to begin.')
   const [error, setError] = useState<string | null>(null)
   const [commitTitle, setCommitTitle] = useState('')
@@ -830,24 +840,22 @@ function App() {
       return
     }
 
-    setBusy(true)
-    setError(null)
-    const result = await api.cloneRepository({
-      remoteUrl,
-      targetName: repository.name
+    await runBusyOperation(`Cloning ${repository.nameWithOwner}...`, async () => {
+      const result = await api.cloneRepository({
+        remoteUrl,
+        targetName: repository.name
+      })
+
+      if (result.ok && result.data) {
+        applySnapshot(result.data, `${repository.nameWithOwner} cloned.`)
+        setViewMode('changes')
+      } else if (result.ok) {
+        setNotice('Clone canceled.')
+      } else {
+        setError(result.error.message)
+        setNotice(result.error.details || result.error.code)
+      }
     })
-
-    if (result.ok && result.data) {
-      applySnapshot(result.data, `${repository.nameWithOwner} cloned.`)
-      setViewMode('changes')
-    } else if (result.ok) {
-      setNotice('Clone canceled.')
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
   }
 
   async function refreshProvidersPanel() {
@@ -927,26 +935,23 @@ function App() {
 
   async function chooseRepository() {
     if (!api) return
-    setBusy(true)
-    setError(null)
+    await runBusyOperation('Opening repository...', async () => {
+      const result = await api.chooseAndOpenRepository()
 
-    const result = await api.chooseAndOpenRepository()
-
-    if (result.ok && result.data) {
-      applySnapshot(result.data, 'Repository opened.')
-    } else if (!result.ok) {
-      setError(result.error.message)
-    }
-
-    setBusy(false)
+      if (result.ok && result.data) {
+        applySnapshot(result.data, 'Repository opened.')
+      } else if (!result.ok) {
+        setError(result.error.message)
+      }
+    })
   }
 
   async function openRepository(path: string) {
     if (!api) return
-    setBusy(true)
-    const result = await api.openRepository(path)
-    applySnapshotResult(result, 'Repository opened.')
-    setBusy(false)
+    await runBusyOperation('Opening repository...', async () => {
+      const result = await api.openRepository(path)
+      applySnapshotResult(result, 'Repository opened.')
+    })
   }
 
   async function cloneRepository() {
@@ -958,32 +963,29 @@ function App() {
       return
     }
 
-    setBusy(true)
-    setError(null)
+    await runBusyOperation('Cloning repository...', async () => {
+      const result = await api.cloneRepository({
+        remoteUrl,
+        targetName: cloneTargetName.trim() || undefined
+      })
 
-    const result = await api.cloneRepository({
-      remoteUrl,
-      targetName: cloneTargetName.trim() || undefined
+      if (result.ok && result.data) {
+        setCloneRemoteUrl('')
+        setCloneTargetName('')
+        applySnapshot(result.data, 'Repository cloned.')
+      } else if (!result.ok) {
+        setError(result.error.message)
+        setNotice(result.error.details || result.error.code)
+      }
     })
-
-    if (result.ok && result.data) {
-      setCloneRemoteUrl('')
-      setCloneTargetName('')
-      applySnapshot(result.data, 'Repository cloned.')
-    } else if (!result.ok) {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
   }
 
   async function refreshRepository(message = 'Repository refreshed.') {
     if (!api || !currentRepoPath) return
-    setBusy(true)
-    const result = await api.refreshRepository(currentRepoPath)
-    applySnapshotResult(result, message)
-    setBusy(false)
+    await runBusyOperation('Refreshing repository...', async () => {
+      const result = await api.refreshRepository(currentRepoPath)
+      applySnapshotResult(result, message)
+    })
   }
 
   async function loadDiff(change: FileChange, mode: DiffMode) {
@@ -1221,29 +1223,47 @@ function App() {
     }
   }
 
-  async function runSnapshotAction(label: string, action: () => Promise<ApiResult<RepositorySnapshot>>): Promise<boolean> {
+  async function runBusyOperation<T>(label: string, action: () => Promise<T>): Promise<T> {
     setBusy(true)
+    setOperationLabel(label)
     setError(null)
-    const result = await action()
-    applySnapshotResult(result, label)
-    setBusy(false)
-    return result.ok
+
+    try {
+      return await action()
+    } finally {
+      setBusy(false)
+      setOperationLabel(null)
+    }
   }
 
-  async function runOperationAction(label: string, action: () => Promise<ApiResult<GitOperationResult>>) {
-    setBusy(true)
-    setError(null)
-    const result = await action()
+  async function runSnapshotAction(
+    label: string,
+    action: () => Promise<ApiResult<RepositorySnapshot>>,
+    progressLabel = progressLabelFromSuccess(label)
+  ): Promise<boolean> {
+    return runBusyOperation(progressLabel, async () => {
+      const result = await action()
+      applySnapshotResult(result, label)
+      return result.ok
+    })
+  }
 
-    if (result.ok) {
-      setNotice(result.data.message || label)
-      setError(null)
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
+  async function runOperationAction(
+    label: string,
+    action: () => Promise<ApiResult<GitOperationResult>>,
+    progressLabel = progressLabelFromSuccess(label)
+  ) {
+    await runBusyOperation(progressLabel, async () => {
+      const result = await action()
 
-    setBusy(false)
+      if (result.ok) {
+        setNotice(result.data.message || label)
+        setError(null)
+      } else {
+        setError(result.error.message)
+        setNotice(result.error.details || result.error.code)
+      }
+    })
   }
 
   function applySnapshotResult(result: ApiResult<RepositorySnapshot>, successMessage: string) {
@@ -1296,15 +1316,19 @@ function App() {
     setSelectedFilePath(change.path)
 
     if (action === 'unstage') {
-      await runSnapshotAction('File unstaged.', () =>
-        api.unstageFile({ repoPath: currentRepoPath, filePath: change.path })
+      await runSnapshotAction(
+        'File unstaged.',
+        () => api.unstageFile({ repoPath: currentRepoPath, filePath: change.path }),
+        'Unstaging file...'
       )
       setDiffMode('unstaged')
       return
     }
 
-    await runSnapshotAction('File staged.', () =>
-      api.stageFile({ repoPath: currentRepoPath, filePath: change.path })
+    await runSnapshotAction(
+      'File staged.',
+      () => api.stageFile({ repoPath: currentRepoPath, filePath: change.path }),
+      'Staging file...'
     )
     setDiffMode('staged')
   }
@@ -1314,34 +1338,40 @@ function App() {
     const action = getBulkStageToggleAction(counts)
 
     if (action === 'stage_all') {
-      await runSnapshotAction('All changes staged.', () => api.stageAll(currentRepoPath))
+      await runSnapshotAction('All changes staged.', () => api.stageAll(currentRepoPath), 'Staging all changes...')
       return
     }
 
     if (action === 'unstage_all') {
-      await runSnapshotAction('All changes unstaged.', () => api.unstageAll(currentRepoPath))
+      await runSnapshotAction('All changes unstaged.', () => api.unstageAll(currentRepoPath), 'Unstaging all changes...')
     }
   }
 
   async function stageSelectedHunk(hunk: DiffHunk) {
     if (!api || !currentRepoPath || !selectedChange) return
-    await runSnapshotAction('Hunk staged.', () =>
-      api.stageHunk({
-        repoPath: currentRepoPath,
-        filePath: selectedChange.path,
-        patch: hunk.patch
-      })
+    await runSnapshotAction(
+      'Hunk staged.',
+      () =>
+        api.stageHunk({
+          repoPath: currentRepoPath,
+          filePath: selectedChange.path,
+          patch: hunk.patch
+        }),
+      'Staging hunk...'
     )
   }
 
   async function unstageSelectedHunk(hunk: DiffHunk) {
     if (!api || !currentRepoPath || !selectedChange) return
-    await runSnapshotAction('Hunk unstaged.', () =>
-      api.unstageHunk({
-        repoPath: currentRepoPath,
-        filePath: selectedChange.path,
-        patch: hunk.patch
-      })
+    await runSnapshotAction(
+      'Hunk unstaged.',
+      () =>
+        api.unstageHunk({
+          repoPath: currentRepoPath,
+          filePath: selectedChange.path,
+          patch: hunk.patch
+        }),
+      'Unstaging hunk...'
     )
   }
 
@@ -1362,8 +1392,10 @@ function App() {
 
     const action = isUntracked ? api.deleteUntrackedFile : api.discardFile
 
-    await runSnapshotAction(isUntracked ? 'Untracked file deleted.' : 'File discarded.', () =>
-      action({ repoPath: currentRepoPath, filePath: selectedChange.path, confirmed })
+    await runSnapshotAction(
+      isUntracked ? 'Untracked file deleted.' : 'File discarded.',
+      () => action({ repoPath: currentRepoPath, filePath: selectedChange.path, confirmed }),
+      isUntracked ? 'Deleting file...' : 'Discarding file changes...'
     )
   }
 
@@ -1374,12 +1406,15 @@ function App() {
       return false
     }
 
-    const committed = await runSnapshotAction('Commit created.', () =>
-      api.commit({
-        repoPath: currentRepoPath,
-        title: commitTitle,
-        description: commitDescription
-      })
+    const committed = await runSnapshotAction(
+      'Commit created.',
+      () =>
+        api.commit({
+          repoPath: currentRepoPath,
+          title: commitTitle,
+          description: commitDescription
+        }),
+      'Creating commit...'
     )
 
     if (committed) {
@@ -1405,13 +1440,16 @@ function App() {
     })
     if (!confirmed) return false
 
-    const amended = await runSnapshotAction('Commit amended.', () =>
-      api.amendCommit({
-        repoPath: currentRepoPath,
-        title: commitTitle,
-        description: commitDescription,
-        confirmed
-      })
+    const amended = await runSnapshotAction(
+      'Commit amended.',
+      () =>
+        api.amendCommit({
+          repoPath: currentRepoPath,
+          title: commitTitle,
+          description: commitDescription,
+          confirmed
+        }),
+      'Amending commit...'
     )
 
     if (amended) {
@@ -1430,12 +1468,15 @@ function App() {
       return
     }
 
-    const created = await runSnapshotAction('Changes stashed.', () =>
-      api.createStash({
-        repoPath: currentRepoPath,
-        message,
-        includeUntracked: true
-      })
+    const created = await runSnapshotAction(
+      'Changes stashed.',
+      () =>
+        api.createStash({
+          repoPath: currentRepoPath,
+          message,
+          includeUntracked: true
+        }),
+      'Stashing changes...'
     )
 
     if (created) {
@@ -2484,9 +2525,9 @@ function App() {
             {error}
           </div>
         )}
-        <div className="message">
+        <div className={busy ? 'message busy' : 'message'}>
           {busy ? <Loader2 className="spin" size={18} /> : <Check size={18} />}
-          {notice}
+          <span>{busy && operationLabel ? operationLabel : notice}</span>
         </div>
 
         {!snapshot ? (
