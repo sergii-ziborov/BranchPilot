@@ -540,6 +540,54 @@ button.danger-button:hover {
   max-width: 520px;
 }
 
+.clone-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.45fr) auto;
+  width: min(760px, 100%);
+  gap: 8px;
+  margin-top: 8px;
+  align-items: end;
+  text-align: left;
+}
+
+.clone-panel > div {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 3px;
+}
+
+.clone-panel strong {
+  color: var(--text-strong);
+}
+
+.clone-panel span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.clone-panel input {
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: #ffffff;
+}
+
+.clone-panel button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #2563eb;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -3903,6 +3951,7 @@ button.secondary:hover {
   }
 
   .commit-file-grid,
+  .clone-panel,
   .dashboard-workspace,
   .dashboard-filter-bar,
   .config-grid,

@@ -41,6 +41,7 @@ const symbolKinds = [
 ] as const
 const activityTypes = [
   'repository_opened',
+  'repository_cloned',
   'repository_refreshed',
   'project_memory_scanned',
   'project_wiki_generated',

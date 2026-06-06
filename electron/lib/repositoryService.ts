@@ -5,6 +5,7 @@ import type {
   BranchCompareRequest,
   BranchComparison,
   BranchSummary,
+  CloneRepositoryRequest,
   CommitDetails,
   CommitDetailsRequest,
   CommitFileChange,
@@ -85,6 +86,29 @@ export class RepositoryService {
     await this.settings.rememberRepository(rootPath)
 
     return this.getSnapshot(rootPath)
+  }
+
+  async cloneRepository(request: CloneRepositoryRequest): Promise<RepositorySnapshot> {
+    const remoteUrl = normalizeCloneRemoteUrl(request.remoteUrl)
+    const targetParentPath = normalizeCloneParentPath(request.targetParentPath)
+    const targetName = normalizeCloneTargetName(request.targetName ?? cloneNameFromRemoteUrl(remoteUrl))
+    const targetPath = path.join(targetParentPath, targetName)
+    const parentStats = await fs.stat(targetParentPath).catch(() => undefined)
+
+    if (!parentStats?.isDirectory()) {
+      throw new BranchPilotUserError('invalid_clone_target', 'Clone parent folder is not available.')
+    }
+
+    if (await pathExists(targetPath)) {
+      throw new BranchPilotUserError('clone_target_exists', 'Clone target already exists.')
+    }
+
+    await this.runner.run('/usr/bin/git', ['clone', '--', remoteUrl, targetPath], {
+      cwd: targetParentPath,
+      timeoutMs: 120_000
+    })
+
+    return this.openRepository(targetPath)
   }
 
   async getRecentRepositories(): Promise<RecentRepository[]> {
@@ -1698,6 +1722,62 @@ function normalizeRemoteUrl(url: string): string {
   }
 
   return trimmed
+}
+
+function normalizeCloneRemoteUrl(remoteUrl: string): string {
+  const trimmed = remoteUrl.trim()
+
+  if (!trimmed || trimmed.includes('\0') || trimmed.startsWith('-')) {
+    throw new BranchPilotUserError('invalid_clone_url', 'Clone URL is required.')
+  }
+
+  return trimmed
+}
+
+function normalizeCloneParentPath(targetParentPath: string | undefined): string {
+  const trimmed = targetParentPath?.trim()
+
+  if (!trimmed || trimmed.includes('\0') || !path.isAbsolute(trimmed)) {
+    throw new BranchPilotUserError('invalid_clone_target', 'Choose a folder to clone into.')
+  }
+
+  return path.resolve(trimmed)
+}
+
+function normalizeCloneTargetName(targetName: string): string {
+  const trimmed = targetName.trim()
+
+  if (!/^[A-Za-z0-9._ -]+$/.test(trimmed) || trimmed.startsWith('.') || trimmed.includes('..')) {
+    throw new BranchPilotUserError('invalid_clone_target', 'Clone folder name is invalid.')
+  }
+
+  return trimmed
+}
+
+function cloneNameFromRemoteUrl(remoteUrl: string): string {
+  const trimmed = remoteUrl.trim()
+  const pathname = remoteUrlPathname(trimmed)
+  const basename = path.basename(pathname).replace(/\.git$/i, '')
+
+  return basename || 'repository'
+}
+
+function remoteUrlPathname(remoteUrl: string): string {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(remoteUrl)) {
+    try {
+      return new URL(remoteUrl).pathname
+    } catch {
+      return remoteUrl
+    }
+  }
+
+  const scpLike = /^(?:[^@\s]+@)?[^:\s]+:(?<path>[^\\\s]+)$/.exec(remoteUrl)
+
+  if (scpLike?.groups?.path) {
+    return scpLike.groups.path
+  }
+
+  return remoteUrl
 }
 
 function normalizeWorktreePath(rootPath: string, targetPath: string | undefined, options: { allowInsideRoot?: boolean } = {}): string {

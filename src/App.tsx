@@ -136,6 +136,8 @@ function App() {
   const [repositoryDashboard, setRepositoryDashboard] = useState<RepositoryDashboardSnapshot | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardRepositoryFilter, setDashboardRepositoryFilter] = useState('')
+  const [cloneRemoteUrl, setCloneRemoteUrl] = useState('')
+  const [cloneTargetName, setCloneTargetName] = useState('')
   const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
   const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
   const [providers, setProviders] = useState<ProviderStatus[]>([])
@@ -822,6 +824,35 @@ function App() {
     setBusy(true)
     const result = await api.openRepository(path)
     applySnapshotResult(result, 'Repository opened.')
+    setBusy(false)
+  }
+
+  async function cloneRepository() {
+    if (!api) return
+    const remoteUrl = cloneRemoteUrl.trim()
+
+    if (!remoteUrl) {
+      setNotice('Clone blocked: add a repository URL.')
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+
+    const result = await api.cloneRepository({
+      remoteUrl,
+      targetName: cloneTargetName.trim() || undefined
+    })
+
+    if (result.ok && result.data) {
+      setCloneRemoteUrl('')
+      setCloneTargetName('')
+      applySnapshot(result.data, 'Repository cloned.')
+    } else if (!result.ok) {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
     setBusy(false)
   }
 
@@ -2359,6 +2390,30 @@ function App() {
               <FolderOpen size={17} />
               Open repository
             </button>
+            <div className="clone-panel">
+              <div>
+                <strong>Clone repository</strong>
+                <span>Use system Git and your existing credentials.</span>
+              </div>
+              <input
+                aria-label="Clone repository URL"
+                value={cloneRemoteUrl}
+                onChange={(event) => setCloneRemoteUrl(event.target.value)}
+                placeholder="https://github.com/owner/repo.git"
+                disabled={!api || busy}
+              />
+              <input
+                aria-label="Clone folder name"
+                value={cloneTargetName}
+                onChange={(event) => setCloneTargetName(event.target.value)}
+                placeholder="Optional folder name"
+                disabled={!api || busy}
+              />
+              <button type="button" onClick={cloneRepository} disabled={!api || busy || !cloneRemoteUrl.trim()}>
+                <ArrowDownToLine size={17} />
+                Clone
+              </button>
+            </div>
           </section>
         ) : (
           <>

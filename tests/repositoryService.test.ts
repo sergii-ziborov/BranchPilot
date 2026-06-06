@@ -81,6 +81,39 @@ describe('RepositoryService', () => {
     })
   })
 
+  it('clones a repository by URL and opens the cloned checkout', async () => {
+    const sourceRepoPath = createTempRepository()
+    const targetParentPath = mkdtempSync(path.join(tmpdir(), 'branchpilot-clone-parent-'))
+    tempRoots.push(targetParentPath)
+    const service = createService()
+
+    const snapshot = await service.cloneRepository({
+      remoteUrl: sourceRepoPath,
+      targetParentPath,
+      targetName: 'cloned-project'
+    })
+    const targetPath = path.join(targetParentPath, 'cloned-project')
+
+    expect(realpathSync(snapshot.summary.rootPath)).toBe(realpathSync(targetPath))
+    expect(snapshot.summary.currentBranch).toBe('main')
+    expect(readFileSync(path.join(targetPath, 'tracked.txt'), 'utf8')).toBe('initial\n')
+    expect((await service.getRecentRepositories())[0]).toMatchObject({
+      path: realpathSync(targetPath),
+      name: 'cloned-project'
+    })
+
+    await expect(service.cloneRepository({
+      remoteUrl: sourceRepoPath,
+      targetParentPath,
+      targetName: 'cloned-project'
+    })).rejects.toMatchObject({ code: 'clone_target_exists' })
+    await expect(service.cloneRepository({
+      remoteUrl: sourceRepoPath,
+      targetParentPath,
+      targetName: '../unsafe'
+    })).rejects.toMatchObject({ code: 'invalid_clone_target' })
+  })
+
   it('builds a repository dashboard from recent repositories', async () => {
     const dirtyRepoPath = createTempRepository()
     const activeRepoPath = createTempRepository()

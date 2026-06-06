@@ -15,6 +15,7 @@ import type {
   BranchDraftGenerationRequest,
   BranchActionRequest,
   CheckoutPullRequestRequest,
+  CloneRepositoryRequest,
   CommitDetailsRequest,
   CommitFileDiffRequest,
   CommitMessageGenerationRequest,
@@ -365,6 +366,16 @@ async function chooseWorktreeTargetPath(request: CreateWorktreeRequest): Promise
   return result.canceled ? undefined : result.filePath
 }
 
+async function chooseCloneParentPath(): Promise<string | undefined> {
+  const result = await dialog.showOpenDialog({
+    title: 'Clone repository into folder',
+    buttonLabel: 'Clone here',
+    properties: ['openDirectory', 'createDirectory']
+  })
+
+  return result.canceled || result.filePaths.length === 0 ? undefined : result.filePaths[0]
+}
+
 function registerIpcHandlers() {
   handleUnwrapped('app:version', () => app.getVersion())
 
@@ -389,6 +400,28 @@ function registerIpcHandlers() {
     }
 
     return withProjectMemoryRefresh(await repositoryService.openRepository(result.filePaths[0]))
+  })
+
+  handleLogged('repository:clone', {
+    type: 'repository_cloned',
+    actor: 'user',
+    title: 'Repository cloned',
+    repoPath: snapshotRepoPath,
+    metadata: ([request], snapshot) => ({
+      repository: snapshot?.summary.name ?? request.targetName ?? 'repository',
+      target_parent: request.targetParentPath ? path.basename(request.targetParentPath) : 'selected'
+    })
+  }, async (request: CloneRepositoryRequest) => {
+    const targetParentPath = request.targetParentPath ?? await chooseCloneParentPath()
+
+    if (!targetParentPath) {
+      return null
+    }
+
+    return withProjectMemoryRefresh(await repositoryService.cloneRepository({
+      ...request,
+      targetParentPath
+    }))
   })
 
   handleLogged('repository:open', {

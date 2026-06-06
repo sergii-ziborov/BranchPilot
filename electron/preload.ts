@@ -7,6 +7,7 @@ const invoke = <T>(channel: BranchPilotIpcChannel, ...args: unknown[]) => ipcRen
 const branchPilot: BranchPilotApi = {
   getVersion: () => invoke('app:version'),
   chooseAndOpenRepository: () => invoke('repository:chooseAndOpen'),
+  cloneRepository: (request) => invoke('repository:clone', request),
   openRepository: (path) => invoke('repository:open', path),
   getRecentRepositories: () => invoke('repository:recent'),
   setRepositoryPinned: (request) => invoke('repository:setPinned', request),

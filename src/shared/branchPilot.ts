@@ -100,6 +100,12 @@ export interface RepositoryPinRequest {
   pinned: boolean
 }
 
+export interface CloneRepositoryRequest {
+  remoteUrl: string
+  targetParentPath?: string
+  targetName?: string
+}
+
 export type DashboardRepositoryState = 'clean' | 'dirty' | 'conflicted' | 'unavailable'
 
 export interface DashboardRepositorySummary {
@@ -374,6 +380,7 @@ export interface AssistantPolicyUpdate {
 
 export type ActivityLogEventType =
   | 'repository_opened'
+  | 'repository_cloned'
   | 'repository_refreshed'
   | 'project_memory_scanned'
   | 'project_wiki_generated'
@@ -937,6 +944,7 @@ export interface AssistantStatus {
 export interface BranchPilotApi {
   getVersion: () => Promise<string>
   chooseAndOpenRepository: () => Promise<ApiResult<RepositorySnapshot | null>>
+  cloneRepository: (request: CloneRepositoryRequest) => Promise<ApiResult<RepositorySnapshot | null>>
   openRepository: (path: string) => Promise<ApiResult<RepositorySnapshot>>
   getRecentRepositories: () => Promise<ApiResult<RecentRepository[]>>
   setRepositoryPinned: (request: RepositoryPinRequest) => Promise<ApiResult<RecentRepository[]>>
