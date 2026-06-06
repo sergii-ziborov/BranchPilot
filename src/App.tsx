@@ -86,6 +86,7 @@ import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchAct
 import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
+import { getVirtualListWindow, type VirtualListWindow } from './shared/virtualList'
 import './App.css'
 
 type ViewMode = 'dashboard' | 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily'
@@ -105,6 +106,10 @@ const assistantPolicyModes: AssistantPolicyMode[] = [
   'allow-local-commands',
   'allow-file-edits'
 ]
+const CHANGE_LIST_ITEM_HEIGHT = 54
+const HISTORY_LIST_ITEM_HEIGHT = 64
+const VIRTUAL_LIST_OVERSCAN = 8
+const VIRTUAL_LIST_FALLBACK_HEIGHT = 520
 
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
@@ -267,6 +272,8 @@ function App() {
       files: [selectedPullRequestFile]
     }
   }, [selectedPullRequestFile])
+  const virtualChanges = useVirtualList(filteredChanges, CHANGE_LIST_ITEM_HEIGHT)
+  const virtualHistory = useVirtualList(filteredHistory, HISTORY_LIST_ITEM_HEIGHT)
 
   const selectedMemoryFile = useMemo(
     () => projectMemory?.files.find((file) => file.path === selectedMemoryFilePath) ?? null,
@@ -2332,7 +2339,10 @@ function App() {
                 placeholder="Search changed files"
               />
             </label>
-            <span>{filteredChanges.length} / {snapshot?.status.changes.length ?? 0}</span>
+            <span>
+              {filteredChanges.length} / {snapshot?.status.changes.length ?? 0}
+              {virtualRangeLabel(virtualChanges.window, filteredChanges.length)}
+            </span>
             {changeFilter && (
               <button type="button" className="secondary" onClick={() => setChangeFilter('')}>
                 <X size={15} />
@@ -2341,34 +2351,42 @@ function App() {
             )}
           </div>
 
-          <div className="change-list">
+          <div className="change-list virtual-list-viewport" ref={virtualChanges.containerRef} onScroll={virtualChanges.onScroll}>
             {snapshot?.status.changes.length === 0 ? (
               <div className="quiet-box">Working tree is clean.</div>
             ) : filteredChanges.length === 0 ? (
               <div className="quiet-box">No changed files match this search.</div>
             ) : (
-              filteredChanges.map((change) => (
-                <div className={selectedFilePath === change.path ? 'change-row selected' : 'change-row'} key={change.path}>
-                  <StageCheckbox
-                    change={change}
-                    disabled={busy || change.conflicted}
-                    onToggle={toggleChangeStage}
-                  />
-                  <button
-                    className="change-select"
-                    type="button"
-                    title={`${change.path} · ${changeLabel(change)}`}
-                    aria-label={`${change.path}, ${changeLabel(change)}`}
-                    onClick={() => {
-                      setSelectedFilePath(change.path)
-                      setDiffMode(change.staged && !change.unstaged ? 'staged' : 'unstaged')
-                    }}
+              <div className="virtual-list-spacer" style={{ height: virtualChanges.window.totalHeight }}>
+                {virtualChanges.items.map(({ item: change, index }) => (
+                  <div
+                    className="virtual-list-item"
+                    key={change.path}
+                    style={{ transform: `translateY(${index * CHANGE_LIST_ITEM_HEIGHT}px)` }}
                   >
-                    <span className={`file-status status-${change.status}`}>{statusToken(change)}</span>
-                    <span className="file-name">{change.path}</span>
-                  </button>
-                </div>
-              ))
+                    <div className={selectedFilePath === change.path ? 'change-row selected' : 'change-row'}>
+                      <StageCheckbox
+                        change={change}
+                        disabled={busy || change.conflicted}
+                        onToggle={toggleChangeStage}
+                      />
+                      <button
+                        className="change-select"
+                        type="button"
+                        title={`${change.path} · ${changeLabel(change)}`}
+                        aria-label={`${change.path}, ${changeLabel(change)}`}
+                        onClick={() => {
+                          setSelectedFilePath(change.path)
+                          setDiffMode(change.staged && !change.unstaged ? 'staged' : 'unstaged')
+                        }}
+                      >
+                        <span className={`file-status status-${change.status}`}>{statusToken(change)}</span>
+                        <span className="file-name">{change.path}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -2651,7 +2669,10 @@ function App() {
                 placeholder="Search commits"
               />
             </label>
-            <span>{filteredHistory.length} / {history.length}</span>
+            <span>
+              {filteredHistory.length} / {history.length}
+              {virtualRangeLabel(virtualHistory.window, filteredHistory.length)}
+            </span>
             {historyFilter && (
               <button type="button" className="secondary" onClick={() => setHistoryFilter('')}>
                 <X size={15} />
@@ -2660,25 +2681,32 @@ function App() {
             )}
           </div>
 
-          <div className="history-list">
+          <div className="history-list virtual-list-viewport" ref={virtualHistory.containerRef} onScroll={virtualHistory.onScroll}>
             {history.length === 0 ? (
               <div className="quiet-box">No commits found.</div>
             ) : filteredHistory.length === 0 ? (
               <div className="quiet-box">No commits match this search.</div>
             ) : (
-              filteredHistory.map((commit) => (
-                <button
-                  className={selectedCommitSha === commit.sha ? 'history-row selected' : 'history-row'}
-                  type="button"
-                  key={commit.sha}
-                  onClick={() => setSelectedCommitSha(commit.sha)}
-                >
-                  <strong>{commit.subject || '(no subject)'}</strong>
-                  <span>
-                    {commit.shortSha} · {commit.authorName} · {formatDate(commit.authoredAt)}
-                  </span>
-                </button>
-              ))
+              <div className="virtual-list-spacer" style={{ height: virtualHistory.window.totalHeight }}>
+                {virtualHistory.items.map(({ item: commit, index }) => (
+                  <div
+                    className="virtual-list-item"
+                    key={commit.sha}
+                    style={{ transform: `translateY(${index * HISTORY_LIST_ITEM_HEIGHT}px)` }}
+                  >
+                    <button
+                      className={selectedCommitSha === commit.sha ? 'history-row selected' : 'history-row'}
+                      type="button"
+                      onClick={() => setSelectedCommitSha(commit.sha)}
+                    >
+                      <strong>{commit.subject || '(no subject)'}</strong>
+                      <span>
+                        {commit.shortSha} · {commit.authorName} · {formatDate(commit.authoredAt)}
+                      </span>
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -4922,6 +4950,67 @@ function gitLfsFileLabel(status: GitLfsFileStatus, oid?: string): string {
       : 'unknown'
 
   return oid ? `${label} · ${oid.slice(0, 12)}` : label
+}
+
+function virtualRangeLabel(window: VirtualListWindow, total: number): string {
+  if (total === 0 || window.visibleCount >= total) return ''
+
+  return ` · showing ${window.startIndex + 1}-${window.endIndex}`
+}
+
+function useVirtualList<T>(items: T[], itemHeight: number) {
+  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(VIRTUAL_LIST_FALLBACK_HEIGHT)
+
+  useEffect(() => {
+    const element = containerElement
+
+    if (!element) return
+
+    const updateViewportHeight = () => {
+      setViewportHeight(element.clientHeight || VIRTUAL_LIST_FALLBACK_HEIGHT)
+    }
+
+    updateViewportHeight()
+
+    const resizeObserver = new ResizeObserver(updateViewportHeight)
+    resizeObserver.observe(element)
+
+    return () => resizeObserver.disconnect()
+  }, [containerElement])
+
+  useEffect(() => {
+    if (containerElement) {
+      containerElement.scrollTop = 0
+    }
+    setScrollTop(0)
+  }, [containerElement, items])
+
+  const window = useMemo(
+    () => getVirtualListWindow({
+      itemCount: items.length,
+      itemHeight,
+      viewportHeight,
+      scrollTop,
+      overscan: VIRTUAL_LIST_OVERSCAN
+    }),
+    [itemHeight, items.length, scrollTop, viewportHeight]
+  )
+  const visibleItems = useMemo(
+    () => items.slice(window.startIndex, window.endIndex).map((item, offset) => ({
+      item,
+      index: window.startIndex + offset
+    })),
+    [items, window.endIndex, window.startIndex]
+  )
+
+  return {
+    containerRef: setContainerElement,
+    window,
+    items: visibleItems,
+    onScroll: (event: { currentTarget: HTMLDivElement }) => setScrollTop(event.currentTarget.scrollTop)
+  }
 }
 
 function formatBytes(sizeBytes: number): string {

@@ -637,14 +637,44 @@ button.danger-button:hover {
   border-radius: 8px;
 }
 
-.change-list,
-.history-list,
 .branch-list,
 .conflict-list,
 .review-grid,
 .assistant-grid {
   display: grid;
   gap: 10px;
+}
+
+.change-list,
+.history-list {
+  display: block;
+  min-height: 220px;
+}
+
+.virtual-list-viewport {
+  max-height: min(58vh, 720px);
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.virtual-list-spacer {
+  position: relative;
+  min-height: 100%;
+}
+
+.virtual-list-item {
+  position: absolute;
+  right: 0;
+  left: 0;
+  will-change: transform;
+}
+
+.virtual-list-item .change-row {
+  min-height: 44px;
+}
+
+.virtual-list-item .history-row {
+  min-height: 54px;
 }
 
 .dashboard-panel {
