@@ -85,6 +85,7 @@ import type {
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
 import { getBulkStageToggleAction, getBulkStageToggleState, getChangeStageToggleAction, getChangeStageToggleState } from './shared/changeStaging'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
+import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import { getVirtualListWindow, type VirtualListWindow } from './shared/virtualList'
@@ -945,6 +946,15 @@ function App() {
   async function copyProjectWikiPage(page: ProjectWikiPage | null) {
     if (!page) return
     await copyProjectMemoryText(page.markdown, `${page.title} wiki page`)
+  }
+
+  function openExternalLink(url: string | undefined, label = 'External link') {
+    if (!url || !isSafeExternalUrl(url)) {
+      setError(`${label} was blocked because it is not a safe HTTPS URL.`)
+      return
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   async function clearActivityLog() {
@@ -2382,7 +2392,7 @@ function App() {
                       Providers
                     </button>
                     {currentPullRequest && (
-                      <button type="button" className="secondary" onClick={() => window.open(currentPullRequest.url, '_blank', 'noopener,noreferrer')}>
+                      <button type="button" className="secondary" onClick={() => openExternalLink(currentPullRequest.url, 'Pull request link')}>
                         <ExternalLink size={16} />
                         Open PR
                       </button>
@@ -4363,7 +4373,7 @@ function App() {
                   <GitPullRequest size={17} />
                   Details
                 </button>
-                <button type="button" className="secondary" onClick={() => window.open(currentPullRequest.url, '_blank', 'noopener,noreferrer')}>
+                <button type="button" className="secondary" onClick={() => openExternalLink(currentPullRequest.url, 'Pull request link')}>
                   <ExternalLink size={17} />
                   Open PR
                 </button>
@@ -4399,7 +4409,7 @@ function App() {
                 Generate PR text
               </button>
               {currentPullRequest ? (
-                <button type="button" onClick={() => window.open(currentPullRequest.url, '_blank', 'noopener,noreferrer')} disabled={busy}>
+                <button type="button" onClick={() => openExternalLink(currentPullRequest.url, 'Pull request link')} disabled={busy}>
                   <ExternalLink size={17} />
                   Open current PR
                 </button>
@@ -4410,7 +4420,7 @@ function App() {
                 </button>
               )}
               {createdPullRequest && (
-                <button type="button" className="secondary" onClick={() => window.open(createdPullRequest.url, '_blank', 'noopener,noreferrer')}>
+                <button type="button" className="secondary" onClick={() => openExternalLink(createdPullRequest.url, 'Created pull request link')}>
                   <ExternalLink size={17} />
                   Open PR
                 </button>
@@ -4509,7 +4519,7 @@ function App() {
                           className="secondary"
                           onClick={(event) => {
                             event.stopPropagation()
-                            window.open(pullRequest.url, '_blank', 'noopener,noreferrer')
+                            openExternalLink(pullRequest.url, 'Pull request link')
                           }}
                         >
                           <ExternalLink size={17} />
@@ -4604,7 +4614,7 @@ function App() {
                         <span>{check.workflow ?? check.description ?? check.state}</span>
                       </div>
                       {check.link && (
-                        <button type="button" className="secondary" onClick={() => window.open(check.link, '_blank', 'noopener,noreferrer')}>
+                        <button type="button" className="secondary" onClick={() => openExternalLink(check.link, 'Check link')}>
                           <ExternalLink size={15} />
                           Open
                         </button>
