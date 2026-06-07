@@ -17,6 +17,7 @@ import {
   GitMerge,
   GitPullRequest,
   LayoutDashboard,
+  ListFilter,
   Loader2,
   Pencil,
   Plus,
@@ -115,12 +116,21 @@ type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
 type AssistantReadinessState = AssistantStatus['state'] | 'unknown'
 type ConfirmationVariant = 'default' | 'danger'
+type CompletedWorkSource = 'commit' | 'provider' | 'review' | 'git'
 
 interface ConfirmationOptions {
   title?: string
   confirmLabel?: string
   cancelLabel?: string
   variant?: ConfirmationVariant
+}
+
+interface CompletedWorkItem {
+  id: string
+  title: string
+  meta: string
+  createdAt: string
+  source: CompletedWorkSource
 }
 
 interface ConfirmationRequest extends Required<ConfirmationOptions> {
@@ -133,6 +143,13 @@ const api = window.branchPilot
 const reviewModes: ReviewMode[] = ['consistency', 'security', 'quality']
 const reviewSeverities: ReviewSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 const activityCategories: ActivityCategory[] = ['all', 'git', 'assistant', 'provider', 'memory']
+const completedActivityTypes = new Set<ActivityLogEventType>([
+  'github_pr_created',
+  'daily_review_generated',
+  'merge_continued',
+  'patch_applied',
+  'branch_published'
+])
 const assistantPolicyModes: AssistantPolicyMode[] = [
   'disabled',
   'review-only',
@@ -375,6 +392,31 @@ function App() {
     [activityCategory, activityLog]
   )
 
+  const completedWorkItems = useMemo<CompletedWorkItem[]>(() => {
+    const commitItems = (projectMemory?.recentCommits ?? []).slice(0, 12).map((commit) => ({
+      id: `commit-${commit.sha}`,
+      title: commit.subject || '(no subject)',
+      meta: `${commit.shortSha} · ${commit.authorName} · ${formatDate(commit.authoredAt)}`,
+      createdAt: commit.authoredAt,
+      source: 'commit' as const
+    }))
+
+    const operationItems = (activityLog?.entries ?? [])
+      .filter((entry) => entry.status === 'success' && completedActivityTypes.has(entry.type))
+      .slice(0, 12)
+      .map((entry) => ({
+        id: `activity-${entry.id}`,
+        title: activityTypeLabel(entry.type),
+        meta: `${entry.actor} · ${formatDate(entry.createdAt)}${activityMetadataLabel(entry) ? ` · ${activityMetadataLabel(entry)}` : ''}`,
+        createdAt: entry.createdAt,
+        source: completedWorkSource(entry.type)
+      }))
+
+    return [...commitItems, ...operationItems]
+      .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+      .slice(0, 12)
+  }, [activityLog, projectMemory])
+
   function requestConfirmation(message: string, options: ConfirmationOptions = {}): Promise<boolean> {
     if (confirmationRequest) return Promise.resolve(false)
 
@@ -587,7 +629,6 @@ function App() {
   const counts = snapshot?.status.counts
   const mergeState = snapshot?.status.merge
   const canCreateStash = Boolean(snapshot && counts?.changed && mergeState?.operation === 'none')
-  const canUnstageAll = Boolean(snapshot && counts && counts.staged > 0)
   const bulkStageToggleState = getBulkStageToggleState(counts)
   const hasRemote = Boolean(snapshot?.summary.remoteName)
   const hasUpstream = Boolean(snapshot?.summary.upstream)
@@ -2967,23 +3008,41 @@ function App() {
               Changes
               <span>{counts?.changed ?? 0}</span>
             </h2>
-            <div className="changes-topbar-actions">
-              <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
-                <Save size={15} />
-                Stash
-              </button>
-              <button
-                type="button"
-                onClick={() => currentRepoPath && runSnapshotAction('All changes unstaged.', () => api!.unstageAll(currentRepoPath))}
-                disabled={busy || !canUnstageAll}
-              >
-                <X size={15} />
-                Unstage all
-              </button>
-            </div>
           </div>
 
           <div className="change-filter-bar change-filter-bar-compact">
+            <details className="changes-actions-menu">
+              <summary>
+                <ListFilter size={16} />
+                Actions
+              </summary>
+              <div className="changes-actions-popover">
+                <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
+                  <Save size={15} />
+                  Stash changes
+                </button>
+                <label>
+                  Patch scope
+                  <select
+                    aria-label="Patch export scope"
+                    value={patchScope}
+                    onChange={(event) => setPatchScope(event.target.value as PatchScope)}
+                    disabled={busy}
+                  >
+                    <option value="working-tree">Working tree</option>
+                    <option value="staged">Staged</option>
+                  </select>
+                </label>
+                <button type="button" onClick={exportPatch} disabled={busy || !snapshot}>
+                  <Copy size={15} />
+                  Export patch
+                </button>
+                <button type="button" onClick={applyPatch} disabled={busy || !snapshot || snapshot.status.merge.operation !== 'none'}>
+                  <ArrowDownToLine size={15} />
+                  Apply patch
+                </button>
+              </div>
+            </details>
             <label className="change-filter-input" htmlFor="change-filter">
               <Search size={16} />
               <input
@@ -3000,27 +3059,6 @@ function App() {
                 Clear
               </button>
             )}
-          </div>
-
-          <div className="changes-secondary-tools">
-            <select
-              aria-label="Patch export scope"
-              className="changes-patch-scope"
-              value={patchScope}
-              onChange={(event) => setPatchScope(event.target.value as PatchScope)}
-              disabled={busy}
-            >
-              <option value="working-tree">Working tree patch</option>
-              <option value="staged">Staged patch</option>
-            </select>
-            <button type="button" onClick={exportPatch} disabled={busy || !snapshot}>
-              <Copy size={15} />
-              Export
-            </button>
-            <button type="button" onClick={applyPatch} disabled={busy || !snapshot || snapshot.status.merge.operation !== 'none'}>
-              <ArrowDownToLine size={15} />
-              Apply
-            </button>
           </div>
 
           <div className="change-list-header">
@@ -3164,10 +3202,6 @@ function App() {
               )}
             </div>
             <div className="panel-actions">
-              <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
-                <Save size={17} />
-                Stash
-              </button>
               <button
                 className="danger-button"
                 type="button"
@@ -3657,11 +3691,35 @@ function App() {
               )}
             </section>
 
+            <section className="memory-activity-card completed-work-card">
+              <div className="memory-section-heading">
+                <div>
+                  <h3>Completed Work</h3>
+                  <span>{completedWorkItems.length} finished work item{completedWorkItems.length === 1 ? '' : 's'} from Git history and completed operations</span>
+                </div>
+              </div>
+              <div className="completed-work-list">
+                {completedWorkItems.length === 0 ? (
+                  <div className="quiet-box">Generate Project Memory or make a commit to build completed work history.</div>
+                ) : (
+                  completedWorkItems.map((item) => (
+                    <article className={`completed-work-row source-${item.source}`} key={item.id}>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <span>{item.meta}</span>
+                      </div>
+                      <em>{completedWorkSourceLabel(item.source)}</em>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+
             <section className="memory-activity-card">
               <div className="memory-section-heading">
                 <div>
-                  <h3>Activity Log</h3>
-                  <span>{activityLog?.totalCount ?? 0} events stored locally</span>
+                  <h3>Raw Activity Events</h3>
+                  <span>{activityLog?.totalCount ?? 0} technical events stored locally</span>
                 </div>
                 <div className="panel-actions">
                   <button type="button" onClick={() => loadProjectMemory()} disabled={memoryLoading}>
@@ -6186,6 +6244,19 @@ function activityTypeLabel(type: ActivityLogEventType): string {
     .split('_')
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(' ')
+}
+
+function completedWorkSource(type: ActivityLogEventType): CompletedWorkSource {
+  if (type === 'github_pr_created') return 'provider'
+  if (type === 'daily_review_generated') return 'review'
+  return 'git'
+}
+
+function completedWorkSourceLabel(source: CompletedWorkSource): string {
+  if (source === 'commit') return 'Commit'
+  if (source === 'provider') return 'Provider'
+  if (source === 'review') return 'Review'
+  return 'Git'
 }
 
 function activityMetadataLabel(entry: ActivityLogEntry): string {

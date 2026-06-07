@@ -19,6 +19,13 @@ const WIKI_VERSION = 1
 const ACTIVITY_LIMIT = 80
 const MAX_LIST_ITEMS = 20
 const IMPORTANT_SYMBOL_KINDS = new Set(['class', 'component', 'function', 'interface', 'type'])
+const COMPLETED_WORK_ACTIVITY_TYPES = new Set<ActivityLogEntry['type']>([
+  'github_pr_created',
+  'daily_review_generated',
+  'merge_continued',
+  'patch_applied',
+  'branch_published'
+])
 
 export class ProjectWikiService {
   constructor(
@@ -216,16 +223,24 @@ function assistantPolicyMarkdown(snapshot: ProjectMemorySnapshot): string {
 }
 
 function recentTimelineMarkdown(snapshot: ProjectMemorySnapshot, activity: ActivityLogEntry[]): string {
+  const completedActivity = activity.filter((entry) => entry.status === 'success' && COMPLETED_WORK_ACTIVITY_TYPES.has(entry.type))
+  const completedWork = [
+    ...snapshot.recentCommits.slice(0, 15).map((commit) =>
+      `${formatDate(commit.authoredAt)} - Commit ${commit.shortSha}: ${commit.subject || '(no subject)'}`
+    ),
+    ...completedActivity.slice(0, 10).map((entry) =>
+      `${formatDate(entry.createdAt)} - ${activityTypeLabel(entry.type)} (${entry.status})`
+    )
+  ]
+
   return [
     '# Recent Timeline',
     '',
-    '## Recent Commits',
-    ...listOrEmpty(snapshot.recentCommits.slice(0, 15).map((commit) =>
-      `${commit.shortSha} ${commit.subject || '(no subject)'} - ${formatDate(commit.authoredAt)}`
-    )),
+    '## Completed Work',
+    ...listOrEmpty(completedWork),
     '',
-    '## BranchPilot Activity',
-    ...listOrEmpty(activity.slice(0, 20).map((entry) =>
+    '## Recent Technical Activity',
+    ...listOrEmpty(activity.slice(0, 12).map((entry) =>
       `${formatDate(entry.createdAt)} - ${activityTypeLabel(entry.type)} (${entry.status})`
     ))
   ].join('\n')
