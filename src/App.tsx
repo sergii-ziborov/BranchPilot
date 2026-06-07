@@ -66,6 +66,7 @@ import type {
   GitHubPullRequestDiff,
   GitHubPullRequestDiffFile,
   GitHubRepositorySummary,
+  GeneratedLinkedInProject,
   GitConfigSnapshot,
   GitOperationResult,
   ProviderStatus,
@@ -109,14 +110,14 @@ import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/p
 import { getVirtualListWindow, type VirtualListWindow } from './shared/virtualList'
 import './App.css'
 
-type ViewMode = 'dashboard' | 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily'
+type ViewMode = 'dashboard' | 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily' | 'linkedin'
 type DiffMode = ChangeDiffMode
 type DiffDisplayMode = 'unified' | 'split'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
 type AssistantReadinessState = AssistantStatus['state'] | 'unknown'
 type ConfirmationVariant = 'default' | 'danger'
-type CompletedWorkSource = 'commit' | 'provider' | 'review' | 'git'
+type CompletedWorkSource = 'commit' | 'provider' | 'review' | 'linkedin' | 'git'
 
 interface ConfirmationOptions {
   title?: string
@@ -146,6 +147,7 @@ const activityCategories: ActivityCategory[] = ['all', 'git', 'assistant', 'prov
 const completedActivityTypes = new Set<ActivityLogEventType>([
   'github_pr_created',
   'daily_review_generated',
+  'assistant_linkedin_generated',
   'merge_continued',
   'patch_applied',
   'branch_published'
@@ -211,6 +213,11 @@ function App() {
   const [dailyReview, setDailyReview] = useState<DailyReviewReport | null>(null)
   const [dailyReviewDate, setDailyReviewDate] = useState(() => formatDateInputValue(new Date()))
   const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
+  const [linkedinProject, setLinkedInProject] = useState<GeneratedLinkedInProject | null>(null)
+  const [linkedinRole, setLinkedInRole] = useState('')
+  const [linkedinAudience, setLinkedInAudience] = useState('LinkedIn project section')
+  const [linkedinProjectUrl, setLinkedInProjectUrl] = useState('')
+  const [linkedinLoading, setLinkedInLoading] = useState(false)
   const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
   const [editorSettings, setEditorSettings] = useState<EditorSettings | null>(null)
   const [editorPreference, setEditorPreference] = useState<EditorPreference>('auto')
@@ -532,6 +539,10 @@ function App() {
 
   useEffect(() => {
     setDailyReview(null)
+    setLinkedInProject(null)
+    setLinkedInRole('')
+    setLinkedInAudience('LinkedIn project section')
+    setLinkedInProjectUrl('')
     setNewWorktreeBaseRef(snapshot?.summary.currentBranch && !snapshot.summary.isDetached ? snapshot.summary.currentBranch : 'HEAD')
     setNewWorktreeBranchName('')
   }, [snapshot?.summary.rootPath])
@@ -641,6 +652,7 @@ function App() {
   const canGeneratePullRequestText = assistantPolicyAllows(assistantPolicy, 'pull_request_text')
   const canRunAssistantReview = assistantPolicyAllows(assistantPolicy, 'review_report')
   const canGenerateBranchDraft = assistantPolicyAllows(assistantPolicy, 'branch_draft')
+  const canGenerateLinkedInProject = assistantPolicyAllows(assistantPolicy, 'linkedin_project')
   const commitActionState = getCommitActionState({ snapshot, title: commitTitle })
   const commitAndPushActionState = getCommitAndPushActionState({ snapshot, title: commitTitle })
   const amendCommitActionState = getAmendCommitActionState({ snapshot, title: commitTitle })
@@ -1279,6 +1291,68 @@ function App() {
     try {
       await navigator.clipboard.writeText(dailyReview.markdown)
       setNotice('Daily review Markdown copied.')
+    } catch {
+      setError('Clipboard is not available in this runtime.')
+    }
+  }
+
+  async function generateLinkedInProject() {
+    if (!api || !currentRepoPath) return
+
+    if (!canGenerateLinkedInProject) {
+      setNotice(assistantPolicyBlockedLabel('linkedin_project', assistantPolicy))
+      return
+    }
+
+    setLinkedInLoading(true)
+    setBusy(true)
+    setError(null)
+    const result = await api.generateLinkedInProject({
+      repoPath: currentRepoPath,
+      assistant: selectedAssistant,
+      role: linkedinRole,
+      audience: linkedinAudience,
+      projectUrl: linkedinProjectUrl
+    })
+
+    if (result.ok) {
+      setLinkedInProject(result.data)
+      setNotice(`LinkedIn project generated with ${assistantLabel(result.data.assistant)}.`)
+      if (result.data.truncated) {
+        setError('LinkedIn context was truncated for assistant limits.')
+      }
+      void loadProjectMemory()
+    } else {
+      setLinkedInProject(null)
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+    }
+
+    setBusy(false)
+    setLinkedInLoading(false)
+  }
+
+  function updateLinkedInProject(update: Partial<GeneratedLinkedInProject>) {
+    setLinkedInProject((current) => current ? { ...current, ...update } : current)
+  }
+
+  async function copyLinkedInMarkdown() {
+    if (!linkedinProject) return
+
+    try {
+      await navigator.clipboard.writeText(linkedinProject.markdown)
+      setNotice('LinkedIn project Markdown copied.')
+    } catch {
+      setError('Clipboard is not available in this runtime.')
+    }
+  }
+
+  async function copyLinkedInTags() {
+    if (!linkedinProject) return
+
+    try {
+      await navigator.clipboard.writeText(linkedinProject.tags.map((tag) => `#${tag.replace(/^#/, '')}`).join(' '))
+      setNotice('LinkedIn tags copied.')
     } catch {
       setError('Clipboard is not available in this runtime.')
     }
@@ -2532,7 +2606,8 @@ function App() {
     { id: 'review' as const, label: 'Review', icon: ShieldCheck },
     { id: 'providers' as const, label: 'Providers', icon: GitPullRequest },
     { id: 'memory' as const, label: 'Memory', icon: Database },
-    { id: 'daily' as const, label: 'Daily', icon: CalendarDays }
+    { id: 'daily' as const, label: 'Daily', icon: CalendarDays },
+    { id: 'linkedin' as const, label: 'LinkedIn', icon: Star }
   ]
 
   return (
@@ -2763,6 +2838,7 @@ function App() {
             {viewMode === 'providers' && renderProvidersView()}
             {viewMode === 'memory' && renderMemoryView()}
             {viewMode === 'daily' && renderDailyView()}
+            {viewMode === 'linkedin' && renderLinkedInView()}
           </>
         )}
       </section>
@@ -4762,7 +4838,7 @@ function App() {
   function renderAssistantPolicyPanel() {
     const mode = assistantPolicy?.settings.mode ?? 'suggest-only'
     const lockedModes = assistantPolicy?.lockedModes ?? ['allow-local-commands', 'allow-file-edits']
-    const actions: AssistantActionKind[] = ['commit_message', 'branch_draft', 'pull_request_text', 'review_report']
+    const actions: AssistantActionKind[] = ['commit_message', 'branch_draft', 'pull_request_text', 'linkedin_project', 'review_report']
 
     return (
       <section className="assistant-policy-panel">
@@ -5569,6 +5645,183 @@ function App() {
       </section>
     )
   }
+
+  function renderLinkedInView() {
+    return (
+      <section className="single-panel linkedin-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>LinkedIn Project</h2>
+            <p>Generate editable LinkedIn project fields from repository context.</p>
+          </div>
+          <button type="button" onClick={generateLinkedInProject} disabled={!snapshot || busy || linkedinLoading || !canGenerateLinkedInProject}>
+            {linkedinLoading ? <Loader2 className="spin" size={17} /> : <Star size={17} />}
+            Generate
+          </button>
+        </div>
+
+        <div className="linkedin-workspace">
+          <section className="linkedin-controls">
+            <label htmlFor="linkedin-assistant">Assistant</label>
+            <select
+              id="linkedin-assistant"
+              value={selectedAssistant}
+              onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
+              disabled={busy}
+            >
+              <option value="auto">Auto</option>
+              <option value="claude">Claude Code</option>
+              <option value="codex">Codex</option>
+            </select>
+
+            <label htmlFor="linkedin-role">Preferred role</label>
+            <input
+              id="linkedin-role"
+              value={linkedinRole}
+              onChange={(event) => setLinkedInRole(event.target.value)}
+              placeholder="Creator, maintainer, desktop app developer"
+            />
+
+            <label htmlFor="linkedin-audience">Audience</label>
+            <input
+              id="linkedin-audience"
+              value={linkedinAudience}
+              onChange={(event) => setLinkedInAudience(event.target.value)}
+              placeholder="LinkedIn project section"
+            />
+
+            <label htmlFor="linkedin-url">Project URL</label>
+            <input
+              id="linkedin-url"
+              value={linkedinProjectUrl}
+              onChange={(event) => setLinkedInProjectUrl(event.target.value)}
+              placeholder={snapshot?.summary.remoteUrl ?? 'Optional'}
+            />
+
+            {!canGenerateLinkedInProject && (
+              <div className="assistant-policy-note">{assistantPolicyBlockedLabel('linkedin_project', assistantPolicy)}</div>
+            )}
+            {renderAssistantReadiness('linkedin_project')}
+          </section>
+
+          {!linkedinProject ? (
+            <section className="review-empty linkedin-empty">
+              <Star size={24} />
+              <strong>{linkedinLoading ? 'Generating LinkedIn project' : 'No LinkedIn draft yet'}</strong>
+              <span>{snapshot ? 'Generate a project entry from commits, tracked files, README, package metadata, and repository dates.' : 'Open a repository before generating LinkedIn content.'}</span>
+            </section>
+          ) : (
+            <section className="linkedin-draft">
+              <div className="linkedin-field-grid">
+                <label>
+                  Project name
+                  <input
+                    value={linkedinProject.projectName}
+                    onChange={(event) => updateLinkedInProject({ projectName: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Headline
+                  <input
+                    value={linkedinProject.headline}
+                    onChange={(event) => updateLinkedInProject({ headline: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Role
+                  <input
+                    value={linkedinProject.role}
+                    onChange={(event) => updateLinkedInProject({ role: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Start date
+                  <input
+                    value={linkedinProject.startDate}
+                    onChange={(event) => updateLinkedInProject({ startDate: event.target.value })}
+                  />
+                </label>
+                <label>
+                  End date
+                  <input
+                    value={linkedinProject.endDate}
+                    onChange={(event) => updateLinkedInProject({ endDate: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Project URL
+                  <input
+                    value={linkedinProject.urlSuggestion}
+                    onChange={(event) => updateLinkedInProject({ urlSuggestion: event.target.value })}
+                  />
+                </label>
+              </div>
+
+              <label>
+                Description
+                <textarea
+                  value={linkedinProject.description}
+                  onChange={(event) => updateLinkedInProject({ description: event.target.value })}
+                />
+              </label>
+
+              <label>
+                Highlights
+                <textarea
+                  value={linkedinProject.highlights.join('\n')}
+                  onChange={(event) => updateLinkedInProject({
+                    highlights: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean)
+                  })}
+                />
+              </label>
+
+              <div className="linkedin-field-grid">
+                <label>
+                  Tags
+                  <textarea
+                    value={linkedinProject.tags.join(', ')}
+                    onChange={(event) => updateLinkedInProject({
+                      tags: event.target.value.split(',').map((tag) => tag.trim().replace(/^#/, '')).filter(Boolean)
+                    })}
+                  />
+                </label>
+                <label>
+                  Skills
+                  <textarea
+                    value={linkedinProject.skills.join(', ')}
+                    onChange={(event) => updateLinkedInProject({
+                      skills: event.target.value.split(',').map((skill) => skill.trim()).filter(Boolean)
+                    })}
+                  />
+                </label>
+              </div>
+
+              <section className="daily-section">
+                <div className="daily-section-heading">
+                  <strong>LinkedIn Markdown</strong>
+                  <div className="panel-actions">
+                    <button type="button" onClick={copyLinkedInTags}>
+                      <Copy size={15} />
+                      Tags
+                    </button>
+                    <button type="button" onClick={copyLinkedInMarkdown}>
+                      <Copy size={15} />
+                      Markdown
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  className="linkedin-markdown-editor"
+                  value={linkedinProject.markdown}
+                  onChange={(event) => updateLinkedInProject({ markdown: event.target.value })}
+                />
+              </section>
+            </section>
+          )}
+        </div>
+      </section>
+    )
+  }
 }
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -6070,6 +6323,7 @@ function assistantPolicyModeLabel(mode: AssistantPolicyMode): string {
 function assistantActionLabel(action: AssistantActionKind): string {
   if (action === 'branch_draft') return 'Branch draft generation'
   if (action === 'commit_message') return 'Commit text generation'
+  if (action === 'linkedin_project') return 'LinkedIn project generation'
   if (action === 'pull_request_text') return 'PR text generation'
   return 'Assistant reviews'
 }
@@ -6249,6 +6503,7 @@ function activityTypeLabel(type: ActivityLogEventType): string {
 function completedWorkSource(type: ActivityLogEventType): CompletedWorkSource {
   if (type === 'github_pr_created') return 'provider'
   if (type === 'daily_review_generated') return 'review'
+  if (type === 'assistant_linkedin_generated') return 'linkedin'
   return 'git'
 }
 
@@ -6256,6 +6511,7 @@ function completedWorkSourceLabel(source: CompletedWorkSource): string {
   if (source === 'commit') return 'Commit'
   if (source === 'provider') return 'Provider'
   if (source === 'review') return 'Review'
+  if (source === 'linkedin') return 'LinkedIn'
   return 'Git'
 }
 

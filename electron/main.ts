@@ -38,6 +38,7 @@ import type {
   FileActionRequest,
   GitIdentityUpdate,
   HunkActionRequest,
+  LinkedInProjectGenerationRequest,
   ListGitHubRepositoriesRequest,
   MergeBranchRequest,
   ProjectMemoryScanResult,
@@ -61,6 +62,7 @@ import {
   checkAssistantStatuses,
   generateBranchDescription,
   generateBranchDraft,
+  generateLinkedInProject,
   generateCommitMessage,
   generatePullRequestText,
   generateReviewReport,
@@ -1077,6 +1079,22 @@ function registerIpcHandlers() {
     })
   }, (request: BranchDescriptionGenerationRequest) =>
     generateBranchDescription(commandRunner, request)
+  )
+  handleAssistantAction('assistants:generateLinkedInProject', 'linkedin_project', {
+    type: 'assistant_linkedin_generated',
+    actor: 'assistant',
+    title: 'Assistant LinkedIn project generated',
+    repoPath: requestRepoPath,
+    metadata: ([request], generated) => ({
+      requested_assistant: request.assistant,
+      assistant: generated?.assistant ?? 'unknown',
+      project_name: generated?.projectName ?? '',
+      tag_count: generated?.tags.length ?? 0,
+      skill_count: generated?.skills.length ?? 0,
+      truncated: generated?.truncated ?? false
+    })
+  }, (request: LinkedInProjectGenerationRequest) =>
+    generateLinkedInProject(commandRunner, request)
   )
   handleAssistantAction('assistants:generatePullRequestText', 'pull_request_text', {
     type: 'assistant_pr_generated',

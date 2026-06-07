@@ -10,8 +10,10 @@ import type {
   GeneratedBranchDescription,
   GeneratedBranchDraft,
   GeneratedCommitMessage,
+  GeneratedLinkedInProject,
   GeneratedPullRequestText,
   InstalledAssistantId,
+  LinkedInProjectGenerationRequest,
   PullRequestTextGenerationRequest,
   ReviewFinding,
   ReviewMode,
@@ -35,6 +37,7 @@ interface ResolvedAssistantRunner extends AssistantRunner {
 
 const MAX_ASSISTANT_DIFF_BYTES = 80_000
 const MAX_ASSISTANT_BRANCH_CONTEXT_BYTES = 100_000
+const MAX_ASSISTANT_LINKEDIN_CONTEXT_BYTES = 100_000
 const MAX_ASSISTANT_PR_DIFF_BYTES = 120_000
 const MAX_ASSISTANT_REVIEW_DIFF_BYTES = 120_000
 
@@ -117,6 +120,25 @@ const REVIEW_REPORT_SCHEMA: Record<string, unknown> = {
         }
       }
     }
+  }
+}
+
+const LINKEDIN_PROJECT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectName', 'headline', 'role', 'startDate', 'endDate', 'description', 'highlights', 'tags', 'skills', 'urlSuggestion', 'markdown'],
+  properties: {
+    projectName: { type: 'string', minLength: 1 },
+    headline: { type: 'string', minLength: 1 },
+    role: { type: 'string', minLength: 1 },
+    startDate: { type: 'string', minLength: 1 },
+    endDate: { type: 'string', minLength: 1 },
+    description: { type: 'string', minLength: 1 },
+    highlights: { type: 'array', items: { type: 'string' } },
+    tags: { type: 'array', items: { type: 'string' } },
+    skills: { type: 'array', items: { type: 'string' } },
+    urlSuggestion: { type: 'string' },
+    markdown: { type: 'string', minLength: 1 }
   }
 }
 
@@ -447,6 +469,90 @@ export async function generateBranchDescription(
   }
 }
 
+export async function generateLinkedInProject(
+  runner: CommandRunner,
+  request: LinkedInProjectGenerationRequest
+): Promise<GeneratedLinkedInProject> {
+  const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
+  const repositoryName = path.basename(rootPath)
+  const currentBranch = await getBranchLabel(runner, rootPath)
+  const remote = await runner.run('/usr/bin/git', ['remote', 'get-url', 'origin'], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 2],
+    timeoutMs: 10_000
+  })
+  const status = await runner.run('/usr/bin/git', ['status', '--short'], {
+    cwd: rootPath,
+    timeoutMs: 10_000
+  })
+  const recentCommits = await runner.run('/usr/bin/git', [
+    'log',
+    '--max-count=25',
+    '--date=format:%Y-%m',
+    '--pretty=format:%h%x00%s%x00%an%x00%ad'
+  ], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 128],
+    timeoutMs: 30_000
+  })
+  const commitDates = await runner.run('/usr/bin/git', [
+    'log',
+    '--reverse',
+    '--date=format:%Y-%m',
+    '--pretty=format:%ad'
+  ], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 128],
+    timeoutMs: 30_000
+  })
+  const trackedFiles = await runner.run('/usr/bin/git', ['ls-files'], {
+    cwd: rootPath,
+    allowedExitCodes: [0],
+    timeoutMs: 30_000
+  })
+  const packageJson = await readOptionalFile(path.join(rootPath, 'package.json'), 12_000)
+  const readme = await readFirstExistingFile(rootPath, ['README.md', 'readme.md', 'README.txt'], 20_000)
+  const dates = commitDates.stdout.split('\n').map((date) => date.trim()).filter(Boolean)
+  const context = truncateText([
+    `Repository: ${repositoryName}`,
+    `Current branch: ${currentBranch}`,
+    `Remote URL: ${remote.stdout.trim() || '(none)'}`,
+    `Suggested project URL: ${request.projectUrl?.trim() || remote.stdout.trim() || '(none)'}`,
+    `Preferred role: ${request.role?.trim() || '(infer from repository context)'}`,
+    `Audience: ${request.audience?.trim() || 'LinkedIn project section'}`,
+    `Suggested date range: ${dates[0] ?? '(unknown start)'} to ${dates[dates.length - 1] ?? 'Present'}`,
+    '',
+    'Git status:',
+    status.stdout || '(clean)',
+    '',
+    'Recent commits:',
+    recentCommits.stdout || '(none)',
+    '',
+    'Tracked files:',
+    trackedFiles.stdout.split('\n').slice(0, 240).join('\n') || '(none)',
+    '',
+    'package.json:',
+    packageJson || '(not found)',
+    '',
+    'README:',
+    readme || '(not found)'
+  ].join('\n'), MAX_ASSISTANT_LINKEDIN_CONTEXT_BYTES)
+  const prompt = buildLinkedInProjectPrompt({
+    repositoryName,
+    currentBranch,
+    context: context.text,
+    truncated: context.truncated
+  })
+  const { assistant, output } = await runAssistantForRequest(runner, request.assistant, prompt, LINKEDIN_PROJECT_SCHEMA)
+  const parsed = parseLinkedInProject(output)
+
+  return {
+    ...parsed,
+    assistant: assistant.id,
+    truncated: context.truncated
+  }
+}
+
 export async function generateReviewReport(
   runner: CommandRunner,
   request: ReviewReportRequest
@@ -488,6 +594,27 @@ async function resolveRepositoryRoot(runner: CommandRunner, repoPath: string): P
   })
 
   return result.stdout.trim()
+}
+
+async function readOptionalFile(filePath: string, maxBytes: number): Promise<string> {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8')
+    return truncateText(raw, maxBytes).text
+  } catch {
+    return ''
+  }
+}
+
+async function readFirstExistingFile(rootPath: string, candidates: string[], maxBytes: number): Promise<string> {
+  for (const candidate of candidates) {
+    const content = await readOptionalFile(path.join(rootPath, candidate), maxBytes)
+
+    if (content.trim()) {
+      return content
+    }
+  }
+
+  return ''
 }
 
 async function getCurrentBranch(runner: CommandRunner, rootPath: string): Promise<string> {
@@ -968,6 +1095,37 @@ function buildBranchDescriptionPrompt(context: {
   ].join('\n')
 }
 
+function buildLinkedInProjectPrompt(context: {
+  repositoryName: string
+  currentBranch: string
+  context: string
+  truncated: boolean
+}): string {
+  return [
+    'Generate a LinkedIn Project entry for the software repository below.',
+    'Use only the provided repository context. This is suggest-only content: do not claim production impact, employer ownership, users, revenue, awards, or metrics unless visible in the context.',
+    'Return JSON only with this exact shape: {"projectName":"...","headline":"...","role":"...","startDate":"YYYY-MM or Month YYYY","endDate":"YYYY-MM, Month YYYY, Present, or In progress","description":"...","highlights":["..."],"tags":["..."],"skills":["..."],"urlSuggestion":"...","markdown":"..."}',
+    'Rules:',
+    '- projectName should be LinkedIn-friendly and can improve the repository name without inventing a different product;',
+    '- headline should be a short one-line project title/subtitle;',
+    '- role should describe the contributor role, such as Creator, Full-stack developer, Desktop app developer, or Maintainer;',
+    '- startDate and endDate should use the provided commit date range when available;',
+    '- description should be first-person neutral or resume-style, 2-4 concise sentences;',
+    '- highlights should contain 3-5 concrete bullets about features, architecture, or workflow;',
+    '- tags should contain 5-12 hashtag-ready keywords without #;',
+    '- skills should contain 5-12 LinkedIn skills/technologies;',
+    '- markdown should combine the fields into a copyable LinkedIn-ready block;',
+    '- do not mention that you are an AI assistant;',
+    '- do not wrap the JSON in markdown fences.',
+    '',
+    `Repository: ${context.repositoryName}`,
+    `Current branch: ${context.currentBranch}`,
+    `Context truncated: ${context.truncated ? 'yes' : 'no'}`,
+    '',
+    context.context
+  ].join('\n')
+}
+
 function buildPullRequestPrompt(context: {
   baseBranch: string
   headBranch: string
@@ -1084,6 +1242,94 @@ function parseBranchDescription(output: string): string {
   }
 
   return description
+}
+
+function parseLinkedInProject(output: string): Omit<GeneratedLinkedInProject, 'assistant' | 'truncated'> {
+  const parsed = normalizeAssistantPayload(parseJsonLike(output))
+  const projectName = stringField(parsed, 'projectName')
+  const headline = stringField(parsed, 'headline')
+  const role = stringField(parsed, 'role')
+  const startDate = stringField(parsed, 'startDate')
+  const endDate = stringField(parsed, 'endDate')
+  const description = stringField(parsed, 'description')
+  const highlights = stringArrayField(parsed, 'highlights')
+  const tags = stringArrayField(parsed, 'tags')
+  const skills = stringArrayField(parsed, 'skills')
+  const urlSuggestion = stringField(parsed, 'urlSuggestion', false)
+  const markdown = stringField(parsed, 'markdown', false) || formatLinkedInMarkdown({
+    projectName,
+    headline,
+    role,
+    startDate,
+    endDate,
+    description,
+    highlights,
+    tags,
+    skills,
+    urlSuggestion
+  })
+
+  if (!projectName || !headline || !role || !startDate || !endDate || !description) {
+    throw new BranchPilotUserError(
+      'assistant_parse_failed',
+      'Assistant did not return a valid LinkedIn project entry.',
+      output.slice(0, 2_000)
+    )
+  }
+
+  return {
+    projectName,
+    headline,
+    role,
+    startDate,
+    endDate,
+    description,
+    highlights,
+    tags,
+    skills,
+    urlSuggestion,
+    markdown
+  }
+}
+
+function stringField(parsed: Record<string, unknown>, key: string, required = true): string {
+  const value = typeof parsed[key] === 'string' ? parsed[key].trim() : ''
+
+  if (required && !value) {
+    return ''
+  }
+
+  return value
+}
+
+function stringArrayField(parsed: Record<string, unknown>, key: string): string[] {
+  if (!Array.isArray(parsed[key])) {
+    return []
+  }
+
+  return parsed[key]
+    .map((value) => typeof value === 'string' ? value.trim() : '')
+    .filter(Boolean)
+    .slice(0, 16)
+}
+
+function formatLinkedInMarkdown(project: Omit<GeneratedLinkedInProject, 'assistant' | 'truncated' | 'markdown'>): string {
+  return [
+    `# ${project.projectName}`,
+    project.headline,
+    '',
+    `Role: ${project.role}`,
+    `Dates: ${project.startDate} - ${project.endDate}`,
+    project.urlSuggestion ? `URL: ${project.urlSuggestion}` : '',
+    '',
+    project.description,
+    '',
+    'Highlights:',
+    ...project.highlights.map((highlight) => `- ${highlight}`),
+    '',
+    project.skills.length > 0 ? `Skills: ${project.skills.join(', ')}` : '',
+    project.tags.length > 0 ? `Tags: ${project.tags.map((tag) => `#${tag.replace(/^#/, '')}`).join(' ')}` : ''
+  ].filter((line) => line !== '').join('\n')
 }
 
 async function validateGeneratedBranchName(

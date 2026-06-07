@@ -368,7 +368,7 @@ export type AssistantPolicyMode =
   | 'allow-local-commands'
   | 'allow-file-edits'
 
-export type AssistantActionKind = 'commit_message' | 'pull_request_text' | 'review_report' | 'branch_draft'
+export type AssistantActionKind = 'commit_message' | 'pull_request_text' | 'review_report' | 'branch_draft' | 'linkedin_project'
 
 export interface AssistantPolicySettings {
   repoPath: string
@@ -431,6 +431,7 @@ export type ActivityLogEventType =
   | 'assistant_commit_generated'
   | 'assistant_branch_generated'
   | 'assistant_pr_generated'
+  | 'assistant_linkedin_generated'
   | 'assistant_review_generated'
   | 'daily_review_generated'
   | 'github_pr_created'
@@ -748,6 +749,30 @@ export interface GeneratedBranchDraft {
 export interface GeneratedBranchDescription {
   branchName: string
   description: string
+  assistant: InstalledAssistantId
+  truncated: boolean
+}
+
+export interface LinkedInProjectGenerationRequest {
+  repoPath: string
+  assistant: AssistantId
+  role?: string
+  audience?: string
+  projectUrl?: string
+}
+
+export interface GeneratedLinkedInProject {
+  projectName: string
+  headline: string
+  role: string
+  startDate: string
+  endDate: string
+  description: string
+  highlights: string[]
+  tags: string[]
+  skills: string[]
+  urlSuggestion: string
+  markdown: string
   assistant: InstalledAssistantId
   truncated: boolean
 }
@@ -1093,6 +1118,7 @@ export interface BranchPilotApi {
   generateCommitMessage: (request: CommitMessageGenerationRequest) => Promise<ApiResult<GeneratedCommitMessage>>
   generateBranchDraft: (request: BranchDraftGenerationRequest) => Promise<ApiResult<GeneratedBranchDraft>>
   generateBranchDescription: (request: BranchDescriptionGenerationRequest) => Promise<ApiResult<GeneratedBranchDescription>>
+  generateLinkedInProject: (request: LinkedInProjectGenerationRequest) => Promise<ApiResult<GeneratedLinkedInProject>>
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>
   createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>

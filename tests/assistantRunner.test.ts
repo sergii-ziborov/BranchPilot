@@ -14,6 +14,7 @@ import {
   generateBranchDescription,
   generateBranchDraft,
   generateCommitMessage,
+  generateLinkedInProject,
   generatePullRequestText,
   generateReviewReport,
   listAssistantStatuses
@@ -358,6 +359,54 @@ describe('assistant commit message generation', () => {
     })
     expect(runner.assistantPrompt).toContain('Branch: main')
     expect(runner.assistantPrompt).toContain('+description staged')
+  })
+
+  it('generates LinkedIn project fields from repository context', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({
+      available: ['claude'],
+      assistantOutput: JSON.stringify({
+        projectName: 'BranchPilot',
+        headline: 'Local-first Git workflow assistant',
+        role: 'Desktop app developer',
+        startDate: '2026-06',
+        endDate: 'Present',
+        description: 'Built a local-first desktop Git client with assistant-powered workflow drafting.',
+        highlights: ['Implemented Git status and commit workflows', 'Added local assistant integrations'],
+        tags: ['Git', 'Electron', 'TypeScript'],
+        skills: ['React', 'Electron', 'Git'],
+        urlSuggestion: 'https://github.com/example/branchpilot',
+        markdown: '# BranchPilot\nLocal-first Git workflow assistant'
+      })
+    })
+
+    writeFileSync(path.join(repoPath, 'package.json'), '{"dependencies":{"electron":"latest","react":"latest"}}\n')
+    writeFileSync(path.join(repoPath, 'README.md'), 'BranchPilot README context\n')
+    git(repoPath, ['add', 'package.json', 'README.md'])
+    git(repoPath, ['commit', '-m', 'Add project metadata'])
+
+    const result = await generateLinkedInProject(runner, {
+      repoPath,
+      assistant: 'auto',
+      role: 'Creator',
+      audience: 'LinkedIn project section'
+    })
+
+    expect(result).toMatchObject({
+      projectName: 'BranchPilot',
+      headline: 'Local-first Git workflow assistant',
+      role: 'Desktop app developer',
+      startDate: '2026-06',
+      endDate: 'Present',
+      tags: ['Git', 'Electron', 'TypeScript'],
+      skills: ['React', 'Electron', 'Git'],
+      assistant: 'claude',
+      truncated: false
+    })
+    expect(runner.assistantPrompt).toContain('LinkedIn Project entry')
+    expect(runner.assistantPrompt).toContain('Add project metadata')
+    expect(runner.assistantPrompt).toContain('BranchPilot README context')
+    expect(runner.assistantPrompt).toContain('electron')
   })
 
   it('rejects branch description generation for missing branches', async () => {

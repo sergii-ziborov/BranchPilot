@@ -1379,6 +1379,10 @@ button.danger-button:hover {
 .commit-box textarea,
 .commit-box select,
 .daily-controls input,
+  .linkedin-controls input,
+  .linkedin-controls select,
+  .linkedin-draft input,
+  .linkedin-draft textarea,
   .pr-form input,
   .pr-form textarea,
   .branch-composer input,
@@ -1396,6 +1400,9 @@ button.danger-button:hover {
 .commit-box input,
 .commit-box select,
   .daily-controls input,
+  .linkedin-controls input,
+  .linkedin-controls select,
+  .linkedin-draft input,
   .pr-form input,
   .branch-composer input,
   .branch-composer select,
@@ -1405,6 +1412,7 @@ button.danger-button:hover {
 }
 
 .commit-box textarea,
+.linkedin-draft textarea,
 .pr-form textarea,
 .branch-composer textarea {
   min-height: 88px;
@@ -2732,6 +2740,12 @@ button.danger-button:hover {
   background: #fff7ed;
 }
 
+.completed-work-row.source-linkedin em {
+  color: #0f766e;
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
 .memory-activity-filters {
   flex-wrap: wrap;
   margin-bottom: 0;
@@ -3574,7 +3588,7 @@ button.danger-button:hover {
 
 .assistant-policy-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
 }
 
@@ -4424,6 +4438,64 @@ button.danger-button:hover {
   white-space: pre;
 }
 
+.linkedin-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.linkedin-workspace {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.34fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.linkedin-controls,
+.linkedin-draft {
+  display: grid;
+  gap: 10px;
+}
+
+.linkedin-controls {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.linkedin-controls label,
+.linkedin-draft label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.linkedin-draft {
+  min-width: 0;
+}
+
+.linkedin-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.linkedin-draft textarea {
+  min-height: 104px;
+}
+
+.linkedin-markdown-editor {
+  min-height: 260px;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.linkedin-empty {
+  min-height: 360px;
+}
+
 button.secondary {
   border-color: #dbe1ea;
   color: #475569;
@@ -4495,6 +4567,8 @@ button.secondary:hover {
   .completed-work-row,
   .activity-row,
   .daily-workspace,
+  .linkedin-workspace,
+  .linkedin-field-grid,
   .review-controls,
   .assistant-policy-actions,
   .branch-composer-grid,

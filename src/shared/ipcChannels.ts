@@ -6,6 +6,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'assistants:generateBranchDescription',
   'assistants:generateBranchDraft',
   'assistants:generateCommitMessage',
+  'assistants:generateLinkedInProject',
   'assistants:generatePullRequestText',
   'assistants:generateReviewReport',
   'assistants:getPolicy',

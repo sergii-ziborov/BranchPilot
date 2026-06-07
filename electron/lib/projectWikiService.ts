@@ -22,6 +22,7 @@ const IMPORTANT_SYMBOL_KINDS = new Set(['class', 'component', 'function', 'inter
 const COMPLETED_WORK_ACTIVITY_TYPES = new Set<ActivityLogEntry['type']>([
   'github_pr_created',
   'daily_review_generated',
+  'assistant_linkedin_generated',
   'merge_continued',
   'patch_applied',
   'branch_published'
@@ -196,6 +197,10 @@ function workflowsMarkdown(snapshot: ProjectMemorySnapshot, activity: ActivityLo
       title: 'Daily Review',
       detected: paths.some((filePath) => filePath.includes('dailyreview')) ||
         activityTypes.has('daily_review_generated')
+    },
+    {
+      title: 'LinkedIn Project Drafts',
+      detected: activityTypes.has('assistant_linkedin_generated')
     }
   ]
 
@@ -211,7 +216,7 @@ function assistantPolicyMarkdown(snapshot: ProjectMemorySnapshot): string {
     '# Assistant Policy',
     '',
     '- Default behavior is suggest-only.',
-    '- Commit, pull request, review, daily review, Project Memory, and Project Wiki content are generated locally.',
+    '- Commit, pull request, LinkedIn project drafts, review, daily review, Project Memory, and Project Wiki content are generated locally.',
     '- MCP access is read-only and intended for context retrieval.',
     '- MCP must not write files, run commands, mutate Git state, or store credentials.',
     '- Destructive Git operations require explicit user confirmation in BranchPilot.',

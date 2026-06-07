@@ -21,6 +21,7 @@ const ALL_ASSISTANT_POLICY_MODES: AssistantPolicyMode[] = [
 const ACTION_LABELS: Record<AssistantActionKind, string> = {
   branch_draft: 'branch draft generation',
   commit_message: 'commit text generation',
+  linkedin_project: 'LinkedIn project generation',
   pull_request_text: 'pull request text generation',
   review_report: 'review'
 }
@@ -89,7 +90,7 @@ export function allowedActionsForMode(mode: AssistantPolicyMode): AssistantActio
     return ['review_report']
   }
 
-  return ['commit_message', 'pull_request_text', 'review_report', 'branch_draft']
+  return ['commit_message', 'pull_request_text', 'review_report', 'branch_draft', 'linkedin_project']
 }
 
 function normalizePersistedPolicy(repoPath: string, settings?: AssistantPolicySettings): AssistantPolicySettings {

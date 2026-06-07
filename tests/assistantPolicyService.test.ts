@@ -11,6 +11,13 @@ import { SettingsStore } from '../electron/lib/settingsStore'
 import type { AssistantActionKind } from '../src/shared/branchPilot'
 
 const tempRoots: string[] = []
+const suggestOnlyActions: AssistantActionKind[] = [
+  'commit_message',
+  'pull_request_text',
+  'review_report',
+  'branch_draft',
+  'linkedin_project'
+]
 
 describe('AssistantPolicyService', () => {
   afterEach(() => {
@@ -28,7 +35,7 @@ describe('AssistantPolicyService', () => {
       mode: 'suggest-only',
       updatedAt: ''
     })
-    expect(status.allowedActions).toEqual(['commit_message', 'pull_request_text', 'review_report', 'branch_draft'])
+    expect(status.allowedActions).toEqual(suggestOnlyActions)
     expect(status.lockedModes).toEqual(['allow-local-commands', 'allow-file-edits'])
   })
 
@@ -84,9 +91,12 @@ describe('AssistantPolicyService', () => {
     await expect(service.assertActionAllowed(repoPath, 'branch_draft')).rejects.toMatchObject({
       code: 'assistant_policy_blocked'
     })
+    await expect(service.assertActionAllowed(repoPath, 'linkedin_project')).rejects.toMatchObject({
+      code: 'assistant_policy_blocked'
+    })
 
     await service.setAssistantPolicy({ repoPath, mode: 'suggest-only' })
-    await expectAllowed(service, repoPath, ['commit_message', 'pull_request_text', 'review_report', 'branch_draft'])
+    await expectAllowed(service, repoPath, suggestOnlyActions)
   })
 
   it('does not allow locked future modes to expand permissions in v1', async () => {
@@ -105,13 +115,13 @@ describe('AssistantPolicyService', () => {
       code: 'assistant_policy_mode_locked'
     })
 
-    expect(allowedActionsForMode('allow-local-commands')).toEqual(['commit_message', 'pull_request_text', 'review_report', 'branch_draft'])
-    expect(allowedActionsForMode('allow-file-edits')).toEqual(['commit_message', 'pull_request_text', 'review_report', 'branch_draft'])
+    expect(allowedActionsForMode('allow-local-commands')).toEqual(suggestOnlyActions)
+    expect(allowedActionsForMode('allow-file-edits')).toEqual(suggestOnlyActions)
     expect(buildAssistantPolicyStatus({
       repoPath: '/repo/manual',
       mode: 'allow-file-edits',
       updatedAt: '2026-01-01T00:00:00.000Z'
-    }).allowedActions).toEqual(['commit_message', 'pull_request_text', 'review_report', 'branch_draft'])
+    }).allowedActions).toEqual(suggestOnlyActions)
   })
 
   it('rejects missing repository paths cleanly', async () => {
@@ -130,7 +140,7 @@ describe('AssistantPolicyService', () => {
 })
 
 async function expectAllowed(service: AssistantPolicyService, repoPath: string, actions: AssistantActionKind[]) {
-  const allActions: AssistantActionKind[] = ['commit_message', 'pull_request_text', 'review_report', 'branch_draft']
+  const allActions: AssistantActionKind[] = ['commit_message', 'pull_request_text', 'review_report', 'branch_draft', 'linkedin_project']
 
   for (const action of allActions) {
     const assertion = expect(service.assertActionAllowed(repoPath, action))
