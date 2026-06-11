@@ -1171,8 +1171,8 @@ describe('RepositoryService', () => {
     await expect(service.deleteBranch(repoPath, 'feature/renamed', false, false)).rejects.toMatchObject({
       code: 'confirmation_required'
     })
-    await expect(service.deleteBranch(repoPath, 'feature/renamed', true, true)).rejects.toMatchObject({
-      code: 'unsupported_force_delete'
+    await expect(service.deleteBranch(repoPath, 'feature/renamed', true, false)).rejects.toMatchObject({
+      code: 'confirmation_required'
     })
 
     const deleted = await service.deleteBranch(repoPath, 'feature/renamed', false, true)
@@ -1402,6 +1402,9 @@ describe('RepositoryService', () => {
     } catch (error) {
       expect(toBranchPilotError(error).code).toBe('git_branch_not_merged')
     }
+
+    const forced = await service.deleteBranch(repoPath, 'feature/unmerged', true, true)
+    expect(forced.branches.map((branch) => branch.name)).not.toContain('feature/unmerged')
   })
 })
 

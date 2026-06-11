@@ -904,10 +904,6 @@ export class RepositoryService {
       throw new BranchPilotUserError('confirmation_required', 'Deleting a branch requires explicit confirmation.')
     }
 
-    if (force) {
-      throw new BranchPilotUserError('unsupported_force_delete', 'Force deleting branches is not available in BranchPilot v1.')
-    }
-
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     const normalizedName = normalizeBranchName(branchName)
     const currentBranch = await this.getCurrentBranch(rootPath)
@@ -1680,8 +1676,10 @@ export class RepositoryService {
       return { operation: 'cherry-pick', files: conflictFiles }
     }
 
+    // Conflicts can exist without an operation marker (e.g. after stash apply).
+    // Reporting 'merge' here would offer Continue/Abort actions that git rejects.
     return {
-      operation: conflictFiles.length > 0 ? 'merge' : 'none',
+      operation: 'none',
       files: conflictFiles
     }
   }

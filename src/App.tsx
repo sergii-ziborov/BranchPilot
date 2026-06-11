@@ -45,7 +45,6 @@ import type {
   BranchComparison,
   BranchSummary,
   CommitDetails,
-  CommitFileChange,
   CommitSummary,
   DiffHunk,
   DiffLine,
@@ -64,7 +63,6 @@ import type {
   GitHubPullRequestCheck,
   GitHubPullRequestDetails,
   GitHubPullRequestDiff,
-  GitHubPullRequestDiffFile,
   GitHubRepositorySummary,
   GeneratedLinkedInProject,
   GitConfigSnapshot,
@@ -140,6 +138,20 @@ interface ConfirmationRequest extends Required<ConfirmationOptions> {
   resolve: (confirmed: boolean) => void
 }
 
+interface TextPromptOptions {
+  title?: string
+  confirmLabel?: string
+  cancelLabel?: string
+  defaultValue?: string
+  placeholder?: string
+}
+
+interface TextPromptRequest extends Required<TextPromptOptions> {
+  id: number
+  message: string
+  resolve: (value: string | null) => void
+}
+
 const api = window.branchPilot
 const reviewModes: ReviewMode[] = ['consistency', 'security', 'quality']
 const reviewSeverities: ReviewSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
@@ -196,6 +208,7 @@ function App() {
   const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
   const [diff, setDiff] = useState<DiffResult | null>(null)
   const [history, setHistory] = useState<CommitSummary[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [historyFilter, setHistoryFilter] = useState('')
   const [selectedCommitSha, setSelectedCommitSha] = useState<string | null>(null)
   const [commitDetails, setCommitDetails] = useState<CommitDetails | null>(null)
@@ -214,6 +227,10 @@ function App() {
   const [dailyReviewDate, setDailyReviewDate] = useState(() => formatDateInputValue(new Date()))
   const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
   const [linkedinProject, setLinkedInProject] = useState<GeneratedLinkedInProject | null>(null)
+  // Raw text drafts for the list editors; parsing on change would swallow Enter/comma keystrokes.
+  const [linkedinHighlightsText, setLinkedinHighlightsText] = useState('')
+  const [linkedinTagsText, setLinkedinTagsText] = useState('')
+  const [linkedinSkillsText, setLinkedinSkillsText] = useState('')
   const [linkedinRole, setLinkedInRole] = useState('')
   const [linkedinAudience, setLinkedInAudience] = useState('LinkedIn project section')
   const [linkedinProjectUrl, setLinkedInProjectUrl] = useState('')
@@ -262,10 +279,11 @@ function App() {
   const [githubRepoOwner, setGithubRepoOwner] = useState('')
   const [githubRepoQuery, setGithubRepoQuery] = useState('')
   const [githubRepoVisibility, setGithubRepoVisibility] = useState<'all' | 'public' | 'private' | 'internal'>('all')
-  const [githubRepoLimit, setGithubRepoLimit] = useState(30)
+  const [githubRepoLimit, setGithubRepoLimit] = useState('30')
   const [githubRepoLoading, setGithubRepoLoading] = useState(false)
   const [currentPullRequest, setCurrentPullRequest] = useState<GitHubPullRequest | null>(null)
   const [pullRequests, setPullRequests] = useState<GitHubPullRequest[]>([])
+  const [pullRequestsLoading, setPullRequestsLoading] = useState(false)
   const [selectedPullRequestNumber, setSelectedPullRequestNumber] = useState<number | null>(null)
   const [selectedPullRequestDetails, setSelectedPullRequestDetails] = useState<GitHubPullRequestDetails | null>(null)
   const [selectedPullRequestChecks, setSelectedPullRequestChecks] = useState<GitHubPullRequestCheck[]>([])
@@ -283,8 +301,16 @@ function App() {
   const [preCommitReports, setPreCommitReports] = useState<ReviewReport[]>([])
   const [preCommitRunningMode, setPreCommitRunningMode] = useState<ReviewMode | null>(null)
   const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationRequest | null>(null)
+  const [textPromptRequest, setTextPromptRequest] = useState<TextPromptRequest | null>(null)
+  const [textPromptValue, setTextPromptValue] = useState('')
   const confirmationIdRef = useRef(0)
+  const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
   const diffRequestIdRef = useRef(0)
+  const pullRequestDetailsRequestIdRef = useRef(0)
+  const commitDetailsRequestIdRef = useRef(0)
+  const commitFileDiffRequestIdRef = useRef(0)
+  const projectMemoryRequestIdRef = useRef(0)
+  const dashboardRequestIdRef = useRef(0)
 
   const filteredChanges = useMemo(() => {
     const changes = snapshot?.status.changes ?? []
@@ -372,8 +398,8 @@ function App() {
     if (!diff || diff.binary || !diff.text.trim()) return null
     return getDiffStats(diff)
   }, [diff])
-  const virtualChanges = useVirtualList(filteredChanges, CHANGE_LIST_ITEM_HEIGHT)
-  const virtualHistory = useVirtualList(filteredHistory, HISTORY_LIST_ITEM_HEIGHT)
+  const virtualChanges = useVirtualList(filteredChanges, CHANGE_LIST_ITEM_HEIGHT, `${snapshot?.summary.rootPath ?? ''}|${changeFilter}`)
+  const virtualHistory = useVirtualList(filteredHistory, HISTORY_LIST_ITEM_HEIGHT, `${snapshot?.summary.rootPath ?? ''}|${historyFilter}`)
 
   const selectedMemoryFile = useMemo(
     () => projectMemory?.files.find((file) => file.path === selectedMemoryFilePath) ?? null,
@@ -448,6 +474,38 @@ function App() {
     request.resolve(confirmed)
   }
 
+  function requestTextInput(message: string, options: TextPromptOptions = {}): Promise<string | null> {
+    if (textPromptRequest || confirmationRequest) return Promise.resolve(null)
+
+    return new Promise((resolve) => {
+      confirmationIdRef.current += 1
+      setTextPromptValue(options.defaultValue ?? '')
+      setTextPromptRequest({
+        id: confirmationIdRef.current,
+        title: options.title ?? 'Enter value',
+        message,
+        confirmLabel: options.confirmLabel ?? 'Save',
+        cancelLabel: options.cancelLabel ?? 'Cancel',
+        defaultValue: options.defaultValue ?? '',
+        placeholder: options.placeholder ?? '',
+        resolve
+      })
+    })
+  }
+
+  function answerTextPrompt(submitted: boolean) {
+    if (!textPromptRequest) return
+    const request = textPromptRequest
+    setTextPromptRequest(null)
+    request.resolve(submitted ? textPromptValue : null)
+  }
+
+  function closeChangesActionsMenu() {
+    if (changesActionsMenuRef.current) {
+      changesActionsMenuRef.current.open = false
+    }
+  }
+
   useEffect(() => {
     if (!api) {
       setError('BranchPilot desktop runtime is not available. Open the Electron app to use Git features.')
@@ -475,6 +533,33 @@ function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [confirmationRequest])
+
+  useEffect(() => {
+    if (!textPromptRequest) return
+
+    const request = textPromptRequest
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setTextPromptRequest(null)
+      request.resolve(null)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [textPromptRequest])
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      const menu = changesActionsMenuRef.current
+      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) {
+        menu.open = false
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [])
 
   useEffect(() => {
     if (!snapshot) return
@@ -540,12 +625,24 @@ function App() {
   useEffect(() => {
     setDailyReview(null)
     setLinkedInProject(null)
+    setLinkedinHighlightsText('')
+    setLinkedinTagsText('')
+    setLinkedinSkillsText('')
     setLinkedInRole('')
     setLinkedInAudience('LinkedIn project section')
     setLinkedInProjectUrl('')
-    setNewWorktreeBaseRef(snapshot?.summary.currentBranch && !snapshot.summary.isDetached ? snapshot.summary.currentBranch : 'HEAD')
     setNewWorktreeBranchName('')
+    setStashMessage('')
+    setEditingRemoteName(null)
+    setRemoteName('')
+    setRemoteUrl('')
+    setEditingBranchName(null)
+    setBranchDescriptionDraft('')
   }, [snapshot?.summary.rootPath])
+
+  useEffect(() => {
+    setNewWorktreeBaseRef(snapshot?.summary.currentBranch && !snapshot.summary.isDetached ? snapshot.summary.currentBranch : 'HEAD')
+  }, [snapshot?.summary.rootPath, snapshot?.summary.currentBranch, snapshot?.summary.isDetached])
 
   useEffect(() => {
     setCurrentPullRequest(null)
@@ -591,6 +688,8 @@ function App() {
 
   useEffect(() => {
     if (!snapshot || viewMode !== 'history' || !selectedCommitSha) {
+      commitDetailsRequestIdRef.current += 1
+      commitFileDiffRequestIdRef.current += 1
       setCommitDetails(null)
       setCommitFileDiff(null)
       return
@@ -626,6 +725,8 @@ function App() {
 
   useEffect(() => {
     if (viewMode !== 'providers' || !selectedPullRequestNumber || !githubCliStatus?.authenticated) {
+      pullRequestDetailsRequestIdRef.current += 1
+      setPullRequestDetailsLoading(false)
       setSelectedPullRequestDetails(null)
       setSelectedPullRequestChecks([])
       setSelectedPullRequestDiff(null)
@@ -682,13 +783,16 @@ function App() {
   async function loadRepositoryDashboard() {
     if (!api) return
 
+    const requestId = dashboardRequestIdRef.current + 1
+    dashboardRequestIdRef.current = requestId
     setDashboardLoading(true)
     const result = await api.getRepositoryDashboard(currentRepoPath)
+
+    if (dashboardRequestIdRef.current !== requestId) return
 
     if (result.ok) {
       setRepositoryDashboard(result.data)
     } else {
-      setRepositoryDashboard(null)
       setError(result.error.message)
     }
 
@@ -815,7 +919,7 @@ function App() {
     setError(null)
     const result = await api.setEditorSettings({
       preference: editorPreference,
-      customCommand: editorCustomCommand
+      customCommand: editorCustomCommand.trim()
     })
 
     if (result.ok) {
@@ -852,10 +956,12 @@ function App() {
       return
     }
 
+    setPullRequestsLoading(true)
     const [currentResult, listResult] = await Promise.all([
       api.getCurrentBranchPullRequest(currentRepoPath),
       api.listGitHubPullRequests(currentRepoPath)
     ])
+    setPullRequestsLoading(false)
 
     if (currentResult.ok) {
       setCurrentPullRequest(currentResult.data)
@@ -929,7 +1035,7 @@ function App() {
       owner: githubRepoOwner.trim() || undefined,
       query: githubRepoQuery.trim() || undefined,
       visibility: githubRepoVisibility,
-      limit: githubRepoLimit
+      limit: Math.min(100, Math.max(1, Number.parseInt(githubRepoLimit, 10) || 30))
     })
 
     if (result.ok) {
@@ -997,6 +1103,8 @@ function App() {
 
   async function loadPullRequestDetails(prNumber: number) {
     if (!api || !currentRepoPath) return
+    const requestId = pullRequestDetailsRequestIdRef.current + 1
+    pullRequestDetailsRequestIdRef.current = requestId
     setPullRequestDetailsLoading(true)
     setError(null)
     setSelectedPullRequestDetails((currentDetails) => currentDetails?.number === prNumber ? currentDetails : null)
@@ -1015,6 +1123,8 @@ function App() {
       githubCliStatus?.ghAuthenticated ? api.getGitHubPullRequestChecks(request) : Promise.resolve<ApiResult<GitHubPullRequestCheck[]>>({ ok: true, data: [] }),
       api.getGitHubPullRequestDiff(request)
     ])
+
+    if (pullRequestDetailsRequestIdRef.current !== requestId) return
 
     if (detailsResult.ok) {
       setSelectedPullRequestDetails(detailsResult.data)
@@ -1059,11 +1169,12 @@ function App() {
     })
   }
 
-  async function openRepository(path: string) {
-    if (!api) return
-    await runBusyOperation('Opening repository...', async () => {
+  async function openRepository(path: string): Promise<boolean> {
+    if (!api) return false
+    return runBusyOperation('Opening repository...', async () => {
       const result = await api.openRepository(path)
       applySnapshotResult(result, 'Repository opened.')
+      return result.ok
     })
   }
 
@@ -1125,20 +1236,27 @@ function App() {
 
   async function loadHistory() {
     if (!api || !currentRepoPath) return
-    const result = await api.getHistory(currentRepoPath)
+    setHistoryLoading(true)
+    try {
+      const result = await api.getHistory(currentRepoPath)
 
-    if (result.ok) {
-      setHistory(result.data)
-      setSelectedCommitSha((currentSha) =>
-        currentSha && result.data.some((commit) => commit.sha === currentSha) ? currentSha : result.data[0]?.sha ?? null
-      )
-    } else {
-      setError(result.error.message)
+      if (result.ok) {
+        setHistory(result.data)
+        setSelectedCommitSha((currentSha) =>
+          currentSha && result.data.some((commit) => commit.sha === currentSha) ? currentSha : result.data[0]?.sha ?? null
+        )
+      } else {
+        setError(result.error.message)
+      }
+    } finally {
+      setHistoryLoading(false)
     }
   }
 
   async function loadProjectMemory(repoPath = currentRepoPath) {
     if (!api || !repoPath) return
+    const requestId = projectMemoryRequestIdRef.current + 1
+    projectMemoryRequestIdRef.current = requestId
     setMemoryLoading(true)
     const [memoryResult, mcpConfigResult, wikiResult, activityResult] = await Promise.all([
       api.getProjectMemory(repoPath),
@@ -1146,6 +1264,8 @@ function App() {
       api.getProjectWiki(repoPath),
       api.getActivityLog({ repoPath, limit: 120 })
     ])
+
+    if (projectMemoryRequestIdRef.current !== requestId) return
 
     if (memoryResult.ok) {
       setProjectMemory(memoryResult.data)
@@ -1207,7 +1327,7 @@ function App() {
     if (result.ok) {
       setProjectMemory(result.data.snapshot)
       setNotice(`Project Memory scanned ${result.data.scannedFileCount} files in ${result.data.durationMs}ms.`)
-      void loadProjectMemory(currentRepoPath)
+      await loadProjectMemory(currentRepoPath)
     } else {
       setError(result.error.message)
       setNotice(result.error.details || result.error.code)
@@ -1268,21 +1388,23 @@ function App() {
     setDailyReviewLoading(true)
     setError(null)
 
-    const result = await api.generateDailyReview({
-      repoPath: currentRepoPath,
-      date: dailyReviewDate || undefined
-    })
+    try {
+      const result = await api.generateDailyReview({
+        repoPath: currentRepoPath,
+        date: dailyReviewDate || undefined
+      })
 
-    if (result.ok) {
-      setDailyReview(result.data)
-      setNotice(`Daily review generated for ${result.data.date}.`)
-    } else {
-      setDailyReview(null)
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      if (result.ok) {
+        setDailyReview(result.data)
+        setNotice(`Daily review generated for ${result.data.date}.`)
+      } else {
+        setDailyReview(null)
+        setError(result.error.message)
+        setNotice(result.error.details || result.error.code)
+      }
+    } finally {
+      setDailyReviewLoading(false)
     }
-
-    setDailyReviewLoading(false)
   }
 
   async function copyDailyReviewMarkdown() {
@@ -1307,29 +1429,34 @@ function App() {
     setLinkedInLoading(true)
     setBusy(true)
     setError(null)
-    const result = await api.generateLinkedInProject({
-      repoPath: currentRepoPath,
-      assistant: selectedAssistant,
-      role: linkedinRole,
-      audience: linkedinAudience,
-      projectUrl: linkedinProjectUrl
-    })
+    try {
+      const result = await api.generateLinkedInProject({
+        repoPath: currentRepoPath,
+        assistant: selectedAssistant,
+        role: linkedinRole,
+        audience: linkedinAudience,
+        projectUrl: linkedinProjectUrl
+      })
 
-    if (result.ok) {
-      setLinkedInProject(result.data)
-      setNotice(`LinkedIn project generated with ${assistantLabel(result.data.assistant)}.`)
-      if (result.data.truncated) {
-        setError('LinkedIn context was truncated for assistant limits.')
+      if (result.ok) {
+        setLinkedInProject(result.data)
+        setLinkedinHighlightsText(result.data.highlights.join('\n'))
+        setLinkedinTagsText(result.data.tags.join(', '))
+        setLinkedinSkillsText(result.data.skills.join(', '))
+        setNotice(`LinkedIn project generated with ${assistantLabel(result.data.assistant)}.`)
+        if (result.data.truncated) {
+          setError('LinkedIn context was truncated for assistant limits.')
+        }
+        void loadProjectMemory()
+      } else {
+        // Keep the current draft so a failed regeneration does not wipe user edits.
+        setError(result.error.message)
+        setNotice(result.error.details || result.error.code)
       }
-      void loadProjectMemory()
-    } else {
-      setLinkedInProject(null)
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+    } finally {
+      setBusy(false)
+      setLinkedInLoading(false)
     }
-
-    setBusy(false)
-    setLinkedInLoading(false)
   }
 
   function updateLinkedInProject(update: Partial<GeneratedLinkedInProject>) {
@@ -1360,7 +1487,11 @@ function App() {
 
   async function loadCommitDetails(commitSha: string) {
     if (!api || !currentRepoPath) return
+    const requestId = commitDetailsRequestIdRef.current + 1
+    commitDetailsRequestIdRef.current = requestId
     const result = await api.getCommitDetails({ repoPath: currentRepoPath, commitSha })
+
+    if (commitDetailsRequestIdRef.current !== requestId) return
 
     if (result.ok) {
       setCommitDetails(result.data)
@@ -1379,10 +1510,14 @@ function App() {
 
   async function loadCommitFileDiff(commitSha: string, filePath: string) {
     if (!api || !currentRepoPath) return
+    const requestId = commitFileDiffRequestIdRef.current + 1
+    commitFileDiffRequestIdRef.current = requestId
+    setSelectedCommitFilePath(filePath)
     const result = await api.getCommitFileDiff({ repoPath: currentRepoPath, commitSha, filePath })
 
+    if (commitFileDiffRequestIdRef.current !== requestId) return
+
     if (result.ok) {
-      setSelectedCommitFilePath(filePath)
       setCommitFileDiff(result.data)
     } else {
       setCommitFileDiff(null)
@@ -1414,6 +1549,25 @@ function App() {
       setBusy(false)
       setOperationLabel(null)
     }
+  }
+
+  async function runApiAction<T>(
+    progressLabel: string,
+    action: () => Promise<ApiResult<T>>,
+    onSuccess: (data: T) => void | Promise<void>
+  ): Promise<boolean> {
+    return runBusyOperation(progressLabel, async () => {
+      const result = await action()
+
+      if (result.ok) {
+        await onSuccess(result.data)
+        return true
+      }
+
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+      return false
+    })
   }
 
   async function runSnapshotAction(
@@ -1675,7 +1829,11 @@ function App() {
       return
     }
 
-    const message = window.prompt('Stash message', defaultStashMessage())
+    const message = (await requestTextInput('Stash all local changes with this message.', {
+      title: 'Quick Stash',
+      confirmLabel: 'Stash changes',
+      defaultValue: defaultStashMessage()
+    }))?.trim()
 
     if (!message) return
 
@@ -1685,21 +1843,12 @@ function App() {
   async function exportPatch() {
     if (!api || !currentRepoPath) return
 
-    setBusy(true)
-    setError(null)
-    const result = await api.exportPatch({
+    await runApiAction('Exporting patch...', () => api.exportPatch({
       repoPath: currentRepoPath,
       scope: patchScope
+    }), (data) => {
+      setNotice(data ? `Patch exported: ${data.fileName}` : 'Patch export cancelled.')
     })
-
-    if (result.ok) {
-      setNotice(result.data ? `Patch exported: ${result.data.fileName}` : 'Patch export cancelled.')
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
   }
 
   async function applyPatch() {
@@ -1711,29 +1860,29 @@ function App() {
     })
     if (!confirmed) return
 
-    setBusy(true)
-    setError(null)
-    const result = await api.applyPatch({
+    await runApiAction('Applying patch...', () => api.applyPatch({
       repoPath: currentRepoPath,
       confirmed
-    })
-
-    if (result.ok) {
-      if (result.data) {
-        applySnapshot(result.data, 'Patch applied.')
+    }), (data) => {
+      if (data) {
+        applySnapshot(data, 'Patch applied.')
       } else {
         setNotice('Patch apply cancelled.')
       }
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
+    })
   }
 
   async function applyStash(stash: StashEntry) {
     if (!api || !currentRepoPath) return
+    const confirmed = await requestConfirmation(
+      `Apply ${stash.ref} to the working tree? Restoring a stash can produce conflicts with current changes.`,
+      {
+        title: 'Apply Stash',
+        confirmLabel: 'Apply stash'
+      }
+    )
+    if (!confirmed) return
+
     const applied = await runSnapshotAction('Stash applied.', () =>
       api.applyStash({
         repoPath: currentRepoPath,
@@ -1779,46 +1928,38 @@ function App() {
     }
   }
 
-  async function mergeSelectedBranch() {
+  async function startMergeOperation(kind: 'merge' | 'rebase') {
     if (!api || !currentRepoPath || !selectedMergeBranch) return
-    setBusy(true)
-    setError(null)
-    const result = await api.mergeBranch({
-      repoPath: currentRepoPath,
-      branchName: selectedMergeBranch
+
+    const currentBranch = snapshot?.summary.currentBranch ?? 'the current branch'
+    const confirmed = await requestConfirmation(
+      kind === 'merge'
+        ? `Merge ${selectedMergeBranch} into ${currentBranch}?`
+        : `Rebase ${currentBranch} onto ${selectedMergeBranch}? This rewrites the commits of ${currentBranch}.`,
+      {
+        title: kind === 'merge' ? 'Merge Branch' : 'Rebase Branch',
+        confirmLabel: kind === 'merge' ? 'Merge' : 'Rebase',
+        variant: kind === 'merge' ? 'default' : 'danger'
+      }
+    )
+    if (!confirmed) return
+
+    await runBusyOperation(kind === 'merge' ? 'Merging branch...' : 'Rebasing branch...', async () => {
+      const result = kind === 'merge'
+        ? await api.mergeBranch({ repoPath: currentRepoPath, branchName: selectedMergeBranch })
+        : await api.rebaseBranch({ repoPath: currentRepoPath, branchName: selectedMergeBranch })
+
+      if (result.ok) {
+        const cleanLabel = kind === 'merge' ? 'Merge complete.' : 'Rebase complete.'
+        const conflictLabel = kind === 'merge' ? 'Merge has conflicts.' : 'Rebase has conflicts.'
+        applySnapshot(result.data, result.data.status.merge.operation === 'none' ? cleanLabel : conflictLabel)
+        setViewMode('merge')
+        void loadHistory()
+      } else {
+        setError(result.error.message)
+        setNotice(result.error.details || result.error.code)
+      }
     })
-
-    if (result.ok) {
-      applySnapshot(result.data, result.data.status.merge.operation === 'none' ? 'Merge complete.' : 'Merge has conflicts.')
-      setViewMode('merge')
-      void loadHistory()
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
-  }
-
-  async function rebaseSelectedBranch() {
-    if (!api || !currentRepoPath || !selectedMergeBranch) return
-    setBusy(true)
-    setError(null)
-    const result = await api.rebaseBranch({
-      repoPath: currentRepoPath,
-      branchName: selectedMergeBranch
-    })
-
-    if (result.ok) {
-      applySnapshot(result.data, result.data.status.merge.operation === 'none' ? 'Rebase complete.' : 'Rebase has conflicts.')
-      setViewMode('merge')
-      void loadHistory()
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
   }
 
   async function continueMergeOperation() {
@@ -1842,71 +1983,64 @@ function App() {
     await runSnapshotAction('Operation aborted.', () => api.abortMergeOperation(currentRepoPath))
   }
 
-  async function revertSelectedCommit() {
-    if (!api || !currentRepoPath || !commitDetails) return
-
-    const confirmed = await requestConfirmation(`Revert ${commitDetails.shortSha}? This creates a new commit that reverses the selected commit.`, {
-      title: 'Revert Commit',
-      confirmLabel: 'Revert commit',
-      variant: 'danger'
-    })
+  async function acceptConflictSide(filePath: string, side: 'ours' | 'theirs') {
+    if (!api || !currentRepoPath) return
+    // During a rebase, Git swaps the meaning: "ours" is the branch being rebased onto.
+    const rebaseHint = mergeState?.operation === 'rebase'
+      ? ` During a rebase, "${side}" means ${side === 'ours' ? 'the base branch you are rebasing onto' : 'the commits being replayed'}.`
+      : ''
+    const confirmed = await requestConfirmation(
+      `Resolve ${filePath} by keeping ${side === 'ours' ? 'our' : 'their'} version? The other side's changes in this file are discarded.${rebaseHint}`,
+      {
+        title: side === 'ours' ? 'Accept Ours' : 'Accept Theirs',
+        confirmLabel: side === 'ours' ? 'Keep ours' : 'Keep theirs',
+        variant: 'danger'
+      }
+    )
     if (!confirmed) return
 
-    setBusy(true)
-    setError(null)
-    const result = await api.revertCommit({
-      repoPath: currentRepoPath,
-      commitSha: commitDetails.sha,
-      confirmed
-    })
-
-    if (result.ok) {
-      const hasConflicts = result.data.status.merge.operation !== 'none' || result.data.status.counts.conflicted > 0
-      applySnapshot(result.data, hasConflicts ? 'Revert has conflicts.' : 'Commit reverted.')
-      void loadHistory()
-
-      if (hasConflicts) {
-        setViewMode('merge')
-      }
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
+    await runSnapshotAction(
+      side === 'ours' ? 'Accepted ours.' : 'Accepted theirs.',
+      () => side === 'ours'
+        ? api.acceptOurs({ repoPath: currentRepoPath, filePath })
+        : api.acceptTheirs({ repoPath: currentRepoPath, filePath })
+    )
   }
 
-  async function cherryPickSelectedCommit() {
+  async function applyCommitOperation(kind: 'revert' | 'cherry-pick') {
     if (!api || !currentRepoPath || !commitDetails) return
 
-    const confirmed = await requestConfirmation(`Cherry-pick ${commitDetails.shortSha} onto ${snapshot?.summary.currentBranch ?? 'the current branch'}?`, {
-      title: 'Cherry-Pick Commit',
-      confirmLabel: 'Cherry-pick'
-    })
+    const confirmed = await requestConfirmation(
+      kind === 'revert'
+        ? `Revert ${commitDetails.shortSha}? This creates a new commit that reverses the selected commit.`
+        : `Cherry-pick ${commitDetails.shortSha} onto ${snapshot?.summary.currentBranch ?? 'the current branch'}?`,
+      kind === 'revert'
+        ? { title: 'Revert Commit', confirmLabel: 'Revert commit', variant: 'danger' }
+        : { title: 'Cherry-Pick Commit', confirmLabel: 'Cherry-pick' }
+    )
     if (!confirmed) return
 
-    setBusy(true)
-    setError(null)
-    const result = await api.cherryPickCommit({
+    const request = {
       repoPath: currentRepoPath,
       commitSha: commitDetails.sha,
       confirmed
-    })
-
-    if (result.ok) {
-      const hasConflicts = result.data.status.merge.operation !== 'none' || result.data.status.counts.conflicted > 0
-      applySnapshot(result.data, hasConflicts ? 'Cherry-pick has conflicts.' : 'Commit cherry-picked.')
-      void loadHistory()
-
-      if (hasConflicts) {
-        setViewMode('merge')
-      }
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
     }
 
-    setBusy(false)
+    await runApiAction(
+      kind === 'revert' ? 'Reverting commit...' : 'Cherry-picking commit...',
+      () => kind === 'revert' ? api.revertCommit(request) : api.cherryPickCommit(request),
+      (data) => {
+        const hasConflicts = data.status.merge.operation !== 'none' || data.status.counts.conflicted > 0
+        const conflictLabel = kind === 'revert' ? 'Revert has conflicts.' : 'Cherry-pick has conflicts.'
+        const cleanLabel = kind === 'revert' ? 'Commit reverted.' : 'Commit cherry-picked.'
+        applySnapshot(data, hasConflicts ? conflictLabel : cleanLabel)
+        void loadHistory()
+
+        if (hasConflicts) {
+          setViewMode('merge')
+        }
+      }
+    )
   }
 
   async function generateCommitText() {
@@ -1926,23 +2060,14 @@ function App() {
       return
     }
 
-    setBusy(true)
-    setError(null)
-    const result = await api.generateCommitMessage({
+    await runApiAction('Generating commit text...', () => api.generateCommitMessage({
       repoPath: currentRepoPath,
       assistant: selectedAssistant
+    }), (data) => {
+      setCommitTitle(data.title)
+      setCommitDescription(data.description)
+      setNotice(`Generated with ${assistantLabel(data.assistant)}${data.truncated ? ' from truncated diff' : ''}.`)
     })
-
-    if (result.ok) {
-      setCommitTitle(result.data.title)
-      setCommitDescription(result.data.description)
-      setNotice(`Generated with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated diff' : ''}.`)
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
   }
 
   async function generatePullRequestText() {
@@ -1962,49 +2087,40 @@ function App() {
       return
     }
 
-    setBusy(true)
-    setError(null)
-    const result = await api.generatePullRequestText({
+    await runApiAction('Generating pull request text...', () => api.generatePullRequestText({
       repoPath: currentRepoPath,
       assistant: selectedAssistant,
       baseBranch: prBaseBranch.trim() || undefined
-    })
-
-    if (result.ok) {
-      setPrTitle(result.data.title)
-      setPrDescription(result.data.description)
-      setPrBaseBranch(result.data.baseBranch)
+    }), (data) => {
+      setPrTitle(data.title)
+      setPrDescription(data.description)
+      setPrBaseBranch(data.baseBranch)
       setCreatedPullRequest(null)
-      setNotice(`Generated PR text with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated diff' : ''}.`)
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
+      setNotice(`Generated PR text with ${assistantLabel(data.assistant)}${data.truncated ? ' from truncated diff' : ''}.`)
+    })
   }
 
   async function createPullRequest() {
     if (!api || !currentRepoPath) return
-    setBusy(true)
-    setError(null)
-    const result = await api.createGitHubPullRequest({
-      repoPath: currentRepoPath,
-      title: prTitle,
-      description: prDescription,
-      baseBranch: prBaseBranch.trim() || undefined
+    await runBusyOperation('Creating pull request...', async () => {
+      const result = await api.createGitHubPullRequest({
+        repoPath: currentRepoPath,
+        title: prTitle,
+        description: prDescription,
+        baseBranch: prBaseBranch.trim() || undefined
+      })
+
+      if (result.ok) {
+        setCreatedPullRequest(result.data)
+        setNotice('Pull request created.')
+        // Keep busy until the panel reflects the new PR; otherwise the Create
+        // button re-enables while the stale list still shows no PR.
+        await refreshProvidersPanel()
+      } else {
+        setError(result.error.message)
+        setNotice(result.error.details || result.error.code)
+      }
     })
-
-    if (result.ok) {
-      setCreatedPullRequest(result.data)
-      setNotice('Pull request created.')
-      void refreshProvidersPanel()
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
   }
 
   async function checkoutPullRequest(pullRequest: GitHubPullRequest) {
@@ -2036,25 +2152,19 @@ function App() {
       return
     }
 
-    setBusy(true)
-    setError(null)
-    const result = await api.generateReviewReport({
+    const completed = await runApiAction('Running review...', () => api.generateReviewReport({
       repoPath: currentRepoPath,
       assistant: selectedAssistant,
       mode: reviewMode,
       scope: reviewScope
+    }), (data) => {
+      setReviewReport(data)
+      setNotice(`Review complete with ${assistantLabel(data.assistant)}${data.truncated ? ' from truncated diff' : ''}.`)
     })
 
-    if (result.ok) {
-      setReviewReport(result.data)
-      setNotice(`Review complete with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated diff' : ''}.`)
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+    if (!completed) {
       setReviewReport(null)
     }
-
-    setBusy(false)
   }
 
   async function runPreCommitReview() {
@@ -2064,45 +2174,44 @@ function App() {
       return
     }
 
-    setBusy(true)
-    setError(null)
     setPreCommitReports([])
 
     const reports: ReviewReport[] = []
 
-    for (const mode of preCommitReviewModes) {
-      setPreCommitRunningMode(mode)
-      const result = await api.generateReviewReport({
-        repoPath: currentRepoPath,
-        assistant: selectedAssistant,
-        mode,
-        scope: 'staged'
-      })
+    await runBusyOperation('Running pre-commit review...', async () => {
+      try {
+        for (const mode of preCommitReviewModes) {
+          setPreCommitRunningMode(mode)
+          const result = await api.generateReviewReport({
+            repoPath: currentRepoPath,
+            assistant: selectedAssistant,
+            mode,
+            scope: 'staged'
+          })
 
-      if (!result.ok) {
-        setError(result.error.message)
-        setNotice(result.error.details || result.error.code)
-        setPreCommitReports(reports)
+          if (!result.ok) {
+            setError(result.error.message)
+            setNotice(result.error.details || result.error.code)
+            setPreCommitReports(reports)
+            return
+          }
+
+          reports.push(result.data)
+          setPreCommitReports([...reports])
+        }
+
+        const lastReport = reports.at(-1)
+
+        if (lastReport) {
+          setReviewMode(lastReport.mode)
+          setReviewScope('staged')
+          setReviewReport(lastReport)
+          setNotice(`Pre-commit review complete with ${assistantLabel(lastReport.assistant)}${lastReport.truncated ? ' from truncated diff' : ''}.`)
+        }
+      } finally {
         setPreCommitRunningMode(null)
-        setBusy(false)
-        return
       }
-
-      reports.push(result.data)
-      setPreCommitReports([...reports])
-    }
-
-    const lastReport = reports.at(-1)
-
-    if (lastReport) {
-      setReviewMode(lastReport.mode)
-      setReviewScope('staged')
-      setReviewReport(lastReport)
-      setNotice(`Pre-commit review complete with ${assistantLabel(lastReport.assistant)}${lastReport.truncated ? ' from truncated diff' : ''}.`)
-    }
-
-    setPreCommitRunningMode(null)
-    setBusy(false)
+    })
   }
 
   function togglePreCommitReviewMode(mode: ReviewMode) {
@@ -2145,24 +2254,15 @@ function App() {
       return
     }
 
-    setBusy(true)
-    setError(null)
-    const result = await api.generateBranchDraft({
+    await runApiAction('Generating branch draft...', () => api.generateBranchDraft({
       repoPath: currentRepoPath,
       assistant: selectedAssistant,
       goal: branchDraftGoal.trim() || undefined
+    }), (data) => {
+      setNewBranchName(data.branchName)
+      setNewBranchDescription(data.description)
+      setNotice(`Generated branch draft with ${assistantLabel(data.assistant)}${data.truncated ? ' from truncated context' : ''}.`)
     })
-
-    if (result.ok) {
-      setNewBranchName(result.data.branchName)
-      setNewBranchDescription(result.data.description)
-      setNotice(`Generated branch draft with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated context' : ''}.`)
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
   }
 
   async function createBranch() {
@@ -2172,16 +2272,19 @@ function App() {
       return
     }
 
-    await runSnapshotAction('Branch created.', () =>
+    const created = await runSnapshotAction('Branch created.', () =>
       api.createBranch({
         repoPath: currentRepoPath,
         branchName: newBranchName,
         description: newBranchDescription
       })
     )
-    setNewBranchName('')
-    setNewBranchDescription('')
-    setBranchDraftGoal('')
+
+    if (created) {
+      setNewBranchName('')
+      setNewBranchDescription('')
+      setBranchDraftGoal('')
+    }
   }
 
   async function deleteBranch(branch: BranchSummary) {
@@ -2193,7 +2296,7 @@ function App() {
     })
     if (!confirmed) return
 
-    await runSnapshotAction('Branch deleted.', () =>
+    const result = await runBusyOperation('Deleting branch...', () =>
       api.deleteBranch({
         repoPath: currentRepoPath,
         branchName: branch.name,
@@ -2201,11 +2304,50 @@ function App() {
         force: false
       })
     )
+
+    if (result.ok) {
+      applySnapshot(result.data, 'Branch deleted.')
+      return
+    }
+
+    if (result.error.code !== 'git_branch_not_merged') {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+      return
+    }
+
+    const forceConfirmed = await requestConfirmation(
+      `${branch.name} is not fully merged. Force delete it? Commits that exist only on this branch are lost.`,
+      {
+        title: 'Force Delete Branch',
+        confirmLabel: 'Force delete',
+        variant: 'danger'
+      }
+    )
+
+    if (!forceConfirmed) {
+      setError(result.error.message)
+      setNotice(result.error.details || result.error.code)
+      return
+    }
+
+    await runSnapshotAction('Branch force deleted.', () =>
+      api.deleteBranch({
+        repoPath: currentRepoPath,
+        branchName: branch.name,
+        confirmed: true,
+        force: true
+      })
+    )
   }
 
   async function renameBranch(branch: BranchSummary) {
     if (!api || !currentRepoPath) return
-    const nextName = window.prompt('Rename branch', branch.name)?.trim()
+    const nextName = (await requestTextInput(`Rename local branch ${branch.name}.`, {
+      title: 'Rename Branch',
+      confirmLabel: 'Rename',
+      defaultValue: branch.name
+    }))?.trim()
 
     if (!nextName) return
 
@@ -2226,7 +2368,11 @@ function App() {
   async function setBranchUpstream(branch: BranchSummary) {
     if (!api || !currentRepoPath || !snapshot?.summary.remoteName) return
     const defaultUpstream = `${snapshot.summary.remoteName}/${branch.name}`
-    const upstream = window.prompt('Set upstream branch', defaultUpstream)?.trim()
+    const upstream = (await requestTextInput(`Track a remote branch for ${branch.name}.`, {
+      title: 'Set Upstream',
+      confirmLabel: 'Set upstream',
+      defaultValue: defaultUpstream
+    }))?.trim()
 
     if (!upstream) return
 
@@ -2313,45 +2459,27 @@ function App() {
       return
     }
 
-    setBusy(true)
-    setError(null)
-    const result = await api.createWorktree({
+    await runApiAction('Creating worktree...', () => api.createWorktree({
       repoPath: currentRepoPath,
       branchName,
       baseRef: newWorktreeBaseRef.trim() || undefined
-    })
-
-    if (result.ok) {
-      if (result.data) {
-        applySnapshot(result.data, 'Worktree created.')
+    }), (data) => {
+      if (data) {
+        applySnapshot(data, 'Worktree created.')
         setNewWorktreeBranchName('')
       } else {
         setNotice('Worktree creation cancelled.')
       }
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
+    })
   }
 
   async function openWorktree(worktree: WorktreeSummary) {
     if (!api) return
 
-    setBusy(true)
-    setError(null)
-    const result = await api.openRepository(worktree.path)
-
-    if (result.ok) {
-      applySnapshot(result.data, 'Worktree opened.')
+    await runApiAction('Opening worktree...', () => api.openRepository(worktree.path), (data) => {
+      applySnapshot(data, 'Worktree opened.')
       setViewMode('changes')
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
+    })
   }
 
   async function removeWorktree(worktree: WorktreeSummary) {
@@ -2390,19 +2518,10 @@ function App() {
   async function openSubmodule(submodule: SubmoduleSummary) {
     if (!api) return
 
-    setBusy(true)
-    setError(null)
-    const result = await api.openRepository(submodule.absolutePath)
-
-    if (result.ok) {
-      applySnapshot(result.data, 'Submodule opened.')
+    await runApiAction('Opening submodule...', () => api.openRepository(submodule.absolutePath), (data) => {
+      applySnapshot(data, 'Submodule opened.')
       setViewMode('changes')
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
+    })
   }
 
   async function pullGitLfs() {
@@ -2440,7 +2559,7 @@ function App() {
   }
 
   async function generateBranchDescription(branch: BranchSummary) {
-    if (!api || !currentRepoPath) return
+    if (!api || !currentRepoPath || branchDescriptionGenerating) return
     if (!canGenerateBranchDraft) {
       setNotice(assistantPolicyBlockedLabel('branch_draft', assistantPolicy))
       return
@@ -2468,23 +2587,21 @@ function App() {
 
   async function saveLocalGitIdentity() {
     if (!api || !currentRepoPath) return
-    setBusy(true)
-    setError(null)
-    const result = await api.setLocalGitIdentity({
-      repoPath: currentRepoPath,
-      name: localUserName,
-      email: localUserEmail
+    await runBusyOperation('Saving Git identity...', async () => {
+      const result = await api.setLocalGitIdentity({
+        repoPath: currentRepoPath,
+        name: localUserName.trim(),
+        email: localUserEmail.trim()
+      })
+
+      if (result.ok) {
+        setGitConfig(result.data)
+        setNotice('Local Git identity saved.')
+      } else {
+        setError(result.error.message)
+        setNotice(result.error.details || result.error.code)
+      }
     })
-
-    if (result.ok) {
-      setGitConfig(result.data)
-      setNotice('Local Git identity saved.')
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
   }
 
   function startRemoteEdit(remote: RemoteSummary) {
@@ -2510,28 +2627,23 @@ function App() {
       return
     }
 
-    setBusy(true)
-    setError(null)
-
-    const result = editingRemoteName
-      ? await api.setRemoteUrl({ repoPath: currentRepoPath, name, url })
-      : await api.addRemote({ repoPath: currentRepoPath, name, url })
     const label = editingRemoteName ? 'Remote updated.' : 'Remote added.'
 
-    if (result.ok) {
-      setGitConfig(result.data)
-      cancelRemoteEdit()
-      const snapshotResult = await api.refreshRepository(currentRepoPath)
-      applySnapshotResult(snapshotResult, label)
-      if (!snapshotResult.ok) {
-        setNotice(label)
+    await runApiAction(
+      editingRemoteName ? 'Updating remote...' : 'Adding remote...',
+      () => editingRemoteName
+        ? api.setRemoteUrl({ repoPath: currentRepoPath, name, url })
+        : api.addRemote({ repoPath: currentRepoPath, name, url }),
+      async (data) => {
+        setGitConfig(data)
+        cancelRemoteEdit()
+        const snapshotResult = await api.refreshRepository(currentRepoPath)
+        applySnapshotResult(snapshotResult, label)
+        if (!snapshotResult.ok) {
+          setNotice(label)
+        }
       }
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
+    )
   }
 
   async function removeRemote(remote: RemoteSummary) {
@@ -2545,17 +2657,12 @@ function App() {
 
     if (!confirmed) return
 
-    setBusy(true)
-    setError(null)
-
-    const result = await api.removeRemote({
+    await runApiAction('Removing remote...', () => api.removeRemote({
       repoPath: currentRepoPath,
       name: remote.name,
       confirmed
-    })
-
-    if (result.ok) {
-      setGitConfig(result.data)
+    }), async (data) => {
+      setGitConfig(data)
       if (editingRemoteName === remote.name) {
         cancelRemoteEdit()
       }
@@ -2564,12 +2671,7 @@ function App() {
       if (!snapshotResult.ok) {
         setNotice('Remote removed.')
       }
-    } else {
-      setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
-    }
-
-    setBusy(false)
+    })
   }
 
   async function openRepoInEditor() {
@@ -2772,7 +2874,10 @@ function App() {
         {error && (
           <div className="message error">
             <FileWarning size={18} />
-            {error}
+            <span className="message-text">{error}</span>
+            <button type="button" className="message-dismiss" aria-label="Dismiss error" onClick={() => setError(null)}>
+              <X size={15} />
+            </button>
           </div>
         )}
         <div className={busy ? 'message busy' : 'message'}>
@@ -2866,6 +2971,44 @@ function App() {
                 {confirmationRequest.confirmLabel}
               </button>
             </div>
+          </section>
+        </div>
+      )}
+      {textPromptRequest && (
+        <div className="confirmation-backdrop" role="presentation">
+          <section
+            className="confirmation-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`confirmation-title-${textPromptRequest.id}`}
+          >
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                answerTextPrompt(true)
+              }}
+            >
+              <div>
+                <h2 id={`confirmation-title-${textPromptRequest.id}`}>{textPromptRequest.title}</h2>
+                <p>{textPromptRequest.message}</p>
+                <input
+                  className="text-prompt-input"
+                  autoFocus
+                  value={textPromptValue}
+                  placeholder={textPromptRequest.placeholder}
+                  onChange={(event) => setTextPromptValue(event.target.value)}
+                  onFocus={(event) => event.target.select()}
+                />
+              </div>
+              <div className="confirmation-actions">
+                <button type="button" className="secondary" onClick={() => answerTextPrompt(false)}>
+                  {textPromptRequest.cancelLabel}
+                </button>
+                <button type="submit" disabled={!textPromptValue.trim()}>
+                  {textPromptRequest.confirmLabel}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       )}
@@ -3022,9 +3165,10 @@ function App() {
                           <strong>{repo.name}</strong>
                           <span>{repo.mergeOperation} · {repo.conflicted} conflicted files</span>
                         </div>
-                        <button type="button" className="secondary" onClick={() => {
-                          void openRepository(repo.path)
-                          setViewMode('merge')
+                        <button type="button" className="secondary" disabled={busy} onClick={async () => {
+                          if (await openRepository(repo.path)) {
+                            setViewMode('merge')
+                          }
                         }}>
                           <GitMerge size={16} />
                           Merge
@@ -3059,6 +3203,9 @@ function App() {
                         </button>
                       </article>
                     ))}
+                    {staleBranches.length > 10 && (
+                      <div className="quiet-box">Showing 10 of {staleBranches.length} stale branches.</div>
+                    )}
                   </div>
                 )}
               </section>
@@ -3087,13 +3234,20 @@ function App() {
           </div>
 
           <div className="change-filter-bar change-filter-bar-compact">
-            <details className="changes-actions-menu">
+            <details className="changes-actions-menu" ref={changesActionsMenuRef}>
               <summary>
                 <ListFilter size={16} />
                 Actions
               </summary>
               <div className="changes-actions-popover">
-                <button type="button" onClick={createQuickStash} disabled={busy || !canCreateStash}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeChangesActionsMenu()
+                    void createQuickStash()
+                  }}
+                  disabled={busy || !canCreateStash}
+                >
                   <Save size={15} />
                   Stash changes
                 </button>
@@ -3109,11 +3263,25 @@ function App() {
                     <option value="staged">Staged</option>
                   </select>
                 </label>
-                <button type="button" onClick={exportPatch} disabled={busy || !snapshot}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeChangesActionsMenu()
+                    void exportPatch()
+                  }}
+                  disabled={busy || !snapshot}
+                >
                   <Copy size={15} />
                   Export patch
                 </button>
-                <button type="button" onClick={applyPatch} disabled={busy || !snapshot || snapshot.status.merge.operation !== 'none'}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeChangesActionsMenu()
+                    void applyPatch()
+                  }}
+                  disabled={busy || !snapshot || snapshot.status.merge.operation !== 'none'}
+                >
                   <ArrowDownToLine size={15} />
                   Apply patch
                 </button>
@@ -3238,12 +3406,18 @@ function App() {
                 reasons={commitActionState.reasons}
               />
             )}
+            {commitActionState.enabled && !commitAndPushActionState.enabled && commitAndPushActionState.reasons.length > 0 && (
+              <ActionBlockers
+                title="Commit & push blocked"
+                reasons={commitAndPushActionState.reasons}
+              />
+            )}
             <div className="commit-actions">
               <button type="button" onClick={commitChanges} disabled={busy || !commitActionState.enabled}>
                 <GitCommitHorizontal size={17} />
                 Commit
               </button>
-              <button type="button" className="secondary" onClick={amendLastCommit} disabled={busy || !amendCommitActionState.enabled}>
+              <button type="button" className="danger-button" onClick={amendLastCommit} disabled={busy || !amendCommitActionState.enabled}>
                 <Pencil size={17} />
                 Amend last
               </button>
@@ -3282,7 +3456,7 @@ function App() {
                 className="danger-button"
                 type="button"
                 onClick={discardSelected}
-                disabled={!selectedChange || (!selectedChange.unstaged && !selectedChange.untracked)}
+                disabled={busy || !selectedChange || (!selectedChange.unstaged && !selectedChange.untracked)}
               >
                 <Trash2 size={17} />
                 {selectedChange?.untracked ? 'Delete' : 'Discard'}
@@ -3472,7 +3646,7 @@ function App() {
           <div className="panel-heading">
             <div>
               <h2>History</h2>
-              <p>{history.length} commits on this branch.</p>
+              <p>{history.length >= 200 ? 'Latest 200 commits on this branch.' : `${history.length} commits on this branch.`}</p>
             </div>
             <button type="button" onClick={loadHistory} disabled={busy}>
               <RefreshCcw size={17} />
@@ -3504,7 +3678,7 @@ function App() {
 
           <div className="history-list virtual-list-viewport" ref={virtualHistory.containerRef} onScroll={virtualHistory.onScroll}>
             {history.length === 0 ? (
-              <div className="quiet-box">No commits found.</div>
+              <div className="quiet-box">{historyLoading ? 'Loading commits.' : 'No commits found.'}</div>
             ) : filteredHistory.length === 0 ? (
               <div className="quiet-box">No commits match this search.</div>
             ) : (
@@ -3556,7 +3730,7 @@ function App() {
               )}
               <button
                 type="button"
-                onClick={cherryPickSelectedCommit}
+                onClick={() => applyCommitOperation('cherry-pick')}
                 disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
               >
                 <GitCommitHorizontal size={17} />
@@ -3565,7 +3739,7 @@ function App() {
               <button
                 className="danger-button"
                 type="button"
-                onClick={revertSelectedCommit}
+                onClick={() => applyCommitOperation('revert')}
                 disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
               >
                 <Trash2 size={17} />
@@ -3600,7 +3774,7 @@ function App() {
                   key={`${file.rawStatus}-${file.path}-${file.originalPath ?? ''}`}
                   onClick={() => commitDetails && loadCommitFileDiff(commitDetails.sha, file.path)}
                 >
-                  <span className={`file-status status-${file.status}`}>{commitFileToken(file)}</span>
+                  <span className={`file-status status-${file.status}`}>{fileStatusToken(file.status)}</span>
                   <span className="file-name">{file.path}</span>
                 </button>
               ))}
@@ -3755,7 +3929,7 @@ function App() {
                     <div className="project-wiki-preview">
                       <div className="memory-section-heading compact">
                         <h3>{selectedProjectWikiPage?.title ?? 'Wiki page'}</h3>
-                        <button type="button" onClick={() => copyProjectWikiPage(selectedProjectWikiPage)}>
+                        <button type="button" disabled={!selectedProjectWikiPage} onClick={() => copyProjectWikiPage(selectedProjectWikiPage)}>
                           <Copy size={15} />
                           Copy Markdown
                         </button>
@@ -3824,15 +3998,20 @@ function App() {
                 {filteredActivityEntries.length === 0 ? (
                   <div className="quiet-box">No activity for this filter.</div>
                 ) : (
-                  filteredActivityEntries.slice(0, 40).map((entry) => (
-                    <article className={`activity-row activity-${entry.status}`} key={entry.id}>
-                      <div>
-                        <strong>{activityTypeLabel(entry.type)}</strong>
-                        <span>{entry.actor} · {entry.status} · {formatDate(entry.createdAt)}</span>
-                      </div>
-                      <code>{activityMetadataLabel(entry)}</code>
-                    </article>
-                  ))
+                  <>
+                    {filteredActivityEntries.slice(0, 40).map((entry) => (
+                      <article className={`activity-row activity-${entry.status}`} key={entry.id}>
+                        <div>
+                          <strong>{activityTypeLabel(entry.type)}</strong>
+                          <span>{entry.actor} · {entry.status} · {formatDate(entry.createdAt)}</span>
+                        </div>
+                        <code>{activityMetadataLabel(entry)}</code>
+                      </article>
+                    ))}
+                    {filteredActivityEntries.length > 40 && (
+                      <div className="quiet-box">Showing 40 of {filteredActivityEntries.length} loaded events.</div>
+                    )}
+                  </>
                 )}
               </div>
             </section>
@@ -3906,7 +4085,7 @@ function App() {
               <div className="memory-list recent-memory-commits">
                 <div className="memory-section-heading">
                   <h3>Recent commits</h3>
-                  <span>{commits.length}</span>
+                  <span>{commits.length > 12 ? `12 of ${commits.length}` : commits.length}</span>
                 </div>
                 {commits.length === 0 ? (
                   <div className="quiet-box">No commits indexed.</div>
@@ -4248,7 +4427,13 @@ function App() {
         <div className="panel-heading">
           <div>
             <h2>Merge window</h2>
-            <p>{hasOperation ? `${mergeState.operation} in progress` : 'No merge, rebase, or cherry-pick operation is active.'}</p>
+            <p>
+              {hasOperation
+                ? `${mergeState.operation} in progress`
+                : mergeState && mergeState.files.length > 0
+                  ? 'Conflicted files without an active operation (e.g. from a stash apply). Resolve and stage them below.'
+                  : 'No merge, rebase, or cherry-pick operation is active.'}
+            </p>
           </div>
           <div className="panel-actions">
             <button type="button" disabled={!canContinueOperation || busy} onClick={continueMergeOperation}>
@@ -4290,7 +4475,7 @@ function App() {
             </select>
             <button
               type="button"
-              onClick={mergeSelectedBranch}
+              onClick={() => startMergeOperation('merge')}
               disabled={busy || !selectedMergeBranch || mergeCandidates.length === 0 || hasDirtyWorktree}
             >
               <GitMerge size={17} />
@@ -4298,7 +4483,7 @@ function App() {
             </button>
             <button
               type="button"
-              onClick={rebaseSelectedBranch}
+              onClick={() => startMergeOperation('rebase')}
               disabled={busy || !selectedMergeBranch || mergeCandidates.length === 0 || hasDirtyWorktree}
             >
               <GitBranch size={17} />
@@ -4317,7 +4502,7 @@ function App() {
           </div>
         )}
 
-        {!hasOperation || mergeState.files.length === 0 ? (
+        {!mergeState || mergeState.files.length === 0 ? (
           <div className="quiet-box">Conflict list is empty.</div>
         ) : (
           <div className="conflict-list">
@@ -4328,19 +4513,19 @@ function App() {
                   <span>{file.type}</span>
                 </div>
                 <div className="panel-actions">
-                  <button type="button" onClick={() => api && currentRepoPath && runOperationAction('Opened in editor.', () => api.openInEditor({ targetPath: `${currentRepoPath}/${file.path}` }))}>
+                  <button type="button" disabled={busy} onClick={() => api && currentRepoPath && runOperationAction('Opened in editor.', () => api.openInEditor({ targetPath: `${currentRepoPath}/${file.path}` }))}>
                     <Code2 size={17} />
                     Editor
                   </button>
-                  <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Accepted ours.', () => api!.acceptOurs({ repoPath: currentRepoPath, filePath: file.path }))}>
+                  <button type="button" className="danger-button" disabled={busy} onClick={() => acceptConflictSide(file.path, 'ours')}>
                     <ArrowDownToLine size={16} />
                     Ours
                   </button>
-                  <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Accepted theirs.', () => api!.acceptTheirs({ repoPath: currentRepoPath, filePath: file.path }))}>
+                  <button type="button" className="danger-button" disabled={busy} onClick={() => acceptConflictSide(file.path, 'theirs')}>
                     <ArrowUpFromLine size={16} />
                     Theirs
                   </button>
-                  <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Marked resolved.', () => api!.markResolved({ repoPath: currentRepoPath, filePath: file.path }))}>
+                  <button type="button" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Marked resolved.', () => api!.markResolved({ repoPath: currentRepoPath, filePath: file.path }))}>
                     <Check size={16} />
                     Mark resolved
                   </button>
@@ -4500,7 +4685,9 @@ function App() {
         </div>
 
         <div className="branch-list">
-          {filteredBranches.length === 0 ? (
+          {branches.length === 0 ? (
+            <div className="quiet-box">No local branches.</div>
+          ) : filteredBranches.length === 0 ? (
             <div className="quiet-box">No branches match this search.</div>
           ) : filteredBranches.map((branch) => {
             const isEditingDescription = editingBranchName === branch.name
@@ -4566,7 +4753,7 @@ function App() {
                     {isGeneratingDescription ? 'Generating' : 'Generate description'}
                   </button>
                   {branch.current && !branch.upstream && snapshot?.summary.remoteName && (
-                    <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
+                    <button type="button" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
                       repoPath: currentRepoPath,
                       branch: branch.name,
                       remote: snapshot.summary.remoteName
@@ -4591,7 +4778,7 @@ function App() {
                   </button>
                   <button
                     type="button"
-                    disabled={branch.current || isEditingDescription}
+                    disabled={busy || branch.current || isEditingDescription}
                     onClick={() => currentRepoPath && runSnapshotAction('Branch switched.', () => api!.switchBranch({ repoPath: currentRepoPath, branchName: branch.name }))}
                   >
                     <GitBranch size={16} />
@@ -4600,7 +4787,7 @@ function App() {
                   <button
                     className="danger-button"
                     type="button"
-                    disabled={branch.current || isEditingDescription}
+                    disabled={busy || branch.current || isEditingDescription}
                     onClick={() => deleteBranch(branch)}
                   >
                     <Trash2 size={16} />
@@ -4661,7 +4848,7 @@ function App() {
               <div className="branch-compare-files">
                 {branchComparison.files.slice(0, 24).map((file) => (
                   <div className="commit-file-row" key={`${file.rawStatus}-${file.path}-${file.originalPath ?? ''}`}>
-                    <span className={`file-status status-${file.status}`}>{commitFileToken(file)}</span>
+                    <span className={`file-status status-${file.status}`}>{fileStatusToken(file.status)}</span>
                     <span className="file-name">{file.originalPath ? `${file.originalPath} → ${file.path}` : file.path}</span>
                   </div>
                 ))}
@@ -5077,6 +5264,7 @@ function App() {
         ) : (
           <>
             <section className="memory-summary-grid daily-summary-grid">
+              <Stat label="Report date" value={dailyReview.date} />
               <Stat label="Commits" value={dailyReview.stats.commits} />
               <Stat label="Changed" value={dailyReview.stats.changed} />
               <Stat label="Conflicts" value={dailyReview.stats.conflicted} />
@@ -5219,7 +5407,7 @@ function App() {
             <div className="command-hint">
               Publish the current branch before creating a pull request.
               {canPublishBranch && (
-                <button type="button" onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
+                <button type="button" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
                   repoPath: currentRepoPath,
                   remote: snapshot.summary.remoteName
                 }))}>
@@ -5332,7 +5520,9 @@ function App() {
               reasons={browsePrState.reasons}
             />
 
-            {!browsePrState.enabled ? (
+            {pullRequestsLoading && pullRequests.length === 0 ? (
+              <div className="quiet-box">Loading pull requests.</div>
+            ) : !browsePrState.enabled ? (
               <div className="quiet-box">Authenticate GitHub with gh or GitHub Desktop to browse pull requests in BranchPilot.</div>
             ) : pullRequests.length === 0 ? (
               <div className="quiet-box">No open pull requests found.</div>
@@ -5353,6 +5543,8 @@ function App() {
                       key={pullRequest.number}
                       onClick={() => selectPullRequest(pullRequest)}
                       onKeyDown={(event) => {
+                        // Only react to keys on the row itself, not on nested Checkout/Open buttons.
+                        if (event.target !== event.currentTarget) return
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
                           selectPullRequest(pullRequest)
@@ -5440,7 +5632,13 @@ function App() {
           <div className="command-hint">Run <code>gh auth login</code> or sign in with GitHub Desktop, then load repositories.</div>
         )}
 
-        <div className="github-repo-controls">
+        <form
+          className="github-repo-controls"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void loadGitHubRepositories()
+          }}
+        >
           <label>
             <span>Owner/org</span>
             <input
@@ -5487,11 +5685,11 @@ function App() {
               min={1}
               max={100}
               value={githubRepoLimit}
-              onChange={(event) => setGithubRepoLimit(Number(event.target.value) || 30)}
+              onChange={(event) => setGithubRepoLimit(event.target.value)}
               disabled={busy || githubRepoLoading}
             />
           </label>
-        </div>
+        </form>
 
         {!repoBrowserReady ? (
           <div className="quiet-box">BranchPilot can browse repositories through authenticated GitHub CLI or an available GitHub Desktop credential.</div>
@@ -5629,7 +5827,7 @@ function App() {
                       key={`${file.status}-${file.path}`}
                       onClick={() => setSelectedPullRequestFilePath(file.path)}
                     >
-                      <span className={`file-status status-${file.status}`}>{diffFileToken(file)}</span>
+                      <span className={`file-status status-${file.status}`}>{fileStatusToken(file.status)}</span>
                       <span className="file-name">{file.path}</span>
                       <span className="file-state">+{file.additions} / -{file.deletions}</span>
                     </button>
@@ -5768,10 +5966,13 @@ function App() {
               <label>
                 Highlights
                 <textarea
-                  value={linkedinProject.highlights.join('\n')}
-                  onChange={(event) => updateLinkedInProject({
-                    highlights: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean)
-                  })}
+                  value={linkedinHighlightsText}
+                  onChange={(event) => {
+                    setLinkedinHighlightsText(event.target.value)
+                    updateLinkedInProject({
+                      highlights: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean)
+                    })
+                  }}
                 />
               </label>
 
@@ -5779,19 +5980,25 @@ function App() {
                 <label>
                   Tags
                   <textarea
-                    value={linkedinProject.tags.join(', ')}
-                    onChange={(event) => updateLinkedInProject({
-                      tags: event.target.value.split(',').map((tag) => tag.trim().replace(/^#/, '')).filter(Boolean)
-                    })}
+                    value={linkedinTagsText}
+                    onChange={(event) => {
+                      setLinkedinTagsText(event.target.value)
+                      updateLinkedInProject({
+                        tags: event.target.value.split(',').map((tag) => tag.trim().replace(/^#/, '')).filter(Boolean)
+                      })
+                    }}
                   />
                 </label>
                 <label>
                   Skills
                   <textarea
-                    value={linkedinProject.skills.join(', ')}
-                    onChange={(event) => updateLinkedInProject({
-                      skills: event.target.value.split(',').map((skill) => skill.trim()).filter(Boolean)
-                    })}
+                    value={linkedinSkillsText}
+                    onChange={(event) => {
+                      setLinkedinSkillsText(event.target.value)
+                      updateLinkedInProject({
+                        skills: event.target.value.split(',').map((skill) => skill.trim()).filter(Boolean)
+                      })
+                    }}
                   />
                 </label>
               </div>
@@ -5956,11 +6163,13 @@ function StageCheckbox({
   const inputRef = useRef<HTMLInputElement>(null)
   const toggleState = getChangeStageToggleState(change)
 
+  // No dependency array: the browser clears `indeterminate` on click even when
+  // the mixed state is unchanged, so re-assert it after every render.
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.indeterminate = toggleState.mixed
     }
-  }, [toggleState.mixed])
+  })
 
   return (
     <label className="change-stage-toggle" title={change.conflicted ? 'Resolve conflicts before staging.' : 'Stage or unstage this file'}>
@@ -5993,11 +6202,13 @@ function BulkStageCheckbox({
   const inputRef = useRef<HTMLInputElement>(null)
   const changedLabel = changedCount === 1 ? '1 changed file' : `${changedCount} changed files`
 
+  // No dependency array: the browser clears `indeterminate` on click even when
+  // the mixed state is unchanged, so re-assert it after every render.
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.indeterminate = state.mixed
     }
-  }, [state.mixed])
+  })
 
   return (
     <label className="bulk-stage-toggle" title={state.label}>
@@ -6014,6 +6225,7 @@ function BulkStageCheckbox({
       />
       <span>
         <strong>{changedLabel}</strong>
+        <small>{state.summary}</small>
       </span>
     </label>
   )
@@ -6093,8 +6305,8 @@ function UnifiedDiffLines({ lines, onOpenLine }: { lines: DiffLine[]; onOpenLine
     <div className="diff-lines">
       {lines.map((line, lineIndex) => (
         <code className={`diff-line line-${line.type}`} key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}>
-          <DiffLineNumber lineNumber={line.oldLineNumber} onOpenLine={onOpenLine} />
-          <DiffLineNumber lineNumber={line.newLineNumber} onOpenLine={onOpenLine} />
+          <DiffLineNumber lineNumber={line.oldLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
+          <DiffLineNumber lineNumber={line.newLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
           <span className="line-marker">{diffLinePrefix(line)}</span>
           <span className="line-content">{line.content}</span>
         </code>
@@ -6129,7 +6341,7 @@ function SplitDiffCell({
 
   return (
     <code className={`split-diff-cell ${line ? `line-${line.type}` : 'line-empty'}`}>
-      <DiffLineNumber lineNumber={lineNumber} onOpenLine={onOpenLine} />
+      <DiffLineNumber lineNumber={lineNumber} openLine={line?.newLineNumber} onOpenLine={onOpenLine} />
       <span className="line-marker">{line ? diffLinePrefix(line) : ''}</span>
       <span className="line-content">{line?.content ?? ''}</span>
     </code>
@@ -6138,12 +6350,16 @@ function SplitDiffCell({
 
 function DiffLineNumber({
   lineNumber,
+  openLine,
   onOpenLine
 }: {
   lineNumber?: number
+  // The working-tree line to open in the editor. Old-side numbers refer to the
+  // previous revision, so removed lines (no openLine) are not clickable.
+  openLine?: number
   onOpenLine?: (line?: number) => void
 }) {
-  if (!lineNumber || !onOpenLine) {
+  if (!lineNumber || !openLine || !onOpenLine) {
     return <span className="line-number">{formatLineNumber(lineNumber)}</span>
   }
 
@@ -6151,9 +6367,9 @@ function DiffLineNumber({
     <button
       className="line-number line-number-button"
       type="button"
-      title={`Open line ${lineNumber} in editor`}
-      aria-label={`Open line ${lineNumber} in editor`}
-      onClick={() => onOpenLine(lineNumber)}
+      title={`Open line ${openLine} in editor`}
+      aria-label={`Open line ${openLine} in editor`}
+      onClick={() => onOpenLine(openLine)}
     >
       {formatLineNumber(lineNumber)}
     </button>
@@ -6163,7 +6379,12 @@ function DiffLineNumber({
 function RawDiffPreview({ diff }: { diff: DiffResult }) {
   return (
     <pre className="diff-preview">
-      {diff.tooLarge && <code className="line marker-base">Diff truncated for performance.</code>}
+      {diff.tooLarge && (
+        <code className="line marker-base">
+          <span> </span>
+          Diff truncated for performance.
+        </code>
+      )}
       {diff.text.split('\n').map((line, index) => (
         <code className={`line ${lineClass(line)}`} key={`${index}-${line.slice(0, 20)}`}>
           <span>{linePrefix(line)}</span>
@@ -6183,28 +6404,18 @@ function changeLabel(change: FileChange): string {
   return parts.join(' / ') || change.status
 }
 
+function fileStatusToken(status: string): string {
+  if (status === 'renamed') return 'R'
+  if (status === 'copied') return 'C'
+  if (status === 'deleted') return 'D'
+  if (status === 'added') return 'A'
+  return 'M'
+}
+
 function statusToken(change: FileChange): string {
   if (change.conflicted) return '!'
   if (change.untracked) return '?'
-  if (change.status === 'renamed') return 'R'
-  if (change.status === 'deleted') return 'D'
-  if (change.status === 'added') return 'A'
-  return 'M'
-}
-
-function commitFileToken(file: CommitFileChange): string {
-  if (file.status === 'renamed') return 'R'
-  if (file.status === 'copied') return 'C'
-  if (file.status === 'deleted') return 'D'
-  if (file.status === 'added') return 'A'
-  return 'M'
-}
-
-function diffFileToken(file: GitHubPullRequestDiffFile): string {
-  if (file.status === 'renamed') return 'R'
-  if (file.status === 'deleted') return 'D'
-  if (file.status === 'added') return 'A'
-  return 'M'
+  return fileStatusToken(change.status)
 }
 
 function checkBucketClass(bucket: string): string {
@@ -6568,7 +6779,7 @@ function virtualRangeLabel(window: VirtualListWindow, total: number): string {
   return ` · showing ${window.startIndex + 1}-${window.endIndex}`
 }
 
-function useVirtualList<T>(items: T[], itemHeight: number) {
+function useVirtualList<T>(items: T[], itemHeight: number, resetKey = '') {
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(VIRTUAL_LIST_FALLBACK_HEIGHT)
@@ -6595,7 +6806,20 @@ function useVirtualList<T>(items: T[], itemHeight: number) {
       containerElement.scrollTop = 0
     }
     setScrollTop(0)
-  }, [containerElement, items])
+  }, [containerElement, resetKey])
+
+  useEffect(() => {
+    // Snapshot refreshes keep the user's scroll position; only clamp when the list shrinks.
+    const maxScrollTop = Math.max(0, items.length * itemHeight - viewportHeight)
+
+    setScrollTop((current) => {
+      if (current <= maxScrollTop) return current
+      if (containerElement) {
+        containerElement.scrollTop = maxScrollTop
+      }
+      return maxScrollTop
+    })
+  }, [containerElement, itemHeight, items.length, viewportHeight])
 
   const window = useMemo(
     () => getVirtualListWindow({
