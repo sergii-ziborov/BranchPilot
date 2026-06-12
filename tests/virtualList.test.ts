@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getVirtualListWindow } from '../src/shared/virtualList'
+import { getVirtualListWindow, virtualRangeLabel } from '../src/shared/virtualList'
 
 describe('virtual list window', () => {
   it('renders only the visible range plus overscan', () => {
@@ -71,5 +71,20 @@ describe('virtual list window', () => {
       visibleCount: 0,
       totalHeight: 480
     })
+  })
+})
+
+describe('virtualRangeLabel', () => {
+  it('is empty when nothing is windowed', () => {
+    expect(virtualRangeLabel({ startIndex: 0, endIndex: 0, visibleCount: 0, totalHeight: 0, offsetY: 0 }, 0)).toBe('')
+  })
+
+  it('is empty when the whole list is visible', () => {
+    expect(virtualRangeLabel({ startIndex: 0, endIndex: 10, visibleCount: 10, totalHeight: 400, offsetY: 0 }, 10)).toBe('')
+  })
+
+  it('describes the rendered 1-based slice when the list is partially shown', () => {
+    expect(virtualRangeLabel({ startIndex: 8, endIndex: 17, visibleCount: 9, totalHeight: 50_000, offsetY: 400 }, 1000))
+      .toBe(' · showing 9-17')
   })
 })

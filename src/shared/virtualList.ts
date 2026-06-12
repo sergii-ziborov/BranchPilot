@@ -46,6 +46,16 @@ export function getVirtualListWindow(input: VirtualListWindowInput): VirtualList
   }
 }
 
+/**
+ * Suffix describing the currently rendered slice of a virtualized list,
+ * e.g. " · showing 1-20". Empty when the whole list is visible.
+ */
+export function virtualRangeLabel(window: VirtualListWindow, total: number): string {
+  if (total === 0 || window.visibleCount >= total) return ''
+
+  return ` · showing ${window.startIndex + 1}-${window.endIndex}`
+}
+
 function positiveNumber(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 1
 }

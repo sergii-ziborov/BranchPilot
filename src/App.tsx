@@ -112,7 +112,7 @@ import type { ActivityCategory, CompletedWorkSource } from './lib/activityLabels
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
-import { getVirtualListWindow, type VirtualListWindow } from './shared/virtualList'
+import { getVirtualListWindow, virtualRangeLabel } from './shared/virtualList'
 import './App.css'
 
 type ViewMode = 'dashboard' | 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily' | 'linkedin'
@@ -6278,12 +6278,6 @@ function assistantReadinessSummary(
     title: 'No assistant CLI found',
     message: 'Install Claude Code or Codex, then reload assistant detection.'
   }
-}
-
-function virtualRangeLabel(window: VirtualListWindow, total: number): string {
-  if (total === 0 || window.visibleCount >= total) return ''
-
-  return ` · showing ${window.startIndex + 1}-${window.endIndex}`
 }
 
 function useVirtualList<T>(items: T[], itemHeight: number, resetKey = '') {
