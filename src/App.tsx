@@ -107,6 +107,7 @@ import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabel
 import { formatBytes, formatDate, formatDateInputValue } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './lib/reviewLabels'
 import { gitDefaultBranchLabel, gitSigningLabel } from './lib/gitConfigLabels'
+import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel, assistantPolicyModeLabel, assistantStatusLabel } from './lib/assistantLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -6203,10 +6204,6 @@ function checkBucketClass(bucket: string): string {
   return 'other'
 }
 
-function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string {
-  return assistant === 'claude' ? 'Claude Code' : 'Codex'
-}
-
 function editorPreferenceLabel(preference: EditorPreference): string {
   if (preference === 'auto') return 'Auto'
   if (preference === 'vscode') return 'Visual Studio Code'
@@ -6215,13 +6212,6 @@ function editorPreferenceLabel(preference: EditorPreference): string {
   if (preference === 'rider') return 'Rider'
   if (preference === 'sublime') return 'Sublime Text'
   return 'Custom command'
-}
-
-function assistantStatusLabel(assistant: AssistantStatus): string {
-  if (assistant.state === 'ready') return 'ready'
-  if (assistant.state === 'unavailable') return 'unavailable'
-  if (assistant.state === 'missing') return 'not found'
-  return assistant.detected ? 'detected' : 'not found'
 }
 
 function assistantReadinessSummary(
@@ -6289,44 +6279,6 @@ function assistantReadinessSummary(
     title: 'No assistant CLI found',
     message: 'Install Claude Code or Codex, then reload assistant detection.'
   }
-}
-
-function assistantPolicyAllows(policy: AssistantPolicyStatus | null, action: AssistantActionKind): boolean {
-  if (!policy) {
-    return true
-  }
-
-  return policy.allowedActions.includes(action)
-}
-
-function assistantPolicyModeLabel(mode: AssistantPolicyMode): string {
-  if (mode === 'disabled') return 'Disabled'
-  if (mode === 'review-only') return 'Review only'
-  if (mode === 'allow-local-commands') return 'Allow local commands'
-  if (mode === 'allow-file-edits') return 'Allow file edits'
-  return 'Suggest only'
-}
-
-function assistantActionLabel(action: AssistantActionKind): string {
-  if (action === 'branch_draft') return 'Branch draft generation'
-  if (action === 'commit_message') return 'Commit text generation'
-  if (action === 'linkedin_project') return 'LinkedIn project generation'
-  if (action === 'pull_request_text') return 'PR text generation'
-  return 'Assistant reviews'
-}
-
-function assistantPolicyBlockedLabel(action: AssistantActionKind, policy: AssistantPolicyStatus | null): string {
-  const mode = policy?.settings.mode ?? 'suggest-only'
-
-  if (mode === 'disabled') {
-    return `${assistantActionLabel(action)} is blocked because assistant policy is Disabled.`
-  }
-
-  if (mode === 'review-only') {
-    return `${assistantActionLabel(action)} is blocked because assistant policy is Review only.`
-  }
-
-  return `${assistantActionLabel(action)} is not available under the current assistant policy.`
 }
 
 function providerStateLabel(state: ProviderStatus['state']): string {
