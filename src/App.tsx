@@ -51,8 +51,6 @@ import type {
   EditorSettings,
   CreatedPullRequest,
   DailyReviewReport,
-  DashboardStaleBranch,
-  DashboardRepositorySummary,
   DiffResult,
   FileChange,
   GitLfsFileStatus,
@@ -108,6 +106,7 @@ import { formatBytes, formatDate, formatDateInputValue } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './lib/reviewLabels'
 import { gitDefaultBranchLabel, gitSigningLabel } from './lib/gitConfigLabels'
 import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel, assistantPolicyModeLabel, assistantStatusLabel } from './lib/assistantLabels'
+import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, matchesDashboardStaleBranch, providerStateLabel } from './lib/dashboardLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -6279,54 +6278,6 @@ function assistantReadinessSummary(
     title: 'No assistant CLI found',
     message: 'Install Claude Code or Codex, then reload assistant detection.'
   }
-}
-
-function providerStateLabel(state: ProviderStatus['state']): string {
-  if (state === 'connected') return 'connected'
-  if (state === 'unauthenticated') return 'auth required'
-  if (state === 'missing') return 'auth missing'
-  return state
-}
-
-function dashboardStateLabel(repo: DashboardRepositorySummary): string {
-  if (repo.state === 'unavailable') return 'Unavailable'
-  if (repo.state === 'conflicted') return `${repo.mergeOperation === 'none' ? 'Conflict' : repo.mergeOperation} active`
-  if (repo.state === 'dirty') return 'Dirty'
-  return 'Clean'
-}
-
-function matchesDashboardRepository(repo: DashboardRepositorySummary, query: string): boolean {
-  return [
-    repo.name,
-    repo.path,
-    repo.currentBranch,
-    repo.upstream,
-    repo.remoteName,
-    repo.state,
-    repo.error
-  ]
-    .filter((value): value is string => Boolean(value))
-    .some((value) => value.toLowerCase().includes(query))
-}
-
-function matchesDashboardStaleBranch(branch: DashboardStaleBranch, query: string): boolean {
-  return [
-    branch.repoName,
-    branch.repoPath,
-    branch.name,
-    branch.lastCommitAt
-  ].some((value) => value.toLowerCase().includes(query))
-}
-
-function dashboardRepoMeta(repo: DashboardRepositorySummary): string {
-  const parts = [
-    repo.active ? 'active' : undefined,
-    repo.pinned ? 'pinned' : undefined,
-    repo.currentBranch,
-    repo.upstream ?? repo.remoteName
-  ].filter((value): value is string => Boolean(value))
-
-  return parts.length > 0 ? parts.join(' · ') : 'No branch metadata'
 }
 
 function githubStatusLabel(status: GitHubCliStatus): string {
