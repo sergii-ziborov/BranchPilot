@@ -106,6 +106,7 @@ import { DiffPreview } from './components/DiffView'
 import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabels'
 import { formatBytes, formatDate, formatDateInputValue } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './lib/reviewLabels'
+import { gitDefaultBranchLabel, gitSigningLabel } from './lib/gitConfigLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -6040,37 +6041,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   )
-}
-
-function gitDefaultBranchLabel(config: GitConfigSnapshot | null): string {
-  if (!config?.defaultBranch) {
-    return 'Unset'
-  }
-
-  if (config.defaultBranchSource === 'remote') {
-    return `${config.defaultBranch} (${config.defaultBranchRemote ?? 'remote'}/HEAD)`
-  }
-
-  if (config.defaultBranchSource === 'local') {
-    return `${config.defaultBranch} (local branch fallback)`
-  }
-
-  if (config.defaultBranchSource === 'current') {
-    return `${config.defaultBranch} (current branch fallback)`
-  }
-
-  return config.defaultBranch
-}
-
-function gitSigningLabel(config: GitConfigSnapshot | null): string {
-  if (!config || config.commitSigningSource === 'unset') {
-    return 'Unset'
-  }
-
-  const state = config.commitSigningEnabled ? 'Enabled' : 'Disabled'
-  const source = config.commitSigningSource === 'local' ? 'repository local' : 'global'
-
-  return `${state} (${source}, read-only)`
 }
 
 function ProviderRemoteCard({
