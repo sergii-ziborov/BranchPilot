@@ -8,6 +8,10 @@ export interface BranchPilotError {
   details?: string
 }
 
+export function branchPilotErrorText(error: BranchPilotError): string {
+  return error.details || error.code
+}
+
 export interface RepositorySummary {
   rootPath: string
   name: string

@@ -90,6 +90,7 @@ import type {
   TagSummary,
   WorktreeSummary
 } from './shared/branchPilot'
+import { branchPilotErrorText } from './shared/branchPilot'
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from './shared/branchPreconditions'
 import {
   getAvailableChangeDiffMode,
@@ -852,7 +853,7 @@ function App() {
       setNotice(`${ready} of ${result.data.length} assistant CLIs are ready.`)
     } else {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setAssistantsChecking(false)
@@ -890,7 +891,7 @@ function App() {
       }
     } else {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setAssistantPolicyLoading(false)
@@ -907,7 +908,7 @@ function App() {
       setEditorCustomCommand(result.data.customCommand ?? '')
     } else {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setEditorSettingsLoading(false)
@@ -929,7 +930,7 @@ function App() {
       setNotice(`Default editor set to ${editorPreferenceLabel(result.data.preference)}.`)
     } else {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setEditorSettingsLoading(false)
@@ -1011,7 +1012,7 @@ function App() {
     } else {
       setGithubAccounts([])
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setGithubAccountsLoading(false)
@@ -1044,7 +1045,7 @@ function App() {
     } else {
       setGithubRepositories([])
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setGithubRepoLoading(false)
@@ -1072,7 +1073,7 @@ function App() {
         setNotice('Clone canceled.')
       } else {
         setError(result.error.message)
-        setNotice(result.error.details || result.error.code)
+        setNotice(branchPilotErrorText(result.error))
       }
     })
   }
@@ -1199,7 +1200,7 @@ function App() {
         applySnapshot(result.data, 'Repository cloned.')
       } else if (!result.ok) {
         setError(result.error.message)
-        setNotice(result.error.details || result.error.code)
+        setNotice(branchPilotErrorText(result.error))
       }
     })
   }
@@ -1312,7 +1313,7 @@ function App() {
       void loadProjectMemory(currentRepoPath)
     } else {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setWikiLoading(false)
@@ -1330,7 +1331,7 @@ function App() {
       await loadProjectMemory(currentRepoPath)
     } else {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setMemoryLoading(false)
@@ -1377,7 +1378,7 @@ function App() {
       setNotice('Activity Log cleared.')
     } else {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setMemoryLoading(false)
@@ -1400,7 +1401,7 @@ function App() {
       } else {
         setDailyReview(null)
         setError(result.error.message)
-        setNotice(result.error.details || result.error.code)
+        setNotice(branchPilotErrorText(result.error))
       }
     } finally {
       setDailyReviewLoading(false)
@@ -1451,7 +1452,7 @@ function App() {
       } else {
         // Keep the current draft so a failed regeneration does not wipe user edits.
         setError(result.error.message)
-        setNotice(result.error.details || result.error.code)
+        setNotice(branchPilotErrorText(result.error))
       }
     } finally {
       setBusy(false)
@@ -1565,7 +1566,7 @@ function App() {
       }
 
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
       return false
     })
   }
@@ -1595,7 +1596,7 @@ function App() {
         setError(null)
       } else {
         setError(result.error.message)
-        setNotice(result.error.details || result.error.code)
+        setNotice(branchPilotErrorText(result.error))
       }
     })
   }
@@ -1605,7 +1606,7 @@ function App() {
       applySnapshot(result.data, successMessage)
     } else {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
   }
 
@@ -1957,7 +1958,7 @@ function App() {
         void loadHistory()
       } else {
         setError(result.error.message)
-        setNotice(result.error.details || result.error.code)
+        setNotice(branchPilotErrorText(result.error))
       }
     })
   }
@@ -2118,7 +2119,7 @@ function App() {
         await refreshProvidersPanel()
       } else {
         setError(result.error.message)
-        setNotice(result.error.details || result.error.code)
+        setNotice(branchPilotErrorText(result.error))
       }
     })
   }
@@ -2191,7 +2192,7 @@ function App() {
 
           if (!result.ok) {
             setError(result.error.message)
-            setNotice(result.error.details || result.error.code)
+            setNotice(branchPilotErrorText(result.error))
             setPreCommitReports(reports)
             return
           }
@@ -2312,7 +2313,7 @@ function App() {
 
     if (result.error.code !== 'git_branch_not_merged') {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
       return
     }
 
@@ -2327,7 +2328,7 @@ function App() {
 
     if (!forceConfirmed) {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
       return
     }
 
@@ -2402,7 +2403,7 @@ function App() {
     } else {
       setBranchComparison(null)
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setBranchComparisonLoading(null)
@@ -2579,7 +2580,7 @@ function App() {
       setNotice(`Generated branch description with ${assistantLabel(result.data.assistant)}${result.data.truncated ? ' from truncated context' : ''}. Review and save it.`)
     } else {
       setError(result.error.message)
-      setNotice(result.error.details || result.error.code)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setBranchDescriptionGenerating(null)
@@ -2599,7 +2600,7 @@ function App() {
         setNotice('Local Git identity saved.')
       } else {
         setError(result.error.message)
-        setNotice(result.error.details || result.error.code)
+        setNotice(branchPilotErrorText(result.error))
       }
     })
   }
