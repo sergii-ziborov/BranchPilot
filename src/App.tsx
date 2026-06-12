@@ -104,6 +104,7 @@ import { getAmendCommitActionState, getCommitActionState, getCommitAndPushAction
 import { getDiffStats } from './shared/diffView'
 import { DiffPreview } from './components/DiffView'
 import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabels'
+import { formatBytes, formatDate, formatDateInputValue } from './lib/format'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -6649,29 +6650,6 @@ function useVirtualList<T>(items: T[], itemHeight: number, resetKey = '') {
     items: visibleItems,
     onScroll: (event: { currentTarget: HTMLDivElement }) => setScrollTop(event.currentTarget.scrollTop)
   }
-}
-
-function formatBytes(sizeBytes: number): string {
-  if (sizeBytes < 1024) return `${sizeBytes} B`
-  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`
-  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatDateInputValue(value: Date): string {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
-}
-
-function formatDate(value: string): string {
-  if (!value) return 'Unknown date'
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value))
 }
 
 export default App
