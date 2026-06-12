@@ -33,7 +33,6 @@ import {
   X
 } from 'lucide-react'
 import type {
-  ActivityLogEntry,
   ActivityLogEventType,
   ActivityLogSnapshot,
   ApiResult,
@@ -108,6 +107,8 @@ import { gitDefaultBranchLabel, gitSigningLabel } from './lib/gitConfigLabels'
 import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel, assistantPolicyModeLabel, assistantStatusLabel } from './lib/assistantLabels'
 import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, matchesDashboardStaleBranch, providerStateLabel } from './lib/dashboardLabels'
 import { githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta, githubStatusLabel } from './lib/githubLabels'
+import { activityCategoryLabel, activityEntryCategory, activityMetadataLabel, activityTypeLabel, completedWorkSource, completedWorkSourceLabel } from './lib/activityLabels'
+import type { ActivityCategory, CompletedWorkSource } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -118,10 +119,8 @@ type ViewMode = 'dashboard' | 'changes' | 'history' | 'merge' | 'branches' | 'co
 type DiffMode = ChangeDiffMode
 type DiffDisplayMode = 'unified' | 'split'
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
-type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
 type AssistantReadinessState = AssistantStatus['state'] | 'unknown'
 type ConfirmationVariant = 'default' | 'danger'
-type CompletedWorkSource = 'commit' | 'provider' | 'review' | 'linkedin' | 'git'
 
 interface ConfirmationOptions {
   title?: string
@@ -6293,61 +6292,6 @@ function memoryFileMeta(file: ProjectMemoryFile): string {
   }
 
   return parts.join(' · ')
-}
-
-function activityEntryCategory(entry: ActivityLogEntry): ActivityCategory {
-  if (entry.actor === 'assistant') return 'assistant'
-  if (entry.actor === 'provider') return 'provider'
-  if (entry.type === 'assistant_policy_updated' || entry.type === 'assistant_action_blocked') return 'assistant'
-  if (
-    entry.type === 'project_memory_scanned' ||
-    entry.type === 'project_wiki_generated' ||
-    entry.type === 'repository_opened' ||
-    entry.type === 'repository_refreshed'
-  ) {
-    return 'memory'
-  }
-
-  return 'git'
-}
-
-function activityCategoryLabel(category: ActivityCategory): string {
-  if (category === 'git') return 'Git'
-  if (category === 'assistant') return 'Assistant'
-  if (category === 'provider') return 'Provider'
-  if (category === 'memory') return 'Memory'
-  return 'All'
-}
-
-function activityTypeLabel(type: ActivityLogEventType): string {
-  return type
-    .split('_')
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(' ')
-}
-
-function completedWorkSource(type: ActivityLogEventType): CompletedWorkSource {
-  if (type === 'github_pr_created') return 'provider'
-  if (type === 'daily_review_generated') return 'review'
-  if (type === 'assistant_linkedin_generated') return 'linkedin'
-  return 'git'
-}
-
-function completedWorkSourceLabel(source: CompletedWorkSource): string {
-  if (source === 'commit') return 'Commit'
-  if (source === 'provider') return 'Provider'
-  if (source === 'review') return 'Review'
-  if (source === 'linkedin') return 'LinkedIn'
-  return 'Git'
-}
-
-function activityMetadataLabel(entry: ActivityLogEntry): string {
-  const parts = Object.entries(entry.metadata)
-    .filter(([, value]) => value !== '' && value !== null)
-    .slice(0, 4)
-    .map(([key, value]) => `${key}: ${String(value)}`)
-
-  return parts.length > 0 ? parts.join(' · ') : entry.title
 }
 
 function worktreeSummaryLabel(worktree: WorktreeSummary): string {
