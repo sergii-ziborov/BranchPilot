@@ -107,6 +107,7 @@ import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './li
 import { gitDefaultBranchLabel, gitSigningLabel } from './lib/gitConfigLabels'
 import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel, assistantPolicyModeLabel, assistantStatusLabel } from './lib/assistantLabels'
 import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, matchesDashboardStaleBranch, providerStateLabel } from './lib/dashboardLabels'
+import { githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta, githubStatusLabel } from './lib/githubLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -6278,49 +6279,6 @@ function assistantReadinessSummary(
     title: 'No assistant CLI found',
     message: 'Install Claude Code or Codex, then reload assistant detection.'
   }
-}
-
-function githubStatusLabel(status: GitHubCliStatus): string {
-  if (status.state === 'authenticated') {
-    if (status.authProvider === 'git-credential') {
-      return status.username ? `GitHub Desktop: ${status.username}` : 'GitHub Desktop credential'
-    }
-
-    return status.username ? `Authenticated as ${status.username}` : 'Authenticated'
-  }
-
-  if (status.state === 'unauthenticated') {
-    return 'GitHub auth required'
-  }
-
-  return 'GitHub auth missing'
-}
-
-function githubRepositoryBrowserSourceLabel(status: GitHubCliStatus | null): string {
-  if (!status) {
-    return 'GitHub'
-  }
-
-  if (status.authProvider === 'git-credential') {
-    return 'GitHub Desktop'
-  }
-
-  return 'gh'
-}
-
-function githubAccountOptionLabel(account: GitHubAccountSummary): string {
-  return `${account.label} · ${account.type === 'organization' ? 'organization' : 'user'}`
-}
-
-function githubRepositoryMeta(repository: GitHubRepositorySummary): string {
-  const parts = [
-    repository.visibility.toLowerCase(),
-    repository.defaultBranch ? `default ${repository.defaultBranch}` : undefined,
-    repository.isFork ? 'fork' : undefined,
-    repository.pushedAt ? `pushed ${formatDate(repository.pushedAt)}` : repository.updatedAt ? `updated ${formatDate(repository.updatedAt)}` : undefined
-  ].filter((value): value is string => Boolean(value))
-
-  return parts.join(' · ')
 }
 
 function memoryFileMeta(file: ProjectMemoryFile): string {
