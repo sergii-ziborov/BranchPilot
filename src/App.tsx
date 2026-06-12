@@ -1337,13 +1337,17 @@ function App() {
     setMemoryLoading(false)
   }
 
-  async function copyProjectMemoryText(text: string, label: string) {
+  async function copyToClipboard(text: string, successMessage: string) {
     try {
       await navigator.clipboard.writeText(text)
-      setNotice(`${label} copied.`)
+      setNotice(successMessage)
     } catch {
       setError('Clipboard is not available in this runtime.')
     }
+  }
+
+  async function copyProjectMemoryText(text: string, label: string) {
+    await copyToClipboard(text, `${label} copied.`)
   }
 
   async function copyProjectWikiPage(page: ProjectWikiPage | null) {
@@ -1410,13 +1414,7 @@ function App() {
 
   async function copyDailyReviewMarkdown() {
     if (!dailyReview) return
-
-    try {
-      await navigator.clipboard.writeText(dailyReview.markdown)
-      setNotice('Daily review Markdown copied.')
-    } catch {
-      setError('Clipboard is not available in this runtime.')
-    }
+    await copyToClipboard(dailyReview.markdown, 'Daily review Markdown copied.')
   }
 
   async function generateLinkedInProject() {
@@ -1466,24 +1464,15 @@ function App() {
 
   async function copyLinkedInMarkdown() {
     if (!linkedinProject) return
-
-    try {
-      await navigator.clipboard.writeText(linkedinProject.markdown)
-      setNotice('LinkedIn project Markdown copied.')
-    } catch {
-      setError('Clipboard is not available in this runtime.')
-    }
+    await copyToClipboard(linkedinProject.markdown, 'LinkedIn project Markdown copied.')
   }
 
   async function copyLinkedInTags() {
     if (!linkedinProject) return
-
-    try {
-      await navigator.clipboard.writeText(linkedinProject.tags.map((tag) => `#${tag.replace(/^#/, '')}`).join(' '))
-      setNotice('LinkedIn tags copied.')
-    } catch {
-      setError('Clipboard is not available in this runtime.')
-    }
+    await copyToClipboard(
+      linkedinProject.tags.map((tag) => `#${tag.replace(/^#/, '')}`).join(' '),
+      'LinkedIn tags copied.'
+    )
   }
 
   async function loadCommitDetails(commitSha: string) {
