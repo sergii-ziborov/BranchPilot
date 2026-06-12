@@ -105,6 +105,7 @@ import { getDiffStats } from './shared/diffView'
 import { DiffPreview } from './components/DiffView'
 import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabels'
 import { formatBytes, formatDate, formatDateInputValue } from './lib/format'
+import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './lib/reviewLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -6356,28 +6357,6 @@ function assistantPolicyBlockedLabel(action: AssistantActionKind, policy: Assist
   }
 
   return `${assistantActionLabel(action)} is not available under the current assistant policy.`
-}
-
-function reviewModeLabel(mode: ReviewMode): string {
-  if (mode === 'security') return 'Security'
-  if (mode === 'quality') return 'Quality'
-  return 'Consistency'
-}
-
-function reviewScopeLabel(scope: ReviewScope): string {
-  if (scope === 'unstaged') return 'Unstaged'
-  if (scope === 'branch') return 'Branch'
-  return 'Staged'
-}
-
-function groupFindingsBySeverity(findings: ReviewFinding[]): Record<ReviewSeverity, ReviewFinding[]> {
-  return {
-    critical: findings.filter((finding) => finding.severity === 'critical'),
-    high: findings.filter((finding) => finding.severity === 'high'),
-    medium: findings.filter((finding) => finding.severity === 'medium'),
-    low: findings.filter((finding) => finding.severity === 'low'),
-    info: findings.filter((finding) => finding.severity === 'info')
-  }
 }
 
 function providerStateLabel(state: ProviderStatus['state']): string {
