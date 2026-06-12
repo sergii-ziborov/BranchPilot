@@ -52,7 +52,6 @@ import type {
   DailyReviewReport,
   DiffResult,
   FileChange,
-  GitLfsFileStatus,
   GitHubAccountSummary,
   GitHubCliStatus,
   GitHubPullRequest,
@@ -108,6 +107,7 @@ import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantP
 import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, matchesDashboardStaleBranch, providerStateLabel } from './lib/dashboardLabels'
 import { githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta, githubStatusLabel } from './lib/githubLabels'
 import { activityCategoryLabel, activityEntryCategory, activityMetadataLabel, activityTypeLabel, completedWorkSource, completedWorkSourceLabel } from './lib/activityLabels'
+import { gitLfsFileLabel, submoduleStatusLabel, worktreeSummaryLabel } from './lib/gitEntityLabels'
 import type { ActivityCategory, CompletedWorkSource } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
@@ -6292,44 +6292,6 @@ function memoryFileMeta(file: ProjectMemoryFile): string {
   }
 
   return parts.join(' · ')
-}
-
-function worktreeSummaryLabel(worktree: WorktreeSummary): string {
-  const parts = [
-    worktree.current ? 'current checkout' : undefined,
-    worktree.detached ? 'detached' : undefined,
-    worktree.bare ? 'bare' : undefined,
-    worktree.locked ? 'locked' : undefined,
-    worktree.prunable ? 'prunable' : undefined,
-    worktree.head ? worktree.head.slice(0, 12) : undefined
-  ].filter((value): value is string => Boolean(value))
-
-  return parts.length > 0 ? parts.join(' · ') : 'linked worktree'
-}
-
-function submoduleStatusLabel(submodule: SubmoduleSummary): string {
-  const status = submodule.status === 'initialized'
-    ? 'initialized'
-    : submodule.status === 'uninitialized'
-      ? 'not initialized'
-      : submodule.status
-  const parts = [
-    status,
-    submodule.head ? submodule.head.slice(0, 12) : undefined,
-    submodule.description
-  ].filter((value): value is string => Boolean(value))
-
-  return parts.join(' · ')
-}
-
-function gitLfsFileLabel(status: GitLfsFileStatus, oid?: string): string {
-  const label = status === 'present'
-    ? 'object present'
-    : status === 'pointer'
-      ? 'pointer only'
-      : 'unknown'
-
-  return oid ? `${label} · ${oid.slice(0, 12)}` : label
 }
 
 function virtualRangeLabel(window: VirtualListWindow, total: number): string {
