@@ -99,6 +99,7 @@ import { getAmendCommitActionState, getCommitActionState, getCommitAndPushAction
 import { getDiffStats } from './shared/diffView'
 import { DiffPreview } from './components/DiffView'
 import { InfoRow, Stat } from './components/primitives'
+import { ActionBlockers } from './components/ActionBlockers'
 import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabels'
 import { formatDate, formatDateInputValue } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './lib/reviewLabels'
@@ -6074,26 +6075,6 @@ function PlannedProviderWorkflowPanel({ remote }: { remote: ProviderRemoteSummar
         BranchPilot detected this repository on {remote.label}. Local Git, review, commit text, Project Memory, and Project Wiki workflows are available now; provider-native {remote.workflowLabel} creation will come after the adapter is implemented.
       </div>
     </section>
-  )
-}
-
-function ActionBlockers({ title, reasons }: { title: string; reasons: string[] }) {
-  return (
-    <div className={reasons.length === 0 ? 'action-blockers ready' : 'action-blockers blocked'}>
-      <div>
-        {reasons.length === 0 ? <Check size={16} /> : <FileWarning size={16} />}
-        <strong>{title}</strong>
-      </div>
-      {reasons.length > 0 ? (
-        <ul>
-          {reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-      ) : (
-        <p>All required preconditions are satisfied.</p>
-      )}
-    </div>
   )
 }
 
