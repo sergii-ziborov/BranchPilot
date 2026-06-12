@@ -98,6 +98,7 @@ import {
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { getDiffStats } from './shared/diffView'
 import { DiffPreview } from './components/DiffView'
+import { InfoRow, Stat } from './components/primitives'
 import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabels'
 import { formatDate, formatDateInputValue } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './lib/reviewLabels'
@@ -6023,24 +6024,6 @@ function App() {
       </section>
     )
   }
-}
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="stat-tile">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  )
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="info-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  )
 }
 
 function ProviderRemoteCard({
