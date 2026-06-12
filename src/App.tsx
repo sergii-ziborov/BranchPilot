@@ -103,6 +103,7 @@ import {
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { getDiffStats } from './shared/diffView'
 import { DiffPreview } from './components/DiffView'
+import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
@@ -6219,29 +6220,6 @@ function BulkStageCheckbox({
       </span>
     </label>
   )
-}
-
-function changeLabel(change: FileChange): string {
-  const parts = []
-  if (change.staged) parts.push('staged')
-  if (change.unstaged) parts.push('unstaged')
-  if (change.untracked) parts.push('untracked')
-  if (change.conflicted) parts.push('conflict')
-  return parts.join(' / ') || change.status
-}
-
-function fileStatusToken(status: string): string {
-  if (status === 'renamed') return 'R'
-  if (status === 'copied') return 'C'
-  if (status === 'deleted') return 'D'
-  if (status === 'added') return 'A'
-  return 'M'
-}
-
-function statusToken(change: FileChange): string {
-  if (change.conflicted) return '!'
-  if (change.untracked) return '?'
-  return fileStatusToken(change.status)
 }
 
 function checkBucketClass(bucket: string): string {
