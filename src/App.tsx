@@ -63,7 +63,6 @@ import type {
   GitConfigSnapshot,
   GitOperationResult,
   ProviderStatus,
-  ProjectMemoryFile,
   ProjectMemoryMcpConfig,
   ProjectMemorySnapshot,
   ProjectWikiPage,
@@ -100,7 +99,7 @@ import { getAmendCommitActionState, getCommitActionState, getCommitAndPushAction
 import { getDiffStats } from './shared/diffView'
 import { DiffPreview } from './components/DiffView'
 import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabels'
-import { formatBytes, formatDate, formatDateInputValue } from './lib/format'
+import { formatDate, formatDateInputValue } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './lib/reviewLabels'
 import { gitDefaultBranchLabel, gitSigningLabel } from './lib/gitConfigLabels'
 import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel, assistantPolicyModeLabel, assistantStatusLabel } from './lib/assistantLabels'
@@ -108,6 +107,7 @@ import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, mat
 import { githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta, githubStatusLabel } from './lib/githubLabels'
 import { activityCategoryLabel, activityEntryCategory, activityMetadataLabel, activityTypeLabel, completedWorkSource, completedWorkSourceLabel } from './lib/activityLabels'
 import { gitLfsFileLabel, submoduleStatusLabel, worktreeSummaryLabel } from './lib/gitEntityLabels'
+import { memoryFileMeta } from './lib/memoryLabels'
 import type { ActivityCategory, CompletedWorkSource } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary, type ProviderRemoteSummary } from './shared/providerRemote'
@@ -6278,20 +6278,6 @@ function assistantReadinessSummary(
     title: 'No assistant CLI found',
     message: 'Install Claude Code or Codex, then reload assistant detection.'
   }
-}
-
-function memoryFileMeta(file: ProjectMemoryFile): string {
-  const parts = [
-    (file.language ?? file.extension) || 'file',
-    formatBytes(file.sizeBytes),
-    `${file.symbolCount} symbols`
-  ]
-
-  if (file.importCount > 0) {
-    parts.push(`${file.importCount} imports`)
-  }
-
-  return parts.join(' · ')
 }
 
 function virtualRangeLabel(window: VirtualListWindow, total: number): string {
