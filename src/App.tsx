@@ -111,6 +111,7 @@ import { githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRep
 import { activityCategoryLabel, activityEntryCategory, activityMetadataLabel, activityTypeLabel, completedWorkSource, completedWorkSourceLabel } from './lib/activityLabels'
 import { gitLfsFileLabel, submoduleStatusLabel, worktreeSummaryLabel } from './lib/gitEntityLabels'
 import { memoryFileMeta } from './lib/memoryLabels'
+import { editorPreferenceLabel } from './lib/editorLabels'
 import type { ActivityCategory, CompletedWorkSource } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary } from './shared/providerRemote'
@@ -6115,16 +6116,6 @@ function checkBucketClass(bucket: string): string {
   if (bucket === 'skipping') return 'skipping'
   if (bucket === 'cancel') return 'cancel'
   return 'other'
-}
-
-function editorPreferenceLabel(preference: EditorPreference): string {
-  if (preference === 'auto') return 'Auto'
-  if (preference === 'vscode') return 'Visual Studio Code'
-  if (preference === 'cursor') return 'Cursor'
-  if (preference === 'webstorm') return 'WebStorm'
-  if (preference === 'rider') return 'Rider'
-  if (preference === 'sublime') return 'Sublime Text'
-  return 'Custom command'
 }
 
 function assistantReadinessSummary(
