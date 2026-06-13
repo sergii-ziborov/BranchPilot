@@ -103,6 +103,7 @@ import { PlannedProviderWorkflowPanel, ProviderRemoteCard } from './components/P
 import { BulkStageCheckbox, StageCheckbox } from './components/StageCheckbox'
 import { useVirtualList } from './hooks/useVirtualList'
 import { DailyView } from './components/views/DailyView'
+import { StashView } from './components/views/StashView'
 import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabels'
 import { formatDate, formatDateInputValue } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './lib/reviewLabels'
@@ -2927,7 +2928,20 @@ function App() {
             {viewMode === 'merge' && renderMergeView()}
             {viewMode === 'branches' && renderBranchesView(snapshot.branches, snapshot.remoteBranches ?? [], snapshot.tags, snapshot.worktrees)}
             {viewMode === 'config' && renderConfigView()}
-            {viewMode === 'stash' && renderStashView()}
+            {viewMode === 'stash' && (
+              <StashView
+                loadStashes={loadStashes}
+                busy={busy}
+                stashMessage={stashMessage}
+                setStashMessage={setStashMessage}
+                defaultStashMessage={defaultStashMessage}
+                createStash={createStash}
+                canCreateStash={canCreateStash}
+                stashes={stashes}
+                applyStash={applyStash}
+                dropStash={dropStash}
+              />
+            )}
             {viewMode === 'review' && renderReviewView()}
             {viewMode === 'providers' && renderProvidersView()}
             {viewMode === 'memory' && renderMemoryView()}
@@ -4353,67 +4367,6 @@ function App() {
     )
   }
 
-  function renderStashView() {
-    return (
-      <section className="single-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Stash</h2>
-            <p>Store unfinished tracked and untracked work without committing.</p>
-          </div>
-          <button type="button" onClick={() => loadStashes()} disabled={busy}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
-        </div>
-
-        <div className="stash-workspace">
-          <section className="stash-create">
-            <div>
-              <h3>Create stash</h3>
-              <p>Includes tracked and untracked changes. Ignored files stay untouched.</p>
-            </div>
-            <input
-              id="stash-message"
-              value={stashMessage}
-              onChange={(event) => setStashMessage(event.target.value)}
-              placeholder={defaultStashMessage()}
-            />
-            <button type="button" onClick={() => createStash()} disabled={busy || !canCreateStash}>
-              <Save size={17} />
-              Stash changes
-            </button>
-          </section>
-
-          <section className="stash-list">
-            {stashes.length === 0 ? (
-              <div className="quiet-box">No stashes for this repository.</div>
-            ) : (
-              stashes.map((stash) => (
-                <article className="stash-row" key={stash.ref}>
-                  <div>
-                    <span>{stash.ref} · {stash.createdAtLabel}</span>
-                    <strong>{stash.message}</strong>
-                    <code>{stash.sha.slice(0, 12)}</code>
-                  </div>
-                  <div className="stash-actions">
-                    <button type="button" onClick={() => applyStash(stash)} disabled={busy}>
-                      <ArrowDownToLine size={17} />
-                      Apply
-                    </button>
-                    <button className="danger-button" type="button" onClick={() => dropStash(stash)} disabled={busy}>
-                      <Trash2 size={17} />
-                      Drop
-                    </button>
-                  </div>
-                </article>
-              ))
-            )}
-          </section>
-        </div>
-      </section>
-    )
-  }
 
   function renderMergeView() {
     const hasOperation = mergeState && mergeState.operation !== 'none'
