@@ -112,6 +112,7 @@ import { activityCategoryLabel, activityEntryCategory, activityMetadataLabel, ac
 import { gitLfsFileLabel, submoduleStatusLabel, worktreeSummaryLabel } from './lib/gitEntityLabels'
 import { memoryFileMeta } from './lib/memoryLabels'
 import { editorPreferenceLabel } from './lib/editorLabels'
+import { progressLabelFromSuccess } from './lib/progressLabels'
 import type { ActivityCategory, CompletedWorkSource } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary } from './shared/providerRemote'
@@ -185,15 +186,6 @@ const CHANGE_LIST_ITEM_HEIGHT = 42
 const HISTORY_LIST_ITEM_HEIGHT = 64
 const VIRTUAL_LIST_OVERSCAN = 8
 const VIRTUAL_LIST_FALLBACK_HEIGHT = 520
-
-function progressLabelFromSuccess(label: string): string {
-  const trimmed = label.trim()
-
-  if (!trimmed) return 'Working...'
-  if (trimmed.endsWith('...')) return trimmed
-
-  return `${trimmed.replace(/[.!?]+$/, '')}...`
-}
 
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
