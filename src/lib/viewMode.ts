@@ -1,0 +1,14 @@
+/** The set of primary views the BranchPilot workspace can display. */
+export type ViewMode =
+  | 'dashboard'
+  | 'changes'
+  | 'history'
+  | 'merge'
+  | 'branches'
+  | 'config'
+  | 'stash'
+  | 'review'
+  | 'providers'
+  | 'memory'
+  | 'daily'
+  | 'linkedin'
