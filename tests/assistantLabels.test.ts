@@ -5,6 +5,7 @@ import {
   assistantPolicyAllows,
   assistantPolicyBlockedLabel,
   assistantPolicyModeLabel,
+  assistantReadinessSummary,
   assistantStatusLabel
 } from '../src/lib/assistantLabels'
 import type { AssistantPolicyStatus, AssistantStatus } from '../src/shared/branchPilot'
@@ -77,6 +78,37 @@ describe('assistantActionLabel', () => {
     expect(assistantActionLabel('linkedin_project')).toBe('LinkedIn project generation')
     expect(assistantActionLabel('pull_request_text')).toBe('PR text generation')
     expect(assistantActionLabel('review_report')).toBe('Assistant reviews')
+  })
+})
+
+describe('assistantReadinessSummary', () => {
+  it('reports unknown when no assistants are loaded', () => {
+    expect(assistantReadinessSummary([], 'auto').state).toBe('unknown')
+  })
+
+  it('reports a specific selected assistant that is not configured', () => {
+    const summary = assistantReadinessSummary([makeStatus({ id: 'codex' })], 'claude')
+    expect(summary.state).toBe('missing')
+    expect(summary.title).toContain('Claude Code is not configured')
+  })
+
+  it('reflects a configured selected assistant state', () => {
+    const summary = assistantReadinessSummary([makeStatus({ id: 'claude', label: 'Claude Code', state: 'ready', message: 'OK' })], 'claude')
+    expect(summary.state).toBe('ready')
+    expect(summary.title).toBe('Claude Code: ready')
+  })
+
+  it('auto prefers a ready assistant', () => {
+    const summary = assistantReadinessSummary([
+      makeStatus({ id: 'codex', label: 'Codex', state: 'detected' }),
+      makeStatus({ id: 'claude', label: 'Claude Code', state: 'ready', message: 'go' })
+    ], 'auto')
+    expect(summary.state).toBe('ready')
+    expect(summary.title).toBe('Auto will use Claude Code')
+  })
+
+  it('auto falls back to missing when nothing is usable', () => {
+    expect(assistantReadinessSummary([makeStatus({ id: 'claude', state: 'missing' })], 'auto').state).toBe('missing')
   })
 })
 

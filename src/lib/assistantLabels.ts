@@ -6,6 +6,8 @@ import type {
   AssistantStatus
 } from '../shared/branchPilot'
 
+export type AssistantReadinessState = AssistantStatus['state'] | 'unknown'
+
 /** Display name for a concrete assistant (Claude Code / Codex). */
 export function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string {
   return assistant === 'claude' ? 'Claude Code' : 'Codex'
@@ -44,6 +46,74 @@ export function assistantActionLabel(action: AssistantActionKind): string {
   if (action === 'linkedin_project') return 'LinkedIn project generation'
   if (action === 'pull_request_text') return 'PR text generation'
   return 'Assistant reviews'
+}
+
+/** Summarise assistant readiness for the selected assistant (or Auto). */
+export function assistantReadinessSummary(
+  assistants: AssistantStatus[],
+  selectedAssistant: AssistantId
+): { state: AssistantReadinessState; title: string; message: string } {
+  if (assistants.length === 0) {
+    return {
+      state: 'unknown',
+      title: 'Assistant status not loaded',
+      message: 'BranchPilot has not loaded Claude/Codex detection yet.'
+    }
+  }
+
+  if (selectedAssistant !== 'auto') {
+    const assistant = assistants.find((candidate) => candidate.id === selectedAssistant)
+
+    if (!assistant) {
+      return {
+        state: 'missing',
+        title: `${assistantLabel(selectedAssistant)} is not configured`,
+        message: 'Select Auto or install the requested assistant CLI.'
+      }
+    }
+
+    return {
+      state: assistant.state,
+      title: `${assistant.label}: ${assistantStatusLabel(assistant)}`,
+      message: assistant.message
+    }
+  }
+
+  const ready = assistants.find((assistant) => assistant.state === 'ready')
+
+  if (ready) {
+    return {
+      state: 'ready',
+      title: `Auto will use ${ready.label}`,
+      message: ready.message
+    }
+  }
+
+  const detected = assistants.find((assistant) => assistant.state === 'detected')
+
+  if (detected) {
+    return {
+      state: 'detected',
+      title: 'Auto has detected assistants',
+      message: 'Run a health check to verify that generation access works before relying on Auto.'
+    }
+  }
+
+  const unavailable = assistants.find((assistant) => assistant.state === 'unavailable')
+
+  if (unavailable) {
+    return {
+      state: 'unavailable',
+      title: 'Auto has no ready assistant',
+      message: assistants.map((assistant) => `${assistant.label}: ${assistantStatusLabel(assistant)}`).join(' · ')
+    }
+  }
+
+  return {
+    state: 'missing',
+    title: 'No assistant CLI found',
+    message: 'Install Claude Code or Codex, then reload assistant detection.'
+  }
 }
 
 /** Explain why an assistant action is blocked under the current policy. */
