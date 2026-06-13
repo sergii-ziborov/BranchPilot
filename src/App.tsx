@@ -92,8 +92,6 @@ import { getAmendCommitActionState, getCommitActionState, getCommitAndPushAction
 import { getDiffStats } from './shared/diffView'
 import { DiffPreview } from './components/DiffView'
 import { InfoRow, Stat } from './components/primitives'
-import { ActionBlockers } from './components/ActionBlockers'
-import { PlannedProviderWorkflowPanel, ProviderRemoteCard } from './components/ProviderRemoteCard'
 import { useVirtualList } from './hooks/useVirtualList'
 import { DailyView } from './components/views/DailyView'
 import { StashView } from './components/views/StashView'
@@ -106,21 +104,19 @@ import { MemoryView } from './components/views/MemoryView'
 import { ConfigView } from './components/views/ConfigView'
 import { ChangesView } from './components/views/ChangesView'
 import { BranchesView } from './components/views/BranchesView'
+import { ProvidersView } from './components/views/ProvidersView'
 import type { ViewMode } from './lib/viewMode'
 import { changeLabel, fileStatusToken } from './lib/fileChangeLabels'
 import { formatDate, formatDateInputValue } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel } from './lib/reviewLabels'
 import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel, assistantPolicyModeLabel, assistantReadinessSummary } from './lib/assistantLabels'
-import { checkBucketClass, githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta, githubStatusLabel } from './lib/githubLabels'
-import { providerStateLabel } from './lib/dashboardLabels'
+import { checkBucketClass, githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta } from './lib/githubLabels'
 import { activityEntryCategory, activityMetadataLabel, activityTypeLabel, completedWorkSource } from './lib/activityLabels'
 import type { CompletedWorkItem } from './lib/activityLabels'
 import { editorPreferenceLabel } from './lib/editorLabels'
 import { progressLabelFromSuccess } from './lib/progressLabels'
 import type { ActivityCategory } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
-import { getProviderRemoteSummary } from './shared/providerRemote'
-import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
 import './App.css'
 
 type DiffMode = ChangeDiffMode
@@ -3161,7 +3157,41 @@ function App() {
                 renderAssistantReadiness={renderAssistantReadiness}
               />
             )}
-            {viewMode === 'providers' && renderProvidersView()}
+            {viewMode === 'providers' && (
+              <ProvidersView
+                providers={providers}
+                snapshot={snapshot}
+                api={api}
+                currentRepoPath={currentRepoPath}
+                busy={busy}
+                assistantPolicy={assistantPolicy}
+                githubCliStatus={githubCliStatus}
+                canGeneratePullRequestText={canGeneratePullRequestText}
+                canPublishBranch={canPublishBranch}
+                createdPullRequest={createdPullRequest}
+                currentPullRequest={currentPullRequest}
+                pullRequests={pullRequests}
+                pullRequestsLoading={pullRequestsLoading}
+                selectedPullRequestNumber={selectedPullRequestNumber}
+                prTitle={prTitle}
+                setPrTitle={setPrTitle}
+                prDescription={prDescription}
+                setPrDescription={setPrDescription}
+                prBaseBranch={prBaseBranch}
+                setPrBaseBranch={setPrBaseBranch}
+                checkoutPullRequest={checkoutPullRequest}
+                createPullRequest={createPullRequest}
+                generatePullRequestText={generatePullRequestText}
+                loadGitHubPullRequests={loadGitHubPullRequests}
+                refreshProvidersPanel={refreshProvidersPanel}
+                selectPullRequest={selectPullRequest}
+                openExternalLink={openExternalLink}
+                runSnapshotAction={runSnapshotAction}
+                renderAssistantReadiness={renderAssistantReadiness}
+                renderGitHubRepositoryBrowser={renderGitHubRepositoryBrowser}
+                renderPullRequestDetailsPanel={renderPullRequestDetailsPanel}
+              />
+            )}
             {viewMode === 'memory' && (
               <MemoryView
                 projectMemory={projectMemory}
@@ -3483,283 +3513,6 @@ function App() {
 
 
 
-  function renderProvidersView() {
-    const githubProvider = providers.find((provider) => provider.id === 'github')
-    const providerRemote = getProviderRemoteSummary(snapshot?.summary.remoteUrl)
-    const showGitHubPullRequestPanel = providerRemote.kind !== 'gitlab' && providerRemote.kind !== 'bitbucket'
-    const createPrState = getCreatePullRequestState({
-      snapshot,
-      githubStatus: githubCliStatus,
-      title: prTitle,
-      currentPullRequestExists: Boolean(currentPullRequest)
-    })
-    const browsePrState = getPullRequestBrowseState(snapshot, githubCliStatus)
-
-    return (
-      <section className="single-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Providers</h2>
-            <p>GitHub uses authenticated gh when available, with GitHub Desktop credentials as a PR creation fallback.</p>
-          </div>
-          <button type="button" onClick={refreshProvidersPanel} disabled={busy}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
-        </div>
-        <div className="assistant-grid">
-          {providers.map((provider) => (
-            <div className="provider-card" key={provider.id}>
-              <GitPullRequest size={20} />
-              <strong>{provider.label}</strong>
-              <span>{providerStateLabel(provider.state)}</span>
-            </div>
-          ))}
-        </div>
-
-        <ProviderRemoteCard
-          remote={providerRemote}
-          remoteName={snapshot?.summary.remoteName}
-          remoteUrl={snapshot?.summary.remoteUrl}
-          hasRepository={Boolean(snapshot)}
-        />
-
-        {renderGitHubRepositoryBrowser()}
-
-        {showGitHubPullRequestPanel ? (
-          <section className="pr-panel">
-          <div className="panel-heading">
-            <div>
-              <h3>GitHub pull request</h3>
-              <p>{snapshot ? `${snapshot.summary.currentBranch} → ${prBaseBranch || 'main'}` : 'Open a repository to create pull requests.'}</p>
-            </div>
-            <span className={`github-status status-${githubProvider?.state ?? 'planned'}`}>
-              {githubCliStatus ? githubStatusLabel(githubCliStatus) : 'GitHub CLI unknown'}
-            </span>
-          </div>
-
-          {githubCliStatus?.state === 'unauthenticated' && (
-            <div className="command-hint">Run <code>gh auth login</code> or sign in with GitHub Desktop, then refresh this panel.</div>
-          )}
-
-          {githubCliStatus?.state === 'missing' && (
-            <div className="command-hint">Install GitHub CLI or sign in with GitHub Desktop to create pull requests from BranchPilot.</div>
-          )}
-
-          {githubCliStatus?.authProvider === 'git-credential' && (
-            <div className="command-hint">Using GitHub Desktop credential for PR creation, list, details, diff, and checkout. Run <code>gh auth login</code> to enable checks.</div>
-          )}
-
-          {snapshot && providerRemote.kind !== 'github' && (
-            <div className="command-hint">
-              {providerRemote.kind === 'none'
-                ? 'Add a GitHub remote before using GitHub pull request workflows.'
-                : `${providerRemote.label} remote detected. GitHub pull request workflows require a GitHub remote.`}
-            </div>
-          )}
-
-          {snapshot && !snapshot.summary.upstream && (
-            <div className="command-hint">
-              Publish the current branch before creating a pull request.
-              {canPublishBranch && (
-                <button type="button" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
-                  repoPath: currentRepoPath,
-                  remote: snapshot.summary.remoteName
-                }))}>
-                  <UploadCloud size={17} />
-                  Publish branch
-                </button>
-              )}
-            </div>
-          )}
-
-          {currentPullRequest && (
-            <article className="current-pr">
-              <div>
-                <span className="pr-number">#{currentPullRequest.number}</span>
-                <strong>{currentPullRequest.title}</strong>
-                <span>
-                  {currentPullRequest.baseBranch} ← {currentPullRequest.headBranch} · {currentPullRequest.state}
-                  {currentPullRequest.draft ? ' · draft' : ''}
-                </span>
-              </div>
-              <div className="pr-actions">
-                <button type="button" onClick={() => selectPullRequest(currentPullRequest)} disabled={busy}>
-                  <GitPullRequest size={17} />
-                  Details
-                </button>
-                <button type="button" className="secondary" onClick={() => openExternalLink(currentPullRequest.url, 'Pull request link')}>
-                  <ExternalLink size={17} />
-                  Open PR
-                </button>
-              </div>
-            </article>
-          )}
-
-          <div className="pr-form">
-            <label htmlFor="pr-base">Base branch</label>
-            <input
-              id="pr-base"
-              value={prBaseBranch}
-              onChange={(event) => setPrBaseBranch(event.target.value)}
-              placeholder="main"
-            />
-            <label htmlFor="pr-title">Title</label>
-            <input
-              id="pr-title"
-              value={prTitle}
-              onChange={(event) => setPrTitle(event.target.value)}
-              placeholder="Summarize branch changes"
-            />
-            <label htmlFor="pr-description">Description</label>
-            <textarea
-              id="pr-description"
-              value={prDescription}
-              onChange={(event) => setPrDescription(event.target.value)}
-              placeholder="Describe changes, testing, and risk"
-            />
-            <div className="commit-actions">
-              <button type="button" onClick={generatePullRequestText} disabled={!snapshot || busy || !canGeneratePullRequestText}>
-                <Bot size={17} />
-                Generate PR text
-              </button>
-              {currentPullRequest ? (
-                <button type="button" onClick={() => openExternalLink(currentPullRequest.url, 'Pull request link')} disabled={busy}>
-                  <ExternalLink size={17} />
-                  Open current PR
-                </button>
-              ) : (
-                <button type="button" onClick={createPullRequest} disabled={!createPrState.enabled || busy}>
-                  <GitPullRequest size={17} />
-                  Create PR
-                </button>
-              )}
-              {createdPullRequest && (
-                <button type="button" className="secondary" onClick={() => openExternalLink(createdPullRequest.url, 'Created pull request link')}>
-                  <ExternalLink size={17} />
-                  Open PR
-                </button>
-              )}
-            </div>
-            {!canGeneratePullRequestText && (
-              <div className="assistant-policy-note">{assistantPolicyBlockedLabel('pull_request_text', assistantPolicy)}</div>
-            )}
-            {renderAssistantReadiness('pull_request_text')}
-            <ActionBlockers
-              title={createPrState.enabled ? 'Ready to create PR' : 'Create PR blocked'}
-              reasons={createPrState.reasons}
-            />
-          </div>
-
-          {createdPullRequest && (
-            <div className="created-pr">
-              <strong>{createdPullRequest.title}</strong>
-              <span>{createdPullRequest.baseBranch} ← {createdPullRequest.headBranch}</span>
-              <span>{createdPullRequest.url}</span>
-            </div>
-          )}
-
-          <section className="pr-list-panel">
-            <div className="panel-heading compact-heading">
-              <div>
-                <h3>Pull requests</h3>
-                <p>{githubCliStatus?.authenticated ? `${pullRequests.length} recent pull request${pullRequests.length === 1 ? '' : 's'} from ${githubRepositoryBrowserSourceLabel(githubCliStatus)}.` : 'PR list requires GitHub CLI or GitHub Desktop auth.'}</p>
-              </div>
-              <button type="button" className="secondary" onClick={loadGitHubPullRequests} disabled={busy || !browsePrState.enabled}>
-                <RefreshCcw size={17} />
-                Refresh PRs
-              </button>
-            </div>
-            <ActionBlockers
-              title={browsePrState.enabled ? 'Ready to browse PRs' : 'PR browsing blocked'}
-              reasons={browsePrState.reasons}
-            />
-
-            {pullRequestsLoading && pullRequests.length === 0 ? (
-              <div className="quiet-box">Loading pull requests.</div>
-            ) : !browsePrState.enabled ? (
-              <div className="quiet-box">Authenticate GitHub with gh or GitHub Desktop to browse pull requests in BranchPilot.</div>
-            ) : pullRequests.length === 0 ? (
-              <div className="quiet-box">No open pull requests found.</div>
-            ) : (
-              <div className="pr-list">
-                {pullRequests.map((pullRequest) => {
-                  const isCurrent = currentPullRequest?.number === pullRequest.number ||
-                    pullRequest.headBranch === snapshot?.summary.currentBranch
-                  const isSelected = selectedPullRequestNumber === pullRequest.number
-
-                  return (
-                    <article
-                      className={[
-                        'pr-row',
-                        isCurrent ? 'current' : '',
-                        isSelected ? 'selected' : ''
-                      ].filter(Boolean).join(' ')}
-                      key={pullRequest.number}
-                      onClick={() => selectPullRequest(pullRequest)}
-                      onKeyDown={(event) => {
-                        // Only react to keys on the row itself, not on nested Checkout/Open buttons.
-                        if (event.target !== event.currentTarget) return
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          selectPullRequest(pullRequest)
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <div>
-                        <span className="pr-number">#{pullRequest.number}</span>
-                        <strong>{pullRequest.title}</strong>
-                        <span>
-                          {pullRequest.baseBranch} ← {pullRequest.headBranch} · {pullRequest.state}
-                          {pullRequest.draft ? ' · draft' : ''}
-                        </span>
-                      </div>
-                      <div className="pr-actions">
-                        {isCurrent ? (
-                          <span className="pr-current-badge">Current branch</span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              void checkoutPullRequest(pullRequest)
-                            }}
-                            disabled={busy || !githubCliStatus?.authenticated}
-                          >
-                            <GitPullRequest size={17} />
-                            Checkout
-                          </button>
-                        )}
-                        {isSelected && <span className="pr-current-badge selected-badge">Selected</span>}
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            openExternalLink(pullRequest.url, 'Pull request link')
-                          }}
-                        >
-                          <ExternalLink size={17} />
-                          Open
-                        </button>
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-
-          {renderPullRequestDetailsPanel()}
-          </section>
-        ) : (
-          <PlannedProviderWorkflowPanel remote={providerRemote} />
-        )}
-      </section>
-    )
-  }
 
   function renderGitHubRepositoryBrowser() {
     const repoBrowserReady = Boolean(githubCliStatus?.authenticated)
