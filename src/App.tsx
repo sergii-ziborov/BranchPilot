@@ -36,8 +36,6 @@ import type {
   AssistantStatus,
   BranchComparison,
   BranchSummary,
-  CommitDetails,
-  CommitSummary,
   DiffHunk,
   EditorPreference,
 
@@ -85,6 +83,8 @@ import { useStash } from './hooks/useStash'
 import { useGitConfig } from './hooks/useGitConfig'
 import { useReview } from './hooks/useReview'
 import { useProjectMemory } from './hooks/useProjectMemory'
+import { useHistory } from './hooks/useHistory'
+import { CHANGE_LIST_ITEM_HEIGHT, HISTORY_LIST_ITEM_HEIGHT } from './lib/listMetrics'
 import { DailyView } from './components/views/DailyView'
 import { StashView } from './components/views/StashView'
 import { MergeView } from './components/views/MergeView'
@@ -151,8 +151,6 @@ const assistantPolicyModes: AssistantPolicyMode[] = [
   'allow-file-edits'
 ]
 const editorPreferences: EditorPreference[] = ['auto', 'vscode', 'cursor', 'webstorm', 'rider', 'sublime', 'custom']
-const CHANGE_LIST_ITEM_HEIGHT = 42
-const HISTORY_LIST_ITEM_HEIGHT = 64
 
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
@@ -175,13 +173,6 @@ function App() {
   const [diffDisplayMode, setDiffDisplayMode] = useState<DiffDisplayMode>('unified')
   const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
   const [diff, setDiff] = useState<DiffResult | null>(null)
-  const [history, setHistory] = useState<CommitSummary[]>([])
-  const [historyLoading, setHistoryLoading] = useState(false)
-  const [historyFilter, setHistoryFilter] = useState('')
-  const [selectedCommitSha, setSelectedCommitSha] = useState<string | null>(null)
-  const [commitDetails, setCommitDetails] = useState<CommitDetails | null>(null)
-  const [selectedCommitFilePath, setSelectedCommitFilePath] = useState<string | null>(null)
-  const [commitFileDiff, setCommitFileDiff] = useState<DiffResult | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [busy, setBusy] = useState(false)
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
@@ -236,8 +227,6 @@ function App() {
   const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
   const diffRequestIdRef = useRef(0)
   const pullRequestDetailsRequestIdRef = useRef(0)
-  const commitDetailsRequestIdRef = useRef(0)
-  const commitFileDiffRequestIdRef = useRef(0)
   const dashboardRequestIdRef = useRef(0)
 
   const filteredChanges = useMemo(() => {
@@ -253,24 +242,6 @@ function App() {
     )
   }, [changeFilter, snapshot])
 
-  const filteredHistory = useMemo(() => {
-    const query = historyFilter.trim().toLowerCase()
-
-    if (!query) return history
-
-    return history.filter((commit) =>
-      [
-        commit.sha,
-        commit.shortSha,
-        commit.subject,
-        commit.authorName,
-        commit.authorEmail,
-        formatDate(commit.authoredAt)
-      ]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(query))
-    )
-  }, [history, historyFilter])
 
   const filteredRecentRepositories = useMemo(() => {
     const query = recentRepositoryFilter.trim().toLowerCase()
@@ -316,7 +287,6 @@ function App() {
     return getDiffStats(diff)
   }, [diff])
   const virtualChanges = useVirtualList(filteredChanges, CHANGE_LIST_ITEM_HEIGHT, `${snapshot?.summary.rootPath ?? ''}|${changeFilter}`)
-  const virtualHistory = useVirtualList(filteredHistory, HISTORY_LIST_ITEM_HEIGHT, `${snapshot?.summary.rootPath ?? ''}|${historyFilter}`)
 
 
 
@@ -464,10 +434,6 @@ function App() {
     void loadDiff(selectedChange, availableMode)
   }, [diffIgnoreWhitespace, diffMode, selectedChange, snapshot])
 
-  useEffect(() => {
-    if (!snapshot || viewMode !== 'history') return
-    void loadHistory()
-  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
   useEffect(() => {
     if (!api || viewMode !== 'dashboard') return
@@ -478,17 +444,6 @@ function App() {
     }
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
-  useEffect(() => {
-    if (viewMode !== 'history') return
-
-    const filterActive = historyFilter.trim().length > 0
-    const visibleHistory = filterActive ? filteredHistory : history
-    const firstCommit = visibleHistory[0]
-
-    if (!selectedCommitSha || !visibleHistory.some((commit) => commit.sha === selectedCommitSha)) {
-      setSelectedCommitSha(firstCommit?.sha ?? null)
-    }
-  }, [filteredHistory, history, historyFilter, selectedCommitSha, viewMode])
 
   useEffect(() => {
     if (!snapshot || viewMode !== 'memory') return
@@ -540,6 +495,11 @@ function App() {
 
   const currentRepoPath = snapshot?.summary.rootPath
   const {
+    history, historyLoading, historyFilter, setHistoryFilter, selectedCommitSha, setSelectedCommitSha,
+    commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory,
+    loadHistory, loadCommitFileDiff
+  } = useHistory({ api, currentRepoPath, snapshot, viewMode, setError })
+  const {
     projectMemory, projectMemoryMcpConfig, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId,
     selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading,
     selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports,
@@ -566,17 +526,6 @@ function App() {
     }
   }, [projectWiki, selectedProjectWikiPageId])
 
-  useEffect(() => {
-    if (!snapshot || viewMode !== 'history' || !selectedCommitSha) {
-      commitDetailsRequestIdRef.current += 1
-      commitFileDiffRequestIdRef.current += 1
-      setCommitDetails(null)
-      setCommitFileDiff(null)
-      return
-    }
-
-    void loadCommitDetails(selectedCommitSha)
-  }, [selectedCommitSha, snapshot?.summary.rootPath, viewMode])
 
   useEffect(() => {
     if (!snapshot || viewMode !== 'config') return
@@ -1089,25 +1038,6 @@ function App() {
     }
   }
 
-  async function loadHistory() {
-    if (!api || !currentRepoPath) return
-    setHistoryLoading(true)
-    try {
-      const result = await api.getHistory(currentRepoPath)
-
-      if (result.ok) {
-        setHistory(result.data)
-        setSelectedCommitSha((currentSha) =>
-          currentSha && result.data.some((commit) => commit.sha === currentSha) ? currentSha : result.data[0]?.sha ?? null
-        )
-      } else {
-        setError(result.error.message)
-      }
-    } finally {
-      setHistoryLoading(false)
-    }
-  }
-
   async function copyToClipboard(text: string, successMessage: string) {
     try {
       await navigator.clipboard.writeText(text)
@@ -1124,46 +1054,6 @@ function App() {
     }
 
     window.open(url, '_blank', 'noopener,noreferrer')
-  }
-
-  async function loadCommitDetails(commitSha: string) {
-    if (!api || !currentRepoPath) return
-    const requestId = commitDetailsRequestIdRef.current + 1
-    commitDetailsRequestIdRef.current = requestId
-    const result = await api.getCommitDetails({ repoPath: currentRepoPath, commitSha })
-
-    if (commitDetailsRequestIdRef.current !== requestId) return
-
-    if (result.ok) {
-      setCommitDetails(result.data)
-      const firstFile = result.data.files[0]
-      setSelectedCommitFilePath(firstFile?.path ?? null)
-
-      if (firstFile) {
-        void loadCommitFileDiff(result.data.sha, firstFile.path)
-      } else {
-        setCommitFileDiff(null)
-      }
-    } else {
-      setError(result.error.message)
-    }
-  }
-
-  async function loadCommitFileDiff(commitSha: string, filePath: string) {
-    if (!api || !currentRepoPath) return
-    const requestId = commitFileDiffRequestIdRef.current + 1
-    commitFileDiffRequestIdRef.current = requestId
-    setSelectedCommitFilePath(filePath)
-    const result = await api.getCommitFileDiff({ repoPath: currentRepoPath, commitSha, filePath })
-
-    if (commitFileDiffRequestIdRef.current !== requestId) return
-
-    if (result.ok) {
-      setCommitFileDiff(result.data)
-    } else {
-      setCommitFileDiff(null)
-      setError(result.error.message)
-    }
   }
 
   async function runBusyOperation<T>(label: string, action: () => Promise<T>): Promise<T> {
