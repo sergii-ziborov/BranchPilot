@@ -101,6 +101,7 @@ import { InfoRow, Stat } from './components/primitives'
 import { ActionBlockers } from './components/ActionBlockers'
 import { PlannedProviderWorkflowPanel, ProviderRemoteCard } from './components/ProviderRemoteCard'
 import { BulkStageCheckbox, StageCheckbox } from './components/StageCheckbox'
+import { useVirtualList } from './hooks/useVirtualList'
 import { changeLabel, fileStatusToken, statusToken } from './lib/fileChangeLabels'
 import { formatDate, formatDateInputValue } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './lib/reviewLabels'
@@ -117,7 +118,7 @@ import type { ActivityCategory, CompletedWorkSource } from './lib/activityLabels
 import { isSafeExternalUrl } from './shared/externalUrl'
 import { getProviderCommitUrl, getProviderRemoteSummary } from './shared/providerRemote'
 import { getCreatePullRequestState, getPullRequestBrowseState } from './shared/providerPreconditions'
-import { getVirtualListWindow, virtualRangeLabel } from './shared/virtualList'
+import { virtualRangeLabel } from './shared/virtualList'
 import './App.css'
 
 type ViewMode = 'dashboard' | 'changes' | 'history' | 'merge' | 'branches' | 'config' | 'stash' | 'review' | 'providers' | 'memory' | 'daily' | 'linkedin'
@@ -183,8 +184,6 @@ const assistantPolicyModes: AssistantPolicyMode[] = [
 const editorPreferences: EditorPreference[] = ['auto', 'vscode', 'cursor', 'webstorm', 'rider', 'sublime', 'custom']
 const CHANGE_LIST_ITEM_HEIGHT = 42
 const HISTORY_LIST_ITEM_HEIGHT = 64
-const VIRTUAL_LIST_OVERSCAN = 8
-const VIRTUAL_LIST_FALLBACK_HEIGHT = 520
 
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
@@ -6017,74 +6016,6 @@ function App() {
         </div>
       </section>
     )
-  }
-}
-
-function useVirtualList<T>(items: T[], itemHeight: number, resetKey = '') {
-  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
-  const [scrollTop, setScrollTop] = useState(0)
-  const [viewportHeight, setViewportHeight] = useState(VIRTUAL_LIST_FALLBACK_HEIGHT)
-
-  useEffect(() => {
-    const element = containerElement
-
-    if (!element) return
-
-    const updateViewportHeight = () => {
-      setViewportHeight(element.clientHeight || VIRTUAL_LIST_FALLBACK_HEIGHT)
-    }
-
-    updateViewportHeight()
-
-    const resizeObserver = new ResizeObserver(updateViewportHeight)
-    resizeObserver.observe(element)
-
-    return () => resizeObserver.disconnect()
-  }, [containerElement])
-
-  useEffect(() => {
-    if (containerElement) {
-      containerElement.scrollTop = 0
-    }
-    setScrollTop(0)
-  }, [containerElement, resetKey])
-
-  useEffect(() => {
-    // Snapshot refreshes keep the user's scroll position; only clamp when the list shrinks.
-    const maxScrollTop = Math.max(0, items.length * itemHeight - viewportHeight)
-
-    setScrollTop((current) => {
-      if (current <= maxScrollTop) return current
-      if (containerElement) {
-        containerElement.scrollTop = maxScrollTop
-      }
-      return maxScrollTop
-    })
-  }, [containerElement, itemHeight, items.length, viewportHeight])
-
-  const window = useMemo(
-    () => getVirtualListWindow({
-      itemCount: items.length,
-      itemHeight,
-      viewportHeight,
-      scrollTop,
-      overscan: VIRTUAL_LIST_OVERSCAN
-    }),
-    [itemHeight, items.length, scrollTop, viewportHeight]
-  )
-  const visibleItems = useMemo(
-    () => items.slice(window.startIndex, window.endIndex).map((item, offset) => ({
-      item,
-      index: window.startIndex + offset
-    })),
-    [items, window.endIndex, window.startIndex]
-  )
-
-  return {
-    containerRef: setContainerElement,
-    window,
-    items: visibleItems,
-    onScroll: (event: { currentTarget: HTMLDivElement }) => setScrollTop(event.currentTarget.scrollTop)
   }
 }
 
