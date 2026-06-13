@@ -3,6 +3,14 @@ import type { ActivityLogEntry, ActivityLogEventType } from '../shared/branchPil
 export type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
 export type CompletedWorkSource = 'commit' | 'provider' | 'review' | 'linkedin' | 'git'
 
+export interface CompletedWorkItem {
+  id: string
+  title: string
+  meta: string
+  createdAt: string
+  source: CompletedWorkSource
+}
+
 /** Classify an activity log entry into a high-level category. */
 export function activityEntryCategory(entry: ActivityLogEntry): ActivityCategory {
   if (entry.actor === 'assistant') return 'assistant'
