@@ -1,6 +1,7 @@
 import { CalendarDays, Copy, Loader2 } from 'lucide-react'
 import type { DailyReviewReport, RepositorySnapshot } from '../../shared/branchPilot'
 import { Stat } from '../primitives'
+import { PanelHeading } from '../PanelHeading'
 
 export function DailyView({
   dailyReviewDate,
@@ -21,11 +22,7 @@ export function DailyView({
 }) {
   return (
     <section className="single-panel daily-panel">
-      <div className="panel-heading">
-        <div>
-          <h2>Daily Review</h2>
-          <p>Repository work summary for the selected day.</p>
-        </div>
+      <PanelHeading title="Daily Review" description="Repository work summary for the selected day.">
         <div className="daily-controls">
           <input
             aria-label="Daily review date"
@@ -38,7 +35,7 @@ export function DailyView({
             Run daily review
           </button>
         </div>
-      </div>
+      </PanelHeading>
 
       {!dailyReview ? (
         <div className="review-empty">

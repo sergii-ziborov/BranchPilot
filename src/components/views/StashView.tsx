@@ -1,5 +1,6 @@
 import { ArrowDownToLine, RefreshCcw, Save, Trash2 } from 'lucide-react'
 import type { StashEntry } from '../../shared/branchPilot'
+import { PanelHeading } from '../PanelHeading'
 
 export function StashView({
   loadStashes,
@@ -26,16 +27,12 @@ export function StashView({
 }) {
   return (
     <section className="single-panel">
-      <div className="panel-heading">
-        <div>
-          <h2>Stash</h2>
-          <p>Store unfinished tracked and untracked work without committing.</p>
-        </div>
+      <PanelHeading title="Stash" description="Store unfinished tracked and untracked work without committing.">
         <button type="button" onClick={() => loadStashes()} disabled={busy}>
           <RefreshCcw size={17} />
           Refresh
         </button>
-      </div>
+      </PanelHeading>
 
       <div className="stash-workspace">
         <section className="stash-create">
