@@ -32,8 +32,6 @@ import type {
   AssistantActionKind,
   AssistantId,
   AssistantPolicyMode,
-  AssistantPolicyStatus,
-  AssistantStatus,
   DiffHunk,
   EditorPreference,
 
@@ -80,6 +78,7 @@ import { useReview } from './hooks/useReview'
 import { useProjectMemory } from './hooks/useProjectMemory'
 import { useHistory } from './hooks/useHistory'
 import { useBranches } from './hooks/useBranches'
+import { useAssistants } from './hooks/useAssistants'
 import { CHANGE_LIST_ITEM_HEIGHT, HISTORY_LIST_ITEM_HEIGHT } from './lib/listMetrics'
 import { DailyView } from './components/views/DailyView'
 import { StashView } from './components/views/StashView'
@@ -159,10 +158,6 @@ function App() {
   const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
   const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
   const [providers, setProviders] = useState<ProviderStatus[]>([])
-  const [assistants, setAssistants] = useState<AssistantStatus[]>([])
-  const [assistantsChecking, setAssistantsChecking] = useState(false)
-  const [assistantPolicy, setAssistantPolicy] = useState<AssistantPolicyStatus | null>(null)
-  const [assistantPolicyLoading, setAssistantPolicyLoading] = useState(false)
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [changeFilter, setChangeFilter] = useState('')
   const [diffMode, setDiffMode] = useState<DiffMode>('unstaged')
@@ -476,6 +471,17 @@ function App() {
 
   const currentRepoPath = snapshot?.summary.rootPath
   const {
+    projectMemory, projectMemoryMcpConfig, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId,
+    selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading,
+    selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports,
+    filteredActivityEntries, completedWorkItems,
+    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage, clearActivityLog
+  } = useProjectMemory({ api, currentRepoPath, setNotice, setError, copyToClipboard, requestConfirmation })
+  const {
+    assistants, assistantsChecking, assistantPolicy, setAssistantPolicy, assistantPolicyLoading,
+    loadAssistants, checkAssistants, loadAssistantPolicy, updateAssistantPolicy
+  } = useAssistants({ api, currentRepoPath, viewMode, setNotice, setError, loadProjectMemory })
+  const {
     newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription,
     branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter,
     newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef,
@@ -492,13 +498,6 @@ function App() {
     commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory,
     loadHistory, loadCommitFileDiff
   } = useHistory({ api, currentRepoPath, snapshot, viewMode, setError })
-  const {
-    projectMemory, projectMemoryMcpConfig, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId,
-    selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading,
-    selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports,
-    filteredActivityEntries, completedWorkItems,
-    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage, clearActivityLog
-  } = useProjectMemory({ api, currentRepoPath, setNotice, setError, copyToClipboard, requestConfirmation })
 
   useEffect(() => {
     if (!projectMemory) {
@@ -651,68 +650,6 @@ function App() {
     if (!api) return
     const result = await api.listProviders()
     if (result.ok) setProviders(result.data)
-  }
-
-  async function loadAssistants() {
-    if (!api) return
-    const result = await api.listAssistants()
-    if (result.ok) setAssistants(result.data)
-  }
-
-  async function checkAssistants() {
-    if (!api) return
-    setAssistantsChecking(true)
-    setError(null)
-    const result = await api.checkAssistants()
-
-    if (result.ok) {
-      setAssistants(result.data)
-      const ready = result.data.filter((assistant) => assistant.state === 'ready').length
-      setNotice(`${ready} of ${result.data.length} assistant CLIs are ready.`)
-    } else {
-      setError(result.error.message)
-      setNotice(branchPilotErrorText(result.error))
-    }
-
-    setAssistantsChecking(false)
-  }
-
-  async function loadAssistantPolicy(repoPath = currentRepoPath) {
-    if (!api || !repoPath) return
-    setAssistantPolicyLoading(true)
-    const result = await api.getAssistantPolicy(repoPath)
-
-    if (result.ok) {
-      setAssistantPolicy(result.data)
-    } else {
-      setAssistantPolicy(null)
-      setError(result.error.message)
-    }
-
-    setAssistantPolicyLoading(false)
-  }
-
-  async function updateAssistantPolicy(mode: AssistantPolicyMode) {
-    if (!api || !currentRepoPath) return
-    setAssistantPolicyLoading(true)
-    setError(null)
-    const result = await api.setAssistantPolicy({
-      repoPath: currentRepoPath,
-      mode
-    })
-
-    if (result.ok) {
-      setAssistantPolicy(result.data)
-      setNotice(`Assistant policy set to ${assistantPolicyModeLabel(result.data.settings.mode)}.`)
-      if (viewMode === 'memory') {
-        void loadProjectMemory(currentRepoPath)
-      }
-    } else {
-      setError(result.error.message)
-      setNotice(branchPilotErrorText(result.error))
-    }
-
-    setAssistantPolicyLoading(false)
   }
 
   async function loadGitHubCliStatus(): Promise<GitHubCliStatus | null> {
