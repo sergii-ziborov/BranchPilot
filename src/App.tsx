@@ -66,10 +66,6 @@ import type {
 
   RepositorySnapshot,
   RepositoryDashboardSnapshot,
-  ReviewFinding,
-  ReviewMode,
-  ReviewReport,
-  ReviewScope,
   ReviewSeverity,
   SubmoduleSummary,
   TagSummary,
@@ -94,6 +90,7 @@ import { useDailyReview } from './hooks/useDailyReview'
 import { useLinkedIn } from './hooks/useLinkedIn'
 import { useStash } from './hooks/useStash'
 import { useGitConfig } from './hooks/useGitConfig'
+import { useReview } from './hooks/useReview'
 import { DailyView } from './components/views/DailyView'
 import { StashView } from './components/views/StashView'
 import { MergeView } from './components/views/MergeView'
@@ -109,7 +106,7 @@ import { ProvidersView } from './components/views/ProvidersView'
 import type { ViewMode } from './lib/viewMode'
 import { changeLabel, fileStatusToken } from './lib/fileChangeLabels'
 import { formatDate } from './lib/format'
-import { groupFindingsBySeverity, reviewModeLabel } from './lib/reviewLabels'
+import { reviewModeLabel, reviewModes } from './lib/reviewLabels'
 import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel, assistantPolicyModeLabel, assistantReadinessSummary } from './lib/assistantLabels'
 import { checkBucketClass, githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta } from './lib/githubLabels'
 import { activityEntryCategory, activityMetadataLabel, activityTypeLabel, completedWorkSource } from './lib/activityLabels'
@@ -121,7 +118,6 @@ import './App.css'
 
 type DiffMode = ChangeDiffMode
 type DiffDisplayMode = 'unified' | 'split'
-type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 type ConfirmationVariant = 'default' | 'danger'
 
 interface ConfirmationOptions {
@@ -153,7 +149,6 @@ interface TextPromptRequest extends Required<TextPromptOptions> {
 }
 
 const api = window.branchPilot
-const reviewModes: ReviewMode[] = ['consistency', 'security', 'quality']
 const reviewSeverities: ReviewSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 const activityCategories: ActivityCategory[] = ['all', 'git', 'assistant', 'provider', 'memory']
 const completedActivityTypes = new Set<ActivityLogEventType>([
@@ -259,12 +254,6 @@ function App() {
   const [prDescription, setPrDescription] = useState('')
   const [prBaseBranch, setPrBaseBranch] = useState('')
   const [createdPullRequest, setCreatedPullRequest] = useState<CreatedPullRequest | null>(null)
-  const [reviewMode, setReviewMode] = useState<ReviewMode>('consistency')
-  const [reviewScope, setReviewScope] = useState<ReviewScope>('staged')
-  const [reviewReport, setReviewReport] = useState<ReviewReport | null>(null)
-  const [preCommitReviewModes, setPreCommitReviewModes] = useState<ReviewMode[]>(reviewModes)
-  const [preCommitReports, setPreCommitReports] = useState<ReviewReport[]>([])
-  const [preCommitRunningMode, setPreCommitRunningMode] = useState<ReviewMode | null>(null)
   const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationRequest | null>(null)
   const [textPromptRequest, setTextPromptRequest] = useState<TextPromptRequest | null>(null)
   const [textPromptValue, setTextPromptValue] = useState('')
@@ -328,18 +317,7 @@ function App() {
     [selectedFilePath, snapshot]
   )
 
-  const preCommitFindings = useMemo<PreCommitFinding[]>(
-    () =>
-      preCommitReports.flatMap((report) =>
-        report.findings.map((finding) => ({
-          ...finding,
-          mode: report.mode
-        }))
-      ),
-    [preCommitReports]
-  )
 
-  const preCommitFindingsBySeverity = useMemo(() => groupFindingsBySeverity(preCommitFindings), [preCommitFindings])
 
   const selectedPullRequestFile = useMemo(
     () => selectedPullRequestDiff?.files.find((file) => file.path === selectedPullRequestFilePath) ?? null,
@@ -713,6 +691,11 @@ function App() {
     dailyReviewLoading, runDailyReview, copyDailyReviewMarkdown
   } = useDailyReview({ api, currentRepoPath, setNotice, setError, copyToClipboard })
   const counts = snapshot?.status.counts
+  const {
+    reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport,
+    preCommitReviewModes, preCommitReports, preCommitRunningMode, canRunAssistantReview, preCommitFindings, preCommitFindingsBySeverity,
+    resetPreCommitReview, runReviewReport, runPreCommitReview, togglePreCommitReviewMode, openPreCommitReviewDetails
+  } = useReview({ api, currentRepoPath, counts, assistantPolicy, selectedAssistant, setNotice, setError, runApiAction, runBusyOperation, setViewMode })
   const mergeState = snapshot?.status.merge
   const canCreateStash = Boolean(snapshot && counts?.changed && mergeState?.operation === 'none')
   const {
@@ -729,7 +712,6 @@ function App() {
   const selectedFileTarget = currentRepoPath && selectedChange ? `${currentRepoPath}/${selectedChange.path}` : null
   const canGenerateCommitText = assistantPolicyAllows(assistantPolicy, 'commit_message')
   const canGeneratePullRequestText = assistantPolicyAllows(assistantPolicy, 'pull_request_text')
-  const canRunAssistantReview = assistantPolicyAllows(assistantPolicy, 'review_report')
   const canGenerateBranchDraft = assistantPolicyAllows(assistantPolicy, 'branch_draft')
   const canGenerateLinkedInProject = assistantPolicyAllows(assistantPolicy, 'linkedin_project')
   const {
@@ -1450,11 +1432,6 @@ function App() {
     }
   }
 
-  function resetPreCommitReview() {
-    setPreCommitReports([])
-    setPreCommitRunningMode(null)
-  }
-
   async function toggleChangeStage(change: FileChange) {
     if (!api || !currentRepoPath) return
     const action = getChangeStageToggleAction(change)
@@ -1860,98 +1837,6 @@ function App() {
 
   function selectPullRequest(pullRequest: GitHubPullRequest) {
     setSelectedPullRequestNumber(pullRequest.number)
-  }
-
-  async function runReviewReport() {
-    if (!api || !currentRepoPath) return
-    if (!canRunAssistantReview) {
-      setNotice(assistantPolicyBlockedLabel('review_report', assistantPolicy))
-      return
-    }
-
-    const completed = await runApiAction('Running review...', () => api.generateReviewReport({
-      repoPath: currentRepoPath,
-      assistant: selectedAssistant,
-      mode: reviewMode,
-      scope: reviewScope
-    }), (data) => {
-      setReviewReport(data)
-      setNotice(`Review complete with ${assistantLabel(data.assistant)}${data.truncated ? ' from truncated diff' : ''}.`)
-    })
-
-    if (!completed) {
-      setReviewReport(null)
-    }
-  }
-
-  async function runPreCommitReview() {
-    if (!api || !currentRepoPath || !counts?.staged || preCommitReviewModes.length === 0) return
-    if (!canRunAssistantReview) {
-      setNotice(assistantPolicyBlockedLabel('review_report', assistantPolicy))
-      return
-    }
-
-    setPreCommitReports([])
-
-    const reports: ReviewReport[] = []
-
-    await runBusyOperation('Running pre-commit review...', async () => {
-      try {
-        for (const mode of preCommitReviewModes) {
-          setPreCommitRunningMode(mode)
-          const result = await api.generateReviewReport({
-            repoPath: currentRepoPath,
-            assistant: selectedAssistant,
-            mode,
-            scope: 'staged'
-          })
-
-          if (!result.ok) {
-            setError(result.error.message)
-            setNotice(branchPilotErrorText(result.error))
-            setPreCommitReports(reports)
-            return
-          }
-
-          reports.push(result.data)
-          setPreCommitReports([...reports])
-        }
-
-        const lastReport = reports.at(-1)
-
-        if (lastReport) {
-          setReviewMode(lastReport.mode)
-          setReviewScope('staged')
-          setReviewReport(lastReport)
-          setNotice(`Pre-commit review complete with ${assistantLabel(lastReport.assistant)}${lastReport.truncated ? ' from truncated diff' : ''}.`)
-        }
-      } finally {
-        setPreCommitRunningMode(null)
-      }
-    })
-  }
-
-  function togglePreCommitReviewMode(mode: ReviewMode) {
-    setPreCommitReviewModes((currentModes) => {
-      const nextModes = currentModes.includes(mode)
-        ? currentModes.filter((currentMode) => currentMode !== mode)
-        : reviewModes.filter((candidate) => candidate === mode || currentModes.includes(candidate))
-
-      return nextModes
-    })
-    resetPreCommitReview()
-  }
-
-  function openPreCommitReviewDetails() {
-    const lastReport = preCommitReports.at(-1)
-
-    if (lastReport) {
-      setReviewMode(lastReport.mode)
-      setReviewScope('staged')
-      setReviewReport(lastReport)
-    }
-
-    setViewMode('review')
   }
 
   async function generateBranchDraft() {

@@ -1,5 +1,8 @@
 import type { ReviewFinding, ReviewMode, ReviewScope, ReviewSeverity } from '../shared/branchPilot'
 
+/** The review modes offered in the UI, in display order. */
+export const reviewModes: ReviewMode[] = ['consistency', 'security', 'quality']
+
 /** Display label for a review mode. */
 export function reviewModeLabel(mode: ReviewMode): string {
   if (mode === 'security') return 'Security'
