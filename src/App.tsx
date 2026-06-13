@@ -42,7 +42,7 @@ import type {
   CommitSummary,
   DiffHunk,
   EditorPreference,
-  EditorSettings,
+
   CreatedPullRequest,
   DiffResult,
   FileChange,
@@ -53,7 +53,7 @@ import type {
   GitHubPullRequestDetails,
   GitHubPullRequestDiff,
   GitHubRepositorySummary,
-  GitConfigSnapshot,
+
   GitOperationResult,
   ProviderStatus,
   ProjectMemoryMcpConfig,
@@ -63,7 +63,7 @@ import type {
   ProjectWikiSnapshot,
   PatchScope,
   RecentRepository,
-  RemoteSummary,
+
   RepositorySnapshot,
   RepositoryDashboardSnapshot,
   ReviewFinding,
@@ -93,6 +93,7 @@ import { useVirtualList } from './hooks/useVirtualList'
 import { useDailyReview } from './hooks/useDailyReview'
 import { useLinkedIn } from './hooks/useLinkedIn'
 import { useStash } from './hooks/useStash'
+import { useGitConfig } from './hooks/useGitConfig'
 import { DailyView } from './components/views/DailyView'
 import { StashView } from './components/views/StashView'
 import { MergeView } from './components/views/MergeView'
@@ -113,7 +114,6 @@ import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantP
 import { checkBucketClass, githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta } from './lib/githubLabels'
 import { activityEntryCategory, activityMetadataLabel, activityTypeLabel, completedWorkSource } from './lib/activityLabels'
 import type { CompletedWorkItem } from './lib/activityLabels'
-import { editorPreferenceLabel } from './lib/editorLabels'
 import { progressLabelFromSuccess } from './lib/progressLabels'
 import type { ActivityCategory } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
@@ -212,11 +212,6 @@ function App() {
   const [activityCategory, setActivityCategory] = useState<ActivityCategory>('all')
   const [memoryLoading, setMemoryLoading] = useState(false)
   const [selectedMemoryFilePath, setSelectedMemoryFilePath] = useState<string | null>(null)
-  const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
-  const [editorSettings, setEditorSettings] = useState<EditorSettings | null>(null)
-  const [editorPreference, setEditorPreference] = useState<EditorPreference>('auto')
-  const [editorCustomCommand, setEditorCustomCommand] = useState('')
-  const [editorSettingsLoading, setEditorSettingsLoading] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [busy, setBusy] = useState(false)
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
@@ -241,11 +236,6 @@ function App() {
   const [branchComparison, setBranchComparison] = useState<BranchComparison | null>(null)
   const [branchComparisonLoading, setBranchComparisonLoading] = useState<string | null>(null)
   const [selectedMergeBranch, setSelectedMergeBranch] = useState('')
-  const [localUserName, setLocalUserName] = useState('')
-  const [localUserEmail, setLocalUserEmail] = useState('')
-  const [remoteName, setRemoteName] = useState('')
-  const [remoteUrl, setRemoteUrl] = useState('')
-  const [editingRemoteName, setEditingRemoteName] = useState<string | null>(null)
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
   const [githubCliStatus, setGithubCliStatus] = useState<GitHubCliStatus | null>(null)
   const [githubAccounts, setGithubAccounts] = useState<GitHubAccountSummary[]>([])
@@ -608,9 +598,7 @@ function App() {
     setLinkedInProjectUrl('')
     setNewWorktreeBranchName('')
     setStashMessage('')
-    setEditingRemoteName(null)
-    setRemoteName('')
-    setRemoteUrl('')
+    cancelRemoteEdit()
     setEditingBranchName(null)
     setBranchDescriptionDraft('')
   }, [snapshot?.summary.rootPath])
@@ -713,6 +701,13 @@ function App() {
   }, [githubCliStatus?.authenticated, selectedPullRequestNumber, snapshot?.summary.rootPath, viewMode])
 
   const currentRepoPath = snapshot?.summary.rootPath
+  const {
+    gitConfig, editorSettings, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand,
+    editorSettingsLoading, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail,
+    remoteName, setRemoteName, remoteUrl, setRemoteUrl, editingRemoteName,
+    loadEditorSettings, saveEditorSettings, loadGitConfig, saveLocalGitIdentity,
+    startRemoteEdit, cancelRemoteEdit, saveRemote, removeRemote
+  } = useGitConfig({ api, currentRepoPath, setNotice, setError, runBusyOperation, runApiAction, requestConfirmation, applySnapshotResult })
   const {
     dailyReview, setDailyReview, dailyReviewDate, setDailyReviewDate,
     dailyReviewLoading, runDailyReview, copyDailyReviewMarkdown
@@ -873,45 +868,6 @@ function App() {
     }
 
     setAssistantPolicyLoading(false)
-  }
-
-  async function loadEditorSettings() {
-    if (!api) return
-    setEditorSettingsLoading(true)
-    const result = await api.getEditorSettings()
-
-    if (result.ok) {
-      setEditorSettings(result.data)
-      setEditorPreference(result.data.preference)
-      setEditorCustomCommand(result.data.customCommand ?? '')
-    } else {
-      setError(result.error.message)
-      setNotice(branchPilotErrorText(result.error))
-    }
-
-    setEditorSettingsLoading(false)
-  }
-
-  async function saveEditorSettings() {
-    if (!api) return
-    setEditorSettingsLoading(true)
-    setError(null)
-    const result = await api.setEditorSettings({
-      preference: editorPreference,
-      customCommand: editorCustomCommand.trim()
-    })
-
-    if (result.ok) {
-      setEditorSettings(result.data)
-      setEditorPreference(result.data.preference)
-      setEditorCustomCommand(result.data.customCommand ?? '')
-      setNotice(`Default editor set to ${editorPreferenceLabel(result.data.preference)}.`)
-    } else {
-      setError(result.error.message)
-      setNotice(branchPilotErrorText(result.error))
-    }
-
-    setEditorSettingsLoading(false)
   }
 
   async function loadGitHubCliStatus(): Promise<GitHubCliStatus | null> {
@@ -1402,19 +1358,6 @@ function App() {
       setCommitFileDiff(result.data)
     } else {
       setCommitFileDiff(null)
-      setError(result.error.message)
-    }
-  }
-
-  async function loadGitConfig() {
-    if (!api || !currentRepoPath) return
-    const result = await api.getGitConfig(currentRepoPath)
-
-    if (result.ok) {
-      setGitConfig(result.data)
-      setLocalUserName(result.data.localUserName ?? result.data.globalUserName ?? '')
-      setLocalUserEmail(result.data.localUserEmail ?? result.data.globalUserEmail ?? '')
-    } else {
       setError(result.error.message)
     }
   }
@@ -2357,95 +2300,6 @@ function App() {
     }
 
     setBranchDescriptionGenerating(null)
-  }
-
-  async function saveLocalGitIdentity() {
-    if (!api || !currentRepoPath) return
-    await runBusyOperation('Saving Git identity...', async () => {
-      const result = await api.setLocalGitIdentity({
-        repoPath: currentRepoPath,
-        name: localUserName.trim(),
-        email: localUserEmail.trim()
-      })
-
-      if (result.ok) {
-        setGitConfig(result.data)
-        setNotice('Local Git identity saved.')
-      } else {
-        setError(result.error.message)
-        setNotice(branchPilotErrorText(result.error))
-      }
-    })
-  }
-
-  function startRemoteEdit(remote: RemoteSummary) {
-    setEditingRemoteName(remote.name)
-    setRemoteName(remote.name)
-    setRemoteUrl(remote.fetchUrl ?? remote.pushUrl ?? '')
-  }
-
-  function cancelRemoteEdit() {
-    setEditingRemoteName(null)
-    setRemoteName('')
-    setRemoteUrl('')
-  }
-
-  async function saveRemote() {
-    if (!api || !currentRepoPath) return
-
-    const name = (editingRemoteName ?? remoteName).trim()
-    const url = remoteUrl.trim()
-
-    if (!name || !url) {
-      setNotice('Remote blocked: add a name and URL.')
-      return
-    }
-
-    const label = editingRemoteName ? 'Remote updated.' : 'Remote added.'
-
-    await runApiAction(
-      editingRemoteName ? 'Updating remote...' : 'Adding remote...',
-      () => editingRemoteName
-        ? api.setRemoteUrl({ repoPath: currentRepoPath, name, url })
-        : api.addRemote({ repoPath: currentRepoPath, name, url }),
-      async (data) => {
-        setGitConfig(data)
-        cancelRemoteEdit()
-        const snapshotResult = await api.refreshRepository(currentRepoPath)
-        applySnapshotResult(snapshotResult, label)
-        if (!snapshotResult.ok) {
-          setNotice(label)
-        }
-      }
-    )
-  }
-
-  async function removeRemote(remote: RemoteSummary) {
-    if (!api || !currentRepoPath) return
-
-    const confirmed = await requestConfirmation(`Remove remote ${remote.name}?`, {
-      title: 'Remove Remote',
-      confirmLabel: 'Remove remote',
-      variant: 'danger'
-    })
-
-    if (!confirmed) return
-
-    await runApiAction('Removing remote...', () => api.removeRemote({
-      repoPath: currentRepoPath,
-      name: remote.name,
-      confirmed
-    }), async (data) => {
-      setGitConfig(data)
-      if (editingRemoteName === remote.name) {
-        cancelRemoteEdit()
-      }
-      const snapshotResult = await api.refreshRepository(currentRepoPath)
-      applySnapshotResult(snapshotResult, 'Remote removed.')
-      if (!snapshotResult.ok) {
-        setNotice('Remote removed.')
-      }
-    })
   }
 
   async function openRepoInEditor() {
