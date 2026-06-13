@@ -107,7 +107,7 @@ import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from './li
 import { gitDefaultBranchLabel, gitSigningLabel } from './lib/gitConfigLabels'
 import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel, assistantPolicyModeLabel, assistantStatusLabel } from './lib/assistantLabels'
 import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, matchesDashboardStaleBranch, providerStateLabel } from './lib/dashboardLabels'
-import { githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta, githubStatusLabel } from './lib/githubLabels'
+import { checkBucketClass, githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta, githubStatusLabel } from './lib/githubLabels'
 import { activityCategoryLabel, activityEntryCategory, activityMetadataLabel, activityTypeLabel, completedWorkSource, completedWorkSourceLabel } from './lib/activityLabels'
 import { gitLfsFileLabel, submoduleStatusLabel, worktreeSummaryLabel } from './lib/gitEntityLabels'
 import { memoryFileMeta } from './lib/memoryLabels'
@@ -6099,15 +6099,6 @@ function BulkStageCheckbox({
       </span>
     </label>
   )
-}
-
-function checkBucketClass(bucket: string): string {
-  if (bucket === 'pass') return 'pass'
-  if (bucket === 'fail') return 'fail'
-  if (bucket === 'pending') return 'pending'
-  if (bucket === 'skipping') return 'skipping'
-  if (bucket === 'cancel') return 'cancel'
-  return 'other'
 }
 
 function assistantReadinessSummary(

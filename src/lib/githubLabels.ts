@@ -36,6 +36,16 @@ export function githubAccountOptionLabel(account: GitHubAccountSummary): string 
   return `${account.label} · ${account.type === 'organization' ? 'organization' : 'user'}`
 }
 
+/** Map a GitHub check conclusion bucket to its CSS state class. */
+export function checkBucketClass(bucket: string): string {
+  if (bucket === 'pass') return 'pass'
+  if (bucket === 'fail') return 'fail'
+  if (bucket === 'pending') return 'pending'
+  if (bucket === 'skipping') return 'skipping'
+  if (bucket === 'cancel') return 'cancel'
+  return 'other'
+}
+
 /** Compact metadata line for a GitHub repository row. */
 export function githubRepositoryMeta(repository: GitHubRepositorySummary): string {
   const parts = [

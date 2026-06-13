@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  checkBucketClass,
   githubAccountOptionLabel,
   githubRepositoryBrowserSourceLabel,
   githubRepositoryMeta,
@@ -72,6 +73,20 @@ describe('githubAccountOptionLabel', () => {
     const base: GitHubAccountSummary = { login: 'octo', label: 'Octo', type: 'user', url: '' }
     expect(githubAccountOptionLabel(base)).toBe('Octo · user')
     expect(githubAccountOptionLabel({ ...base, type: 'organization' })).toBe('Octo · organization')
+  })
+})
+
+describe('checkBucketClass', () => {
+  it('maps known buckets to their class', () => {
+    expect(checkBucketClass('pass')).toBe('pass')
+    expect(checkBucketClass('fail')).toBe('fail')
+    expect(checkBucketClass('pending')).toBe('pending')
+    expect(checkBucketClass('skipping')).toBe('skipping')
+    expect(checkBucketClass('cancel')).toBe('cancel')
+  })
+
+  it('defaults unknown buckets to "other"', () => {
+    expect(checkBucketClass('weird')).toBe('other')
   })
 })
 
