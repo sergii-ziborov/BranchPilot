@@ -44,7 +44,6 @@ import type {
   EditorPreference,
   EditorSettings,
   CreatedPullRequest,
-  DailyReviewReport,
   DiffResult,
   FileChange,
   GitHubAccountSummary,
@@ -93,6 +92,7 @@ import { getDiffStats } from './shared/diffView'
 import { DiffPreview } from './components/DiffView'
 import { InfoRow, Stat } from './components/primitives'
 import { useVirtualList } from './hooks/useVirtualList'
+import { useDailyReview } from './hooks/useDailyReview'
 import { DailyView } from './components/views/DailyView'
 import { StashView } from './components/views/StashView'
 import { MergeView } from './components/views/MergeView'
@@ -107,7 +107,7 @@ import { BranchesView } from './components/views/BranchesView'
 import { ProvidersView } from './components/views/ProvidersView'
 import type { ViewMode } from './lib/viewMode'
 import { changeLabel, fileStatusToken } from './lib/fileChangeLabels'
-import { formatDate, formatDateInputValue } from './lib/format'
+import { formatDate } from './lib/format'
 import { groupFindingsBySeverity, reviewModeLabel } from './lib/reviewLabels'
 import { assistantActionLabel, assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel, assistantPolicyModeLabel, assistantReadinessSummary } from './lib/assistantLabels'
 import { checkBucketClass, githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta } from './lib/githubLabels'
@@ -212,9 +212,6 @@ function App() {
   const [activityCategory, setActivityCategory] = useState<ActivityCategory>('all')
   const [memoryLoading, setMemoryLoading] = useState(false)
   const [selectedMemoryFilePath, setSelectedMemoryFilePath] = useState<string | null>(null)
-  const [dailyReview, setDailyReview] = useState<DailyReviewReport | null>(null)
-  const [dailyReviewDate, setDailyReviewDate] = useState(() => formatDateInputValue(new Date()))
-  const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
   const [linkedinProject, setLinkedInProject] = useState<GeneratedLinkedInProject | null>(null)
   // Raw text drafts for the list editors; parsing on change would swallow Enter/comma keystrokes.
   const [linkedinHighlightsText, setLinkedinHighlightsText] = useState('')
@@ -727,6 +724,10 @@ function App() {
   }, [githubCliStatus?.authenticated, selectedPullRequestNumber, snapshot?.summary.rootPath, viewMode])
 
   const currentRepoPath = snapshot?.summary.rootPath
+  const {
+    dailyReview, setDailyReview, dailyReviewDate, setDailyReviewDate,
+    dailyReviewLoading, runDailyReview, copyDailyReviewMarkdown
+  } = useDailyReview({ api, currentRepoPath, setNotice, setError, copyToClipboard })
   const counts = snapshot?.status.counts
   const mergeState = snapshot?.status.merge
   const canCreateStash = Boolean(snapshot && counts?.changed && mergeState?.operation === 'none')
@@ -1374,35 +1375,6 @@ function App() {
     }
 
     setMemoryLoading(false)
-  }
-
-  async function runDailyReview() {
-    if (!api || !currentRepoPath) return
-    setDailyReviewLoading(true)
-    setError(null)
-
-    try {
-      const result = await api.generateDailyReview({
-        repoPath: currentRepoPath,
-        date: dailyReviewDate || undefined
-      })
-
-      if (result.ok) {
-        setDailyReview(result.data)
-        setNotice(`Daily review generated for ${result.data.date}.`)
-      } else {
-        setDailyReview(null)
-        setError(result.error.message)
-        setNotice(branchPilotErrorText(result.error))
-      }
-    } finally {
-      setDailyReviewLoading(false)
-    }
-  }
-
-  async function copyDailyReviewMarkdown() {
-    if (!dailyReview) return
-    await copyToClipboard(dailyReview.markdown, 'Daily review Markdown copied.')
   }
 
   async function generateLinkedInProject() {
