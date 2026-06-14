@@ -723,14 +723,11 @@ button.danger-button:hover {
 }
 
 .changes-panel-compact {
-  display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-  align-content: stretch;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  height: calc(100vh - 184px);
   min-height: 0;
   padding: 10px;
-  overflow: hidden;
 }
 
 .changes-topbar {
@@ -936,13 +933,13 @@ button.danger-button:hover {
 }
 
 .changes-panel-compact .change-list {
-  min-height: 0;
+  min-height: 200px;
   border: 1px solid var(--border);
   border-radius: 0 0 8px 8px;
   background: #ffffff;
 }
 
 .changes-panel-compact .virtual-list-viewport {
-  max-height: none;
-  min-height: 0;
+  max-height: min(42vh, 420px);
+  min-height: 200px;
 }
