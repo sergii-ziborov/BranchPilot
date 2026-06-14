@@ -511,8 +511,14 @@ export class RepositoryService extends RepositoryServiceQueries {
     return this.getSnapshot(rootPath)
   }
 
-  async switchBranch(repoPath: string, branchName: string): Promise<RepositorySnapshot> {
+  async switchBranch(repoPath: string, branchName: string, stashChanges = false): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
+
+    if (stashChanges) {
+      // "Leave my changes" — stash on the current branch before switching away.
+      await this.git(rootPath, ['stash', 'push', '--include-untracked', '-m', 'BranchPilot: auto-stash on branch switch'])
+    }
+
     await this.git(rootPath, ['switch', normalizeBranchName(branchName)])
     return this.getSnapshot(rootPath)
   }

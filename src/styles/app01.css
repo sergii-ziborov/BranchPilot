@@ -172,6 +172,45 @@ html[data-platform='darwin'] .shell-bar-row {
   border-bottom: 1px solid var(--border);
 }
 
+/* Switch-branch dialog option cards (leave vs bring changes). */
+.switch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.switch-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.switch-option:hover {
+  border-color: #a7b0c0;
+}
+
+.switch-option.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.switch-option strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.switch-option span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .shell-dropdown-empty {
   padding: 10px;
   color: var(--muted);

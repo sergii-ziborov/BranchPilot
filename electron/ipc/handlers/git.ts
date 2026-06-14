@@ -255,7 +255,7 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName })
   }, async (request: BranchActionRequest) =>
-    withProjectMemoryRefresh(await repositoryService.switchBranch(request.repoPath, request.branchName))
+    withProjectMemoryRefresh(await repositoryService.switchBranch(request.repoPath, request.branchName, request.stashChanges))
   )
   handleLogged('git:deleteBranch', {
     type: 'branch_deleted',

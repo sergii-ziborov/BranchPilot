@@ -324,6 +324,7 @@ export interface BranchActionRequest {
   repoPath: string
   branchName: string
   description?: string
+  stashChanges?: boolean
 }
 
 export interface UpdateBranchDescriptionRequest {

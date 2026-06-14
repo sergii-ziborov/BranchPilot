@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
-import { CreateBranchDialog } from './Dialogs'
+import { CreateBranchDialog, SwitchBranchDialog } from './Dialogs'
 
 const PRIMARY_TABS: { id: ViewMode; label: string; icon: typeof Clock3 }[] = [
   { id: 'changes', label: 'Changes', icon: GitCommitHorizontal },
@@ -77,6 +77,8 @@ export function AppShellBar({
   const headerRef = useRef<HTMLElement>(null)
   const [showCreateBranch, setShowCreateBranch] = useState(false)
   const [newBranchName, setNewBranchName] = useState('')
+  const [pendingSwitch, setPendingSwitch] = useState<string | null>(null)
+  const hasChanges = (snapshot?.status.counts.changed ?? 0) > 0
 
   const openCreateBranch = () => {
     setNewBranchName('')
@@ -126,7 +128,18 @@ export function AppShellBar({
 
   const switchBranch = (branchName: string) => {
     if (!currentRepoPath || branchName === currentBranch) return
+    if (hasChanges) {
+      setPendingSwitch(branchName)
+      return
+    }
     void runSnapshotAction('Branch switched.', () => api!.switchBranch({ repoPath: currentRepoPath, branchName }))
+  }
+
+  const confirmSwitch = (stashChanges: boolean) => {
+    const branchName = pendingSwitch
+    if (!branchName || !currentRepoPath) return
+    setPendingSwitch(null)
+    void runSnapshotAction('Branch switched.', () => api!.switchBranch({ repoPath: currentRepoPath, branchName, stashChanges }))
   }
 
   return (
@@ -285,6 +298,15 @@ export function AppShellBar({
         onChange={setNewBranchName}
         onCancel={() => { setShowCreateBranch(false); setNewBranchName('') }}
         onCreate={submitCreateBranch}
+      />
+    )}
+    {pendingSwitch && (
+      <SwitchBranchDialog
+        fromBranch={currentBranch ?? 'current branch'}
+        toBranch={pendingSwitch}
+        busy={busy}
+        onCancel={() => setPendingSwitch(null)}
+        onSwitch={confirmSwitch}
       />
     )}
     </>
