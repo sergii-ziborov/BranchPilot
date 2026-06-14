@@ -1,4 +1,4 @@
-import { ArrowDownToLine, ArrowUpFromLine, Code2, RefreshCcw, Terminal, UploadCloud } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, DownloadCloud, FileCode2, FolderOpen, RefreshCcw, Terminal, UploadCloud } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RepositorySnapshot } from '../shared/branchPilot'
 
 /** Workspace header: branch/sync summary and the repository action toolbar. */
@@ -51,49 +51,54 @@ export function AppTopbar({
         )}
       </div>
       <div className="toolbar" aria-label="Repository actions">
-        <button type="button" onClick={openRepoInEditor} disabled={!snapshot || busy}>
-          <Code2 size={17} />
-          Open repo
+        <button className="icon-button" type="button" title="Open repository in editor" aria-label="Open repository in editor" onClick={openRepoInEditor} disabled={!snapshot || busy}>
+          <FolderOpen size={17} />
         </button>
-        <button type="button" onClick={openSelectedFileInEditor} disabled={!selectedFileTarget || busy}>
-          <Code2 size={17} />
-          Open file
+        <button className="icon-button" type="button" title="Open selected file in editor" aria-label="Open selected file in editor" onClick={openSelectedFileInEditor} disabled={!selectedFileTarget || busy}>
+          <FileCode2 size={17} />
         </button>
-        <button type="button" onClick={openRepositoryTerminal} disabled={!snapshot || busy}>
+        <button className="icon-button" type="button" title="Open terminal" aria-label="Open terminal" onClick={openRepositoryTerminal} disabled={!snapshot || busy}>
           <Terminal size={17} />
-          Terminal
         </button>
-        <button type="button" onClick={() => refreshRepository()} disabled={!snapshot || busy}>
+        <button className="icon-button" type="button" title="Refresh repository" aria-label="Refresh repository" onClick={() => refreshRepository()} disabled={!snapshot || busy}>
           <RefreshCcw size={17} />
-          Refresh
         </button>
         <button
+          className="icon-button"
           type="button"
+          title="Fetch"
+          aria-label="Fetch"
           onClick={() => currentRepoPath && runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath))}
           disabled={!canFetch || busy}
         >
           <ArrowDownToLine size={17} />
-          Fetch
         </button>
         <button
+          className="icon-button"
           type="button"
+          title="Pull"
+          aria-label="Pull"
           onClick={() => currentRepoPath && runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath))}
           disabled={!canPull || busy}
         >
-          <ArrowDownToLine size={17} />
-          Pull
+          <DownloadCloud size={17} />
         </button>
         <button
+          className="icon-button"
           type="button"
+          title="Push"
+          aria-label="Push"
           onClick={() => currentRepoPath && runSnapshotAction('Push complete.', () => api!.push(currentRepoPath))}
           disabled={!canPush || busy}
         >
           <ArrowUpFromLine size={17} />
-          Push
         </button>
         {canPublishBranch && snapshot && (
           <button
+            className="icon-button"
             type="button"
+            title="Publish branch"
+            aria-label="Publish branch"
             onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
               repoPath: currentRepoPath,
               remote: snapshot.summary.remoteName
@@ -101,7 +106,6 @@ export function AppTopbar({
             disabled={!snapshot || busy}
           >
             <UploadCloud size={17} />
-            Publish branch
           </button>
         )}
       </div>

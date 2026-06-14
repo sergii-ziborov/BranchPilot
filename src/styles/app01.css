@@ -411,6 +411,13 @@ h3 {
   background: #ffffff;
 }
 
+/* Icon-only action buttons: square footprint so dense toolbars stay on one row. */
+.icon-button {
+  flex: 0 0 auto;
+  width: 36px;
+  padding: 0;
+}
+
 .toolbar button:hover,
 .panel-actions button:hover,
 .confirmation-actions button:hover,
