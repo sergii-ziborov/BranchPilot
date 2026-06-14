@@ -101,6 +101,18 @@ export function ChangesView({
     ? `${filteredChanges.length} of ${totalChanges}`
     : `${totalChanges}`
 
+  if (totalChanges === 0) {
+    return (
+      <section className="single-panel">
+        <div className="diff-empty">
+          <GitCommitHorizontal size={30} />
+          <strong>No local changes</strong>
+          <span>There are no uncommitted changes in this branch. Open History to review past commits.</span>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="content-grid changes-workflow-grid">
       <div className="changes-panel changes-panel-compact">

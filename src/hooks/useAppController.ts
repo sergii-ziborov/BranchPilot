@@ -32,7 +32,7 @@ const api = window.branchPilot
 export function useAppController() {
   const [appVersion, setAppVersion] = useState('0.0.0')
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
+  const [viewMode, setViewMode] = useState<ViewMode>('changes')
   const [busy, setBusy] = useState(false)
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
   const [notice, setNotice] = useState('Open a repository to begin.')
