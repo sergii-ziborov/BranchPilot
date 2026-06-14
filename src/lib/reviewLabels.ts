@@ -3,6 +3,9 @@ import type { ReviewFinding, ReviewMode, ReviewScope, ReviewSeverity } from '../
 /** The review modes offered in the UI, in display order. */
 export const reviewModes: ReviewMode[] = ['consistency', 'security', 'quality']
 
+/** Severity buckets in display order (highest first). */
+export const reviewSeverities: ReviewSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
+
 /** Display label for a review mode. */
 export function reviewModeLabel(mode: ReviewMode): string {
   if (mode === 'security') return 'Security'
