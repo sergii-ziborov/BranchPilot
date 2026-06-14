@@ -167,6 +167,11 @@ html[data-platform='darwin'] .shell-bar-row {
   font-weight: 600;
 }
 
+.shell-dropdown-top {
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+}
+
 .shell-dropdown-empty {
   padding: 10px;
   color: var(--muted);

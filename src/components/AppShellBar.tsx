@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2, Database,
   DownloadCloud, FolderOpen, GitBranch, GitCommitHorizontal, GitMerge, GitPullRequest,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
+import { CreateBranchDialog } from './Dialogs'
 
 const PRIMARY_TABS: { id: ViewMode; label: string; icon: typeof Clock3 }[] = [
   { id: 'changes', label: 'Changes', icon: GitCommitHorizontal },
@@ -74,6 +75,23 @@ export function AppShellBar({
   const branches = snapshot?.branches ?? []
   const currentBranch = snapshot?.summary.currentBranch ?? null
   const headerRef = useRef<HTMLElement>(null)
+  const [showCreateBranch, setShowCreateBranch] = useState(false)
+  const [newBranchName, setNewBranchName] = useState('')
+
+  const openCreateBranch = () => {
+    setNewBranchName('')
+    setShowCreateBranch(true)
+  }
+
+  const submitCreateBranch = async () => {
+    const branchName = newBranchName.trim()
+    if (!branchName || !currentRepoPath) return
+    const created = await runSnapshotAction('Branch created.', () => api!.createBranch({ repoPath: currentRepoPath, branchName, description: '' }))
+    if (created) {
+      setShowCreateBranch(false)
+      setNewBranchName('')
+    }
+  }
 
   useEffect(() => {
     const closeAll = () => headerRef.current
@@ -112,6 +130,7 @@ export function AppShellBar({
   }
 
   return (
+    <>
     <header className="shell-bar" ref={headerRef}>
       <div className="shell-bar-row">
         <details className="shell-menu shell-repo" onToggle={handleToggle}>
@@ -161,6 +180,10 @@ export function AppShellBar({
             </span>
           </summary>
           <div className="shell-dropdown">
+            <button className="shell-dropdown-primary shell-dropdown-top" type="button" disabled={!snapshot || busy} onClick={(event) => { closeMenu(event); openCreateBranch() }}>
+              <GitBranch size={15} />
+              New branch…
+            </button>
             <div className="shell-dropdown-list" aria-label="Branches">
               {branches.length === 0 ? (
                 <p className="shell-dropdown-empty">No local branches.</p>
@@ -254,5 +277,16 @@ export function AppShellBar({
         </div>
       </nav>
     </header>
+    {showCreateBranch && (
+      <CreateBranchDialog
+        baseBranch={currentBranch}
+        value={newBranchName}
+        busy={busy}
+        onChange={setNewBranchName}
+        onCancel={() => { setShowCreateBranch(false); setNewBranchName('') }}
+        onCreate={submitCreateBranch}
+      />
+    )}
+    </>
   )
 }

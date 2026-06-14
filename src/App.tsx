@@ -10,7 +10,6 @@ import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { AppShellBar } from './components/AppShellBar'
 import { Toaster } from './components/Toaster'
 import { EmptyState } from './components/EmptyState'
-import { Stat } from './components/primitives'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
 import { GitHubRepositoryBrowser, PullRequestDetailsPanel } from './components/ProvidersPanels'
 import { CHANGE_LIST_ITEM_HEIGHT, HISTORY_LIST_ITEM_HEIGHT } from './lib/listMetrics'
@@ -71,17 +70,6 @@ function App() {
           />
         ) : (
           <>
-            {viewMode !== 'changes' && (
-              <section className="stats-grid" aria-label="Repository status">
-                <Stat label="Changed files" value={counts?.changed ?? 0} />
-                <Stat label="Staged" value={counts?.staged ?? 0} />
-                <Stat label="Unstaged" value={counts?.unstaged ?? 0} />
-                <Stat label="Conflicts" value={counts?.conflicted ?? 0} />
-                <Stat label="Ahead / behind" value={`${snapshot.summary.ahead} / ${snapshot.summary.behind}`} />
-                <Stat label="Remote" value={snapshot.summary.upstream ?? snapshot.summary.remoteName ?? 'None'} />
-              </section>
-            )}
-
             {viewMode === 'dashboard' && (
               <DashboardView
                 repositoryDashboard={repositoryDashboard}
