@@ -47,6 +47,7 @@ export function HistoryView({
   applyCommitOperation: (kind: 'revert' | 'cherry-pick') => void | Promise<void>
 }) {
     const selectedCommitProviderUrl = getProviderCommitUrl(snapshot?.summary.remoteUrl, commitDetails?.sha)
+  const { containerRef: historyContainerRef, onScroll: historyScroll, window: historyWindow, items: historyItems } = virtualHistory
 
   return (
     <section className="content-grid history-grid">
@@ -74,7 +75,7 @@ export function HistoryView({
           </label>
           <span>
             {filteredHistory.length} / {history.length}
-            {virtualRangeLabel(virtualHistory.window, filteredHistory.length)}
+            {virtualRangeLabel(historyWindow, filteredHistory.length)}
           </span>
           {historyFilter && (
             <button type="button" className="secondary" onClick={() => setHistoryFilter('')}>
@@ -84,14 +85,14 @@ export function HistoryView({
           )}
         </div>
 
-        <div className="history-list virtual-list-viewport" ref={virtualHistory.containerRef} onScroll={virtualHistory.onScroll}>
+        <div className="history-list virtual-list-viewport" ref={historyContainerRef} onScroll={historyScroll}>
           {history.length === 0 ? (
             <div className="quiet-box">{historyLoading ? 'Loading commits.' : 'No commits found.'}</div>
           ) : filteredHistory.length === 0 ? (
             <div className="quiet-box">No commits match this search.</div>
           ) : (
-            <div className="virtual-list-spacer" style={{ height: virtualHistory.window.totalHeight }}>
-              {virtualHistory.items.map(({ item: commit, index }) => (
+            <div className="virtual-list-spacer" style={{ height: historyWindow.totalHeight }}>
+              {historyItems.map(({ item: commit, index }) => (
                 <div
                   className="virtual-list-item"
                   key={commit.sha}

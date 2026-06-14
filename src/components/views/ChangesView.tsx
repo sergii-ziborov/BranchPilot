@@ -94,7 +94,8 @@ export function ChangesView({
   openSelectedFileLineInEditor: (line?: number) => void
 }) {
     const totalChanges = snapshot?.status.changes.length ?? 0
-  const visibleRange = virtualRangeLabel(virtualChanges.window, filteredChanges.length)
+  const { containerRef: changesContainerRef, onScroll: changesScroll, window: changesWindow, items: changesItems } = virtualChanges
+  const visibleRange = virtualRangeLabel(changesWindow, filteredChanges.length)
   const visibleSummary = changeFilter
     ? `${filteredChanges.length} of ${totalChanges}`
     : `${totalChanges}`
@@ -190,14 +191,14 @@ export function ChangesView({
           />
         </div>
 
-        <div className="change-list virtual-list-viewport" ref={virtualChanges.containerRef} onScroll={virtualChanges.onScroll}>
+        <div className="change-list virtual-list-viewport" ref={changesContainerRef} onScroll={changesScroll}>
           {snapshot?.status.changes.length === 0 ? (
             <div className="quiet-box">Working tree is clean.</div>
           ) : filteredChanges.length === 0 ? (
             <div className="quiet-box">No changed files match this search.</div>
           ) : (
-            <div className="virtual-list-spacer" style={{ height: virtualChanges.window.totalHeight }}>
-              {virtualChanges.items.map(({ item: change, index }) => (
+            <div className="virtual-list-spacer" style={{ height: changesWindow.totalHeight }}>
+              {changesItems.map(({ item: change, index }) => (
                 <div
                   className="virtual-list-item"
                   key={change.path}
