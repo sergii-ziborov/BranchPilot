@@ -14,13 +14,28 @@
   flex-direction: column;
   border-bottom: 1px solid var(--border);
   background: #ffffff;
+  -webkit-app-region: drag;
+}
+
+/* Keep interactive controls clickable inside the draggable title bar. */
+.shell-bar summary,
+.shell-bar button,
+.shell-bar a,
+.shell-bar input,
+.shell-bar .shell-dropdown {
+  -webkit-app-region: no-drag;
 }
 
 .shell-bar-row {
   display: flex;
   align-items: stretch;
   gap: 8px;
-  padding: 8px 14px;
+  /* Left inset clears the macOS traffic-light window controls (hiddenInset). */
+  padding: 8px 14px 8px 84px;
+}
+
+html[data-platform='darwin'] .shell-bar-row {
+  padding-left: 118px;
 }
 
 .shell-menu {
