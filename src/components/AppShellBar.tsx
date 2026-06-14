@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import {
   ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2, Database,
   DownloadCloud, FolderOpen, GitBranch, GitCommitHorizontal, GitMerge, GitPullRequest,
@@ -72,6 +73,33 @@ export function AppShellBar({
 }) {
   const branches = snapshot?.branches ?? []
   const currentBranch = snapshot?.summary.currentBranch ?? null
+  const headerRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const closeAll = () => headerRef.current
+      ?.querySelectorAll<HTMLDetailsElement>('details.shell-menu[open]')
+      .forEach((d) => { d.open = false })
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Element) || !target.closest('.shell-menu')) closeAll()
+    }
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') closeAll() }
+    document.addEventListener('click', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('click', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [])
+
+  // When one menu opens, close any other open menu.
+  const handleToggle = (event: { currentTarget: HTMLDetailsElement }) => {
+    const opened = event.currentTarget
+    if (!opened.open) return
+    headerRef.current
+      ?.querySelectorAll<HTMLDetailsElement>('details.shell-menu[open]')
+      .forEach((d) => { if (d !== opened) d.open = false })
+  }
 
   const closeMenu = (event: { currentTarget: HTMLElement }) => {
     const details = event.currentTarget.closest('details')
@@ -84,9 +112,9 @@ export function AppShellBar({
   }
 
   return (
-    <header className="shell-bar">
+    <header className="shell-bar" ref={headerRef}>
       <div className="shell-bar-row">
-        <details className="shell-menu shell-repo">
+        <details className="shell-menu shell-repo" onToggle={handleToggle}>
           <summary>
             <span className="shell-seg-label">Repository</span>
             <span className="shell-seg-value">
@@ -123,7 +151,7 @@ export function AppShellBar({
           </div>
         </details>
 
-        <details className="shell-menu shell-branch">
+        <details className="shell-menu shell-branch" onToggle={handleToggle}>
           <summary>
             <span className="shell-seg-label">Current branch</span>
             <span className="shell-seg-value">
