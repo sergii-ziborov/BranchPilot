@@ -73,10 +73,30 @@ export function DashboardView({
       ) : (
         <>
           <div className="dashboard-stat-grid" aria-label="Dashboard totals">
-            <Stat label="Dirty repos" value={dashboard.totals.dirty} />
-            <Stat label="Conflicts" value={dashboard.totals.conflicted} />
-            <Stat label="Ahead / behind" value={`${dashboard.totals.ahead} / ${dashboard.totals.behind}`} />
-            <Stat label="Stale branches" value={dashboard.totals.staleBranches} />
+            <Stat
+              label="Dirty repos"
+              value={dashboard.totals.dirty}
+              tone={dashboard.totals.dirty > 0 ? 'warn' : 'ok'}
+              hint="Repositories with uncommitted changes in the working tree"
+            />
+            <Stat
+              label="Conflicts"
+              value={dashboard.totals.conflicted}
+              tone={dashboard.totals.conflicted > 0 ? 'danger' : 'ok'}
+              hint="Repositories in a merge, rebase, or cherry-pick conflict"
+            />
+            <Stat
+              label="Ahead / behind"
+              value={`${dashboard.totals.ahead} / ${dashboard.totals.behind}`}
+              tone="info"
+              hint="Total commits ahead of and behind upstream across repositories"
+            />
+            <Stat
+              label="Stale branches"
+              value={dashboard.totals.staleBranches}
+              tone={dashboard.totals.staleBranches > 0 ? 'warn' : 'ok'}
+              hint={`Local branches with no commits for over ${dashboard.staleBranchThresholdDays} days`}
+            />
           </div>
 
           <div className="dashboard-filter-bar">
@@ -122,13 +142,12 @@ export function DashboardView({
                         <p>{repo.error ?? repo.path}</p>
                       </div>
                       <div className="dashboard-repo-metrics">
-                        <span>{dashboardStateLabel(repo)}</span>
-                        <span>{repo.changed} changed</span>
-                        <span>{repo.ahead} / {repo.behind}</span>
+                        <span className={`dashboard-state-badge state-badge-${repo.state}`} title="Repository working-tree state">{dashboardStateLabel(repo)}</span>
+                        <span title="Changed files in the working tree">{repo.changed} changed</span>
+                        <span title="Commits ahead / behind upstream">{repo.ahead} / {repo.behind}</span>
                       </div>
-                      <button type="button" className="secondary" onClick={() => openRepository(repo.path)} disabled={busy || repo.state === 'unavailable'}>
+                      <button className="secondary icon-button" type="button" title="Open repository" aria-label="Open repository" onClick={() => openRepository(repo.path)} disabled={busy || repo.state === 'unavailable'}>
                         <FolderOpen size={16} />
-                        Open
                       </button>
                     </article>
                   ))}

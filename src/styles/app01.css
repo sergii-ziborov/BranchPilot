@@ -683,6 +683,43 @@ button.danger-button:hover {
   white-space: nowrap;
 }
 
+/* Semantic tones for stat tiles: tint + accent so signals read at a glance. */
+.stat-tile.tone-info {
+  border-color: #cfe3fb;
+  background: #f0f7ff;
+}
+
+.stat-tile.tone-info strong {
+  color: #185fa5;
+}
+
+.stat-tile.tone-warn {
+  border-color: #fde68a;
+  background: #fefce8;
+}
+
+.stat-tile.tone-warn strong {
+  color: #92400e;
+}
+
+.stat-tile.tone-danger {
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+.stat-tile.tone-danger strong {
+  color: #b91c1c;
+}
+
+.stat-tile.tone-ok {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.stat-tile.tone-ok strong {
+  color: #166534;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: minmax(360px, 0.8fr) minmax(480px, 1.2fr);

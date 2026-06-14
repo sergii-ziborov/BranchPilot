@@ -187,6 +187,35 @@
   white-space: nowrap;
 }
 
+/* Colored working-tree state badges (two classes to beat the neutral pill). */
+.dashboard-state-badge {
+  font-weight: 600;
+}
+
+.dashboard-state-badge.state-badge-clean {
+  border-color: #bbf7d0;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.dashboard-state-badge.state-badge-dirty {
+  border-color: #fde68a;
+  background: #fef9c3;
+  color: #92400e;
+}
+
+.dashboard-state-badge.state-badge-conflicted {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.dashboard-state-badge.state-badge-unavailable {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .dashboard-callout {
   display: grid;
   gap: 8px;

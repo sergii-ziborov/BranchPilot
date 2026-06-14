@@ -1,7 +1,19 @@
+type StatTone = 'neutral' | 'info' | 'warn' | 'danger' | 'ok'
+
 /** Small labelled statistic tile (label above a bold value). */
-export function Stat({ label, value }: { label: string; value: string | number }) {
+export function Stat({
+  label,
+  value,
+  tone = 'neutral',
+  hint
+}: {
+  label: string
+  value: string | number
+  tone?: StatTone
+  hint?: string
+}) {
   return (
-    <div className="stat-tile">
+    <div className={`stat-tile tone-${tone}`} title={hint}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
