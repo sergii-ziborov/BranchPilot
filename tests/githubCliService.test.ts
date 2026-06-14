@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CommandExecutionError,
-  type CommandRunOptions,
-  type CommandRunResult,
-  CommandRunner
-} from '../electron/lib/commandRunner'
-import {
   checkoutGitHubPullRequest,
   createGitHubPullRequest,
   getCurrentBranchPullRequest,
@@ -18,18 +12,8 @@ import {
   listGitHubPullRequests
 } from '../electron/providers/githubCliService'
 import type {
-  GitHubApiClient,
-  GitHubCredentialProvider,
-  GitHubDesktopCredential
 } from '../electron/providers/githubCliService'
 import type {
-  GitHubAccountSummary,
-  GitHubPullRequest,
-  GitHubPullRequestCheck,
-  GitHubPullRequestDetails,
-  GitHubPullRequestDiff,
-  GitHubRepositorySummary,
-  ListGitHubRepositoriesRequest
 } from '../src/shared/branchPilot'
 
 import {
@@ -42,11 +26,6 @@ import {
   makePullRequestDiff,
   makeRepository,
   makeAccount,
-  toGhPullRequestJson,
-  toGhAccountJson,
-  toGhRepositoryJson,
-  toGhPullRequestDetailsJson,
-  toGhPullRequestCheckJson,
   jsonResponse
 } from './support/githubCliTestSupport'
 

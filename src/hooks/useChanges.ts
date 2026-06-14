@@ -271,7 +271,7 @@ export function useChanges({
     }
 
     void loadDiff(selectedChange, availableMode)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [diffIgnoreWhitespace, diffMode, selectedChange, snapshot])
 
   return {

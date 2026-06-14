@@ -401,13 +401,13 @@ export function useProviders({
     setPrDescription('')
     setPrBaseBranch('')
     setCreatedPullRequest(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [snapshot?.summary.rootPath])
 
   useEffect(() => {
     if (viewMode !== 'providers') return
     void refreshProvidersPanel()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [snapshot?.summary.rootPath, viewMode])
 
   useEffect(() => {
@@ -422,7 +422,7 @@ export function useProviders({
     }
 
     void loadPullRequestDetails(selectedPullRequestNumber)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [githubCliStatus?.authenticated, selectedPullRequestNumber, snapshot?.summary.rootPath, viewMode])
 
   return {

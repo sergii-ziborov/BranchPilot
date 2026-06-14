@@ -112,7 +112,7 @@ export function useHistory({
   useEffect(() => {
     if (!snapshot || viewMode !== 'history') return
     void loadHistory()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
   useEffect(() => {
@@ -137,7 +137,7 @@ export function useHistory({
     }
 
     void loadCommitDetails(selectedCommitSha)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [selectedCommitSha, snapshot?.summary.rootPath, viewMode])
 
   return {

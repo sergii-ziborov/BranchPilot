@@ -2,14 +2,11 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } fr
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { CommandRunner } from '../electron/lib/commandRunner'
 import { toBranchPilotError } from '../electron/lib/errors'
-import { RepositoryService } from '../electron/lib/repositoryService'
-import { SettingsStore } from '../electron/lib/settingsStore'
 import {
   cleanupTempRoots, cloneRemote, createConflictedRepository, createMergeConflictReadyRepository,
   createRebaseConflictReadyRepository, createRemoteBackedRepository, createService, createTempRepository,
-  git, gitWithEnv, RecordingCommandRunner, tempRoots
+  git, tempRoots
 } from './support/repositoryServiceTestSupport'
 
 describe('RepositoryService', () => {
