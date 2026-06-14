@@ -30,14 +30,10 @@ import type {
   AssistantActionKind,
   AssistantId,
   AssistantPolicyMode,
-  DiffHunk,
   EditorPreference,
 
-  DiffResult,
-  FileChange,
 
   GitOperationResult,
-  PatchScope,
   RecentRepository,
 
   RepositorySnapshot,
@@ -45,16 +41,6 @@ import type {
   SubmoduleSummary,
 } from './shared/branchPilot'
 import { branchPilotErrorText } from './shared/branchPilot'
-import {
-  getAvailableChangeDiffMode,
-  getBulkStageToggleAction,
-  getBulkStageToggleState,
-  getChangeStageToggleAction,
-  getDefaultChangeDiffMode,
-  type ChangeDiffMode
-} from './shared/changeStaging'
-import { getDiffStats } from './shared/diffView'
-import { useVirtualList } from './hooks/useVirtualList'
 import { useDailyReview } from './hooks/useDailyReview'
 import { useLinkedIn } from './hooks/useLinkedIn'
 import { useStash } from './hooks/useStash'
@@ -66,6 +52,7 @@ import { useBranches } from './hooks/useBranches'
 import { useAssistants } from './hooks/useAssistants'
 import { useProviders } from './hooks/useProviders'
 import { useCommit } from './hooks/useCommit'
+import { useChanges } from './hooks/useChanges'
 import { AssistantPolicyPanel, AssistantReadiness } from './components/AssistantPanels'
 import { Stat } from './components/primitives'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
@@ -84,15 +71,12 @@ import { ChangesView } from './components/views/ChangesView'
 import { BranchesView } from './components/views/BranchesView'
 import { ProvidersView } from './components/views/ProvidersView'
 import type { ViewMode } from './lib/viewMode'
-import { changeLabel } from './lib/fileChangeLabels'
 import { assistantPolicyAllows } from './lib/assistantLabels'
 import { progressLabelFromSuccess } from './lib/progressLabels'
 import type { ActivityCategory } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import './App.css'
 
-type DiffMode = ChangeDiffMode
-type DiffDisplayMode = 'unified' | 'split'
 type ConfirmationVariant = 'default' | 'danger'
 
 interface ConfirmationOptions {
@@ -144,40 +128,19 @@ function App() {
   const [cloneTargetName, setCloneTargetName] = useState('')
   const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
   const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
-  const [changeFilter, setChangeFilter] = useState('')
-  const [diffMode, setDiffMode] = useState<DiffMode>('unstaged')
-  const [diffDisplayMode, setDiffDisplayMode] = useState<DiffDisplayMode>('unified')
-  const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
-  const [diff, setDiff] = useState<DiffResult | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [busy, setBusy] = useState(false)
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
   const [notice, setNotice] = useState('Open a repository to begin.')
   const [error, setError] = useState<string | null>(null)
-  const [patchScope, setPatchScope] = useState<PatchScope>('working-tree')
   const [selectedMergeBranch, setSelectedMergeBranch] = useState('')
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
   const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationRequest | null>(null)
   const [textPromptRequest, setTextPromptRequest] = useState<TextPromptRequest | null>(null)
   const [textPromptValue, setTextPromptValue] = useState('')
   const confirmationIdRef = useRef(0)
-  const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
-  const diffRequestIdRef = useRef(0)
   const dashboardRequestIdRef = useRef(0)
 
-  const filteredChanges = useMemo(() => {
-    const changes = snapshot?.status.changes ?? []
-    const query = changeFilter.trim().toLowerCase()
-
-    if (!query) return changes
-
-    return changes.filter((change) =>
-      [change.path, change.originalPath, change.status, changeLabel(change)]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(query))
-    )
-  }, [changeFilter, snapshot])
 
 
   const filteredRecentRepositories = useMemo(() => {
@@ -194,20 +157,11 @@ function App() {
     )
   }, [recentRepositories, recentRepositoryFilter])
 
-  const selectedChange = useMemo(
-    () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
-    [selectedFilePath, snapshot]
-  )
 
 
 
 
 
-  const selectedDiffStats = useMemo(() => {
-    if (!diff || diff.binary || !diff.text.trim()) return null
-    return getDiffStats(diff)
-  }, [diff])
-  const virtualChanges = useVirtualList(filteredChanges, CHANGE_LIST_ITEM_HEIGHT, `${snapshot?.summary.rootPath ?? ''}|${changeFilter}`)
 
 
 
@@ -264,12 +218,6 @@ function App() {
     request.resolve(submitted ? textPromptValue : null)
   }
 
-  function closeChangesActionsMenu() {
-    if (changesActionsMenuRef.current) {
-      changesActionsMenuRef.current.open = false
-    }
-  }
-
   useEffect(() => {
     if (!api) {
       setError('BranchPilot desktop runtime is not available. Open the Electron app to use Git features.')
@@ -313,47 +261,8 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [textPromptRequest])
 
-  useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
-      const menu = changesActionsMenuRef.current
-      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) {
-        menu.open = false
-      }
-    }
 
-    document.addEventListener('mousedown', handlePointerDown)
-    return () => document.removeEventListener('mousedown', handlePointerDown)
-  }, [])
 
-  useEffect(() => {
-    if (!snapshot) return
-
-    const filterActive = changeFilter.trim().length > 0
-    const visibleChanges = filterActive ? filteredChanges : snapshot.status.changes
-    const firstChange = visibleChanges[0]
-
-    if (!selectedFilePath || !visibleChanges.some((change) => change.path === selectedFilePath)) {
-      setSelectedFilePath(firstChange?.path ?? null)
-      setDiffMode(firstChange ? getDefaultChangeDiffMode(firstChange) : 'unstaged')
-    }
-  }, [changeFilter, filteredChanges, selectedFilePath, snapshot])
-
-  useEffect(() => {
-    if (!snapshot || !selectedChange) {
-      diffRequestIdRef.current += 1
-      setDiff(null)
-      return
-    }
-
-    const availableMode = getAvailableChangeDiffMode(selectedChange, diffMode)
-
-    if (availableMode !== diffMode) {
-      setDiffMode(availableMode)
-      return
-    }
-
-    void loadDiff(selectedChange, availableMode)
-  }, [diffIgnoreWhitespace, diffMode, selectedChange, snapshot])
 
 
   useEffect(() => {
@@ -492,6 +401,15 @@ function App() {
   } = useDailyReview({ api, currentRepoPath, setNotice, setError, copyToClipboard })
   const counts = snapshot?.status.counts
   const {
+    selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter,
+    diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
+    diff, patchScope, setPatchScope, changesActionsMenuRef,
+    filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
+    closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,
+    stageSelectedHunk, unstageSelectedHunk, discardSelected, exportPatch, applyPatch,
+    openSelectedFileInEditor, openSelectedFileLineInEditor
+  } = useChanges({ api, currentRepoPath, snapshot, counts, setNotice, setError, runSnapshotAction, runApiAction, runOperationAction, applySnapshot, requestConfirmation })
+  const {
     reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport,
     preCommitReviewModes, preCommitReports, preCommitRunningMode, canRunAssistantReview, preCommitFindings, preCommitFindingsBySeverity,
     resetPreCommitReview, runReviewReport, runPreCommitReview, togglePreCommitReviewMode, openPreCommitReviewDetails
@@ -507,13 +425,11 @@ function App() {
     stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage,
     createStash, createQuickStash, applyStash, dropStash
   } = useStash({ api, currentRepoPath, snapshot, canCreateStash, setNotice, setError, runSnapshotAction, requestConfirmation, requestTextInput, resetPreCommitReview, setSnapshot, setRecentRepositories })
-  const bulkStageToggleState = getBulkStageToggleState(counts)
   const hasRemote = Boolean(snapshot?.summary.remoteName)
   const hasUpstream = Boolean(snapshot?.summary.upstream)
   const canFetch = Boolean(snapshot && hasRemote)
   const canPull = Boolean(snapshot && !snapshot.summary.isDetached && hasUpstream)
   const canPush = Boolean(snapshot && !snapshot.summary.isDetached && hasUpstream)
-  const selectedFileTarget = currentRepoPath && selectedChange ? `${currentRepoPath}/${selectedChange.path}` : null
   const canGenerateLinkedInProject = assistantPolicyAllows(assistantPolicy, 'linkedin_project')
   const {
     linkedinProject, setLinkedInProject, linkedinHighlightsText, setLinkedinHighlightsText,
@@ -622,28 +538,6 @@ function App() {
     })
   }
 
-  async function loadDiff(change: FileChange, mode: DiffMode) {
-    if (!api || !currentRepoPath) return
-    const requestId = diffRequestIdRef.current + 1
-    diffRequestIdRef.current = requestId
-    const staged = mode === 'staged' && change.staged
-    const result = await api.getDiff({
-      repoPath: currentRepoPath,
-      filePath: change.path,
-      staged,
-      ignoreWhitespace: diffIgnoreWhitespace
-    })
-
-    if (diffRequestIdRef.current !== requestId) return
-
-    if (result.ok) {
-      setDiff(result.data)
-    } else {
-      setDiff(null)
-      setError(result.error.message)
-    }
-  }
-
   async function copyToClipboard(text: string, successMessage: string) {
     try {
       await navigator.clipboard.writeText(text)
@@ -748,130 +642,6 @@ function App() {
     if (viewMode === 'memory') {
       void loadProjectMemory(nextSnapshot.summary.rootPath)
     }
-  }
-
-  async function toggleChangeStage(change: FileChange) {
-    if (!api || !currentRepoPath) return
-    const action = getChangeStageToggleAction(change)
-
-    if (action === 'none') return
-
-    setSelectedFilePath(change.path)
-
-    if (action === 'unstage') {
-      await runSnapshotAction(
-        'File unstaged.',
-        () => api.unstageFile({ repoPath: currentRepoPath, filePath: change.path }),
-        'Unstaging file...'
-      )
-      setDiffMode('unstaged')
-      return
-    }
-
-    await runSnapshotAction(
-      'File staged.',
-      () => api.stageFile({ repoPath: currentRepoPath, filePath: change.path }),
-      'Staging file...'
-    )
-    setDiffMode('staged')
-  }
-
-  async function toggleBulkStage() {
-    if (!api || !currentRepoPath) return
-    const action = getBulkStageToggleAction(counts)
-
-    if (action === 'stage_all') {
-      await runSnapshotAction('All changes staged.', () => api.stageAll(currentRepoPath), 'Staging all changes...')
-      return
-    }
-
-    if (action === 'unstage_all') {
-      await runSnapshotAction('All changes unstaged.', () => api.unstageAll(currentRepoPath), 'Unstaging all changes...')
-    }
-  }
-
-  async function stageSelectedHunk(hunk: DiffHunk) {
-    if (!api || !currentRepoPath || !selectedChange) return
-    await runSnapshotAction(
-      'Hunk staged.',
-      () =>
-        api.stageHunk({
-          repoPath: currentRepoPath,
-          filePath: selectedChange.path,
-          patch: hunk.patch
-        }),
-      'Staging hunk...'
-    )
-  }
-
-  async function unstageSelectedHunk(hunk: DiffHunk) {
-    if (!api || !currentRepoPath || !selectedChange) return
-    await runSnapshotAction(
-      'Hunk unstaged.',
-      () =>
-        api.unstageHunk({
-          repoPath: currentRepoPath,
-          filePath: selectedChange.path,
-          patch: hunk.patch
-        }),
-      'Unstaging hunk...'
-    )
-  }
-
-  async function discardSelected() {
-    if (!api || !currentRepoPath || !selectedChange) return
-    const isUntracked = selectedChange.untracked
-    const confirmed = await requestConfirmation(
-      isUntracked
-        ? `Delete untracked file ${selectedChange.path}?`
-        : `Discard local changes in ${selectedChange.path}?`,
-      {
-        title: isUntracked ? 'Delete Untracked File' : 'Discard File Changes',
-        confirmLabel: isUntracked ? 'Delete file' : 'Discard changes',
-        variant: 'danger'
-      }
-    )
-    if (!confirmed) return
-
-    const action = isUntracked ? api.deleteUntrackedFile : api.discardFile
-
-    await runSnapshotAction(
-      isUntracked ? 'Untracked file deleted.' : 'File discarded.',
-      () => action({ repoPath: currentRepoPath, filePath: selectedChange.path, confirmed }),
-      isUntracked ? 'Deleting file...' : 'Discarding file changes...'
-    )
-  }
-
-  async function exportPatch() {
-    if (!api || !currentRepoPath) return
-
-    await runApiAction('Exporting patch...', () => api.exportPatch({
-      repoPath: currentRepoPath,
-      scope: patchScope
-    }), (data) => {
-      setNotice(data ? `Patch exported: ${data.fileName}` : 'Patch export cancelled.')
-    })
-  }
-
-  async function applyPatch() {
-    if (!api || !currentRepoPath) return
-
-    const confirmed = await requestConfirmation('Apply a patch file to the working tree?', {
-      title: 'Apply Patch',
-      confirmLabel: 'Apply patch'
-    })
-    if (!confirmed) return
-
-    await runApiAction('Applying patch...', () => api.applyPatch({
-      repoPath: currentRepoPath,
-      confirmed
-    }), (data) => {
-      if (data) {
-        applySnapshot(data, 'Patch applied.')
-      } else {
-        setNotice('Patch apply cancelled.')
-      }
-    })
   }
 
   async function startMergeOperation(kind: 'merge' | 'rebase') {
@@ -1022,19 +792,6 @@ function App() {
   async function openRepoInEditor() {
     if (!api || !currentRepoPath) return
     await runOperationAction('Repository opened in editor.', () => api.openInEditor({ targetPath: currentRepoPath }))
-  }
-
-  async function openSelectedFileInEditor() {
-    if (!api || !selectedFileTarget) return
-    await runOperationAction('File opened in editor.', () => api.openInEditor({ targetPath: selectedFileTarget }))
-  }
-
-  async function openSelectedFileLineInEditor(line?: number) {
-    if (!api || !selectedFileTarget || !line) return
-    await runOperationAction(`File opened at line ${line}.`, () => api.openInEditor({
-      targetPath: selectedFileTarget,
-      line
-    }))
   }
 
   async function openRepositoryTerminal() {
