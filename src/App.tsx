@@ -2,25 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
-  CalendarDays,
   Check,
-  Clock3,
   Code2,
-  Database,
   FileWarning,
   FolderOpen,
-  GitBranch,
-  GitCommitHorizontal,
-  GitMerge,
-  GitPullRequest,
-  LayoutDashboard,
   Loader2,
   RefreshCcw,
-  Save,
-  Search,
-  Settings,
-  ShieldCheck,
-  Star,
   Terminal,
   UploadCloud,
   X
@@ -56,6 +43,7 @@ import { useChanges } from './hooks/useChanges'
 import { useMerge } from './hooks/useMerge'
 import { AssistantPolicyPanel, AssistantReadiness } from './components/AssistantPanels'
 import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
+import { AppSidebar } from './components/AppSidebar'
 import { Stat } from './components/primitives'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
 import { GitHubRepositoryBrowser, PullRequestDetailsPanel } from './components/ProvidersPanels'
@@ -716,107 +704,16 @@ function App() {
     await runOperationAction('Terminal opened.', () => api.openTerminal(currentRepoPath))
   }
 
-  const navigation = [
-    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'changes' as const, label: 'Changes', icon: GitCommitHorizontal },
-    { id: 'history' as const, label: 'History', icon: Clock3 },
-    { id: 'merge' as const, label: 'Merge', icon: GitMerge },
-    { id: 'branches' as const, label: 'Branches', icon: GitBranch },
-    { id: 'config' as const, label: 'Git Config', icon: Settings },
-    { id: 'stash' as const, label: 'Stash', icon: Save },
-    { id: 'review' as const, label: 'Review', icon: ShieldCheck },
-    { id: 'providers' as const, label: 'Providers', icon: GitPullRequest },
-    { id: 'memory' as const, label: 'Memory', icon: Database },
-    { id: 'daily' as const, label: 'Daily', icon: CalendarDays },
-    { id: 'linkedin' as const, label: 'LinkedIn', icon: Star }
-  ]
 
   return (
     <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">BP</div>
-          <div>
-            <strong>BranchPilot</strong>
-            <span>Local-first Git client</span>
-          </div>
-        </div>
-
-        <button className="repo-picker" type="button" onClick={chooseRepository} disabled={!api || busy}>
-          <FolderOpen size={18} />
-          <span>{snapshot?.summary.name ?? 'Open repository'}</span>
-        </button>
-
-        <nav className="nav-list" aria-label="Primary">
-          {navigation.map((item) => (
-            <button
-              className={viewMode === item.id ? 'active' : ''}
-              type="button"
-              key={item.id}
-              onClick={() => setViewMode(item.id)}
-            >
-              <item.icon size={18} />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-
-        <div className="recent-list">
-          <div className="recent-list-heading">
-            <span className="section-label">Recent repositories</span>
-            <span>{filteredRecentRepositories.length} / {recentRepositories.length}</span>
-          </div>
-          {recentRepositories.length > 0 && (
-            <div className="recent-filter">
-              <label htmlFor="recent-repository-filter">
-                <Search size={14} />
-                <input
-                  id="recent-repository-filter"
-                  value={recentRepositoryFilter}
-                  onChange={(event) => setRecentRepositoryFilter(event.target.value)}
-                  placeholder="Search repos"
-                />
-              </label>
-              {recentRepositoryFilter && (
-                <button type="button" aria-label="Clear repository search" onClick={() => setRecentRepositoryFilter('')}>
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          )}
-          {recentRepositories.length === 0 ? (
-            <p>No recent repositories.</p>
-          ) : filteredRecentRepositories.length === 0 ? (
-            <p>No repositories match this search.</p>
-          ) : (
-            filteredRecentRepositories.map((repo) => (
-              <article className={repo.pinned ? 'recent-repo-row pinned' : 'recent-repo-row'} key={repo.path}>
-                <button className="recent-repo-open" type="button" onClick={() => openRepository(repo.path)}>
-                  <strong>{repo.name}</strong>
-                  <span>{repo.path}</span>
-                </button>
-                <button
-                  className={repo.pinned ? 'recent-pin-button pinned' : 'recent-pin-button'}
-                  type="button"
-                  aria-label={repo.pinned ? `Unpin ${repo.name}` : `Pin ${repo.name}`}
-                  title={repo.pinned ? 'Unpin repository' : 'Pin repository'}
-                  onClick={() => toggleRepositoryPinned(repo)}
-                  disabled={!api || busy}
-                >
-                  <Star size={16} fill={repo.pinned ? 'currentColor' : 'none'} />
-                </button>
-              </article>
-            ))
-          )}
-        </div>
-
-        <div className="runtime-status">
-          <span>
-            <Check size={15} />
-            v{appVersion}
-          </span>
-        </div>
-      </aside>
+      <AppSidebar
+        apiReady={Boolean(api)} busy={busy} snapshot={snapshot} viewMode={viewMode} setViewMode={setViewMode}
+        chooseRepository={chooseRepository} filteredRecentRepositories={filteredRecentRepositories}
+        recentRepositories={recentRepositories} recentRepositoryFilter={recentRepositoryFilter}
+        setRecentRepositoryFilter={setRecentRepositoryFilter} openRepository={openRepository}
+        toggleRepositoryPinned={toggleRepositoryPinned} appVersion={appVersion}
+      />
 
       <section className="workspace">
         <header className="topbar">
