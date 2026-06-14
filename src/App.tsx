@@ -53,7 +53,6 @@ import {
   getDefaultChangeDiffMode,
   type ChangeDiffMode
 } from './shared/changeStaging'
-import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { getDiffStats } from './shared/diffView'
 import { useVirtualList } from './hooks/useVirtualList'
 import { useDailyReview } from './hooks/useDailyReview'
@@ -66,6 +65,7 @@ import { useHistory } from './hooks/useHistory'
 import { useBranches } from './hooks/useBranches'
 import { useAssistants } from './hooks/useAssistants'
 import { useProviders } from './hooks/useProviders'
+import { useCommit } from './hooks/useCommit'
 import { AssistantPolicyPanel, AssistantReadiness } from './components/AssistantPanels'
 import { Stat } from './components/primitives'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
@@ -85,7 +85,7 @@ import { BranchesView } from './components/views/BranchesView'
 import { ProvidersView } from './components/views/ProvidersView'
 import type { ViewMode } from './lib/viewMode'
 import { changeLabel } from './lib/fileChangeLabels'
-import { assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel } from './lib/assistantLabels'
+import { assistantPolicyAllows } from './lib/assistantLabels'
 import { progressLabelFromSuccess } from './lib/progressLabels'
 import type { ActivityCategory } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
@@ -155,9 +155,6 @@ function App() {
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
   const [notice, setNotice] = useState('Open a repository to begin.')
   const [error, setError] = useState<string | null>(null)
-  const [commitTitle, setCommitTitle] = useState('')
-  const [commitDescription, setCommitDescription] = useState('')
-  const [commitCoAuthors, setCommitCoAuthors] = useState('')
   const [patchScope, setPatchScope] = useState<PatchScope>('working-tree')
   const [selectedMergeBranch, setSelectedMergeBranch] = useState('')
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
@@ -499,6 +496,11 @@ function App() {
     preCommitReviewModes, preCommitReports, preCommitRunningMode, canRunAssistantReview, preCommitFindings, preCommitFindingsBySeverity,
     resetPreCommitReview, runReviewReport, runPreCommitReview, togglePreCommitReviewMode, openPreCommitReviewDetails
   } = useReview({ api, currentRepoPath, counts, assistantPolicy, selectedAssistant, setNotice, setError, runApiAction, runBusyOperation, setViewMode })
+  const {
+    commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors,
+    canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState,
+    commitChanges, amendLastCommit, generateCommitText
+  } = useCommit({ api, currentRepoPath, snapshot, selectedAssistant, assistantPolicy, setNotice, runApiAction, runSnapshotAction, resetPreCommitReview, requestConfirmation })
   const mergeState = snapshot?.status.merge
   const canCreateStash = Boolean(snapshot && counts?.changed && mergeState?.operation === 'none')
   const {
@@ -512,7 +514,6 @@ function App() {
   const canPull = Boolean(snapshot && !snapshot.summary.isDetached && hasUpstream)
   const canPush = Boolean(snapshot && !snapshot.summary.isDetached && hasUpstream)
   const selectedFileTarget = currentRepoPath && selectedChange ? `${currentRepoPath}/${selectedChange.path}` : null
-  const canGenerateCommitText = assistantPolicyAllows(assistantPolicy, 'commit_message')
   const canGenerateLinkedInProject = assistantPolicyAllows(assistantPolicy, 'linkedin_project')
   const {
     linkedinProject, setLinkedInProject, linkedinHighlightsText, setLinkedinHighlightsText,
@@ -521,9 +522,6 @@ function App() {
     linkedinProjectUrl, setLinkedInProjectUrl, linkedinLoading,
     generateLinkedInProject, updateLinkedInProject, copyLinkedInMarkdown, copyLinkedInTags
   } = useLinkedIn({ api, currentRepoPath, selectedAssistant, assistantPolicy, canGenerateLinkedInProject, setNotice, setError, setBusy, copyToClipboard, loadProjectMemory })
-  const commitActionState = getCommitActionState({ snapshot, title: commitTitle })
-  const commitAndPushActionState = getCommitAndPushActionState({ snapshot, title: commitTitle })
-  const amendCommitActionState = getAmendCommitActionState({ snapshot, title: commitTitle })
 
   async function loadRecentRepositories() {
     if (!api) return
@@ -844,72 +842,6 @@ function App() {
     )
   }
 
-  async function commitChanges(): Promise<boolean> {
-    if (!api || !currentRepoPath) return false
-    if (!commitActionState.enabled) {
-      setNotice(`Commit blocked: ${commitActionState.reasons.join(' ')}`)
-      return false
-    }
-
-    const committed = await runSnapshotAction(
-      'Commit created.',
-      () =>
-        api.commit({
-          repoPath: currentRepoPath,
-          title: commitTitle,
-          description: commitDescription,
-          coAuthors: commitCoAuthors
-        }),
-      'Creating commit...'
-    )
-
-    if (committed) {
-      setCommitTitle('')
-      setCommitDescription('')
-      setCommitCoAuthors('')
-      resetPreCommitReview()
-    }
-
-    return committed
-  }
-
-  async function amendLastCommit(): Promise<boolean> {
-    if (!api || !currentRepoPath) return false
-    if (!amendCommitActionState.enabled) {
-      setNotice(`Amend blocked: ${amendCommitActionState.reasons.join(' ')}`)
-      return false
-    }
-
-    const confirmed = await requestConfirmation('Amend the last commit? This rewrites the current branch HEAD.', {
-      title: 'Amend Commit',
-      confirmLabel: 'Amend commit',
-      variant: 'danger'
-    })
-    if (!confirmed) return false
-
-    const amended = await runSnapshotAction(
-      'Commit amended.',
-      () =>
-        api.amendCommit({
-          repoPath: currentRepoPath,
-          title: commitTitle,
-          description: commitDescription,
-          coAuthors: commitCoAuthors,
-          confirmed
-        }),
-      'Amending commit...'
-    )
-
-    if (amended) {
-      setCommitTitle('')
-      setCommitDescription('')
-      setCommitCoAuthors('')
-      resetPreCommitReview()
-    }
-
-    return amended
-  }
-
   async function exportPatch() {
     if (!api || !currentRepoPath) return
 
@@ -1055,33 +987,6 @@ function App() {
         }
       }
     )
-  }
-
-  async function generateCommitText() {
-    if (!api || !currentRepoPath) return
-    if (!canGenerateCommitText) {
-      setNotice(assistantPolicyBlockedLabel('commit_message', assistantPolicy))
-      return
-    }
-
-    if (
-      (commitTitle.trim() || commitDescription.trim()) &&
-      !(await requestConfirmation('Replace the current commit title and description?', {
-        title: 'Replace Commit Text',
-        confirmLabel: 'Replace text'
-      }))
-    ) {
-      return
-    }
-
-    await runApiAction('Generating commit text...', () => api.generateCommitMessage({
-      repoPath: currentRepoPath,
-      assistant: selectedAssistant
-    }), (data) => {
-      setCommitTitle(data.title)
-      setCommitDescription(data.description)
-      setNotice(`Generated with ${assistantLabel(data.assistant)}${data.truncated ? ' from truncated diff' : ''}.`)
-    })
   }
 
   async function updateSubmodule(submodule?: SubmoduleSummary) {
