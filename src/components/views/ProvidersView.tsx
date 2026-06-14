@@ -153,13 +153,11 @@ export function ProvidersView({
               </span>
             </div>
             <div className="pr-actions">
-              <button type="button" onClick={() => selectPullRequest(currentPullRequest)} disabled={busy}>
+              <button className="icon-button" type="button" title="Pull request details" aria-label="Pull request details" onClick={() => selectPullRequest(currentPullRequest)} disabled={busy}>
                 <GitPullRequest size={17} />
-                Details
               </button>
-              <button type="button" className="secondary" onClick={() => openExternalLink(currentPullRequest.url, 'Pull request link')}>
+              <button className="icon-button secondary" type="button" title="Open pull request" aria-label="Open pull request" onClick={() => openExternalLink(currentPullRequest.url, 'Pull request link')}>
                 <ExternalLink size={17} />
-                Open PR
               </button>
             </div>
           </article>
@@ -290,7 +288,10 @@ export function ProvidersView({
                         <span className="pr-current-badge">Current branch</span>
                       ) : (
                         <button
+                          className="icon-button"
                           type="button"
+                          title="Checkout pull request"
+                          aria-label="Checkout pull request"
                           onClick={(event) => {
                             event.stopPropagation()
                             void checkoutPullRequest(pullRequest)
@@ -298,20 +299,20 @@ export function ProvidersView({
                           disabled={busy || !githubCliStatus?.authenticated}
                         >
                           <GitPullRequest size={17} />
-                          Checkout
                         </button>
                       )}
                       {isSelected && <span className="pr-current-badge selected-badge">Selected</span>}
                       <button
+                        className="icon-button secondary"
                         type="button"
-                        className="secondary"
+                        title="Open pull request"
+                        aria-label="Open pull request"
                         onClick={(event) => {
                           event.stopPropagation()
                           openExternalLink(pullRequest.url, 'Pull request link')
                         }}
                       >
                         <ExternalLink size={17} />
-                        Open
                       </button>
                     </div>
                   </article>

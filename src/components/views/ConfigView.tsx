@@ -207,13 +207,11 @@ export function ConfigView({
                   <span>push: {remote.pushUrl ?? 'unset'}</span>
                 </div>
                 <div className="remote-row-actions">
-                  <button className="secondary-button" type="button" onClick={() => startRemoteEdit(remote)} disabled={busy}>
+                  <button className="secondary-button icon-button" type="button" title="Edit remote" aria-label="Edit remote" onClick={() => startRemoteEdit(remote)} disabled={busy}>
                     <Pencil size={16} />
-                    Edit
                   </button>
-                  <button className="danger-button" type="button" onClick={() => removeRemote(remote)} disabled={busy}>
+                  <button className="danger-button icon-button" type="button" title="Remove remote" aria-label="Remove remote" onClick={() => removeRemote(remote)} disabled={busy}>
                     <Trash2 size={16} />
-                    Remove
                   </button>
                 </div>
               </div>
@@ -245,17 +243,14 @@ export function ConfigView({
                     {submodule.branch && <span>branch: {submodule.branch}</span>}
                   </div>
                   <div className="panel-actions">
-                    <button type="button" onClick={() => updateSubmodule(submodule)} disabled={busy}>
+                    <button className="icon-button" type="button" title={submodule.status === 'uninitialized' ? 'Initialize submodule' : 'Update submodule'} aria-label={submodule.status === 'uninitialized' ? 'Initialize submodule' : 'Update submodule'} onClick={() => updateSubmodule(submodule)} disabled={busy}>
                       <RefreshCcw size={16} />
-                      {submodule.status === 'uninitialized' ? 'Init' : 'Update'}
                     </button>
-                    <button type="button" onClick={() => openSubmodule(submodule)} disabled={busy || submodule.status === 'uninitialized'}>
+                    <button className="icon-button" type="button" title="Open submodule" aria-label="Open submodule" onClick={() => openSubmodule(submodule)} disabled={busy || submodule.status === 'uninitialized'}>
                       <FolderOpen size={16} />
-                      Open
                     </button>
-                    <button type="button" onClick={() => runOperationAction('Submodule opened in editor.', () => api!.openInEditor({ targetPath: submodule.absolutePath }))} disabled={busy || submodule.status === 'uninitialized'}>
+                    <button className="icon-button" type="button" title="Open in editor" aria-label="Open in editor" onClick={() => runOperationAction('Submodule opened in editor.', () => api!.openInEditor({ targetPath: submodule.absolutePath }))} disabled={busy || submodule.status === 'uninitialized'}>
                       <Code2 size={16} />
-                      Editor
                     </button>
                   </div>
                 </article>

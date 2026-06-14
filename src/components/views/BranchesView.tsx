@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Bot, Code2, FolderOpen, GitBranch, GitCommitHorizontal, Loader2, Pencil, Plus, Save, Search, Trash2, UploadCloud, X } from 'lucide-react'
+import { Bot, Code2, FileText, FolderOpen, GitBranch, GitCompare, Link2, Loader2, Pencil, Plus, Save, Search, Trash2, UploadCloud, X } from 'lucide-react'
 import type {
   ApiResult, AssistantActionKind, AssistantId, AssistantPolicyStatus, BranchComparison, BranchPilotApi, BranchSummary,
   GitOperationResult, RemoteBranchSummary, RepositorySnapshot, TagSummary, WorktreeSummary
@@ -272,69 +272,78 @@ export function BranchesView({
               </div>
               <div className="panel-actions">
                 <button
+                  className="icon-button"
                   type="button"
+                  title="Edit description"
+                  aria-label="Edit description"
                   onClick={() => startBranchDescriptionEdit(branch)}
                   disabled={busy || isEditingDescription}
                 >
-                  <Pencil size={16} />
-                  Edit description
+                  <FileText size={16} />
                 </button>
                 <button
+                  className="icon-button"
                   type="button"
+                  title="Rename branch"
+                  aria-label="Rename branch"
                   onClick={() => renameBranch(branch)}
                   disabled={busy || isEditingDescription}
                 >
-                  <GitBranch size={16} />
-                  Rename
+                  <Pencil size={16} />
                 </button>
                 <button
+                  className="icon-button"
                   type="button"
+                  title={isGeneratingDescription ? 'Generating description' : 'Generate description'}
+                  aria-label={isGeneratingDescription ? 'Generating description' : 'Generate description'}
                   onClick={() => generateBranchDescription(branch)}
                   disabled={busy || isGeneratingDescription || !canGenerateBranchDraft}
                 >
-                  <Bot size={16} />
-                  {isGeneratingDescription ? 'Generating' : 'Generate description'}
+                  {isGeneratingDescription ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
                 </button>
                 {branch.current && !branch.upstream && snapshot?.summary.remoteName && (
-                  <button type="button" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
+                  <button className="icon-button" type="button" title="Publish branch" aria-label="Publish branch" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
                     repoPath: currentRepoPath,
                     branch: branch.name,
                     remote: snapshot.summary.remoteName
                   }))}>
                     <UploadCloud size={16} />
-                    Publish
                   </button>
                 )}
                 {!branch.upstream && snapshot?.summary.remoteName && (
-                  <button type="button" onClick={() => setBranchUpstream(branch)} disabled={busy || isEditingDescription}>
-                    <UploadCloud size={16} />
-                    Track
+                  <button className="icon-button" type="button" title="Track upstream" aria-label="Track upstream" onClick={() => setBranchUpstream(branch)} disabled={busy || isEditingDescription}>
+                    <Link2 size={16} />
                   </button>
                 )}
                 <button
+                  className="icon-button"
                   type="button"
+                  title="Compare with current"
+                  aria-label="Compare with current"
                   disabled={busy || branch.current || isEditingDescription || Boolean(branchComparisonLoading)}
                   onClick={() => compareBranch(branch)}
                 >
-                  {branchComparisonLoading === branch.name ? <Loader2 className="spin" size={16} /> : <GitCommitHorizontal size={16} />}
-                  Compare
+                  {branchComparisonLoading === branch.name ? <Loader2 className="spin" size={16} /> : <GitCompare size={16} />}
                 </button>
                 <button
+                  className="icon-button"
                   type="button"
+                  title="Switch to branch"
+                  aria-label="Switch to branch"
                   disabled={busy || branch.current || isEditingDescription}
                   onClick={() => currentRepoPath && runSnapshotAction('Branch switched.', () => api!.switchBranch({ repoPath: currentRepoPath, branchName: branch.name }))}
                 >
                   <GitBranch size={16} />
-                  Switch
                 </button>
                 <button
-                  className="danger-button"
+                  className="danger-button icon-button"
                   type="button"
+                  title="Delete branch"
+                  aria-label="Delete branch"
                   disabled={busy || branch.current || isEditingDescription}
                   onClick={() => deleteBranch(branch)}
                 >
                   <Trash2 size={16} />
-                  Delete
                 </button>
               </div>
             </article>
@@ -457,22 +466,21 @@ export function BranchesView({
                   {worktree.reason && <p>{worktree.reason}</p>}
                 </div>
                 <div className="panel-actions">
-                  <button type="button" onClick={() => openWorktree(worktree)} disabled={busy || worktree.current}>
+                  <button className="icon-button" type="button" title="Open worktree" aria-label="Open worktree" onClick={() => openWorktree(worktree)} disabled={busy || worktree.current}>
                     <FolderOpen size={16} />
-                    Open
                   </button>
-                  <button type="button" onClick={() => runOperationAction('Worktree opened in editor.', () => api!.openInEditor({ targetPath: worktree.path }))} disabled={busy}>
+                  <button className="icon-button" type="button" title="Open in editor" aria-label="Open in editor" onClick={() => runOperationAction('Worktree opened in editor.', () => api!.openInEditor({ targetPath: worktree.path }))} disabled={busy}>
                     <Code2 size={16} />
-                    Editor
                   </button>
                   <button
-                    className="danger-button"
+                    className="danger-button icon-button"
                     type="button"
+                    title="Remove worktree"
+                    aria-label="Remove worktree"
                     onClick={() => removeWorktree(worktree)}
                     disabled={busy || worktree.current}
                   >
                     <Trash2 size={16} />
-                    Remove
                   </button>
                 </div>
               </article>
@@ -547,13 +555,14 @@ export function BranchesView({
                 </div>
                 <div className="panel-actions">
                   <button
-                    className="danger-button"
+                    className="danger-button icon-button"
                     type="button"
+                    title="Delete tag"
+                    aria-label="Delete tag"
                     onClick={() => deleteTag(tag)}
                     disabled={busy}
                   >
                     <Trash2 size={16} />
-                    Delete
                   </button>
                 </div>
               </article>

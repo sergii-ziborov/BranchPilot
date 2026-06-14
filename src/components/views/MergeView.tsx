@@ -130,21 +130,17 @@ export function MergeView({
                 <span>{file.type}</span>
               </div>
               <div className="panel-actions">
-                <button type="button" disabled={busy} onClick={() => api && currentRepoPath && runOperationAction('Opened in editor.', () => api.openInEditor({ targetPath: `${currentRepoPath}/${file.path}` }))}>
+                <button className="icon-button" type="button" title="Open in editor" aria-label="Open in editor" disabled={busy} onClick={() => api && currentRepoPath && runOperationAction('Opened in editor.', () => api.openInEditor({ targetPath: `${currentRepoPath}/${file.path}` }))}>
                   <Code2 size={17} />
-                  Editor
                 </button>
-                <button type="button" className="danger-button" disabled={busy} onClick={() => acceptConflictSide(file.path, 'ours')}>
+                <button className="icon-button" type="button" title="Accept ours" aria-label="Accept ours" disabled={busy} onClick={() => acceptConflictSide(file.path, 'ours')}>
                   <ArrowDownToLine size={16} />
-                  Ours
                 </button>
-                <button type="button" className="danger-button" disabled={busy} onClick={() => acceptConflictSide(file.path, 'theirs')}>
+                <button className="icon-button" type="button" title="Accept theirs" aria-label="Accept theirs" disabled={busy} onClick={() => acceptConflictSide(file.path, 'theirs')}>
                   <ArrowUpFromLine size={16} />
-                  Theirs
                 </button>
-                <button type="button" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Marked resolved.', () => api!.markResolved({ repoPath: currentRepoPath, filePath: file.path }))}>
+                <button className="icon-button" type="button" title="Mark resolved" aria-label="Mark resolved" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Marked resolved.', () => api!.markResolved({ repoPath: currentRepoPath, filePath: file.path }))}>
                   <Check size={16} />
-                  Mark resolved
                 </button>
               </div>
             </article>

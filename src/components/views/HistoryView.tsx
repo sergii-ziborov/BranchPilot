@@ -129,30 +129,34 @@ export function HistoryView({
             {selectedCommitProviderUrl && (
               <button
                 type="button"
-                className="secondary"
+                className="secondary icon-button"
+                title="Open commit in provider"
+                aria-label="Open commit in provider"
                 onClick={() => openExternalLink(selectedCommitProviderUrl, 'Commit link')}
                 disabled={busy}
               >
                 <ExternalLink size={17} />
-                Open commit
               </button>
             )}
             <button
+              className="icon-button"
               type="button"
+              title="Cherry-pick commit"
+              aria-label="Cherry-pick commit"
               onClick={() => applyCommitOperation('cherry-pick')}
               disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
             >
               <GitCommitHorizontal size={17} />
-              Cherry-pick
             </button>
             <button
-              className="danger-button"
+              className="danger-button icon-button"
               type="button"
+              title="Revert commit"
+              aria-label="Revert commit"
               onClick={() => applyCommitOperation('revert')}
               disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
             >
               <Trash2 size={17} />
-              Revert
             </button>
           </div>
         </div>

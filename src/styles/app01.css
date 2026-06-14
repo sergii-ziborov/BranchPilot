@@ -411,11 +411,21 @@ h3 {
   background: #ffffff;
 }
 
-/* Icon-only action buttons: square footprint so dense toolbars stay on one row. */
-.icon-button {
+/* Icon-only action buttons: square footprint so dense toolbars stay on one row.
+   Uses button.icon-button so it overrides container button padding/width. */
+button.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
-  width: 36px;
-  padding: 0;
+  gap: 0 !important;
+  width: 36px !important;
+  min-height: 36px;
+  padding: 0 !important;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #ffffff;
 }
 
 .toolbar button:hover,
