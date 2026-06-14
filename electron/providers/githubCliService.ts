@@ -1,5 +1,4 @@
 import { promises as fs } from 'node:fs'
-import { spawn } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import type {
@@ -12,12 +11,10 @@ import type {
   GitHubPullRequestCheck,
   GitHubPullRequestDetails,
   GitHubPullRequestDiff,
-  GitHubPullRequestDiffFile,
   GitHubRepositorySummary,
   ListGitHubRepositoriesRequest,
   PullRequestDetailsRequest
 } from '../../src/shared/branchPilot.js'
-import { parseUnifiedDiff } from '../lib/diffParser.js'
 import { CommandRunner } from '../lib/commandRunner.js'
 import { BranchPilotUserError } from '../lib/errors.js'
 import {
@@ -76,7 +73,7 @@ export interface GitHubApiClient {
   ): Promise<GitHubApiPullRequest>
 }
 
-interface GitHubRepositoryInfo {
+export interface GitHubRepositoryInfo {
   owner: string
   repo: string
   remoteUrl: string
@@ -709,7 +706,7 @@ function parseGitHubRemoteUrl(remoteUrl: string): Pick<GitHubRepositoryInfo, 'ow
   }
 }
 
-function normalizeGitHubRepositoryPath(owner: string, repo: string): Pick<GitHubRepositoryInfo, 'owner' | 'repo'> | undefined {
+export function normalizeGitHubRepositoryPath(owner: string, repo: string): Pick<GitHubRepositoryInfo, 'owner' | 'repo'> | undefined {
   const normalizedRepo = repo.replace(/\.git$/i, '')
 
   if (!isSafeGitHubPathSegment(owner) || !isSafeGitHubPathSegment(normalizedRepo)) {
@@ -722,7 +719,7 @@ function normalizeGitHubRepositoryPath(owner: string, repo: string): Pick<GitHub
   }
 }
 
-function isSafeGitHubPathSegment(value: string): boolean {
+export function isSafeGitHubPathSegment(value: string): boolean {
   return /^[A-Za-z0-9_.-]+$/.test(value)
 }
 

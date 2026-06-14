@@ -77,7 +77,7 @@ import type {
   UpdateBranchDescriptionRequest,
   UpdateSubmoduleRequest,
   WorktreeSummary
-} from './branchPilot'
+} from './branchPilot.js'
 
 export interface CreatedPullRequest {
   url: string

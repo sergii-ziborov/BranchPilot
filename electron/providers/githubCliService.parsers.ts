@@ -2,6 +2,9 @@ import type {
   GitHubAccountSummary, GitHubPullRequest, GitHubPullRequestCheck, GitHubPullRequestDetails, GitHubPullRequestDiff, GitHubPullRequestDiffFile, GitHubRepositorySummary, ListGitHubRepositoriesRequest
 } from '../../src/shared/branchPilot.js'
 import { parseUnifiedDiff } from '../lib/diffParser.js'
+import { isSafeGitHubPathSegment, normalizeGitHubRepositoryPath } from './githubCliService.js'
+import { BranchPilotUserError } from '../lib/errors.js'
+import { normalizeApiBranchRef } from './githubCliService.api.js'
 
 /** Parsers and normalizers for GitHub CLI/API output. */
 

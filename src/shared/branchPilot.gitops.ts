@@ -1,7 +1,7 @@
 import type {
   CommitSummary,
   FileChangeStatus
-} from './branchPilot.core'
+} from './branchPilot.core.js'
 
 export interface CommitFileChange {
   path: string

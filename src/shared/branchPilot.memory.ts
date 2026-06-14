@@ -1,6 +1,6 @@
 import type {
   CommitSummary
-} from './branchPilot.core'
+} from './branchPilot.core.js'
 
 export interface ProjectMemoryRepository {
   id: string

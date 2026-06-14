@@ -114,7 +114,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     })
   }
 
-  private async getStatusOnlySnapshot(rootPath: string): Promise<RepositorySnapshot> {
+  protected async getStatusOnlySnapshot(rootPath: string): Promise<RepositorySnapshot> {
     const cachedSnapshot = this.snapshotCache.get(rootPath)
 
     if (!cachedSnapshot) {
@@ -132,7 +132,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     })
   }
 
-  private async getDashboardRepository(repo: RecentRepository, activeRootPath?: string): Promise<{
+  protected async getDashboardRepository(repo: RecentRepository, activeRootPath?: string): Promise<{
     repository: DashboardRepositorySummary
     staleBranches: DashboardStaleBranch[]
   }> {
@@ -190,7 +190,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     }
   }
 
-  private async getDashboardRepositoryContext(repoPath: string): Promise<{
+  protected async getDashboardRepositoryContext(repoPath: string): Promise<{
     summary: RepositorySummary
     status: RepositoryStatus
     branches: BranchSummary[]
@@ -207,7 +207,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     }
   }
 
-  private async getRepositoryStatusContext(rootPath: string, options: {
+  protected async getRepositoryStatusContext(rootPath: string, options: {
     includeGitIdentity?: boolean
   } = {}): Promise<{
     summary: RepositorySummary

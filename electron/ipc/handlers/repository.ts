@@ -10,7 +10,7 @@ import type {
   DiffRequest,
   ProjectMemoryScanResult,
   RepositoryPinRequest
-} from '../../src/shared/branchPilot.js'
+} from '../../../src/shared/branchPilot.js'
 import { createProjectMemoryMcpConfig } from '../../mcp/config.js'
 import { withProjectMemoryRefresh } from '../ipcTypes.js'
 import type { createIpcHelpers } from '../ipcHelpers.js'

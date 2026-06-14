@@ -1,8 +1,5 @@
-import { promises as fs } from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import type {
-  AssistantId,
   AssistantStatus,
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
@@ -12,20 +9,15 @@ import type {
   GeneratedCommitMessage,
   GeneratedLinkedInProject,
   GeneratedPullRequestText,
-  InstalledAssistantId,
   LinkedInProjectGenerationRequest,
   PullRequestTextGenerationRequest,
-  ReviewFinding,
-  ReviewMode,
   ReviewReport,
   ReviewReportRequest,
-  ReviewScope,
-  ReviewSeverity
 } from '../../src/shared/branchPilot.js'
-import { CommandExecutionError, CommandRunner } from '../lib/commandRunner.js'
+import { CommandRunner } from '../lib/commandRunner.js'
 import { BranchPilotUserError } from '../lib/errors.js'
 import {
-  BRANCH_DESCRIPTION_SCHEMA, BRANCH_DRAFT_SCHEMA, GENERATED_TEXT_SCHEMA, LINKEDIN_PROJECT_SCHEMA, MAX_ASSISTANT_BRANCH_CONTEXT_BYTES, MAX_ASSISTANT_DIFF_BYTES, MAX_ASSISTANT_LINKEDIN_CONTEXT_BYTES, MAX_ASSISTANT_PR_DIFF_BYTES, MAX_ASSISTANT_REVIEW_DIFF_BYTES, REVIEW_REPORT_SCHEMA
+  BRANCH_DESCRIPTION_SCHEMA, BRANCH_DRAFT_SCHEMA, GENERATED_TEXT_SCHEMA, LINKEDIN_PROJECT_SCHEMA, MAX_ASSISTANT_BRANCH_CONTEXT_BYTES, MAX_ASSISTANT_DIFF_BYTES, MAX_ASSISTANT_LINKEDIN_CONTEXT_BYTES, MAX_ASSISTANT_PR_DIFF_BYTES, REVIEW_REPORT_SCHEMA
 } from './assistantRunner.schemas.js'
 import {
   buildBranchDescriptionPrompt, buildBranchDraftPrompt, buildCommitPrompt, buildLinkedInProjectPrompt, buildPullRequestPrompt, buildReviewPrompt, truncateText

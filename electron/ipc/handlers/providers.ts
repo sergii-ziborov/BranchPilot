@@ -5,7 +5,7 @@ import type {
   EditorSettingsUpdate,
   ListGitHubRepositoriesRequest,
   PullRequestDetailsRequest
-} from '../../src/shared/branchPilot.js'
+} from '../../../src/shared/branchPilot.js'
 import {
   checkoutGitHubPullRequest,
   createGitHubPullRequest,

@@ -1,3 +1,4 @@
+import { STALE_BRANCH_THRESHOLD_DAYS } from './repositoryService.base.js'
 import type {
   BranchSummary,
   CommitFileChange,

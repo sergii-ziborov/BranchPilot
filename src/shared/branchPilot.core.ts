@@ -1,6 +1,6 @@
 import type {
   CommitFileChange
-} from './branchPilot.gitops'
+} from './branchPilot.gitops.js'
 
 export type ApiResult<T> =
   | { ok: true; data: T }

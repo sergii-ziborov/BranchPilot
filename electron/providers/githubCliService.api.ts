@@ -1,3 +1,4 @@
+import type { GitHubRepositoryInfo } from './githubCliService.js'
 import type {
   GitHubAccountSummary, GitHubPullRequest, GitHubPullRequestDetails, GitHubPullRequestDiff, GitHubRepositorySummary, ListGitHubRepositoriesRequest
 } from '../../src/shared/branchPilot.js'

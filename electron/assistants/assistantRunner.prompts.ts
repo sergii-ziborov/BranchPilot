@@ -1,4 +1,4 @@
-import type { ReviewMode } from '../../src/shared/branchPilot.js'
+import type { ReviewMode, ReviewScope } from '../../src/shared/branchPilot.js'
 
 /** Prompt builders for assistant generation tasks. */
 

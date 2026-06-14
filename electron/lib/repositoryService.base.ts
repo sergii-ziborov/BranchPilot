@@ -57,12 +57,12 @@ export abstract class RepositoryServiceBase {
   ) {}
 
 
-  private cacheSnapshot(snapshot: RepositorySnapshot): RepositorySnapshot {
+  protected cacheSnapshot(snapshot: RepositorySnapshot): RepositorySnapshot {
     this.snapshotCache.set(snapshot.summary.rootPath, snapshot)
     return snapshot
   }
 
-  private async listBranches(rootPath: string, options: {
+  protected async listBranches(rootPath: string, options: {
     includeDescriptions?: boolean
   } = {}): Promise<BranchSummary[]> {
     const result = await this.git(rootPath, [
@@ -95,7 +95,7 @@ export abstract class RepositoryServiceBase {
     })))
   }
 
-  private async listRemoteBranches(rootPath: string): Promise<RemoteBranchSummary[]> {
+  protected async listRemoteBranches(rootPath: string): Promise<RemoteBranchSummary[]> {
     const result = await this.git(rootPath, [
       'branch',
       '-r',
@@ -120,7 +120,7 @@ export abstract class RepositoryServiceBase {
       .filter((branch) => branch.branchName !== 'HEAD')
   }
 
-  private async listTags(rootPath: string): Promise<TagSummary[]> {
+  protected async listTags(rootPath: string): Promise<TagSummary[]> {
     const result = await this.git(rootPath, [
       'tag',
       '--list',
@@ -134,12 +134,12 @@ export abstract class RepositoryServiceBase {
       .map(parseTagSummary)
   }
 
-  private async listRepositoryWorktrees(rootPath: string): Promise<WorktreeSummary[]> {
+  protected async listRepositoryWorktrees(rootPath: string): Promise<WorktreeSummary[]> {
     const result = await this.git(rootPath, ['worktree', 'list', '--porcelain', '-z'], { allowedExitCodes: [0, 1] })
     return parseWorktreeList(result.stdout, rootPath)
   }
 
-  private async listRepositorySubmodules(rootPath: string): Promise<SubmoduleSummary[]> {
+  protected async listRepositorySubmodules(rootPath: string): Promise<SubmoduleSummary[]> {
     if (!await pathExists(path.join(rootPath, '.gitmodules'))) {
       return []
     }
@@ -171,7 +171,7 @@ export abstract class RepositoryServiceBase {
     })
   }
 
-  private async getRepositoryGitLfsSummary(rootPath: string): Promise<GitLfsSummary> {
+  protected async getRepositoryGitLfsSummary(rootPath: string): Promise<GitLfsSummary> {
     const trackedPatterns = await this.listGitLfsPatterns(rootPath)
     const versionResult = await this.git(rootPath, ['lfs', 'version'], { allowedExitCodes: [0, 1] })
     const installed = versionResult.exitCode === 0
@@ -188,7 +188,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async listGitLfsPatterns(rootPath: string): Promise<GitLfsPattern[]> {
+  protected async listGitLfsPatterns(rootPath: string): Promise<GitLfsPattern[]> {
     const result = await this.git(rootPath, ['ls-files', '-z', '--', '.gitattributes', ':(glob)**/.gitattributes'], {
       allowedExitCodes: [0, 1]
     })
@@ -205,7 +205,7 @@ export abstract class RepositoryServiceBase {
     return patterns
   }
 
-  private async listGitLfsFiles(rootPath: string): Promise<GitLfsFile[]> {
+  protected async listGitLfsFiles(rootPath: string): Promise<GitLfsFile[]> {
     const result = await this.git(rootPath, ['lfs', 'ls-files', '--long'], {
       allowedExitCodes: [0, 1],
       timeoutMs: 120_000
@@ -218,7 +218,7 @@ export abstract class RepositoryServiceBase {
     return parseGitLfsFiles(result.stdout)
   }
 
-  private async assertValidTagName(rootPath: string, tagName: string): Promise<void> {
+  protected async assertValidTagName(rootPath: string, tagName: string): Promise<void> {
     const result = await this.git(rootPath, ['check-ref-format', `refs/tags/${tagName}`], {
       allowedExitCodes: [0, 1]
     })
@@ -228,7 +228,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async assertValidBranchName(rootPath: string, branchName: string): Promise<void> {
+  protected async assertValidBranchName(rootPath: string, branchName: string): Promise<void> {
     const result = await this.git(rootPath, ['check-ref-format', `refs/heads/${branchName}`], {
       allowedExitCodes: [0, 1]
     })
@@ -238,12 +238,12 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async resolveRepositoryRoot(selectedPath: string): Promise<string> {
+  protected async resolveRepositoryRoot(selectedPath: string): Promise<string> {
     const result = await this.git(selectedPath, ['rev-parse', '--show-toplevel'])
     return result.stdout.trim()
   }
 
-  private async ensureSupportedRepository(rootPath: string): Promise<void> {
+  protected async ensureSupportedRepository(rootPath: string): Promise<void> {
     const isBare = await this.git(rootPath, ['rev-parse', '--is-bare-repository'])
 
     if (isBare.stdout.trim() === 'true') {
@@ -251,7 +251,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async getPrimaryRemote(rootPath: string): Promise<{ name: string; url: string } | undefined> {
+  protected async getPrimaryRemote(rootPath: string): Promise<{ name: string; url: string } | undefined> {
     const firstFetchRemote = (await this.listRemotes(rootPath)).find((remote) => remote.fetchUrl)
 
     if (!firstFetchRemote) {
@@ -264,7 +264,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async getConfig(rootPath: string, key: string, scope?: 'local' | 'global'): Promise<string | undefined> {
+  protected async getConfig(rootPath: string, key: string, scope?: 'local' | 'global'): Promise<string | undefined> {
     const args = ['config']
 
     if (scope) {
@@ -280,7 +280,7 @@ export abstract class RepositoryServiceBase {
     return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined
   }
 
-  private async listRemotes(rootPath: string): Promise<RemoteSummary[]> {
+  protected async listRemotes(rootPath: string): Promise<RemoteSummary[]> {
     const result = await this.git(rootPath, ['remote', '-v'], { allowedExitCodes: [0, 1] })
     const remotes = new Map<string, RemoteSummary>()
 
@@ -306,7 +306,7 @@ export abstract class RepositoryServiceBase {
     return [...remotes.values()]
   }
 
-  private async getDefaultBranch(rootPath: string, remotes: RemoteSummary[]): Promise<GitDefaultBranchResult> {
+  protected async getDefaultBranch(rootPath: string, remotes: RemoteSummary[]): Promise<GitDefaultBranchResult> {
     for (const remote of remotes) {
       const result = await this.git(rootPath, ['symbolic-ref', '--quiet', '--short', `refs/remotes/${remote.name}/HEAD`], {
         allowedExitCodes: [0, 1, 128]
@@ -343,7 +343,7 @@ export abstract class RepositoryServiceBase {
     return { source: 'unknown' }
   }
 
-  private async localBranchExists(rootPath: string, branchName: string): Promise<boolean> {
+  protected async localBranchExists(rootPath: string, branchName: string): Promise<boolean> {
     const result = await this.git(rootPath, ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], {
       allowedExitCodes: [0, 1]
     })
@@ -351,12 +351,12 @@ export abstract class RepositoryServiceBase {
     return result.exitCode === 0
   }
 
-  private async getCommitFiles(rootPath: string, commitSha: string): Promise<CommitFileChange[]> {
+  protected async getCommitFiles(rootPath: string, commitSha: string): Promise<CommitFileChange[]> {
     const result = await this.git(rootPath, ['diff-tree', '--root', '-r', '--name-status', '-z', '--no-commit-id', commitSha])
     return parseNameStatusRecords(result.stdout)
   }
 
-  private async getBranchComparisonFiles(rootPath: string, range: string): Promise<CommitFileChange[]> {
+  protected async getBranchComparisonFiles(rootPath: string, range: string): Promise<CommitFileChange[]> {
     const result = await this.git(rootPath, [
       'diff',
       '--name-status',
@@ -368,7 +368,7 @@ export abstract class RepositoryServiceBase {
     return parseNameStatusRecords(result.stdout)
   }
 
-  private async getCommitContainingBranches(rootPath: string, commitSha: string): Promise<string[]> {
+  protected async getCommitContainingBranches(rootPath: string, commitSha: string): Promise<string[]> {
     const result = await this.git(rootPath, ['branch', '--format=%(refname:short)', '--contains', commitSha])
 
     return result.stdout
@@ -377,7 +377,7 @@ export abstract class RepositoryServiceBase {
       .filter(Boolean)
   }
 
-  private async getCurrentBranch(rootPath: string): Promise<string> {
+  protected async getCurrentBranch(rootPath: string): Promise<string> {
     const result = await this.git(rootPath, ['branch', '--show-current'], {
       allowedExitCodes: [0, 1]
     })
@@ -385,7 +385,7 @@ export abstract class RepositoryServiceBase {
     return result.stdout.trim()
   }
 
-  private async assertCurrentBranch(rootPath: string, action: string): Promise<string> {
+  protected async assertCurrentBranch(rootPath: string, action: string): Promise<string> {
     const branch = await this.getCurrentBranch(rootPath)
 
     if (!branch) {
@@ -395,7 +395,7 @@ export abstract class RepositoryServiceBase {
     return branch
   }
 
-  private async assertHasAnyRemote(rootPath: string): Promise<void> {
+  protected async assertHasAnyRemote(rootPath: string): Promise<void> {
     const remotes = await this.listRemotes(rootPath)
 
     if (remotes.length === 0) {
@@ -403,7 +403,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async assertRemoteExists(rootPath: string, remoteName: string): Promise<string> {
+  protected async assertRemoteExists(rootPath: string, remoteName: string): Promise<string> {
     const remotes = await this.listRemotes(rootPath)
 
     if (remotes.length === 0) {
@@ -417,7 +417,7 @@ export abstract class RepositoryServiceBase {
     return remoteName
   }
 
-  private async assertLocalBranchExists(rootPath: string, branchName: string): Promise<void> {
+  protected async assertLocalBranchExists(rootPath: string, branchName: string): Promise<void> {
     const result = await this.git(rootPath, ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], {
       allowedExitCodes: [0, 1]
     })
@@ -427,7 +427,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async assertBranchDoesNotExist(rootPath: string, branchName: string): Promise<void> {
+  protected async assertBranchDoesNotExist(rootPath: string, branchName: string): Promise<void> {
     const result = await this.git(rootPath, ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], {
       allowedExitCodes: [0, 1]
     })
@@ -437,7 +437,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async assertRemoteTrackingBranchExists(rootPath: string, upstream: string): Promise<void> {
+  protected async assertRemoteTrackingBranchExists(rootPath: string, upstream: string): Promise<void> {
     const result = await this.git(rootPath, ['show-ref', '--verify', '--quiet', `refs/remotes/${upstream}`], {
       allowedExitCodes: [0, 1]
     })
@@ -447,13 +447,13 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async assertRemoteMissing(rootPath: string, name: string): Promise<void> {
+  protected async assertRemoteMissing(rootPath: string, name: string): Promise<void> {
     if (await this.remoteExists(rootPath, name)) {
       throw new BranchPilotUserError('remote_exists', 'Remote already exists.')
     }
   }
 
-  private async remoteExists(rootPath: string, name: string): Promise<boolean> {
+  protected async remoteExists(rootPath: string, name: string): Promise<boolean> {
     const result = await this.git(rootPath, ['remote', 'get-url', name], {
       allowedExitCodes: [0, 1, 2]
     })
@@ -461,7 +461,7 @@ export abstract class RepositoryServiceBase {
     return result.exitCode === 0
   }
 
-  private async assertValidBaseRef(rootPath: string, baseRef: string): Promise<void> {
+  protected async assertValidBaseRef(rootPath: string, baseRef: string): Promise<void> {
     const result = await this.git(rootPath, ['rev-parse', '--verify', `${baseRef}^{commit}`], {
       allowedExitCodes: [0, 128]
     })
@@ -471,7 +471,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async assertHasUpstream(rootPath: string, action: string): Promise<void> {
+  protected async assertHasUpstream(rootPath: string, action: string): Promise<void> {
     const upstream = await this.git(rootPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], {
       allowedExitCodes: [0, 128]
     })
@@ -481,7 +481,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async assertNoActiveOperation(rootPath: string): Promise<void> {
+  protected async assertNoActiveOperation(rootPath: string): Promise<void> {
     const mergeState = await this.getMergeState(rootPath, [])
 
     if (mergeState.operation !== 'none') {
@@ -489,7 +489,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async assertNoConflicts(rootPath: string, actionLabel: string): Promise<void> {
+  protected async assertNoConflicts(rootPath: string, actionLabel: string): Promise<void> {
     const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
     const parsedStatus = parseGitStatus(statusOutput.stdout)
 
@@ -498,7 +498,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async getMergeState(rootPath: string, conflictFiles: MergeState['files']): Promise<MergeState> {
+  protected async getMergeState(rootPath: string, conflictFiles: MergeState['files']): Promise<MergeState> {
     const gitDirResult = await this.git(rootPath, ['rev-parse', '--git-dir'])
     const gitDir = path.isAbsolute(gitDirResult.stdout.trim())
       ? gitDirResult.stdout.trim()
@@ -524,7 +524,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async isUntracked(rootPath: string, filePath: string): Promise<boolean> {
+  protected async isUntracked(rootPath: string, filePath: string): Promise<boolean> {
     const result = await this.git(rootPath, ['ls-files', '--error-unmatch', '--', filePath], {
       allowedExitCodes: [0, 1]
     })
@@ -532,7 +532,7 @@ export abstract class RepositoryServiceBase {
     return result.exitCode === 1
   }
 
-  private async getUntrackedFilePreview(rootPath: string, filePath: string): Promise<DiffResult> {
+  protected async getUntrackedFilePreview(rootPath: string, filePath: string): Promise<DiffResult> {
     const fullPath = resolveRepositoryPath(rootPath, filePath)
     const fileStats = await fs.stat(fullPath)
     const file = await readFilePrefix(fullPath, MAX_DIFF_OUTPUT_BYTES)
@@ -557,7 +557,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async gitCommitWithMessageFile(rootPath: string, argsPrefix: string[], message: string): Promise<void> {
+  protected async gitCommitWithMessageFile(rootPath: string, argsPrefix: string[], message: string): Promise<void> {
     const messageFile = path.join(os.tmpdir(), `branchpilot-commit-${Date.now()}.txt`)
 
     await fs.writeFile(messageFile, message, 'utf8')
@@ -569,7 +569,7 @@ export abstract class RepositoryServiceBase {
     }
   }
 
-  private async git(
+  protected async git(
     cwd: string,
     args: string[],
     options: { allowedExitCodes?: number[]; input?: string; timeoutMs?: number; maxOutputBytes?: number } = {}

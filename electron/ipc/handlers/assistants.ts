@@ -5,7 +5,7 @@ import type {
   LinkedInProjectGenerationRequest,
   PullRequestTextGenerationRequest,
   ReviewReportRequest
-} from '../../src/shared/branchPilot.js'
+} from '../../../src/shared/branchPilot.js'
 import {
   checkAssistantStatuses,
   generateBranchDescription,

@@ -27,7 +27,7 @@ import type {
   StashActionRequest,
   UpdateBranchDescriptionRequest,
   UpdateSubmoduleRequest
-} from '../../src/shared/branchPilot.js'
+} from '../../../src/shared/branchPilot.js'
 import { withProjectMemoryRefresh } from '../ipcTypes.js'
 import type { createIpcHelpers } from '../ipcHelpers.js'
 import type { RegisterIpcHandlersServices } from '../ipcTypes.js'

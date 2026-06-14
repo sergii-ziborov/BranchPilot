@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { BRANCH_PILOT_IPC_CHANNELS, isBranchPilotIpcChannel } from '../src/shared/ipcChannels'
@@ -19,8 +19,9 @@ describe('BranchPilot IPC channels', () => {
 
   it('keeps main and preload IPC usage inside the allowlist', () => {
     const allowlist = new Set<string>(BRANCH_PILOT_IPC_CHANNELS)
-    const mainChannels = collectIpcChannels('electron/main.ts')
-    const preloadChannels = collectIpcChannels('electron/preload.cts')
+    // IPC handlers are registered across the modules under electron/ipc/handlers/.
+    const mainChannels = collectIpcChannels(tsFilesIn('electron/ipc/handlers'))
+    const preloadChannels = collectIpcChannels(['electron/preload.cts'])
 
     expect(mainChannels).toEqual(preloadChannels)
     expect([...mainChannels].filter((channel) => !allowlist.has(channel))).toEqual([])
@@ -29,12 +30,23 @@ describe('BranchPilot IPC channels', () => {
   })
 })
 
-function collectIpcChannels(filePath: string): Set<string> {
-  const source = readFileSync(path.join(process.cwd(), filePath), 'utf8')
+function tsFilesIn(dir: string): string[] {
+  return readdirSync(path.join(process.cwd(), dir))
+    .filter((name) => name.endsWith('.ts'))
+    .map((name) => path.join(dir, name))
+}
+
+function collectIpcChannels(filePaths: string[]): Set<string> {
   const channels = new Set<string>()
 
-  for (let match = ipcCallPattern.exec(source); match; match = ipcCallPattern.exec(source)) {
-    channels.add(match[1])
+  for (const filePath of filePaths) {
+    const source = readFileSync(path.join(process.cwd(), filePath), 'utf8')
+
+    for (let match = ipcCallPattern.exec(source); match; match = ipcCallPattern.exec(source)) {
+      channels.add(match[1])
+    }
+
+    ipcCallPattern.lastIndex = 0
   }
 
   return channels
