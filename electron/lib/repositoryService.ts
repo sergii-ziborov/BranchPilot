@@ -14,6 +14,8 @@ import type {
   ExportPatchRequest,
   ExportedPatch,
   FileActionRequest,
+  ImagePreview,
+  ImagePreviewRequest,
   GitConfigSnapshot,
   GitIdentityUpdate,
   HunkActionRequest,
@@ -37,6 +39,9 @@ import {
   buildCommitMessage,
   cloneNameFromRemoteUrl,
   isConflictOutput,
+  imageMimeFromPath,
+  MAX_IMAGE_PREVIEW_BYTES,
+  resolveRepositoryPath,
   normalizeBranchName,
   normalizeCloneParentPath,
   normalizeCloneRemoteUrl,
@@ -64,6 +69,35 @@ import {
 import { RepositoryServiceQueries } from './repositoryService.queries.js'
 
 export class RepositoryService extends RepositoryServiceQueries {
+  async getImagePreview(request: ImagePreviewRequest): Promise<ImagePreview> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const relativePath = normalizeRelativePath(request.filePath)
+    const mimeType = imageMimeFromPath(relativePath)
+
+    if (!mimeType) {
+      throw new BranchPilotUserError('not_an_image', 'This file is not a previewable image.')
+    }
+
+    const absolutePath = resolveRepositoryPath(rootPath, relativePath)
+    const stats = await fs.stat(absolutePath).catch(() => null)
+
+    if (!stats || !stats.isFile()) {
+      throw new BranchPilotUserError('image_not_found', 'Image is not available in the working tree.')
+    }
+
+    if (stats.size > MAX_IMAGE_PREVIEW_BYTES) {
+      throw new BranchPilotUserError('image_too_large', 'Image is too large to preview.')
+    }
+
+    const buffer = await fs.readFile(absolutePath)
+
+    return {
+      dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
+      mimeType,
+      byteSize: buffer.length
+    }
+  }
+
   async openRepository(selectedPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(selectedPath)
     await this.ensureSupportedRepository(rootPath)

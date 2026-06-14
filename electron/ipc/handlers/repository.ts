@@ -8,6 +8,7 @@ import type {
   CommitFileDiffRequest,
   DailyReviewRequest,
   DiffRequest,
+  ImagePreviewRequest,
   ProjectMemoryScanResult,
   RepositoryPinRequest
 } from '../../../src/shared/branchPilot.js'
@@ -98,6 +99,7 @@ export function registerRepositoryHandlers(
     } : undefined
   }, (repoPath: string) => repositoryService.getSnapshot(repoPath))
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
+  handle('repository:imagePreview', (request: ImagePreviewRequest) => repositoryService.getImagePreview(request))
   handle('repository:history', (repoPath: string) => repositoryService.getHistory(repoPath))
   handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))
   handle('repository:commitFileDiff', (request: CommitFileDiffRequest) => repositoryService.getCommitFileDiff(request))

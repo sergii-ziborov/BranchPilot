@@ -687,6 +687,26 @@ export function mapRawStatus(rawStatus: string) {
   return 'unknown'
 }
 
+export const MAX_IMAGE_PREVIEW_BYTES = 8 * 1024 * 1024
+
+const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.avif': 'image/avif'
+}
+
+export function imageMimeFromPath(filePath: string): string | undefined {
+  const dot = filePath.lastIndexOf('.')
+  if (dot < 0) return undefined
+  return IMAGE_MIME_BY_EXTENSION[filePath.slice(dot).toLowerCase()]
+}
+
 export function resolveRepositoryPath(rootPath: string, relativePath: string): string {
   const fullPath = path.resolve(rootPath, normalizeRelativePath(relativePath))
   const normalizedRoot = path.resolve(rootPath)

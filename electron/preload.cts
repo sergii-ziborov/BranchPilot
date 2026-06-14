@@ -14,6 +14,7 @@ const branchPilot: BranchPilotApi = {
   getRepositoryDashboard: (repoPath) => invoke('repository:dashboard', repoPath),
   refreshRepository: (repoPath) => invoke('repository:refresh', repoPath),
   getDiff: (request) => invoke('repository:diff', request),
+  getImagePreview: (request) => invoke('repository:imagePreview', request),
   getHistory: (repoPath) => invoke('repository:history', repoPath),
   getCommitDetails: (request) => invoke('repository:commitDetails', request),
   getCommitFileDiff: (request) => invoke('repository:commitFileDiff', request),
@@ -101,5 +102,9 @@ const branchPilot: BranchPilotApi = {
   checkoutGitHubPullRequest: (request) => invoke('providers:checkoutGitHubPullRequest', request),
   generateReviewReport: (request) => invoke('assistants:generateReviewReport', request)
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.documentElement.dataset.platform = process.platform
+})
 
 contextBridge.exposeInMainWorld('branchPilot', branchPilot)

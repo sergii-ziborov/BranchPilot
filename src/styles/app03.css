@@ -100,6 +100,80 @@
   color: var(--muted);
 }
 
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  color: var(--text);
+  font-size: 13px;
+  pointer-events: auto;
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toast-info {
+  border-color: #bbf7d0;
+}
+
+.toast-info svg {
+  color: #16a34a;
+}
+
+.toast-busy {
+  border-color: #bfdbfe;
+}
+
+.toast-busy svg {
+  color: #2563eb;
+}
+
+.toast-error {
+  border-color: #fecaca;
+  background: #fff5f5;
+  color: #b91c1c;
+}
+
+.toast-error button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.toast-error button:hover {
+  background: rgba(185, 28, 28, 0.12);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .diff-empty {
   display: flex;
   flex-direction: column;
@@ -110,6 +184,40 @@
   padding: 32px 18px;
   color: var(--muted);
   text-align: center;
+}
+
+.diff-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 280px;
+  padding: 24px;
+  background:
+    linear-gradient(45deg, #eef2f7 25%, transparent 25%),
+    linear-gradient(-45deg, #eef2f7 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eef2f7 75%),
+    linear-gradient(-45deg, transparent 75%, #eef2f7 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+
+.diff-image img {
+  max-width: 100%;
+  max-height: calc(100vh - 320px);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #ffffff;
+  object-fit: contain;
+}
+
+.diff-image-meta {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .diff-empty svg {

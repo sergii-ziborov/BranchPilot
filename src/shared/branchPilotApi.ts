@@ -32,6 +32,8 @@ import type {
   DiffFile,
   DiffRequest,
   DiffResult,
+  ImagePreview,
+  ImagePreviewRequest,
   EditorOpenRequest,
   EditorSettings,
   EditorSettingsUpdate,
@@ -203,6 +205,7 @@ export interface BranchPilotApi {
   getRepositoryDashboard: (repoPath?: string) => Promise<ApiResult<RepositoryDashboardSnapshot>>
   refreshRepository: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   getDiff: (request: DiffRequest) => Promise<ApiResult<DiffResult>>
+  getImagePreview: (request: ImagePreviewRequest) => Promise<ApiResult<ImagePreview>>
   getHistory: (repoPath: string) => Promise<ApiResult<CommitSummary[]>>
   getCommitDetails: (request: CommitDetailsRequest) => Promise<ApiResult<CommitDetails>>
   getCommitFileDiff: (request: CommitFileDiffRequest) => Promise<ApiResult<DiffResult>>

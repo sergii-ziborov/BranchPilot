@@ -107,6 +107,17 @@ export interface DiffResult {
   files: DiffFile[]
 }
 
+export interface ImagePreviewRequest {
+  repoPath: string
+  filePath: string
+}
+
+export interface ImagePreview {
+  dataUrl: string
+  mimeType: string
+  byteSize: number
+}
+
 export interface HunkActionRequest {
   repoPath: string
   filePath: string

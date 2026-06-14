@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ApiResult, BranchPilotApi, DiffHunk, DiffResult, FileChange, GitOperationResult,
-  PatchScope, RepositoryCounts, RepositorySnapshot
+  ImagePreview, PatchScope, RepositoryCounts, RepositorySnapshot
 } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import {
@@ -48,6 +48,7 @@ export function useChanges({
   const [diffDisplayMode, setDiffDisplayMode] = useState<DiffDisplayMode>('unified')
   const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
   const [diff, setDiff] = useState<DiffResult | null>(null)
+  const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null)
   const [patchScope, setPatchScope] = useState<PatchScope>('working-tree')
   const diffRequestIdRef = useRef(0)
   const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
@@ -95,8 +96,17 @@ export function useChanges({
 
     if (result.ok) {
       setDiff(result.data)
+
+      if (result.data.binary && /\.(png|jpe?g|gif|webp|bmp|svg|ico|avif)$/i.test(change.path)) {
+        const preview = await api.getImagePreview({ repoPath: currentRepoPath, filePath: change.path })
+        if (diffRequestIdRef.current !== requestId) return
+        setImagePreview(preview.ok ? preview.data : null)
+      } else {
+        setImagePreview(null)
+      }
     } else {
       setDiff(null)
+      setImagePreview(null)
       setError(result.error.message)
     }
   }
@@ -277,7 +287,7 @@ export function useChanges({
   return {
     selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter,
     diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
-    diff, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
+    diff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
     filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
     loadDiff, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,
     stageSelectedHunk, unstageSelectedHunk, discardSelected, exportPatch, applyPatch,

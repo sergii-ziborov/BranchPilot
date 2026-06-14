@@ -80,6 +80,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'repository:generateProjectWiki',
   'repository:gitConfig',
   'repository:history',
+  'repository:imagePreview',
   'repository:open',
   'repository:projectMemory',
   'repository:projectMemoryMcpConfig',

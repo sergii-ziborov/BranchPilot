@@ -1,7 +1,7 @@
 import type { ReactNode, RefObject } from 'react'
 import { ArrowDownToLine, Bot, Copy, GitCommitHorizontal, ListFilter, Loader2, Pencil, Save, Search, Trash2, UploadCloud, X } from 'lucide-react'
 import type {
-  ApiResult, AssistantId, AssistantPolicyStatus, BranchPilotApi, DiffHunk, DiffResult,
+  ApiResult, AssistantId, AssistantPolicyStatus, BranchPilotApi, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
 } from '../../shared/branchPilot'
 import type { ChangeDiffMode } from '../../shared/changeStaging'
@@ -34,7 +34,7 @@ export function ChangesView({
   currentRepoPath, runSnapshotAction, api,
   selectedChange, selectedDiffStats, discardSelected,
   diffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
-  diff, stageSelectedHunk, unstageSelectedHunk, openSelectedFileLineInEditor
+  diff, imagePreview, stageSelectedHunk, unstageSelectedHunk, openSelectedFileLineInEditor
 }: {
   snapshot: RepositorySnapshot | null
   counts: RepositorySnapshot['status']['counts'] | undefined
@@ -89,6 +89,7 @@ export function ChangesView({
   diffIgnoreWhitespace: boolean
   setDiffIgnoreWhitespace: (value: boolean) => void
   diff: DiffResult | null
+  imagePreview: ImagePreview | null
   stageSelectedHunk: (hunk: DiffHunk) => void
   unstageSelectedHunk: (hunk: DiffHunk) => void
   openSelectedFileLineInEditor: (line?: number) => void
@@ -390,6 +391,7 @@ export function ChangesView({
 
         <DiffPreview
           diff={diff}
+          imagePreview={imagePreview}
           mode={diffMode}
           displayMode={diffDisplayMode}
           busy={busy}

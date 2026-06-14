@@ -10,8 +10,9 @@ describe('App smoke', () => {
     const { default: App } = await import('../src/App')
     const html = renderToStaticMarkup(<App />)
 
-    expect(html).toContain('BranchPilot')
-    expect(html).toContain('sidebar')
+    expect(html).toContain('app-shell')
+    expect(html).toContain('shell-bar')
+    expect(html).toContain('shell-tab')
     expect(html.length).toBeGreaterThan(500)
   })
 })

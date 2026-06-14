@@ -1,5 +1,5 @@
 import { FileImage, FileText, Plus, X } from 'lucide-react'
-import type { DiffHunk, DiffLine, DiffResult } from '../shared/branchPilot'
+import type { DiffHunk, DiffLine, DiffResult, ImagePreview } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import { buildSplitDiffRows } from '../shared/diffView'
 
@@ -126,6 +126,7 @@ function UnifiedDiffLines({ lines, onOpenLine }: { lines: DiffLine[]; onOpenLine
 
 export function DiffPreview({
   diff,
+  imagePreview = null,
   mode,
   displayMode = 'unified',
   busy = false,
@@ -134,6 +135,7 @@ export function DiffPreview({
   onOpenLine
 }: {
   diff: DiffResult | null
+  imagePreview?: ImagePreview | null
   mode?: DiffMode
   displayMode?: DiffDisplayMode
   busy?: boolean
@@ -152,6 +154,15 @@ export function DiffPreview({
   }
 
   if (diff.binary) {
+    if (imagePreview) {
+      return (
+        <div className="diff-image">
+          <img src={imagePreview.dataUrl} alt={diff.filePath} />
+          <span className="diff-image-meta">{Math.round(imagePreview.byteSize / 1024)} KB · {imagePreview.mimeType}</span>
+        </div>
+      )
+    }
+
     return (
       <div className="diff-empty">
         <FileImage size={28} />
