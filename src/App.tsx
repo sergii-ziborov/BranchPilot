@@ -7,7 +7,6 @@ import {
   Clock3,
   Code2,
   Database,
-  ExternalLink,
   FileWarning,
   FolderOpen,
   GitBranch,
@@ -56,8 +55,6 @@ import {
 } from './shared/changeStaging'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from './shared/commitPreconditions'
 import { getDiffStats } from './shared/diffView'
-import { DiffPreview } from './components/DiffView'
-import { InfoRow, Stat } from './components/primitives'
 import { useVirtualList } from './hooks/useVirtualList'
 import { useDailyReview } from './hooks/useDailyReview'
 import { useLinkedIn } from './hooks/useLinkedIn'
@@ -70,7 +67,9 @@ import { useBranches } from './hooks/useBranches'
 import { useAssistants } from './hooks/useAssistants'
 import { useProviders } from './hooks/useProviders'
 import { AssistantPolicyPanel, AssistantReadiness } from './components/AssistantPanels'
+import { Stat } from './components/primitives'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
+import { GitHubRepositoryBrowser, PullRequestDetailsPanel } from './components/ProvidersPanels'
 import { CHANGE_LIST_ITEM_HEIGHT, HISTORY_LIST_ITEM_HEIGHT } from './lib/listMetrics'
 import { DailyView } from './components/views/DailyView'
 import { StashView } from './components/views/StashView'
@@ -85,10 +84,8 @@ import { ChangesView } from './components/views/ChangesView'
 import { BranchesView } from './components/views/BranchesView'
 import { ProvidersView } from './components/views/ProvidersView'
 import type { ViewMode } from './lib/viewMode'
-import { changeLabel, fileStatusToken } from './lib/fileChangeLabels'
-import { formatDate } from './lib/format'
+import { changeLabel } from './lib/fileChangeLabels'
 import { assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel } from './lib/assistantLabels'
-import { checkBucketClass, githubAccountOptionLabel, githubRepositoryBrowserSourceLabel, githubRepositoryMeta } from './lib/githubLabels'
 import { progressLabelFromSuccess } from './lib/progressLabels'
 import type { ActivityCategory } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
@@ -1835,240 +1832,29 @@ function App() {
 
 
   function renderGitHubRepositoryBrowser() {
-    const repoBrowserReady = Boolean(githubCliStatus?.authenticated)
-
     return (
-      <section className="github-repo-browser">
-        <div className="panel-heading compact-heading">
-          <div>
-            <h3>GitHub repositories</h3>
-            <p>{repoBrowserReady ? `${githubRepositories.length} repositories loaded from ${githubRepositoryBrowserSourceLabel(githubCliStatus)} · ${githubAccounts.length} accounts available.` : 'Repository list requires GitHub CLI or GitHub Desktop auth.'}</p>
-          </div>
-          <div className="pr-actions">
-            <button type="button" className="secondary" onClick={() => void loadGitHubAccounts()} disabled={busy || githubAccountsLoading}>
-              {githubAccountsLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
-              Load accounts
-            </button>
-            <button type="button" className="secondary" onClick={loadGitHubRepositories} disabled={busy || githubRepoLoading}>
-              {githubRepoLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
-              Load repositories
-            </button>
-          </div>
-        </div>
-
-        {!repoBrowserReady && (
-          <div className="command-hint">Run <code>gh auth login</code> or sign in with GitHub Desktop, then load repositories.</div>
-        )}
-
-        <form
-          className="github-repo-controls"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void loadGitHubRepositories()
-          }}
-        >
-          <label>
-            <span>Owner/org</span>
-            <input
-              list="github-account-options"
-              value={githubRepoOwner}
-              onChange={(event) => setGithubRepoOwner(event.target.value)}
-              placeholder={githubCliStatus?.username ?? 'default account'}
-              disabled={busy || githubRepoLoading}
-            />
-            <datalist id="github-account-options">
-              {githubAccounts.map((account) => (
-                <option key={account.login} value={account.login}>
-                  {githubAccountOptionLabel(account)}
-                </option>
-              ))}
-            </datalist>
-          </label>
-          <label>
-            <span>Search</span>
-            <input
-              value={githubRepoQuery}
-              onChange={(event) => setGithubRepoQuery(event.target.value)}
-              placeholder="name or description"
-              disabled={busy || githubRepoLoading}
-            />
-          </label>
-          <label>
-            <span>Visibility</span>
-            <select
-              value={githubRepoVisibility}
-              onChange={(event) => setGithubRepoVisibility(event.target.value as typeof githubRepoVisibility)}
-              disabled={busy || githubRepoLoading}
-            >
-              <option value="all">All</option>
-              <option value="private">Private</option>
-              <option value="public">Public</option>
-              <option value="internal">Internal</option>
-            </select>
-          </label>
-          <label>
-            <span>Limit</span>
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={githubRepoLimit}
-              onChange={(event) => setGithubRepoLimit(event.target.value)}
-              disabled={busy || githubRepoLoading}
-            />
-          </label>
-        </form>
-
-        {!repoBrowserReady ? (
-          <div className="quiet-box">BranchPilot can browse repositories through authenticated GitHub CLI or an available GitHub Desktop credential.</div>
-        ) : githubRepoLoading ? (
-          <div className="quiet-box">Loading GitHub repositories.</div>
-        ) : githubRepositories.length === 0 ? (
-          <div className="quiet-box">No repositories loaded yet.</div>
-        ) : (
-          <div className="github-repo-list">
-            {githubRepositories.map((repository) => (
-              <article className="github-repo-row" key={repository.nameWithOwner}>
-                <div>
-                  <strong>{repository.nameWithOwner}</strong>
-                  <span>{githubRepositoryMeta(repository)}</span>
-                  {repository.description && <p>{repository.description}</p>}
-                </div>
-                <div className="pr-actions">
-                  <button type="button" className="secondary" onClick={() => openExternalLink(repository.url, 'GitHub repository link')}>
-                    <ExternalLink size={15} />
-                    Open
-                  </button>
-                  <button type="button" onClick={() => void cloneGitHubRepository(repository, 'https')} disabled={busy}>
-                    <ArrowDownToLine size={15} />
-                    Clone HTTPS
-                  </button>
-                  <button type="button" onClick={() => void cloneGitHubRepository(repository, 'ssh')} disabled={busy || !repository.sshUrl}>
-                    <ArrowDownToLine size={15} />
-                    Clone SSH
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+      <GitHubRepositoryBrowser
+        githubCliStatus={githubCliStatus} githubRepositories={githubRepositories} githubAccounts={githubAccounts}
+        githubAccountsLoading={githubAccountsLoading} githubRepoLoading={githubRepoLoading}
+        githubRepoOwner={githubRepoOwner} setGithubRepoOwner={setGithubRepoOwner}
+        githubRepoQuery={githubRepoQuery} setGithubRepoQuery={setGithubRepoQuery}
+        githubRepoVisibility={githubRepoVisibility} setGithubRepoVisibility={setGithubRepoVisibility}
+        githubRepoLimit={githubRepoLimit} setGithubRepoLimit={setGithubRepoLimit} busy={busy}
+        loadGitHubAccounts={loadGitHubAccounts} loadGitHubRepositories={loadGitHubRepositories}
+        cloneGitHubRepository={cloneGitHubRepository} openExternalLink={openExternalLink}
+      />
     )
   }
 
   function renderPullRequestDetailsPanel() {
-    const details = selectedPullRequestDetails
-    const checks = selectedPullRequestChecks
-    const diffFiles = selectedPullRequestDiff?.files ?? []
-    const passedChecks = checks.filter((check) => check.bucket === 'pass').length
-    const failedChecks = checks.filter((check) => check.bucket === 'fail').length
-    const pendingChecks = checks.filter((check) => check.bucket === 'pending').length
-
     return (
-      <section className="pr-details-panel">
-        <div className="panel-heading compact-heading">
-          <div>
-            <h3>{details ? `#${details.number} ${details.title}` : 'Pull request details'}</h3>
-            <p>
-              {details
-                ? `${details.baseBranch} ← ${details.headBranch} · ${details.state}${details.draft ? ' · draft' : ''}`
-                : selectedPullRequestNumber
-                  ? `Loading PR #${selectedPullRequestNumber}`
-                  : 'Select a pull request to inspect details, checks, and diff.'}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              if (selectedPullRequestNumber) {
-                void loadPullRequestDetails(selectedPullRequestNumber)
-              }
-            }}
-            disabled={busy || pullRequestDetailsLoading || !selectedPullRequestNumber}
-          >
-            {pullRequestDetailsLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
-            Refresh details
-          </button>
-        </div>
-
-        {!selectedPullRequestNumber ? (
-          <div className="quiet-box">Select a pull request from the list.</div>
-        ) : pullRequestDetailsLoading && !details ? (
-          <div className="quiet-box">Loading pull request details.</div>
-        ) : details ? (
-          <>
-            <div className="pr-details-meta">
-              <InfoRow label="Author" value={details.author?.login ?? 'Unknown'} />
-              <InfoRow label="Updated" value={formatDate(details.updatedAt)} />
-              <InfoRow label="Changed files" value={String(details.changedFiles)} />
-              <InfoRow label="Additions / deletions" value={`+${details.additions} / -${details.deletions}`} />
-            </div>
-
-            {!githubCliStatus?.ghAuthenticated && (
-              <div className="command-hint">Checks require <code>gh auth login</code>. Details, diff, and checkout use the current GitHub/Git credentials.</div>
-            )}
-
-            <div className="pr-body">
-              {details.body.trim() ? details.body : 'No pull request description.'}
-            </div>
-
-            <section className="pr-checks-panel">
-              <div className="pr-check-summary">
-                <span className="check-bucket bucket-pass">{passedChecks} pass</span>
-                <span className="check-bucket bucket-fail">{failedChecks} fail</span>
-                <span className="check-bucket bucket-pending">{pendingChecks} pending</span>
-                <span className="check-bucket bucket-other">{checks.length} total</span>
-              </div>
-              {checks.length === 0 ? (
-                <div className="quiet-box">{githubCliStatus?.ghAuthenticated ? 'No checks reported by GitHub CLI.' : 'Checks require gh auth login.'}</div>
-              ) : (
-                <div className="pr-check-list">
-                  {checks.map((check) => (
-                    <article className="pr-check-row" key={`${check.workflow ?? 'workflow'}-${check.name}`}>
-                      <span className={`check-bucket bucket-${checkBucketClass(check.bucket)}`}>{check.bucket || check.state}</span>
-                      <div>
-                        <strong>{check.name}</strong>
-                        <span>{check.workflow ?? check.description ?? check.state}</span>
-                      </div>
-                      {check.link && (
-                        <button type="button" className="secondary" onClick={() => openExternalLink(check.link, 'Check link')}>
-                          <ExternalLink size={15} />
-                          Open
-                        </button>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="pr-diff-panel">
-              <div className="pr-file-list">
-                {diffFiles.length === 0 ? (
-                  <div className="quiet-box">No diff files returned.</div>
-                ) : (
-                  diffFiles.map((file) => (
-                    <button
-                      className={selectedPullRequestFilePath === file.path ? 'pr-file-row selected' : 'pr-file-row'}
-                      type="button"
-                      key={`${file.status}-${file.path}`}
-                      onClick={() => setSelectedPullRequestFilePath(file.path)}
-                    >
-                      <span className={`file-status status-${file.status}`}>{fileStatusToken(file.status)}</span>
-                      <span className="file-name">{file.path}</span>
-                      <span className="file-state">+{file.additions} / -{file.deletions}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-              <DiffPreview diff={selectedPullRequestDiffResult} />
-            </section>
-          </>
-        ) : (
-          <div className="quiet-box">Pull request details are not available.</div>
-        )}
-      </section>
+      <PullRequestDetailsPanel
+        selectedPullRequestDetails={selectedPullRequestDetails} selectedPullRequestChecks={selectedPullRequestChecks}
+        selectedPullRequestDiff={selectedPullRequestDiff} selectedPullRequestNumber={selectedPullRequestNumber}
+        selectedPullRequestFilePath={selectedPullRequestFilePath} setSelectedPullRequestFilePath={setSelectedPullRequestFilePath}
+        pullRequestDetailsLoading={pullRequestDetailsLoading} selectedPullRequestDiffResult={selectedPullRequestDiffResult}
+        busy={busy} githubCliStatus={githubCliStatus} loadPullRequestDetails={loadPullRequestDetails} openExternalLink={openExternalLink}
+      />
     )
   }
 
