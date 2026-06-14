@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Check,
   FileWarning,
@@ -14,10 +14,7 @@ import type {
 
 
   GitOperationResult,
-  RecentRepository,
-
   RepositorySnapshot,
-  RepositoryDashboardSnapshot,
   SubmoduleSummary,
 } from './shared/branchPilot'
 import { branchPilotErrorText } from './shared/branchPilot'
@@ -61,36 +58,9 @@ import { progressLabelFromSuccess } from './lib/progressLabels'
 import type { ActivityCategory } from './lib/activityLabels'
 import { isSafeExternalUrl } from './shared/externalUrl'
 import './App.css'
+import { usePrompts } from './hooks/usePrompts'
+import { useRepositoryManagement } from './hooks/useRepositoryManagement'
 
-type ConfirmationVariant = 'default' | 'danger'
-
-interface ConfirmationOptions {
-  title?: string
-  confirmLabel?: string
-  cancelLabel?: string
-  variant?: ConfirmationVariant
-}
-
-
-interface ConfirmationRequest extends Required<ConfirmationOptions> {
-  id: number
-  message: string
-  resolve: (confirmed: boolean) => void
-}
-
-interface TextPromptOptions {
-  title?: string
-  confirmLabel?: string
-  cancelLabel?: string
-  defaultValue?: string
-  placeholder?: string
-}
-
-interface TextPromptRequest extends Required<TextPromptOptions> {
-  id: number
-  message: string
-  resolve: (value: string | null) => void
-}
 
 const api = window.branchPilot
 const activityCategories: ActivityCategory[] = ['all', 'git', 'assistant', 'provider', 'memory']
@@ -106,40 +76,16 @@ const editorPreferences: EditorPreference[] = ['auto', 'vscode', 'cursor', 'webs
 function App() {
   const [appVersion, setAppVersion] = useState('0.0.0')
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
-  const [repositoryDashboard, setRepositoryDashboard] = useState<RepositoryDashboardSnapshot | null>(null)
-  const [dashboardLoading, setDashboardLoading] = useState(false)
-  const [dashboardRepositoryFilter, setDashboardRepositoryFilter] = useState('')
-  const [cloneRemoteUrl, setCloneRemoteUrl] = useState('')
-  const [cloneTargetName, setCloneTargetName] = useState('')
-  const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
-  const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard')
   const [busy, setBusy] = useState(false)
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
   const [notice, setNotice] = useState('Open a repository to begin.')
   const [error, setError] = useState<string | null>(null)
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
-  const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationRequest | null>(null)
-  const [textPromptRequest, setTextPromptRequest] = useState<TextPromptRequest | null>(null)
-  const [textPromptValue, setTextPromptValue] = useState('')
-  const confirmationIdRef = useRef(0)
-  const dashboardRequestIdRef = useRef(0)
-
-
-
-  const filteredRecentRepositories = useMemo(() => {
-    const query = recentRepositoryFilter.trim().toLowerCase()
-
-    if (!query) return recentRepositories
-
-    return recentRepositories.filter((repo) =>
-      [
-        repo.name,
-        repo.path,
-        repo.pinned ? 'pinned favorite starred repository' : 'recent repository'
-      ].some((value) => value.toLowerCase().includes(query))
-    )
-  }, [recentRepositories, recentRepositoryFilter])
+  const {
+    confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue,
+    requestConfirmation, answerConfirmation, requestTextInput, answerTextPrompt
+  } = usePrompts()
 
 
 
@@ -152,55 +98,9 @@ function App() {
 
 
 
-  function requestConfirmation(message: string, options: ConfirmationOptions = {}): Promise<boolean> {
-    if (confirmationRequest) return Promise.resolve(false)
 
-    return new Promise((resolve) => {
-      confirmationIdRef.current += 1
-      setConfirmationRequest({
-        id: confirmationIdRef.current,
-        title: options.title ?? 'Confirm action',
-        message,
-        confirmLabel: options.confirmLabel ?? 'Confirm',
-        cancelLabel: options.cancelLabel ?? 'Cancel',
-        variant: options.variant ?? 'default',
-        resolve
-      })
-    })
-  }
 
-  function answerConfirmation(confirmed: boolean) {
-    if (!confirmationRequest) return
-    const request = confirmationRequest
-    setConfirmationRequest(null)
-    request.resolve(confirmed)
-  }
 
-  function requestTextInput(message: string, options: TextPromptOptions = {}): Promise<string | null> {
-    if (textPromptRequest || confirmationRequest) return Promise.resolve(null)
-
-    return new Promise((resolve) => {
-      confirmationIdRef.current += 1
-      setTextPromptValue(options.defaultValue ?? '')
-      setTextPromptRequest({
-        id: confirmationIdRef.current,
-        title: options.title ?? 'Enter value',
-        message,
-        confirmLabel: options.confirmLabel ?? 'Save',
-        cancelLabel: options.cancelLabel ?? 'Cancel',
-        defaultValue: options.defaultValue ?? '',
-        placeholder: options.placeholder ?? '',
-        resolve
-      })
-    })
-  }
-
-  function answerTextPrompt(submitted: boolean) {
-    if (!textPromptRequest) return
-    const request = textPromptRequest
-    setTextPromptRequest(null)
-    request.resolve(submitted ? textPromptValue : null)
-  }
 
   useEffect(() => {
     if (!api) {
@@ -215,48 +115,11 @@ function App() {
     void loadEditorSettings()
   }, [])
 
-  useEffect(() => {
-    if (!confirmationRequest) return
-
-    const request = confirmationRequest
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      setConfirmationRequest(null)
-      request.resolve(false)
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [confirmationRequest])
-
-  useEffect(() => {
-    if (!textPromptRequest) return
-
-    const request = textPromptRequest
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      setTextPromptRequest(null)
-      request.resolve(null)
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [textPromptRequest])
 
 
 
 
 
-  useEffect(() => {
-    if (!api || viewMode !== 'dashboard') return
-    void loadRepositoryDashboard()
-
-    if (snapshot) {
-      void refreshProviderStatusOnly()
-    }
-  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
 
   useEffect(() => {
@@ -334,6 +197,19 @@ function App() {
     loadProviders, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, refreshProviderStatusOnly,
     generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest
   } = useProviders({ api, currentRepoPath, snapshot, viewMode, selectedAssistant, assistantPolicy, setNotice, setError, runApiAction, runBusyOperation, runSnapshotAction, applySnapshot, requestConfirmation, setViewMode, loadHistory })
+  const {
+    recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter,
+    filteredRecentRepositories, repositoryDashboard, dashboardLoading,
+    dashboardRepositoryFilter, setDashboardRepositoryFilter,
+    cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
+    loadRecentRepositories, loadRepositoryDashboard, toggleRepositoryPinned,
+    chooseRepository, openRepository, cloneRepository, refreshRepository,
+    openRepoInEditor, openRepositoryTerminal
+  } = useRepositoryManagement({
+    api, currentRepoPath, viewMode, snapshot,
+    runBusyOperation, runOperationAction, applySnapshot, applySnapshotResult,
+    setNotice, setError, refreshProviderStatusOnly
+  })
 
   useEffect(() => {
     if (!projectMemory) {
@@ -417,105 +293,6 @@ function App() {
     linkedinProjectUrl, setLinkedInProjectUrl, linkedinLoading,
     generateLinkedInProject, updateLinkedInProject, copyLinkedInMarkdown, copyLinkedInTags
   } = useLinkedIn({ api, currentRepoPath, selectedAssistant, assistantPolicy, canGenerateLinkedInProject, setNotice, setError, setBusy, copyToClipboard, loadProjectMemory })
-
-  async function loadRecentRepositories() {
-    if (!api) return
-    const result = await api.getRecentRepositories()
-    if (result.ok) setRecentRepositories(result.data)
-  }
-
-  async function loadRepositoryDashboard() {
-    if (!api) return
-
-    const requestId = dashboardRequestIdRef.current + 1
-    dashboardRequestIdRef.current = requestId
-    setDashboardLoading(true)
-    const result = await api.getRepositoryDashboard(currentRepoPath)
-
-    if (dashboardRequestIdRef.current !== requestId) return
-
-    if (result.ok) {
-      setRepositoryDashboard(result.data)
-    } else {
-      setError(result.error.message)
-    }
-
-    setDashboardLoading(false)
-  }
-
-  async function toggleRepositoryPinned(repo: RecentRepository) {
-    if (!api) return
-
-    const result = await api.setRepositoryPinned({
-      repoPath: repo.path,
-      pinned: !repo.pinned
-    })
-
-    if (result.ok) {
-      setRecentRepositories(result.data)
-      if (viewMode === 'dashboard') {
-        void loadRepositoryDashboard()
-      }
-    } else {
-      setError(result.error.message)
-    }
-  }
-
-  async function chooseRepository() {
-    if (!api) return
-    await runBusyOperation('Opening repository...', async () => {
-      const result = await api.chooseAndOpenRepository()
-
-      if (result.ok && result.data) {
-        applySnapshot(result.data, 'Repository opened.')
-      } else if (!result.ok) {
-        setError(result.error.message)
-      }
-    })
-  }
-
-  async function openRepository(path: string): Promise<boolean> {
-    if (!api) return false
-    return runBusyOperation('Opening repository...', async () => {
-      const result = await api.openRepository(path)
-      applySnapshotResult(result, 'Repository opened.')
-      return result.ok
-    })
-  }
-
-  async function cloneRepository() {
-    if (!api) return
-    const remoteUrl = cloneRemoteUrl.trim()
-
-    if (!remoteUrl) {
-      setNotice('Clone blocked: add a repository URL.')
-      return
-    }
-
-    await runBusyOperation('Cloning repository...', async () => {
-      const result = await api.cloneRepository({
-        remoteUrl,
-        targetName: cloneTargetName.trim() || undefined
-      })
-
-      if (result.ok && result.data) {
-        setCloneRemoteUrl('')
-        setCloneTargetName('')
-        applySnapshot(result.data, 'Repository cloned.')
-      } else if (!result.ok) {
-        setError(result.error.message)
-        setNotice(branchPilotErrorText(result.error))
-      }
-    })
-  }
-
-  async function refreshRepository(message = 'Repository refreshed.') {
-    if (!api || !currentRepoPath) return
-    await runBusyOperation('Refreshing repository...', async () => {
-      const result = await api.refreshRepository(currentRepoPath)
-      applySnapshotResult(result, message)
-    })
-  }
 
   async function copyToClipboard(text: string, successMessage: string) {
     try {
@@ -689,15 +466,6 @@ function App() {
     )
   }
 
-  async function openRepoInEditor() {
-    if (!api || !currentRepoPath) return
-    await runOperationAction('Repository opened in editor.', () => api.openInEditor({ targetPath: currentRepoPath }))
-  }
-
-  async function openRepositoryTerminal() {
-    if (!api || !currentRepoPath) return
-    await runOperationAction('Terminal opened.', () => api.openTerminal(currentRepoPath))
-  }
 
 
   return (
