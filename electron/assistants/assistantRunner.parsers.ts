@@ -1,6 +1,7 @@
 import type {
   GeneratedLinkedInProject, ReviewFinding, ReviewSeverity
 } from '../../src/shared/branchPilot.js'
+import { BranchPilotUserError } from '../lib/errors.js'
 
 /** Parsers and normalizers for assistant output payloads. */
 
