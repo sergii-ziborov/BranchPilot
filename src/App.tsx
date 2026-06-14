@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowDownToLine,
   Check,
   FileWarning,
-  FolderOpen,
   Loader2,
   X
 } from 'lucide-react'
@@ -40,6 +38,7 @@ import { AssistantPolicyPanel, AssistantReadiness } from './components/Assistant
 import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { AppSidebar } from './components/AppSidebar'
 import { AppTopbar } from './components/AppTopbar'
+import { EmptyState } from './components/EmptyState'
 import { Stat } from './components/primitives'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
 import { GitHubRepositoryBrowser, PullRequestDetailsPanel } from './components/ProvidersPanels'
@@ -735,39 +734,12 @@ function App() {
         </div>
 
         {!snapshot ? (
-          <section className="empty-state">
-            <FolderOpen size={42} />
-            <h2>Open a local Git repository</h2>
-            <p>BranchPilot will read status, diffs, branches, merge state, and local Git configuration.</p>
-            <button type="button" onClick={chooseRepository} disabled={!api || busy}>
-              <FolderOpen size={17} />
-              Open repository
-            </button>
-            <div className="clone-panel">
-              <div>
-                <strong>Clone repository</strong>
-                <span>Use system Git and your existing credentials.</span>
-              </div>
-              <input
-                aria-label="Clone repository URL"
-                value={cloneRemoteUrl}
-                onChange={(event) => setCloneRemoteUrl(event.target.value)}
-                placeholder="https://github.com/owner/repo.git"
-                disabled={!api || busy}
-              />
-              <input
-                aria-label="Clone folder name"
-                value={cloneTargetName}
-                onChange={(event) => setCloneTargetName(event.target.value)}
-                placeholder="Optional folder name"
-                disabled={!api || busy}
-              />
-              <button type="button" onClick={cloneRepository} disabled={!api || busy || !cloneRemoteUrl.trim()}>
-                <ArrowDownToLine size={17} />
-                Clone
-              </button>
-            </div>
-          </section>
+          <EmptyState
+            apiReady={Boolean(api)} busy={busy} chooseRepository={chooseRepository}
+            cloneRemoteUrl={cloneRemoteUrl} setCloneRemoteUrl={setCloneRemoteUrl}
+            cloneTargetName={cloneTargetName} setCloneTargetName={setCloneTargetName}
+            cloneRepository={cloneRepository}
+          />
         ) : (
           <>
             {viewMode !== 'changes' && (
