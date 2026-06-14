@@ -1,4 +1,4 @@
-import { Plus, X } from 'lucide-react'
+import { FileImage, FileText, Plus, X } from 'lucide-react'
 import type { DiffHunk, DiffLine, DiffResult } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import { buildSplitDiffRows } from '../shared/diffView'
@@ -142,15 +142,33 @@ export function DiffPreview({
   onOpenLine?: (line?: number) => void
 }) {
   if (!diff) {
-    return <div className="diff-empty">No diff selected.</div>
+    return (
+      <div className="diff-empty">
+        <FileText size={28} />
+        <strong>Select a file to view its diff</strong>
+        <span>Pick a changed file from the list on the left.</span>
+      </div>
+    )
   }
 
   if (diff.binary) {
-    return <div className="diff-empty">Binary file preview is not available.</div>
+    return (
+      <div className="diff-empty">
+        <FileImage size={28} />
+        <strong>Binary file</strong>
+        <span>No text diff is available for this file type.</span>
+      </div>
+    )
   }
 
   if (!diff.text.trim()) {
-    return <div className="diff-empty">No textual diff for this selection.</div>
+    return (
+      <div className="diff-empty">
+        <FileText size={28} />
+        <strong>No changes to show</strong>
+        <span>This selection has no textual diff.</span>
+      </div>
+    )
   }
 
   if (diff.tooLarge || diff.files.length === 0) {
