@@ -55,6 +55,7 @@ import { useCommit } from './hooks/useCommit'
 import { useChanges } from './hooks/useChanges'
 import { useMerge } from './hooks/useMerge'
 import { AssistantPolicyPanel, AssistantReadiness } from './components/AssistantPanels'
+import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { Stat } from './components/primitives'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
 import { GitHubRepositoryBrowser, PullRequestDetailsPanel } from './components/ProvidersPanels'
@@ -1304,69 +1305,10 @@ function App() {
         )}
       </section>
       {confirmationRequest && (
-        <div className="confirmation-backdrop" role="presentation">
-          <section
-            className={`confirmation-dialog ${confirmationRequest.variant === 'danger' ? 'danger' : ''}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`confirmation-title-${confirmationRequest.id}`}
-          >
-            <div>
-              <h2 id={`confirmation-title-${confirmationRequest.id}`}>{confirmationRequest.title}</h2>
-              <p>{confirmationRequest.message}</p>
-            </div>
-            <div className="confirmation-actions">
-              <button type="button" className="secondary" onClick={() => answerConfirmation(false)}>
-                {confirmationRequest.cancelLabel}
-              </button>
-              <button
-                type="button"
-                className={confirmationRequest.variant === 'danger' ? 'danger-button' : ''}
-                onClick={() => answerConfirmation(true)}
-              >
-                {confirmationRequest.confirmLabel}
-              </button>
-            </div>
-          </section>
-        </div>
+        <ConfirmationDialog request={confirmationRequest} onAnswer={answerConfirmation} />
       )}
       {textPromptRequest && (
-        <div className="confirmation-backdrop" role="presentation">
-          <section
-            className="confirmation-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`confirmation-title-${textPromptRequest.id}`}
-          >
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                answerTextPrompt(true)
-              }}
-            >
-              <div>
-                <h2 id={`confirmation-title-${textPromptRequest.id}`}>{textPromptRequest.title}</h2>
-                <p>{textPromptRequest.message}</p>
-                <input
-                  className="text-prompt-input"
-                  autoFocus
-                  value={textPromptValue}
-                  placeholder={textPromptRequest.placeholder}
-                  onChange={(event) => setTextPromptValue(event.target.value)}
-                  onFocus={(event) => event.target.select()}
-                />
-              </div>
-              <div className="confirmation-actions">
-                <button type="button" className="secondary" onClick={() => answerTextPrompt(false)}>
-                  {textPromptRequest.cancelLabel}
-                </button>
-                <button type="submit" disabled={!textPromptValue.trim()}>
-                  {textPromptRequest.confirmLabel}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+        <TextPromptDialog request={textPromptRequest} value={textPromptValue} onChange={setTextPromptValue} onAnswer={answerTextPrompt} />
       )}
     </main>
   )

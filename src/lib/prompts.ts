@@ -17,3 +17,15 @@ export interface TextPromptOptions {
 
 export type RequestConfirmation = (message: string, options?: ConfirmationOptions) => Promise<boolean>
 export type RequestTextInput = (message: string, options?: TextPromptOptions) => Promise<string | null>
+
+export interface ConfirmationRequest extends Required<ConfirmationOptions> {
+  id: number
+  message: string
+  resolve: (confirmed: boolean) => void
+}
+
+export interface TextPromptRequest extends Required<TextPromptOptions> {
+  id: number
+  message: string
+  resolve: (value: string | null) => void
+}
