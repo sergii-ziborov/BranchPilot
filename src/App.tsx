@@ -53,6 +53,7 @@ import { useAssistants } from './hooks/useAssistants'
 import { useProviders } from './hooks/useProviders'
 import { useCommit } from './hooks/useCommit'
 import { useChanges } from './hooks/useChanges'
+import { useMerge } from './hooks/useMerge'
 import { AssistantPolicyPanel, AssistantReadiness } from './components/AssistantPanels'
 import { Stat } from './components/primitives'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
@@ -133,7 +134,6 @@ function App() {
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
   const [notice, setNotice] = useState('Open a repository to begin.')
   const [error, setError] = useState<string | null>(null)
-  const [selectedMergeBranch, setSelectedMergeBranch] = useState('')
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
   const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationRequest | null>(null)
   const [textPromptRequest, setTextPromptRequest] = useState<TextPromptRequest | null>(null)
@@ -376,15 +376,6 @@ function App() {
     void loadGitConfig()
   }, [snapshot?.summary.rootPath, viewMode])
 
-  useEffect(() => {
-    if (!snapshot) return
-
-    const mergeCandidates = snapshot.branches.filter((branch) => !branch.current)
-
-    if (!selectedMergeBranch || !mergeCandidates.some((branch) => branch.name === selectedMergeBranch)) {
-      setSelectedMergeBranch(mergeCandidates[0]?.name ?? '')
-    }
-  }, [selectedMergeBranch, snapshot])
 
 
 
@@ -409,6 +400,10 @@ function App() {
     stageSelectedHunk, unstageSelectedHunk, discardSelected, exportPatch, applyPatch,
     openSelectedFileInEditor, openSelectedFileLineInEditor
   } = useChanges({ api, currentRepoPath, snapshot, counts, setNotice, setError, runSnapshotAction, runApiAction, runOperationAction, applySnapshot, requestConfirmation })
+  const {
+    selectedMergeBranch, setSelectedMergeBranch, startMergeOperation,
+    continueMergeOperation, abortCurrentOperation, acceptConflictSide
+  } = useMerge({ api, currentRepoPath, snapshot, setNotice, setError, runBusyOperation, runSnapshotAction, applySnapshot, requestConfirmation, setViewMode, loadHistory })
   const {
     reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport,
     preCommitReviewModes, preCommitReports, preCommitRunningMode, canRunAssistantReview, preCommitFindings, preCommitFindingsBySeverity,
@@ -642,85 +637,6 @@ function App() {
     if (viewMode === 'memory') {
       void loadProjectMemory(nextSnapshot.summary.rootPath)
     }
-  }
-
-  async function startMergeOperation(kind: 'merge' | 'rebase') {
-    if (!api || !currentRepoPath || !selectedMergeBranch) return
-
-    const currentBranch = snapshot?.summary.currentBranch ?? 'the current branch'
-    const confirmed = await requestConfirmation(
-      kind === 'merge'
-        ? `Merge ${selectedMergeBranch} into ${currentBranch}?`
-        : `Rebase ${currentBranch} onto ${selectedMergeBranch}? This rewrites the commits of ${currentBranch}.`,
-      {
-        title: kind === 'merge' ? 'Merge Branch' : 'Rebase Branch',
-        confirmLabel: kind === 'merge' ? 'Merge' : 'Rebase',
-        variant: kind === 'merge' ? 'default' : 'danger'
-      }
-    )
-    if (!confirmed) return
-
-    await runBusyOperation(kind === 'merge' ? 'Merging branch...' : 'Rebasing branch...', async () => {
-      const result = kind === 'merge'
-        ? await api.mergeBranch({ repoPath: currentRepoPath, branchName: selectedMergeBranch })
-        : await api.rebaseBranch({ repoPath: currentRepoPath, branchName: selectedMergeBranch })
-
-      if (result.ok) {
-        const cleanLabel = kind === 'merge' ? 'Merge complete.' : 'Rebase complete.'
-        const conflictLabel = kind === 'merge' ? 'Merge has conflicts.' : 'Rebase has conflicts.'
-        applySnapshot(result.data, result.data.status.merge.operation === 'none' ? cleanLabel : conflictLabel)
-        setViewMode('merge')
-        void loadHistory()
-      } else {
-        setError(result.error.message)
-        setNotice(branchPilotErrorText(result.error))
-      }
-    })
-  }
-
-  async function continueMergeOperation() {
-    if (!api || !currentRepoPath) return
-    const continued = await runSnapshotAction('Operation continued.', () => api.continueMergeOperation(currentRepoPath))
-
-    if (continued) {
-      void loadHistory()
-    }
-  }
-
-  async function abortCurrentOperation() {
-    if (!api || !currentRepoPath) return
-    const confirmed = await requestConfirmation('Abort the current Git operation?', {
-      title: 'Abort Git Operation',
-      confirmLabel: 'Abort operation',
-      variant: 'danger'
-    })
-    if (!confirmed) return
-
-    await runSnapshotAction('Operation aborted.', () => api.abortMergeOperation(currentRepoPath))
-  }
-
-  async function acceptConflictSide(filePath: string, side: 'ours' | 'theirs') {
-    if (!api || !currentRepoPath) return
-    // During a rebase, Git swaps the meaning: "ours" is the branch being rebased onto.
-    const rebaseHint = mergeState?.operation === 'rebase'
-      ? ` During a rebase, "${side}" means ${side === 'ours' ? 'the base branch you are rebasing onto' : 'the commits being replayed'}.`
-      : ''
-    const confirmed = await requestConfirmation(
-      `Resolve ${filePath} by keeping ${side === 'ours' ? 'our' : 'their'} version? The other side's changes in this file are discarded.${rebaseHint}`,
-      {
-        title: side === 'ours' ? 'Accept Ours' : 'Accept Theirs',
-        confirmLabel: side === 'ours' ? 'Keep ours' : 'Keep theirs',
-        variant: 'danger'
-      }
-    )
-    if (!confirmed) return
-
-    await runSnapshotAction(
-      side === 'ours' ? 'Accepted ours.' : 'Accepted theirs.',
-      () => side === 'ours'
-        ? api.acceptOurs({ repoPath: currentRepoPath, filePath })
-        : api.acceptTheirs({ repoPath: currentRepoPath, filePath })
-    )
   }
 
   async function applyCommitOperation(kind: 'revert' | 'cherry-pick') {
