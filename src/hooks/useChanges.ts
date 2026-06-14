@@ -97,10 +97,10 @@ export function useChanges({
     if (result.ok) {
       setDiff(result.data)
 
-      if (result.data.binary && /\.(png|jpe?g|gif|webp|bmp|svg|ico|avif)$/i.test(change.path)) {
-        const preview = await api.getImagePreview({ repoPath: currentRepoPath, filePath: change.path })
+      if (result.data.binary && typeof api.getImagePreview === 'function' && /\.(png|jpe?g|gif|webp|bmp|svg|ico|avif)$/i.test(change.path)) {
+        const preview = await api.getImagePreview({ repoPath: currentRepoPath, filePath: change.path }).catch(() => null)
         if (diffRequestIdRef.current !== requestId) return
-        setImagePreview(preview.ok ? preview.data : null)
+        setImagePreview(preview && preview.ok ? preview.data : null)
       } else {
         setImagePreview(null)
       }
