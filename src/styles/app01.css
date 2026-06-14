@@ -1,8 +1,265 @@
 .app-shell {
-  display: grid;
-  grid-template-columns: 286px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background: var(--surface);
+}
+
+/* GitHub-Desktop-style top bar (replaces the left sidebar). */
+.shell-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+}
+
+.shell-bar-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 14px;
+}
+
+.shell-menu {
+  position: relative;
+}
+
+.shell-menu > summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  list-style: none;
+  cursor: pointer;
+}
+
+.shell-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.shell-menu > summary:hover {
+  background: #f9fafb;
+}
+
+.shell-seg-label {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.shell-seg-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-repo > summary {
+  min-width: 190px;
+}
+
+.shell-branch > summary {
+  min-width: 160px;
+}
+
+.shell-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 360px;
+  max-width: 80vw;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+}
+
+.shell-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.shell-dropdown-item,
+.shell-dropdown-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.shell-dropdown-item:hover,
+.shell-dropdown-primary:hover {
+  background: #f1f5f9;
+}
+
+.shell-dropdown-item.active {
+  background: #eef2ff;
+}
+
+.shell-dropdown-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.shell-dropdown-item-text strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-dropdown-item-text span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-dropdown-primary {
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  font-weight: 600;
+}
+
+.shell-dropdown-empty {
+  padding: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shell-sync {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shell-aheadbehind {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shell-repo-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.shell-tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.shell-tabs-primary {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.shell-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shell-tab:hover {
+  color: var(--text);
+}
+
+.shell-tab.active {
+  border-bottom-color: #2563eb;
+  color: var(--text-strong);
+}
+
+.shell-tab-badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 11px;
+}
+
+.shell-tabs-tools {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.shell-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.shell-tool:hover {
+  color: var(--text);
+  background: #f1f5f9;
+}
+
+.shell-tool.active {
+  background: #eef2ff;
+  color: var(--text-strong);
 }
 
 .sidebar {
