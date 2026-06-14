@@ -914,7 +914,8 @@ button.secondary:hover {
 
 @media (max-width: 760px) {
   .changes-workflow-grid,
-  .history-grid {
+  .history-grid,
+  .history-detail-grid {
     grid-template-columns: 1fr;
   }
 

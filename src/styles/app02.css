@@ -253,7 +253,90 @@
 }
 
 .history-grid {
-  grid-template-columns: minmax(360px, 0.7fr) minmax(540px, 1.3fr);
+  grid-template-columns: minmax(300px, 0.55fr) minmax(620px, 1.45fr);
+  align-items: stretch;
+  min-height: calc(100vh - 200px);
+}
+
+/* History detail: commit header on top, then files | diff (3-pane overall). */
+.history-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.history-commit-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-commit-headline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.history-commit-headline > div:first-child {
+  min-width: 0;
+}
+
+.history-detail .commit-body {
+  max-height: 160px;
+  margin: 12px 0 0;
+  overflow-y: auto;
+}
+
+.history-detail .commit-branch-strip {
+  margin: 12px 0 0;
+}
+
+.history-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.4fr) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+
+.commit-file-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+}
+
+.commit-file-list-heading {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.commit-file-column .commit-file-list {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.commit-diff-column {
+  min-width: 0;
+  overflow: auto;
+}
+
+.commit-diff-column .structured-diff,
+.commit-diff-column .diff-preview {
+  min-height: 0;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
 }
 
 .history-row,

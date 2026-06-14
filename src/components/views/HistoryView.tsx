@@ -115,84 +115,90 @@ export function HistoryView({
         </div>
       </div>
 
-      <div className="diff-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>{commitDetails?.subject ?? 'Commit details'}</h2>
-            <p>
-              {commitDetails
-                ? `${commitDetails.shortSha} · ${commitDetails.authorName} · ${formatDate(commitDetails.authoredAt)}`
-                : 'Select a commit'}
-            </p>
-          </div>
-          <div className="panel-actions">
-            {selectedCommitProviderUrl && (
-              <button
-                type="button"
-                className="secondary icon-button"
-                title="Open commit in provider"
-                aria-label="Open commit in provider"
-                onClick={() => openExternalLink(selectedCommitProviderUrl, 'Commit link')}
-                disabled={busy}
-              >
-                <ExternalLink size={17} />
-              </button>
-            )}
-            <button
-              className="icon-button"
-              type="button"
-              title="Cherry-pick commit"
-              aria-label="Cherry-pick commit"
-              onClick={() => applyCommitOperation('cherry-pick')}
-              disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
-            >
-              <GitCommitHorizontal size={17} />
-            </button>
-            <button
-              className="danger-button icon-button"
-              type="button"
-              title="Revert commit"
-              aria-label="Revert commit"
-              onClick={() => applyCommitOperation('revert')}
-              disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
-            >
-              <Trash2 size={17} />
-            </button>
-          </div>
-        </div>
-
-        {commitDetails?.body && <div className="commit-body">{commitDetails.body}</div>}
-        {commitDetails && (
-          <div className="commit-branch-strip">
-            <span>Contained in</span>
+      <div className="history-detail">
+        <div className="history-commit-header">
+          <div className="history-commit-headline">
             <div>
-              {commitDetails.containingBranches.length === 0 ? (
-                <strong>No local branches</strong>
-              ) : (
-                commitDetails.containingBranches.map((branch) => (
-                  <strong key={branch}>{branch}</strong>
-                ))
+              <h2>{commitDetails?.subject ?? 'Commit details'}</h2>
+              <p>
+                {commitDetails
+                  ? `${commitDetails.shortSha} · ${commitDetails.authorName} · ${formatDate(commitDetails.authoredAt)}`
+                  : 'Select a commit'}
+              </p>
+            </div>
+            <div className="panel-actions">
+              {selectedCommitProviderUrl && (
+                <button
+                  type="button"
+                  className="secondary icon-button"
+                  title="Open commit in provider"
+                  aria-label="Open commit in provider"
+                  onClick={() => openExternalLink(selectedCommitProviderUrl, 'Commit link')}
+                  disabled={busy}
+                >
+                  <ExternalLink size={17} />
+                </button>
               )}
+              <button
+                className="icon-button"
+                type="button"
+                title="Cherry-pick commit"
+                aria-label="Cherry-pick commit"
+                onClick={() => applyCommitOperation('cherry-pick')}
+                disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
+              >
+                <GitCommitHorizontal size={17} />
+              </button>
+              <button
+                className="danger-button icon-button"
+                type="button"
+                title="Revert commit"
+                aria-label="Revert commit"
+                onClick={() => applyCommitOperation('revert')}
+                disabled={!commitDetails || busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
+              >
+                <Trash2 size={17} />
+              </button>
             </div>
           </div>
-        )}
 
-        <div className="commit-file-grid">
-          <div className="commit-file-list">
-            {commitDetails?.files.length === 0 && <div className="quiet-box">No changed files.</div>}
-            {commitDetails?.files.map((file) => (
-              <button
-                className={selectedCommitFilePath === file.path ? 'commit-file-row selected' : 'commit-file-row'}
-                type="button"
-                key={`${file.rawStatus}-${file.path}-${file.originalPath ?? ''}`}
-                onClick={() => commitDetails && loadCommitFileDiff(commitDetails.sha, file.path)}
-              >
-                <span className={`file-status status-${file.status}`}>{fileStatusToken(file.status)}</span>
-                <span className="file-name">{file.path}</span>
-              </button>
-            ))}
+          {commitDetails?.body && <div className="commit-body">{commitDetails.body}</div>}
+          {commitDetails && commitDetails.containingBranches.length > 0 && (
+            <div className="commit-branch-strip">
+              <span>Contained in</span>
+              <div>
+                {commitDetails.containingBranches.map((branch) => (
+                  <strong key={branch}>{branch}</strong>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="history-detail-grid">
+          <div className="commit-file-column">
+            <div className="commit-file-list-heading">
+              {commitDetails ? `${commitDetails.files.length} changed file${commitDetails.files.length === 1 ? '' : 's'}` : 'Files'}
+            </div>
+            <div className="commit-file-list">
+              {commitDetails && commitDetails.files.length === 0 && <div className="quiet-box">No changed files.</div>}
+              {commitDetails?.files.map((file) => (
+                <button
+                  className={selectedCommitFilePath === file.path ? 'commit-file-row selected' : 'commit-file-row'}
+                  type="button"
+                  key={`${file.rawStatus}-${file.path}-${file.originalPath ?? ''}`}
+                  onClick={() => commitDetails && loadCommitFileDiff(commitDetails.sha, file.path)}
+                  title={file.path}
+                >
+                  <span className={`file-status status-${file.status}`}>{fileStatusToken(file.status)}</span>
+                  <span className="file-name">{file.path}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <DiffPreview diff={commitFileDiff} />
+          <div className="commit-diff-column">
+            <DiffPreview diff={commitFileDiff} />
+          </div>
         </div>
       </div>
     </section>
