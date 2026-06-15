@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2, Database,
-  DownloadCloud, FolderOpen, GitBranch, GitCommitHorizontal, GitMerge, GitPullRequest,
-  LayoutDashboard, RefreshCcw, Save, Search, ShieldCheck, Star, Terminal, Check
+  Archive, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2, Database,
+  DownloadCloud, FileCode2, FileDiff, FolderOpen, GitBranch, GitMerge, GitPullRequest,
+  LayoutDashboard, RefreshCcw, Settings, ShieldCheck, Sparkles, Star, Terminal, Check
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, SwitchBranchDialog } from './Dialogs'
 
 const PRIMARY_TABS: { id: ViewMode; label: string; icon: typeof Clock3 }[] = [
-  { id: 'changes', label: 'Changes', icon: GitCommitHorizontal },
+  { id: 'changes', label: 'Changes', icon: FileDiff },
   { id: 'history', label: 'History', icon: Clock3 }
 ]
 
@@ -19,11 +19,11 @@ const TOOL_TABS: { id: ViewMode; label: string; icon: typeof Clock3 }[] = [
   { id: 'merge', label: 'Merge', icon: GitMerge },
   { id: 'review', label: 'Review', icon: ShieldCheck },
   { id: 'providers', label: 'Providers', icon: GitPullRequest },
-  { id: 'config', label: 'Git Config', icon: GitBranch },
-  { id: 'stash', label: 'Stash', icon: Save },
+  { id: 'config', label: 'Git Config', icon: Settings },
+  { id: 'stash', label: 'Stash', icon: Archive },
   { id: 'memory', label: 'Memory', icon: Database },
   { id: 'daily', label: 'Daily', icon: CalendarDays },
-  { id: 'linkedin', label: 'LinkedIn', icon: Star }
+  { id: 'linkedin', label: 'LinkedIn', icon: Sparkles }
 ]
 
 /** GitHub-Desktop-style top bar: repository + branch pickers, sync actions, and view tabs. */
@@ -251,7 +251,7 @@ export function AppShellBar({
             <Code2 size={17} />
           </button>
           <button className="icon-button" type="button" title="Open selected file in editor" aria-label="Open selected file in editor" disabled={!selectedFileTarget || busy} onClick={openSelectedFileInEditor}>
-            <Search size={17} />
+            <FileCode2 size={17} />
           </button>
           <button className="icon-button" type="button" title="Open terminal" aria-label="Open terminal" disabled={!snapshot || busy} onClick={openRepositoryTerminal}>
             <Terminal size={17} />
