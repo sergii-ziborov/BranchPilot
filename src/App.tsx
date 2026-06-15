@@ -10,6 +10,7 @@ import { AssistantPolicyPanel, AssistantReadiness } from './components/Assistant
 import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { LinkedinIcon } from './components/BrandIcons'
 import { AppShellBar } from './components/AppShellBar'
+import { ChangesWorkspace } from './components/ChangesWorkspace'
 import { Toaster } from './components/Toaster'
 import { GlobalTooltip } from './components/GlobalTooltip'
 import { ConflictBanner } from './components/ConflictBanner'
@@ -130,8 +131,12 @@ function App() {
                 />
               </div>
             )}
-            {viewMode === 'changes' && (
-              <ChangesView
+            {(viewMode === 'changes' || viewMode === 'review') && (
+              <ChangesWorkspace
+                forceReviewOpen={viewMode === 'review'}
+                onOpenStash={loadStashes}
+                changes={(
+                  <ChangesView
                 snapshot={snapshot}
                 counts={counts}
                 busy={busy}
@@ -189,6 +194,43 @@ function App() {
                 unstageSelectedHunk={unstageSelectedHunk}
                 openSelectedFileLineInEditor={openSelectedFileLineInEditor}
                 itemHeight={CHANGE_LIST_ITEM_HEIGHT}
+                  />
+                )}
+                stash={(
+                  <StashView
+                    loadStashes={loadStashes}
+                    busy={busy}
+                    stashMessage={stashMessage}
+                    setStashMessage={setStashMessage}
+                    defaultStashMessage={defaultStashMessage}
+                    createStash={createStash}
+                    canCreateStash={canCreateStash}
+                    stashes={stashes}
+                    applyStash={applyStash}
+                    dropStash={dropStash}
+                  />
+                )}
+                review={(
+                  <ReviewView
+                    reviewReport={reviewReport}
+                    snapshot={snapshot}
+                    busy={busy}
+                    canRunAssistantReview={canRunAssistantReview}
+                    runReviewReport={runReviewReport}
+                    reviewMode={reviewMode}
+                    setReviewMode={setReviewMode}
+                    reviewScope={reviewScope}
+                    setReviewScope={setReviewScope}
+                    selectedAssistant={selectedAssistant}
+                    setSelectedAssistant={setSelectedAssistant}
+                    assistantPolicy={assistantPolicy}
+                    assistants={assistants}
+                    assistantsChecking={assistantsChecking}
+                    checkAssistants={checkAssistants}
+                    renderAssistantPolicyPanel={renderAssistantPolicyPanel}
+                    renderAssistantReadiness={renderAssistantReadiness}
+                  />
+                )}
               />
             )}
             {viewMode === 'history' && (
@@ -325,41 +367,6 @@ function App() {
                 runOperationAction={runOperationAction}
                 api={api}
                 pullGitLfs={pullGitLfs}
-              />
-            )}
-            {viewMode === 'stash' && (
-              <StashView
-                loadStashes={loadStashes}
-                busy={busy}
-                stashMessage={stashMessage}
-                setStashMessage={setStashMessage}
-                defaultStashMessage={defaultStashMessage}
-                createStash={createStash}
-                canCreateStash={canCreateStash}
-                stashes={stashes}
-                applyStash={applyStash}
-                dropStash={dropStash}
-              />
-            )}
-            {viewMode === 'review' && (
-              <ReviewView
-                reviewReport={reviewReport}
-                snapshot={snapshot}
-                busy={busy}
-                canRunAssistantReview={canRunAssistantReview}
-                runReviewReport={runReviewReport}
-                reviewMode={reviewMode}
-                setReviewMode={setReviewMode}
-                reviewScope={reviewScope}
-                setReviewScope={setReviewScope}
-                selectedAssistant={selectedAssistant}
-                setSelectedAssistant={setSelectedAssistant}
-                assistantPolicy={assistantPolicy}
-                assistants={assistants}
-                assistantsChecking={assistantsChecking}
-                checkAssistants={checkAssistants}
-                renderAssistantPolicyPanel={renderAssistantPolicyPanel}
-                renderAssistantReadiness={renderAssistantReadiness}
               />
             )}
             {viewMode === 'providers' && (

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
-  Archive, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2,
+  ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2,
   DownloadCloud, FileCode2, FileDiff, FolderOpen, GitBranch, GitMerge, GitPullRequest,
-  LayoutDashboard, RefreshCcw, Settings, ShieldCheck, Star, Terminal, Check
+  LayoutDashboard, RefreshCcw, Settings, Star, Terminal, Check
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
@@ -18,10 +18,8 @@ const PRIMARY_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
 const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'branches', label: 'Branches', icon: GitBranch },
-  { id: 'review', label: 'Review', icon: ShieldCheck },
   { id: 'providers', label: 'Providers', icon: GitPullRequest },
   { id: 'config', label: 'Git Config', icon: Settings },
-  { id: 'stash', label: 'Stash', icon: Archive },
   { id: 'daily', label: 'Reports', icon: CalendarDays }
 ]
 
@@ -273,7 +271,7 @@ export function AppShellBar({
         <div className="shell-tabs-primary">
           {PRIMARY_TABS.map((tab) => (
             <button
-              className={viewMode === tab.id ? 'shell-tab active' : 'shell-tab'}
+              className={viewMode === tab.id || (tab.id === 'changes' && viewMode === 'review') ? 'shell-tab active' : 'shell-tab'}
               type="button"
               key={tab.id}
               onClick={() => setViewMode(tab.id)}

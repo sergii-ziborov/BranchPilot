@@ -292,6 +292,98 @@
 }
 
 /* Reports tab: Daily Review + LinkedIn as sub-tabs in one scroll area. */
+/* Changes view + collapsible bottom drawer holding the Stash and Review tools. */
+.workspace > .changes-workspace-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.changes-workspace-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.changes-workspace-main > .content-grid,
+.changes-workspace-main > .single-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.changes-drawer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.changes-workspace-wrap.drawer-open .changes-drawer {
+  flex: 0 0 42%;
+  min-height: 0;
+}
+
+.changes-drawer-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 14px;
+}
+
+.changes-drawer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.changes-drawer-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.changes-drawer-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.changes-drawer-tabs button:hover {
+  color: var(--text);
+}
+
+.changes-drawer-tabs button.active {
+  color: var(--text-strong);
+  background: #ffffff;
+  border-color: var(--border);
+}
+
+.changes-drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
 .workspace > .reports-stack {
   flex: 1 1 auto;
   min-height: 0;

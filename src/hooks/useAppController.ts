@@ -347,10 +347,6 @@ export function useAppController() {
     setNotice(successMessage)
     setError(null)
 
-    if (viewMode === 'stash') {
-      void loadStashes(nextSnapshot.summary.rootPath)
-    }
-
     if (viewMode === 'dashboard') {
       void loadProjectMemory(nextSnapshot.summary.rootPath)
     }
