@@ -1,19 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
   Archive, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2, Database,
   DownloadCloud, FileCode2, FileDiff, FolderOpen, GitBranch, GitMerge, GitPullRequest,
-  LayoutDashboard, RefreshCcw, Settings, ShieldCheck, Sparkles, Star, Terminal, Check
+  LayoutDashboard, RefreshCcw, Settings, ShieldCheck, Star, Terminal, Check
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, SwitchBranchDialog } from './Dialogs'
+import { LinkedinIcon } from './BrandIcons'
 
-const PRIMARY_TABS: { id: ViewMode; label: string; icon: typeof Clock3 }[] = [
+type TabIcon = ComponentType<{ size?: number }>
+
+const PRIMARY_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'changes', label: 'Changes', icon: FileDiff },
   { id: 'history', label: 'History', icon: Clock3 }
 ]
 
-const TOOL_TABS: { id: ViewMode; label: string; icon: typeof Clock3 }[] = [
+const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'branches', label: 'Branches', icon: GitBranch },
   { id: 'merge', label: 'Merge', icon: GitMerge },
@@ -23,7 +26,7 @@ const TOOL_TABS: { id: ViewMode; label: string; icon: typeof Clock3 }[] = [
   { id: 'stash', label: 'Stash', icon: Archive },
   { id: 'memory', label: 'Memory', icon: Database },
   { id: 'daily', label: 'Daily', icon: CalendarDays },
-  { id: 'linkedin', label: 'LinkedIn', icon: Sparkles }
+  { id: 'linkedin', label: 'LinkedIn', icon: LinkedinIcon }
 ]
 
 /** GitHub-Desktop-style top bar: repository + branch pickers, sync actions, and view tabs. */

@@ -115,6 +115,11 @@
   font-weight: 700;
 }
 
+.dash-count.tone-warn { background: #fef9c3; color: #92400e; }
+.dash-count.tone-danger { background: #fee2e2; color: #b91c1c; }
+.dash-count.tone-info { background: #e0f2fe; color: #075985; }
+.dash-count.tone-muted { background: #eef2f7; color: #475569; }
+
 .dashboard-repo-list {
   display: grid;
   gap: 8px;

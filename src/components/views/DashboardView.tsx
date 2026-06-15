@@ -141,7 +141,7 @@ export function DashboardView({
                   <h3>Repository attention</h3>
                   <p>Dirty, conflicted, ahead, behind, and unavailable repositories.</p>
                 </div>
-                <span>{attentionRepositories.length}</span>
+                <span className="dash-count tone-warn">{attentionRepositories.length}</span>
               </div>
               {attentionRepositories.length === 0 ? (
                 <div className="quiet-box">No repository needs attention.</div>
@@ -174,7 +174,7 @@ export function DashboardView({
                   <h3>PR/MR attention</h3>
                   <p>Current branch pull request signal from the GitHub CLI bridge.</p>
                 </div>
-                <GitPullRequest size={18} />
+                <span className="dash-count tone-info">{pullRequests.length > 0 ? pullRequests.length : <GitPullRequest size={15} />}</span>
               </div>
               <article className="dashboard-callout">
                 <strong>{currentPullRequest?.title ?? 'Current branch PR'}</strong>
@@ -201,7 +201,7 @@ export function DashboardView({
                   <h3>Conflicts</h3>
                   <p>Merge, rebase, cherry-pick, and conflicted-file signals.</p>
                 </div>
-                <span>{conflictedRepositories.length}</span>
+                <span className="dash-count tone-danger">{conflictedRepositories.length}</span>
               </div>
               {conflictedRepositories.length === 0 ? (
                 <div className="quiet-box">No conflicts detected.</div>
@@ -233,7 +233,7 @@ export function DashboardView({
                   <h3>Stale branches</h3>
                   <p>Local branches older than {dashboard.staleBranchThresholdDays} days.</p>
                 </div>
-                <span>{staleBranches.length}</span>
+                <span className="dash-count tone-muted">{staleBranches.length}</span>
               </div>
               {staleBranches.length === 0 ? (
                 <div className="quiet-box">No stale local branches detected.</div>
