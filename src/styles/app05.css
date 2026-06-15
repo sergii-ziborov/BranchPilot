@@ -937,3 +937,79 @@ button.secondary:hover {
     grid-column: auto;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Motion & polish: smooth transitions, view fade-in, dialog entrance, accents.
+   --------------------------------------------------------------------------- */
+button,
+.shell-tab,
+.shell-tool,
+.shell-menu > summary,
+.shell-dropdown-item,
+.shell-dropdown-primary,
+.change-row,
+.commit-file-row,
+.history-row,
+.dashboard-repo-row,
+.dashboard-compact-row,
+.switch-option,
+.stat-tile,
+input,
+textarea,
+select {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+}
+
+button:not(.shell-tab):active {
+  transform: scale(0.97);
+}
+
+.shell-tab.active {
+  background: linear-gradient(to bottom, rgba(37, 99, 235, 0.07), rgba(37, 99, 235, 0));
+}
+
+.workspace > .content-grid,
+.workspace > .single-panel {
+  animation: view-fade-in 0.2s ease both;
+}
+
+@keyframes view-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.confirmation-backdrop {
+  animation: backdrop-fade 0.15s ease both;
+}
+
+.confirmation-dialog {
+  animation: dialog-pop 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes backdrop-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialog-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.shell-tab-badge {
+  animation: badge-pop 0.2s ease both;
+}
+
+@keyframes badge-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
