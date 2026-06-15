@@ -196,6 +196,7 @@ export interface AssistantStatus {
 }
 
 export interface BranchPilotApi {
+  onMenuAction: (callback: (action: string) => void) => () => void
   getVersion: () => Promise<string>
   chooseAndOpenRepository: () => Promise<ApiResult<RepositorySnapshot | null>>
   cloneRepository: (request: CloneRepositoryRequest) => Promise<ApiResult<RepositorySnapshot | null>>

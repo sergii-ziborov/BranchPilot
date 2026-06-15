@@ -1,4 +1,5 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, Menu, shell } from 'electron'
+import { buildApplicationMenu } from './appMenu.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { AssistantPolicyService } from './lib/assistantPolicyService.js'
@@ -69,6 +70,8 @@ function createMainWindow() {
 
     return { action: 'deny' }
   })
+
+  Menu.setApplicationMenu(buildApplicationMenu(window))
 }
 
 app.whenReady().then(() => {

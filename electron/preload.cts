@@ -5,6 +5,11 @@ import type { BranchPilotIpcChannel } from '../src/shared/ipcChannels.js'
 const invoke = <T,>(channel: BranchPilotIpcChannel, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args) as Promise<T>
 
 const branchPilot: BranchPilotApi = {
+  onMenuAction: (callback) => {
+    const listener = (_event: unknown, action: string) => callback(action)
+    ipcRenderer.on('menu:action', listener)
+    return () => ipcRenderer.removeListener('menu:action', listener)
+  },
   getVersion: () => invoke('app:version'),
   chooseAndOpenRepository: () => invoke('repository:chooseAndOpen'),
   cloneRepository: (request) => invoke('repository:clone', request),
