@@ -127,6 +127,8 @@ export interface ContributionGraph {
 export interface ImagePreviewRequest {
   repoPath: string
   filePath: string
+  /** When set, preview the image from this commit instead of the working tree. */
+  commitSha?: string
 }
 
 export interface ImagePreview {

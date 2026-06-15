@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react'
 import { ExternalLink, GitCommitHorizontal, RefreshCcw, Search, Trash2, X } from 'lucide-react'
-import type { CommitDetails, CommitSummary, DiffResult, RepositorySnapshot } from '../../shared/branchPilot'
+import type { BranchPilotApi, CommitDetails, CommitSummary, DiffResult, ImagePreview, RepositorySnapshot } from '../../shared/branchPilot'
 import { getProviderCommitUrl } from '../../shared/providerRemote'
 import { formatDate } from '../../lib/format'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
@@ -24,7 +25,9 @@ export function HistoryView({
   loadCommitFileDiff,
   commitFileDiff,
   openExternalLink,
-  applyCommitOperation
+  applyCommitOperation,
+  api,
+  currentRepoPath
 }: {
   snapshot: RepositorySnapshot | null
   history: CommitSummary[]
@@ -44,9 +47,28 @@ export function HistoryView({
   commitFileDiff: DiffResult | null
   openExternalLink: (url: string | undefined, label?: string) => void
   applyCommitOperation: (kind: 'revert' | 'cherry-pick') => void | Promise<void>
+  api: BranchPilotApi | undefined
+  currentRepoPath: string | undefined
 }) {
     const selectedCommitProviderUrl = getProviderCommitUrl(snapshot?.summary.remoteUrl, commitDetails?.sha)
   const { containerRef: historyContainerRef, onScroll: historyScroll, window: historyWindow, items: historyItems } = virtualHistory
+
+  const [commitImagePreview, setCommitImagePreview] = useState<ImagePreview | null>(null)
+  useEffect(() => {
+    setCommitImagePreview(null)
+    if (!commitFileDiff?.binary || !commitDetails?.sha || !selectedCommitFilePath) return
+    if (!api || !currentRepoPath || typeof api.getImagePreview !== 'function') return
+    let cancelled = false
+    void api
+      .getImagePreview({ repoPath: currentRepoPath, filePath: selectedCommitFilePath, commitSha: commitDetails.sha })
+      .then((result) => {
+        if (!cancelled && result.ok) setCommitImagePreview(result.data)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [commitFileDiff, commitDetails?.sha, selectedCommitFilePath, api, currentRepoPath])
 
   return (
     <section className="content-grid history-grid">
@@ -192,7 +214,7 @@ export function HistoryView({
             </div>
           </div>
           <div className="commit-diff-column">
-            <DiffPreview diff={commitFileDiff} />
+            <DiffPreview diff={commitFileDiff} imagePreview={commitImagePreview} />
           </div>
         </div>
       </div>

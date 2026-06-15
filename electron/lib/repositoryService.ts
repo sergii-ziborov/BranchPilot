@@ -1,6 +1,7 @@
 import {
   promises as fs
 } from 'node:fs'
+import { spawn } from 'node:child_process'
 import path from 'node:path'
 import type {
   CloneRepositoryRequest,
@@ -65,6 +66,18 @@ export class RepositoryService extends RepositoryServiceWrites {
       throw new BranchPilotUserError('not_an_image', 'This file is not a previewable image.')
     }
 
+    const buffer = request.commitSha
+      ? await this.readGitBlob(rootPath, `${normalizeCommitSha(request.commitSha)}:${relativePath}`)
+      : await this.readWorkingTreeImage(rootPath, relativePath)
+
+    return {
+      dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
+      mimeType,
+      byteSize: buffer.length
+    }
+  }
+
+  private async readWorkingTreeImage(rootPath: string, relativePath: string): Promise<Buffer> {
     const absolutePath = resolveRepositoryPath(rootPath, relativePath)
     const stats = await fs.stat(absolutePath).catch(() => null)
 
@@ -76,13 +89,43 @@ export class RepositoryService extends RepositoryServiceWrites {
       throw new BranchPilotUserError('image_too_large', 'Image is too large to preview.')
     }
 
-    const buffer = await fs.readFile(absolutePath)
+    return fs.readFile(absolutePath)
+  }
 
-    return {
-      dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
-      mimeType,
-      byteSize: buffer.length
-    }
+  /** Reads a git blob (e.g. `<sha>:<path>`) as raw bytes so binary images survive intact. */
+  private readGitBlob(rootPath: string, ref: string): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      const child = spawn('/usr/bin/git', ['-C', rootPath, 'cat-file', 'blob', ref], {
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+      const chunks: Buffer[] = []
+      let size = 0
+      let aborted = false
+      let stderr = ''
+
+      child.stdout.on('data', (chunk: Buffer) => {
+        size += chunk.length
+        if (size > MAX_IMAGE_PREVIEW_BYTES) {
+          aborted = true
+          child.kill()
+          reject(new BranchPilotUserError('image_too_large', 'Image is too large to preview.'))
+          return
+        }
+        chunks.push(chunk)
+      })
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString('utf8')
+      })
+      child.on('error', reject)
+      child.on('close', (code) => {
+        if (aborted) return
+        if (code !== 0) {
+          reject(new BranchPilotUserError('image_not_found', stderr.trim() || 'Image is not available in this commit.'))
+          return
+        }
+        resolve(Buffer.concat(chunks))
+      })
+    })
   }
 
   async openRepository(selectedPath: string): Promise<RepositorySnapshot> {

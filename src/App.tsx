@@ -257,6 +257,8 @@ function App() {
                 commitFileDiff={commitFileDiff}
                 openExternalLink={openExternalLink}
                 applyCommitOperation={applyCommitOperation}
+                api={api}
+                currentRepoPath={currentRepoPath}
               />
             )}
             {viewMode === 'merge' && (
