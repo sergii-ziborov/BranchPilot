@@ -24,6 +24,7 @@ import {
 import {
   PR_CHECK_JSON_FIELDS, PR_DETAILS_JSON_FIELDS, PR_JSON_FIELDS, REPOSITORY_JSON_FIELDS, filterGitHubRepositories, normalizeGitHubAccount, normalizeGitHubPullRequestDetails, normalizeOptionalGitHubOwner, normalizePullRequestNumber, normalizeRepositoryListLimit, parseGitHubAccountList, parseGitHubJson, parseGitHubPullRequest, parseGitHubPullRequestChecks, parseGitHubPullRequestDiff, parseGitHubPullRequestList, parseGitHubRepositoryList, uniqueGitHubAccounts
 } from './githubCliService.parsers.js'
+import { normalizeGitHubRepositoryPath, type GitHubRepositoryInfo } from './githubCliService.shared.js'
 
 export interface GitHubDesktopCredential {
   username?: string
@@ -72,12 +73,6 @@ export interface GitHubApiClient {
       headBranch: string
     }
   ): Promise<GitHubApiPullRequest>
-}
-
-export interface GitHubRepositoryInfo {
-  owner: string
-  repo: string
-  remoteUrl: string
 }
 
 const DEFAULT_CREDENTIAL_PROVIDER: GitHubCredentialProvider = {
@@ -755,23 +750,6 @@ function parseGitHubRemoteUrl(remoteUrl: string): Pick<GitHubRepositoryInfo, 'ow
   } catch {
     return undefined
   }
-}
-
-export function normalizeGitHubRepositoryPath(owner: string, repo: string): Pick<GitHubRepositoryInfo, 'owner' | 'repo'> | undefined {
-  const normalizedRepo = repo.replace(/\.git$/i, '')
-
-  if (!isSafeGitHubPathSegment(owner) || !isSafeGitHubPathSegment(normalizedRepo)) {
-    return undefined
-  }
-
-  return {
-    owner,
-    repo: normalizedRepo
-  }
-}
-
-export function isSafeGitHubPathSegment(value: string): boolean {
-  return /^[A-Za-z0-9_.-]+$/.test(value)
 }
 
 async function getCurrentBranch(runner: CommandRunner, rootPath: string): Promise<string> {

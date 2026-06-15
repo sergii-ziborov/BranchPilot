@@ -1,4 +1,4 @@
-import type { GitHubRepositoryInfo } from './githubCliService.js'
+import { normalizeApiBranchRef, type GitHubRepositoryInfo } from './githubCliService.shared.js'
 import type {
   GitHubAccountSummary, GitHubPullRequest, GitHubPullRequestDetails, GitHubPullRequestDiff, GitHubRepositorySummary, ListGitHubRepositoriesRequest
 } from '../../src/shared/branchPilot.js'
@@ -350,18 +350,6 @@ export function githubApiErrorMessage(body: unknown, status: number): string {
     : []
 
   return [message, ...errors].join('\n')
-}
-
-export function normalizeApiBranchRef(value: unknown, fallback: string): string {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const ref = (value as Record<string, unknown>).ref
-
-    if (typeof ref === 'string' && ref.trim()) {
-      return ref
-    }
-  }
-
-  return fallback
 }
 
 export function parsePullRequestUrl(output: string): string {

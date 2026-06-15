@@ -40,9 +40,9 @@ import {
 import {
   MAX_BRANCH_COMPARE_SUMMARY_BYTES,
   MAX_DIFF_BYTES,
-  MAX_DIFF_OUTPUT_BYTES,
-  STALE_BRANCH_THRESHOLD_DAYS
+  MAX_DIFF_OUTPUT_BYTES
 } from './repositoryService.base.js'
+import { STALE_BRANCH_THRESHOLD_DAYS } from './repositoryService.constants.js'
 import { RepositoryServiceBase } from './repositoryService.base.js'
 
 export abstract class RepositoryServiceQueries extends RepositoryServiceBase {

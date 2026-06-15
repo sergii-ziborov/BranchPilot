@@ -40,7 +40,6 @@ export const MAX_DIFF_BYTES = 350_000
 export const MAX_DIFF_OUTPUT_BYTES = MAX_DIFF_BYTES + 1
 export const MAX_BRANCH_COMPARE_SUMMARY_BYTES = 80_000
 export const DEFAULT_REMOTE = 'origin'
-export const STALE_BRANCH_THRESHOLD_DAYS = 30
 
 export interface GitDefaultBranchResult {
   name?: string
