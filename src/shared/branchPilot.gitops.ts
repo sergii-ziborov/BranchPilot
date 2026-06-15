@@ -107,6 +107,11 @@ export interface DiffResult {
   files: DiffFile[]
 }
 
+export interface CoAuthor {
+  name: string
+  email: string
+}
+
 export interface ContributionDay {
   date: string
   count: number

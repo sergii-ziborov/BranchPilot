@@ -6,6 +6,7 @@ import type {
   CommitDetails,
   CommitDetailsRequest,
   CommitFileDiffRequest,
+  CoAuthor,
   CommitSummary,
   ContributionGraph,
   ContributionDay,
@@ -47,6 +48,31 @@ import { RepositoryServiceBase } from './repositoryService.base.js'
 export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
   async getRecentRepositories(): Promise<RecentRepository[]> {
     return this.settings.getRecentRepositories()
+  }
+
+  /** Repository contributors (from commit history) for co-author suggestions. */
+  async getContributors(repoPath: string): Promise<CoAuthor[]> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const result = await this.git(rootPath, ['log', '--format=%an\t%ae', '-n', '4000'], {
+      allowedExitCodes: [0, 128, 129]
+    })
+    if (result.exitCode !== 0) return []
+
+    const selfEmail = (await this.getConfig(rootPath, 'user.email'))?.trim().toLowerCase()
+    const seen = new Map<string, CoAuthor>()
+
+    for (const line of result.stdout.split('\n')) {
+      const tab = line.indexOf('\t')
+      if (tab < 0) continue
+      const name = line.slice(0, tab).trim()
+      const email = line.slice(tab + 1).trim()
+      if (!name || !email) continue
+      const key = email.toLowerCase()
+      if (key === selfEmail || seen.has(key)) continue
+      seen.set(key, { name, email })
+    }
+
+    return [...seen.values()].slice(0, 100)
   }
 
   /** Commit activity over the last ~53 weeks, aggregated for a GitHub-style heatmap. */

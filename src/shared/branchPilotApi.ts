@@ -30,6 +30,7 @@ import type {
   DeleteBranchRequest,
   DeleteTagRequest,
   DiffFile,
+  CoAuthor,
   ContributionGraph,
   DiffRequest,
   DiffResult,
@@ -209,6 +210,7 @@ export interface BranchPilotApi {
   getDiff: (request: DiffRequest) => Promise<ApiResult<DiffResult>>
   getImagePreview: (request: ImagePreviewRequest) => Promise<ApiResult<ImagePreview>>
   getContributionGraph: (repoPath?: string) => Promise<ApiResult<ContributionGraph>>
+  getContributors: (repoPath: string) => Promise<ApiResult<CoAuthor[]>>
   getHistory: (repoPath: string) => Promise<ApiResult<CommitSummary[]>>
   getCommitDetails: (request: CommitDetailsRequest) => Promise<ApiResult<CommitDetails>>
   getCommitFileDiff: (request: CommitFileDiffRequest) => Promise<ApiResult<DiffResult>>

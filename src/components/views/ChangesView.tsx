@@ -1,7 +1,7 @@
-import { useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useState, type ReactNode, type RefObject } from 'react'
 import { ArrowDownToLine, Bot, Copy, GitCommitHorizontal, ListFilter, Loader2, Pencil, Save, Search, Trash2, UploadCloud, Users, X } from 'lucide-react'
 import type {
-  ApiResult, AssistantId, AssistantPolicyStatus, BranchPilotApi, DiffHunk, DiffResult, ImagePreview,
+  ApiResult, AssistantId, AssistantPolicyStatus, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
 } from '../../shared/branchPilot'
 import type { ChangeDiffMode } from '../../shared/changeStaging'
@@ -98,6 +98,32 @@ export function ChangesView({
   const { containerRef: changesContainerRef, onScroll: changesScroll, window: changesWindow, items: changesItems } = virtualChanges
   const [showCoAuthors, setShowCoAuthors] = useState(false)
   const coAuthorsVisible = showCoAuthors || commitCoAuthors.trim().length > 0
+  const [contributors, setContributors] = useState<CoAuthor[]>([])
+  const [coAuthorFilter, setCoAuthorFilter] = useState('')
+
+  useEffect(() => {
+    if (!coAuthorsVisible || !currentRepoPath || typeof api?.getContributors !== 'function') return
+    let cancelled = false
+    void api.getContributors(currentRepoPath)
+      .then((result) => { if (!cancelled && result.ok) setContributors(result.data) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [coAuthorsVisible, currentRepoPath, api])
+
+  const addCoAuthor = (contributor: CoAuthor) => {
+    if (commitCoAuthors.includes(contributor.email)) return
+    const entry = `${contributor.name} <${contributor.email}>`
+    setCommitCoAuthors(commitCoAuthors.trim() ? `${commitCoAuthors.trim()}\n${entry}` : entry)
+    setCoAuthorFilter('')
+  }
+
+  const coAuthorQuery = coAuthorFilter.trim().toLowerCase()
+  const coAuthorSuggestions = contributors
+    .filter((contributor) => !commitCoAuthors.includes(contributor.email))
+    .filter((contributor) => !coAuthorQuery
+      || contributor.name.toLowerCase().includes(coAuthorQuery)
+      || contributor.email.toLowerCase().includes(coAuthorQuery))
+    .slice(0, 8)
   const visibleRange = virtualRangeLabel(changesWindow, filteredChanges.length)
   const visibleSummary = changeFilter
     ? `${filteredChanges.length} of ${totalChanges}`
@@ -261,14 +287,39 @@ export function ChangesView({
             placeholder="Description"
           />
           {coAuthorsVisible && (
-            <textarea
-              id="commit-coauthors"
-              className="commit-coauthors"
-              aria-label="Commit co-authors"
-              value={commitCoAuthors}
-              onChange={(event) => setCommitCoAuthors(event.target.value)}
-              placeholder="Co-authors: Name <email>, one per line"
-            />
+            <div className="coauthor-box">
+              <textarea
+                id="commit-coauthors"
+                className="commit-coauthors"
+                aria-label="Commit co-authors"
+                value={commitCoAuthors}
+                onChange={(event) => setCommitCoAuthors(event.target.value)}
+                placeholder="Co-authors: Name <email>, one per line"
+              />
+              <input
+                className="coauthor-filter"
+                value={coAuthorFilter}
+                onChange={(event) => setCoAuthorFilter(event.target.value)}
+                placeholder="Add a co-author from contributors…"
+                aria-label="Search contributors"
+              />
+              {coAuthorSuggestions.length > 0 && (
+                <div className="coauthor-suggestions">
+                  {coAuthorSuggestions.map((contributor) => (
+                    <button
+                      type="button"
+                      key={contributor.email}
+                      className="coauthor-chip"
+                      title={contributor.email}
+                      onClick={() => addCoAuthor(contributor)}
+                    >
+                      <Users size={13} />
+                      <span>{contributor.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           <div className="commit-assistant-row">
             <button

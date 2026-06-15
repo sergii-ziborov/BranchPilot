@@ -714,6 +714,37 @@
   min-height: 42px;
 }
 
+.coauthor-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coauthor-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.coauthor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.coauthor-chip:hover {
+  border-color: #2563eb;
+  background: #eef2ff;
+  color: #2563eb;
+}
+
 .changes-panel-compact .commit-actions {
   position: sticky;
   z-index: 2;
