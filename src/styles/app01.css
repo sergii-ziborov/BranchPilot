@@ -761,7 +761,10 @@ h3 {
 }
 
 .bulk-stage-toggle span {
-  display: grid;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
   padding: 0 10px 0 12px;
   line-height: 1.1;

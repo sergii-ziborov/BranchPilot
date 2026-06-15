@@ -1,7 +1,7 @@
 import { useEffect, useState, type RefObject } from 'react'
 import { ArrowDownToLine, Bot, Copy, GitCommitHorizontal, ListFilter, Pencil, Save, Search, Trash2, UploadCloud, Users, X } from 'lucide-react'
 import type {
-  ApiResult, AssistantId, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
+  ApiResult, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
 } from '../../shared/branchPilot'
 import type { ChangeDiffMode } from '../../shared/changeStaging'
@@ -10,7 +10,6 @@ import { getAmendCommitActionState, getCommitActionState, getCommitAndPushAction
 import { virtualRangeLabel } from '../../shared/virtualList'
 import { useVirtualList } from '../../hooks/useVirtualList'
 import { changeLabel, statusToken } from '../../lib/fileChangeLabels'
-import { ActionBlockers } from '../ActionBlockers'
 import { DiffPreview } from '../DiffView'
 import { BulkStageCheckbox, StageCheckbox } from '../StageCheckbox'
 
@@ -25,7 +24,7 @@ export function ChangesView({
   selectedFilePath, setSelectedFilePath, setDiffMode,
   commitTitle, setCommitTitle, commitDescription, setCommitDescription,
   commitCoAuthors, setCommitCoAuthors,
-  selectedAssistant, setSelectedAssistant,
+  setNotice,
   generateCommitText, canGenerateCommitText,
   commitActionState, commitAndPushActionState, amendCommitActionState,
   commitChanges, amendLastCommit,
@@ -62,8 +61,7 @@ export function ChangesView({
   setCommitDescription: (value: string) => void
   commitCoAuthors: string
   setCommitCoAuthors: (value: string) => void
-  selectedAssistant: AssistantId
-  setSelectedAssistant: (assistant: AssistantId) => void
+  setNotice: (message: string) => void
   generateCommitText: () => void | Promise<void>
   canGenerateCommitText: boolean
   commitActionState: ReturnType<typeof getCommitActionState>
@@ -146,6 +144,10 @@ export function ChangesView({
     ? `${filteredChanges.length} of ${totalChanges}`
     : `${totalChanges}`
 
+  const notifyBlocked = (title: string, reasons: string[]) => {
+    setNotice(reasons.length > 0 ? `${title}: ${reasons.join(' · ')}` : title)
+  }
+
   if (totalChanges === 0) {
     return (
       <section className="single-panel">
@@ -161,13 +163,6 @@ export function ChangesView({
   return (
     <section className="content-grid changes-workflow-grid">
       <div className="changes-panel changes-panel-compact">
-        <div className="changes-topbar">
-          <h2>
-            Changes
-            <span>{counts?.changed ?? 0}</span>
-          </h2>
-        </div>
-
         <div className="change-filter-bar change-filter-bar-compact">
           <details className="changes-actions-menu" ref={changesActionsMenuRef}>
             <summary>
@@ -289,13 +284,26 @@ export function ChangesView({
         </div>
 
         <div className="commit-box">
-          <input
-            id="commit-title"
-            aria-label="Commit title"
-            value={commitTitle}
-            onChange={(event) => setCommitTitle(event.target.value)}
-            placeholder="Summary (required)"
-          />
+          <div className="commit-summary-row">
+            <input
+              id="commit-title"
+              aria-label="Commit title"
+              value={commitTitle}
+              onChange={(event) => setCommitTitle(event.target.value)}
+              placeholder="Summary (required)"
+            />
+            <button
+              type="button"
+              className="commit-generate"
+              title="Generate commit text with the selected AI assistant"
+              aria-label="Generate commit text"
+              onClick={generateCommitText}
+              disabled={busy || !counts?.staged || !canGenerateCommitText}
+            >
+              <Bot size={16} />
+              Generate
+            </button>
+          </div>
           <textarea
             id="commit-description"
             aria-label="Commit description"
@@ -340,7 +348,7 @@ export function ChangesView({
               )}
             </div>
           )}
-          <div className="commit-assistant-row">
+          <div className="commit-actions">
             <button
               className={coAuthorsVisible ? 'icon-button active' : 'icon-button'}
               type="button"
@@ -351,52 +359,53 @@ export function ChangesView({
             >
               <Users size={16} />
             </button>
-            <select
-              id="assistant-select"
-              aria-label="Commit text assistant"
-              value={selectedAssistant}
-              onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
+            <button
+              type="button"
+              className={commitActionState.enabled ? undefined : 'blocked'}
+              aria-disabled={busy || !commitActionState.enabled}
+              onClick={() => {
+                if (busy) return
+                if (!commitActionState.enabled) {
+                  notifyBlocked('Commit blocked', commitActionState.reasons)
+                  return
+                }
+                void commitChanges()
+              }}
             >
-              <option value="auto">Auto</option>
-              <option value="claude">Claude Code</option>
-              <option value="codex">Codex</option>
-            </select>
-            <button type="button" onClick={generateCommitText} disabled={busy || !counts?.staged || !canGenerateCommitText}>
-              <Bot size={17} />
-              Generate text
-            </button>
-          </div>
-          {commitActionState.reasons.length > 0 && (
-            <ActionBlockers
-              title="Commit blocked"
-              reasons={commitActionState.reasons}
-            />
-          )}
-          {commitActionState.enabled && !commitAndPushActionState.enabled && commitAndPushActionState.reasons.length > 0 && (
-            <ActionBlockers
-              title="Commit & push blocked"
-              reasons={commitAndPushActionState.reasons}
-            />
-          )}
-          <div className="commit-actions">
-            <button type="button" onClick={commitChanges} disabled={busy || !commitActionState.enabled}>
               <GitCommitHorizontal size={17} />
               Commit
             </button>
-            <button type="button" className="danger-button" onClick={amendLastCommit} disabled={busy || !amendCommitActionState.enabled}>
+            <button
+              type="button"
+              className={amendCommitActionState.enabled ? 'danger-button' : 'danger-button blocked'}
+              aria-disabled={busy || !amendCommitActionState.enabled}
+              onClick={() => {
+                if (busy) return
+                if (!amendCommitActionState.enabled) {
+                  notifyBlocked('Amend blocked', amendCommitActionState.reasons)
+                  return
+                }
+                void amendLastCommit()
+              }}
+            >
               <Pencil size={17} />
               Amend last
             </button>
             <button
               type="button"
-              className="secondary"
+              className={commitAndPushActionState.enabled ? 'secondary' : 'secondary blocked'}
+              aria-disabled={busy || !commitAndPushActionState.enabled}
               onClick={async () => {
+                if (busy) return
+                if (!commitAndPushActionState.enabled) {
+                  notifyBlocked('Commit & push blocked', commitAndPushActionState.reasons)
+                  return
+                }
                 const committed = await commitChanges()
                 if (committed && currentRepoPath) {
                   await runSnapshotAction('Push complete.', () => api!.push(currentRepoPath))
                 }
               }}
-              disabled={busy || !commitAndPushActionState.enabled}
             >
               <UploadCloud size={17} />
               Commit & push

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
-  ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2,
+  ArrowDownToLine, ArrowUpFromLine, Bot, CalendarDays, ChevronDown, Clock3, Code2,
   DownloadCloud, FileCode2, FileDiff, FolderOpen, GitBranch, GitMerge, GitPullRequest,
   LayoutDashboard, RefreshCcw, Settings, Star, Terminal, Check
 } from 'lucide-react'
-import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
+import type { ApiResult, AssistantId, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
 
@@ -32,6 +32,8 @@ export function AppShellBar({
   currentRepoPath,
   viewMode,
   setViewMode,
+  selectedAssistant,
+  setSelectedAssistant,
   changedCount,
   recentRepositories,
   openRepository,
@@ -54,6 +56,8 @@ export function AppShellBar({
   currentRepoPath: string | undefined
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
+  selectedAssistant: AssistantId
+  setSelectedAssistant: (assistant: AssistantId) => void
   changedCount: number
   recentRepositories: RecentRepository[]
   openRepository: (path: string) => void | Promise<boolean>
@@ -250,6 +254,19 @@ export function AppShellBar({
             </span>
           )}
         </div>
+
+        <label className="shell-assistant" title="AI assistant for commit text, reviews, and drafts across BranchPilot">
+          <Bot size={15} />
+          <select
+            aria-label="AI assistant"
+            value={selectedAssistant}
+            onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
+          >
+            <option value="auto">Auto</option>
+            <option value="claude">Claude Code</option>
+            <option value="codex">Codex</option>
+          </select>
+        </label>
 
         <div className="shell-repo-actions">
           <button className="icon-button" type="button" title="Refresh repository" aria-label="Refresh repository" disabled={!snapshot || busy} onClick={() => refreshRepository()}>

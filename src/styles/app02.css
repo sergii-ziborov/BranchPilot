@@ -995,7 +995,7 @@
   z-index: 2;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: auto repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 0 -10px;
   padding: 8px 10px 10px;
@@ -1008,6 +1008,58 @@
   min-width: 0;
   min-height: 36px;
   padding: 0 9px;
+}
+
+.changes-panel-compact .commit-actions .icon-button {
+  width: 38px;
+  padding: 0;
+}
+
+/* Blocked commit buttons stay clickable so the reason can surface as a toast. */
+.commit-actions button.blocked {
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.commit-summary-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.commit-summary-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.commit-generate {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* Global AI assistant selector in the top bar. */
+.shell-assistant {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #ffffff;
+}
+
+.shell-assistant select {
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+  cursor: pointer;
 }
 
 .commit-actions button:first-child {
