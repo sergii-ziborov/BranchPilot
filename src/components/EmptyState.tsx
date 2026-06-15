@@ -1,4 +1,4 @@
-import { ArrowDownToLine, FolderOpen } from 'lucide-react'
+import { ArrowDownToLine, FolderOpen, GitBranch, GitCommitHorizontal, ShieldCheck } from 'lucide-react'
 
 /** Shown when no repository is open: open-folder prompt and clone panel. */
 export function EmptyState({
@@ -22,13 +22,23 @@ export function EmptyState({
 }) {
   return (
     <section className="empty-state">
-      <FolderOpen size={42} />
-      <h2>Open a local Git repository</h2>
-      <p>BranchPilot will read status, diffs, branches, merge state, and local Git configuration.</p>
-      <button type="button" onClick={chooseRepository} disabled={!apiReady || busy}>
-        <FolderOpen size={17} />
-        Open repository
-      </button>
+      <div className="empty-state-hero">
+        <span className="empty-state-icon">
+          <FolderOpen size={34} />
+        </span>
+        <p className="eyebrow">Workspace</p>
+        <h2>Open a Git repository</h2>
+        <p>Choose a local repository or clone one from a remote URL.</p>
+        <button className="empty-primary-action" type="button" onClick={chooseRepository} disabled={!apiReady || busy}>
+          <FolderOpen size={17} />
+          Open repository
+        </button>
+        <div className="empty-state-tags" aria-label="Available workflows">
+          <span><GitCommitHorizontal size={14} />Changes</span>
+          <span><GitBranch size={14} />Branches</span>
+          <span><ShieldCheck size={14} />Review</span>
+        </div>
+      </div>
       <div className="clone-panel">
         <div>
           <strong>Clone repository</strong>
