@@ -238,6 +238,59 @@
   background: #ffffff;
 }
 
+/* Dashboard + Memory share one scroll area (Memory folded into Dashboard). */
+.workspace > .dashboard-stack {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-stack > .single-panel {
+  overflow-y: visible;
+  flex: 0 0 auto;
+}
+
+/* Collapsible multi-repo section so current-repo heatmap + memory lead. */
+.dashboard-all-repos {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.dashboard-all-repos > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  user-select: none;
+}
+
+.dashboard-all-repos > summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-all-repos > summary:hover {
+  background: var(--surface);
+}
+
+.dashboard-all-repos[open] > summary {
+  margin-bottom: 12px;
+}
+
+.dashboard-all-repos-meta {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .heatmap {
   margin-top: 12px;
 }

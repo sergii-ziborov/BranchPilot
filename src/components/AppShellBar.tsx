@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
-  Archive, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2, Database,
+  Archive, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2,
   DownloadCloud, FileCode2, FileDiff, FolderOpen, GitBranch, GitMerge, GitPullRequest,
   LayoutDashboard, RefreshCcw, Settings, ShieldCheck, Star, Terminal, Check
 } from 'lucide-react'
@@ -23,7 +23,6 @@ const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'providers', label: 'Providers', icon: GitPullRequest },
   { id: 'config', label: 'Git Config', icon: Settings },
   { id: 'stash', label: 'Stash', icon: Archive },
-  { id: 'memory', label: 'Memory', icon: Database },
   { id: 'daily', label: 'Daily', icon: CalendarDays },
   { id: 'linkedin', label: 'LinkedIn', icon: LinkedinIcon }
 ]

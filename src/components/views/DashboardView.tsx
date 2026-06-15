@@ -85,6 +85,11 @@ export function DashboardView({
             <ContributionHeatmap graph={contributionGraph} />
           </section>
 
+          <details className="dashboard-all-repos">
+            <summary>
+              <span>All repositories</span>
+              <span className="dashboard-all-repos-meta">{dashboard.totals.repositories} scanned</span>
+            </summary>
           <div className="dashboard-stat-grid" aria-label="Dashboard totals">
             <Stat
               label="Dirty repos"
@@ -258,6 +263,7 @@ export function DashboardView({
               )}
             </section>
           </div>
+          </details>
         </>
       )}
     </section>

@@ -76,7 +76,7 @@ export function useAssistants({
     if (result.ok) {
       setAssistantPolicy(result.data)
       setNotice(`Assistant policy set to ${assistantPolicyModeLabel(result.data.settings.mode)}.`)
-      if (viewMode === 'memory') {
+      if (viewMode === 'dashboard') {
         void loadProjectMemory(currentRepoPath)
       }
     } else {

@@ -79,7 +79,7 @@ export function useAppController() {
 
 
   useEffect(() => {
-    if (!snapshot || viewMode !== 'memory') return
+    if (!snapshot || viewMode !== 'dashboard') return
     void loadProjectMemory()
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
@@ -351,7 +351,7 @@ export function useAppController() {
       void loadStashes(nextSnapshot.summary.rootPath)
     }
 
-    if (viewMode === 'memory') {
+    if (viewMode === 'dashboard') {
       void loadProjectMemory(nextSnapshot.summary.rootPath)
     }
   }

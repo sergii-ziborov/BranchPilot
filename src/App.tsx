@@ -84,21 +84,49 @@ function App() {
         ) : (
           <>
             {viewMode === 'dashboard' && (
-              <DashboardView
-                repositoryDashboard={repositoryDashboard}
-                contributionGraph={contributionGraph}
-                dashboardRepositoryFilter={dashboardRepositoryFilter}
-                setDashboardRepositoryFilter={setDashboardRepositoryFilter}
-                currentPullRequest={currentPullRequest}
-                githubCliStatus={githubCliStatus}
-                pullRequests={pullRequests}
-                dashboardLoading={dashboardLoading}
-                busy={busy}
-                loadRepositoryDashboard={loadRepositoryDashboard}
-                openRepository={openRepository}
-                setViewMode={setViewMode}
-                openExternalLink={openExternalLink}
-              />
+              <div className="dashboard-stack">
+                <DashboardView
+                  repositoryDashboard={repositoryDashboard}
+                  contributionGraph={contributionGraph}
+                  dashboardRepositoryFilter={dashboardRepositoryFilter}
+                  setDashboardRepositoryFilter={setDashboardRepositoryFilter}
+                  currentPullRequest={currentPullRequest}
+                  githubCliStatus={githubCliStatus}
+                  pullRequests={pullRequests}
+                  dashboardLoading={dashboardLoading}
+                  busy={busy}
+                  loadRepositoryDashboard={loadRepositoryDashboard}
+                  openRepository={openRepository}
+                  setViewMode={setViewMode}
+                  openExternalLink={openExternalLink}
+                />
+                <MemoryView
+                  projectMemory={projectMemory}
+                  memoryLoading={memoryLoading}
+                  loadProjectMemory={loadProjectMemory}
+                  scanProjectMemory={scanProjectMemory}
+                  activityLog={activityLog}
+                  projectMemoryMcpConfig={projectMemoryMcpConfig}
+                  copyProjectMemoryText={copyProjectMemoryText}
+                  projectWiki={projectWiki}
+                  wikiLoading={wikiLoading}
+                  generateProjectWiki={generateProjectWiki}
+                  selectedProjectWikiPage={selectedProjectWikiPage}
+                  setSelectedProjectWikiPageId={setSelectedProjectWikiPageId}
+                  copyProjectWikiPage={copyProjectWikiPage}
+                  completedWorkItems={completedWorkItems}
+                  clearActivityLog={clearActivityLog}
+                  activityCategories={activityCategories}
+                  activityCategory={activityCategory}
+                  setActivityCategory={setActivityCategory}
+                  filteredActivityEntries={filteredActivityEntries}
+                  selectedMemoryFilePath={selectedMemoryFilePath}
+                  setSelectedMemoryFilePath={setSelectedMemoryFilePath}
+                  selectedMemoryFile={selectedMemoryFile}
+                  selectedMemorySymbols={selectedMemorySymbols}
+                  selectedMemoryImports={selectedMemoryImports}
+                />
+              </div>
             )}
             {viewMode === 'changes' && (
               <ChangesView
@@ -365,34 +393,6 @@ function App() {
                 renderAssistantReadiness={renderAssistantReadiness}
                 renderGitHubRepositoryBrowser={renderGitHubRepositoryBrowser}
                 renderPullRequestDetailsPanel={renderPullRequestDetailsPanel}
-              />
-            )}
-            {viewMode === 'memory' && (
-              <MemoryView
-                projectMemory={projectMemory}
-                memoryLoading={memoryLoading}
-                loadProjectMemory={loadProjectMemory}
-                scanProjectMemory={scanProjectMemory}
-                activityLog={activityLog}
-                projectMemoryMcpConfig={projectMemoryMcpConfig}
-                copyProjectMemoryText={copyProjectMemoryText}
-                projectWiki={projectWiki}
-                wikiLoading={wikiLoading}
-                generateProjectWiki={generateProjectWiki}
-                selectedProjectWikiPage={selectedProjectWikiPage}
-                setSelectedProjectWikiPageId={setSelectedProjectWikiPageId}
-                copyProjectWikiPage={copyProjectWikiPage}
-                completedWorkItems={completedWorkItems}
-                clearActivityLog={clearActivityLog}
-                activityCategories={activityCategories}
-                activityCategory={activityCategory}
-                setActivityCategory={setActivityCategory}
-                filteredActivityEntries={filteredActivityEntries}
-                selectedMemoryFilePath={selectedMemoryFilePath}
-                setSelectedMemoryFilePath={setSelectedMemoryFilePath}
-                selectedMemoryFile={selectedMemoryFile}
-                selectedMemorySymbols={selectedMemorySymbols}
-                selectedMemoryImports={selectedMemoryImports}
               />
             )}
             {viewMode === 'daily' && (
