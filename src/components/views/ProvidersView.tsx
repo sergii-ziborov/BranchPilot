@@ -166,8 +166,13 @@ export function ProvidersView({
           </article>
         )}
 
-        <details className="pr-collapse pr-create">
-          <summary>Create pull request</summary>
+        <section className="branch-composer pr-composer">
+          <div className="branch-composer-heading">
+            <div>
+              <h3>Create pull request</h3>
+              <p>{snapshot ? `Open a pull request for ${snapshot.summary.currentBranch}.` : 'Open a repository to create a pull request.'}</p>
+            </div>
+          </div>
           <div className="pr-form">
           <label htmlFor="pr-base">Base branch</label>
           <input
@@ -222,7 +227,7 @@ export function ProvidersView({
             reasons={createPrState.reasons}
           />
           </div>
-        </details>
+        </section>
 
         {createdPullRequest && (
           <div className="created-pr">
