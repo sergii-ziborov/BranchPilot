@@ -10,6 +10,7 @@ import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { AppShellBar } from './components/AppShellBar'
 import { Toaster } from './components/Toaster'
 import { GlobalTooltip } from './components/GlobalTooltip'
+import { ConflictBanner } from './components/ConflictBanner'
 import { EmptyState } from './components/EmptyState'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
 import { GitHubRepositoryBrowser, PullRequestDetailsPanel } from './components/ProvidersPanels'
@@ -62,6 +63,16 @@ function App() {
       <GlobalTooltip />
 
       <section className="workspace">
+
+        {snapshot && snapshot.status.merge.operation !== 'none' && viewMode !== 'merge' && (
+          <ConflictBanner
+            operation={snapshot.status.merge.operation}
+            conflictedCount={counts?.conflicted ?? 0}
+            busy={busy}
+            onResolve={() => setViewMode('merge')}
+            onAbort={abortCurrentOperation}
+          />
+        )}
 
         {!snapshot ? (
           <EmptyState

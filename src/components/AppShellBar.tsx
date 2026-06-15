@@ -19,7 +19,6 @@ const PRIMARY_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
 const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'branches', label: 'Branches', icon: GitBranch },
-  { id: 'merge', label: 'Merge', icon: GitMerge },
   { id: 'review', label: 'Review', icon: ShieldCheck },
   { id: 'providers', label: 'Providers', icon: GitPullRequest },
   { id: 'config', label: 'Git Config', icon: Settings },
