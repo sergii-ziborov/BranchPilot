@@ -291,6 +291,54 @@
   color: var(--muted);
 }
 
+/* Reports tab: Daily Review + LinkedIn as sub-tabs in one scroll area. */
+.workspace > .reports-stack {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.reports-switch {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  padding: 10px 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.reports-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: -1px;
+}
+
+.reports-switch button:hover {
+  color: var(--text);
+}
+
+.reports-switch button.active {
+  color: var(--text-strong);
+  background: var(--surface);
+  border-color: var(--border);
+  border-bottom-color: var(--surface);
+}
+
+.reports-stack > .single-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .heatmap {
   margin-top: 12px;
 }

@@ -7,7 +7,6 @@ import {
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
-import { LinkedinIcon } from './BrandIcons'
 
 type TabIcon = ComponentType<{ size?: number }>
 
@@ -23,8 +22,7 @@ const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'providers', label: 'Providers', icon: GitPullRequest },
   { id: 'config', label: 'Git Config', icon: Settings },
   { id: 'stash', label: 'Stash', icon: Archive },
-  { id: 'daily', label: 'Daily', icon: CalendarDays },
-  { id: 'linkedin', label: 'LinkedIn', icon: LinkedinIcon }
+  { id: 'daily', label: 'Reports', icon: CalendarDays }
 ]
 
 /** GitHub-Desktop-style top bar: repository + branch pickers, sync actions, and view tabs. */
@@ -287,9 +285,11 @@ export function AppShellBar({
           ))}
         </div>
         <div className="shell-tabs-tools">
-          {TOOL_TABS.map((tab) => (
+          {TOOL_TABS.map((tab) => {
+            const isActive = viewMode === tab.id || (tab.id === 'daily' && viewMode === 'linkedin')
+            return (
             <button
-              className={viewMode === tab.id ? 'shell-tool active' : 'shell-tool'}
+              className={isActive ? 'shell-tool active' : 'shell-tool'}
               type="button"
               key={tab.id}
               title={tab.label}
@@ -298,7 +298,8 @@ export function AppShellBar({
               <tab.icon size={15} />
               <span>{tab.label}</span>
             </button>
-          ))}
+            )
+          })}
         </div>
       </nav>
     </header>

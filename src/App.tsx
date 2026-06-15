@@ -5,8 +5,10 @@ import type {
 
 
 } from './shared/branchPilot'
+import { CalendarDays } from 'lucide-react'
 import { AssistantPolicyPanel, AssistantReadiness } from './components/AssistantPanels'
 import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
+import { LinkedinIcon } from './components/BrandIcons'
 import { AppShellBar } from './components/AppShellBar'
 import { Toaster } from './components/Toaster'
 import { GlobalTooltip } from './components/GlobalTooltip'
@@ -395,19 +397,43 @@ function App() {
                 renderPullRequestDetailsPanel={renderPullRequestDetailsPanel}
               />
             )}
-            {viewMode === 'daily' && (
-              <DailyView
-                dailyReviewDate={dailyReviewDate}
-                setDailyReviewDate={setDailyReviewDate}
-                runDailyReview={runDailyReview}
-                snapshot={snapshot}
-                dailyReviewLoading={dailyReviewLoading}
-                dailyReview={dailyReview}
-                copyDailyReviewMarkdown={copyDailyReviewMarkdown}
-              />
-            )}
-            {viewMode === 'linkedin' && (
-              <LinkedInView
+            {(viewMode === 'daily' || viewMode === 'linkedin') && (
+              <div className="reports-stack">
+                <div className="reports-switch" role="tablist" aria-label="Reports">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={viewMode === 'daily'}
+                    className={viewMode === 'daily' ? 'active' : ''}
+                    onClick={() => setViewMode('daily')}
+                  >
+                    <CalendarDays size={15} />
+                    Daily review
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={viewMode === 'linkedin'}
+                    className={viewMode === 'linkedin' ? 'active' : ''}
+                    onClick={() => setViewMode('linkedin')}
+                  >
+                    <LinkedinIcon size={15} />
+                    LinkedIn
+                  </button>
+                </div>
+                {viewMode === 'daily' && (
+                  <DailyView
+                    dailyReviewDate={dailyReviewDate}
+                    setDailyReviewDate={setDailyReviewDate}
+                    runDailyReview={runDailyReview}
+                    snapshot={snapshot}
+                    dailyReviewLoading={dailyReviewLoading}
+                    dailyReview={dailyReview}
+                    copyDailyReviewMarkdown={copyDailyReviewMarkdown}
+                  />
+                )}
+                {viewMode === 'linkedin' && (
+                  <LinkedInView
                 generateLinkedInProject={generateLinkedInProject}
                 snapshot={snapshot}
                 busy={busy}
@@ -433,7 +459,9 @@ function App() {
                 copyLinkedInTags={copyLinkedInTags}
                 copyLinkedInMarkdown={copyLinkedInMarkdown}
                 renderAssistantReadiness={renderAssistantReadiness}
-              />
+                  />
+                )}
+              </div>
             )}
           </>
         )}
