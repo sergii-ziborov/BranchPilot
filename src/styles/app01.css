@@ -218,6 +218,39 @@ button.icon-button.active {
   font-size: 12px;
 }
 
+/* Merge-into-branch picker list. */
+.merge-branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  margin-top: 12px;
+  overflow-y: auto;
+}
+
+.merge-branch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.merge-branch-item:hover {
+  background: #f1f5f9;
+}
+
+.merge-branch-item.active {
+  border-color: #2563eb;
+  background: #eef2ff;
+  color: #2563eb;
+}
+
 .shell-dropdown-empty {
   padding: 10px;
   color: var(--muted);

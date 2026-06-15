@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
-import { CreateBranchDialog, SwitchBranchDialog } from './Dialogs'
+import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
 import { LinkedinIcon } from './BrandIcons'
 
 type TabIcon = ComponentType<{ size?: number }>
@@ -81,7 +81,14 @@ export function AppShellBar({
   const [showCreateBranch, setShowCreateBranch] = useState(false)
   const [newBranchName, setNewBranchName] = useState('')
   const [pendingSwitch, setPendingSwitch] = useState<string | null>(null)
+  const [showMergeInto, setShowMergeInto] = useState(false)
   const hasChanges = (snapshot?.status.counts.changed ?? 0) > 0
+
+  const mergeIntoBranch = (branchName: string) => {
+    if (!currentRepoPath) return
+    setShowMergeInto(false)
+    void runSnapshotAction('Merge complete.', () => api!.mergeBranch({ repoPath: currentRepoPath, branchName }))
+  }
 
   const openCreateBranch = () => {
     setNewBranchName('')
@@ -221,6 +228,10 @@ export function AppShellBar({
                 ))
               )}
             </div>
+            <button className="shell-dropdown-primary" type="button" disabled={!snapshot || busy || branches.length < 2} onClick={(event) => { closeMenu(event); setShowMergeInto(true) }}>
+              <GitMerge size={15} />
+              Merge into {currentBranch ?? 'current'}…
+            </button>
             <button className="shell-dropdown-primary" type="button" onClick={(event) => { closeMenu(event); setViewMode('branches') }}>
               <GitBranch size={15} />
               Manage branches, worktrees & tags
@@ -310,6 +321,15 @@ export function AppShellBar({
         busy={busy}
         onCancel={() => setPendingSwitch(null)}
         onSwitch={confirmSwitch}
+      />
+    )}
+    {showMergeInto && (
+      <MergeBranchDialog
+        currentBranch={currentBranch ?? 'current branch'}
+        branches={branches}
+        busy={busy}
+        onCancel={() => setShowMergeInto(false)}
+        onMerge={mergeIntoBranch}
       />
     )}
     </>
