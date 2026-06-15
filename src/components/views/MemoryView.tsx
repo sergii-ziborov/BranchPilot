@@ -115,6 +115,8 @@ export function MemoryView({
           </section>
 
           {projectMemoryMcpConfig && (
+            <details className="memory-collapsible">
+              <summary>Codex MCP setup</summary>
             <section className="memory-mcp-card">
               <div className="memory-section-heading">
                 <div>
@@ -147,8 +149,11 @@ export function MemoryView({
                 <pre><code>{projectMemoryMcpConfig.codexToml}</code></pre>
               </div>
             </section>
+            </details>
           )}
 
+          <details className="memory-collapsible">
+            <summary>Project Wiki</summary>
           <section className="project-wiki-card">
             <div className="memory-section-heading">
               <div>
@@ -213,7 +218,10 @@ export function MemoryView({
               </>
             )}
           </section>
+          </details>
 
+          <details className="memory-collapsible">
+            <summary>Completed Work</summary>
           <section className="memory-activity-card completed-work-card">
             <div className="memory-section-heading">
               <div>
@@ -237,7 +245,10 @@ export function MemoryView({
               )}
             </div>
           </section>
+          </details>
 
+          <details className="memory-collapsible">
+            <summary>Raw Activity Events</summary>
           <section className="memory-activity-card">
             <div className="memory-section-heading">
               <div>
@@ -288,6 +299,7 @@ export function MemoryView({
               )}
             </div>
           </section>
+          </details>
 
           <section className="memory-grid">
             <div className="memory-list">

@@ -385,6 +385,18 @@
   gap: 9px;
 }
 
+.pr-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px 12px;
+}
+
+.pr-field {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
 .pr-form label {
   color: var(--muted);
   font-size: 12px;
@@ -928,6 +940,7 @@ button.secondary:hover {
   .tag-composer,
   .merge-start,
   .pr-details-meta,
+  .pr-form-row,
   .pr-diff-panel,
   .pr-check-row,
   .stash-create,
@@ -958,6 +971,19 @@ button.secondary:hover {
 }
 
 @media (max-width: 760px) {
+  .empty-state {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 30px 28px;
+  }
+
+  .clone-panel {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid #e5eaf2;
+    padding-top: 24px;
+  }
+
   .changes-workflow-grid,
   .history-grid,
   .history-detail-grid {
@@ -1010,11 +1036,12 @@ button:not(.shell-tab):active {
 }
 
 .shell-tab.active {
-  background: linear-gradient(to bottom, rgba(37, 99, 235, 0.07), rgba(37, 99, 235, 0));
+  background: #eef2ff;
 }
 
 .workspace > .content-grid,
-.workspace > .single-panel {
+.workspace > .single-panel,
+.workspace > .empty-state {
   animation: view-fade-in 0.2s ease both;
 }
 

@@ -339,6 +339,51 @@
   min-height: 0;
 }
 
+/* Heavy Memory subsections collapse so the Dashboard stays scannable. */
+.memory-collapsible {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.memory-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-strong);
+  padding: 12px 14px;
+  user-select: none;
+}
+
+.memory-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.memory-collapsible > summary::before {
+  content: '▸';
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memory-collapsible[open] > summary::before {
+  content: '▾';
+}
+
+.memory-collapsible[open] > summary {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+
+.memory-collapsible > .memory-mcp-card,
+.memory-collapsible > .project-wiki-card,
+.memory-collapsible > .memory-activity-card {
+  border: none;
+}
+
 .heatmap {
   margin-top: 12px;
 }

@@ -174,20 +174,26 @@ export function ProvidersView({
             </div>
           </div>
           <div className="pr-form">
-          <label htmlFor="pr-base">Base branch</label>
-          <input
-            id="pr-base"
-            value={prBaseBranch}
-            onChange={(event) => setPrBaseBranch(event.target.value)}
-            placeholder="main"
-          />
-          <label htmlFor="pr-title">Title</label>
-          <input
-            id="pr-title"
-            value={prTitle}
-            onChange={(event) => setPrTitle(event.target.value)}
-            placeholder="Summarize branch changes"
-          />
+          <div className="pr-form-row">
+            <div className="pr-field">
+              <label htmlFor="pr-base">Base branch</label>
+              <input
+                id="pr-base"
+                value={prBaseBranch}
+                onChange={(event) => setPrBaseBranch(event.target.value)}
+                placeholder="main"
+              />
+            </div>
+            <div className="pr-field">
+              <label htmlFor="pr-title">Title</label>
+              <input
+                id="pr-title"
+                value={prTitle}
+                onChange={(event) => setPrTitle(event.target.value)}
+                placeholder="Summarize branch changes"
+              />
+            </div>
+          </div>
           <label htmlFor="pr-description">Description</label>
           <textarea
             id="pr-description"
