@@ -1062,6 +1062,35 @@
   cursor: pointer;
 }
 
+/* Diff heading: title, path and +/- stats on a single line. */
+.diff-heading {
+  align-items: center;
+}
+
+.diff-heading-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.diff-heading-main h2 {
+  flex: 0 0 auto;
+}
+
+.diff-heading-main p {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-heading-main .diff-stats {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
 /* Diff display controls live in the diff heading where Discard used to be. */
 .diff-controls {
   display: flex;

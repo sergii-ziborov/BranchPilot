@@ -1,6 +1,5 @@
 import { CalendarDays, Copy, Loader2 } from 'lucide-react'
 import type { DailyReviewReport, RepositorySnapshot } from '../../shared/branchPilot'
-import { Stat } from '../primitives'
 import { PanelHeading } from '../PanelHeading'
 
 export function DailyView({
@@ -45,15 +44,6 @@ export function DailyView({
         </div>
       ) : (
         <>
-          <section className="memory-summary-grid daily-summary-grid">
-            <Stat label="Report date" value={dailyReview.date} />
-            <Stat label="Commits" value={dailyReview.stats.commits} />
-            <Stat label="Changed" value={dailyReview.stats.changed} />
-            <Stat label="Conflicts" value={dailyReview.stats.conflicted} />
-            <Stat label="Ahead / behind" value={`${dailyReview.stats.ahead} / ${dailyReview.stats.behind}`} />
-            <Stat label="Activities" value={dailyReview.stats.activities} />
-          </section>
-
           <div className="daily-workspace">
             <section className="daily-section-list">
               {dailyReview.sections.map((section) => (

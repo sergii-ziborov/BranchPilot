@@ -473,8 +473,8 @@ export function ChangesView({
           setDiffMenu({ x: event.clientX, y: event.clientY })
         }}
       >
-        <div className="panel-heading">
-          <div>
+        <div className="panel-heading diff-heading">
+          <div className="diff-heading-main">
             <h2>Diff</h2>
             <p>{selectedChange?.path ?? 'Select a changed file'}</p>
             {selectedDiffStats && (

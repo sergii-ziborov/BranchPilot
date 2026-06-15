@@ -1,7 +1,6 @@
 import { ExternalLink, GitCommitHorizontal, RefreshCcw, Search, Trash2, X } from 'lucide-react'
 import type { CommitDetails, CommitSummary, DiffResult, RepositorySnapshot } from '../../shared/branchPilot'
 import { getProviderCommitUrl } from '../../shared/providerRemote'
-import { virtualRangeLabel } from '../../shared/virtualList'
 import { formatDate } from '../../lib/format'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { useVirtualList } from '../../hooks/useVirtualList'
@@ -73,10 +72,6 @@ export function HistoryView({
               placeholder="Search commits"
             />
           </label>
-          <span>
-            {filteredHistory.length} / {history.length}
-            {virtualRangeLabel(historyWindow, filteredHistory.length)}
-          </span>
           {historyFilter && (
             <button type="button" className="secondary" onClick={() => setHistoryFilter('')}>
               <X size={15} />
