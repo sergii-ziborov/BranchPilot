@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react'
-import { ArrowDownToLine, Bot, Copy, GitCommitHorizontal, ListFilter, Pencil, Save, Search, Trash2, UploadCloud, Users, X } from 'lucide-react'
+import { ArrowDownToLine, Bot, Columns2, Copy, GitCommitHorizontal, ListFilter, MinusSquare, Pencil, PlusSquare, Rows3, Save, Search, Trash2, UploadCloud, Users, X } from 'lucide-react'
 import type {
   ApiResult, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
@@ -146,6 +146,41 @@ export function ChangesView({
 
   const notifyBlocked = (title: string, reasons: string[]) => {
     setNotice(reasons.length > 0 ? `${title}: ${reasons.join(' · ')}` : title)
+  }
+
+  const [diffMenu, setDiffMenu] = useState<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    if (!diffMenu) return
+    const close = () => setDiffMenu(null)
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDiffMenu(null)
+    }
+    window.addEventListener('click', close)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [diffMenu])
+
+  const stageSelectedFile = () => {
+    setDiffMenu(null)
+    if (!selectedChange || !currentRepoPath) return
+    void runSnapshotAction('File staged.', () => api!.stageFile({ repoPath: currentRepoPath, filePath: selectedChange.path }))
+  }
+
+  const unstageSelectedFile = () => {
+    setDiffMenu(null)
+    if (!selectedChange || !currentRepoPath) return
+    void runSnapshotAction('File unstaged.', () => api!.unstageFile({ repoPath: currentRepoPath, filePath: selectedChange.path }))
+  }
+
+  const discardFromMenu = () => {
+    setDiffMenu(null)
+    void discardSelected()
   }
 
   if (totalChanges === 0) {
@@ -414,7 +449,14 @@ export function ChangesView({
         </div>
       </div>
 
-      <div className="diff-panel">
+      <div
+        className="diff-panel"
+        onContextMenu={(event) => {
+          if (!selectedChange) return
+          event.preventDefault()
+          setDiffMenu({ x: event.clientX, y: event.clientY })
+        }}
+      >
         <div className="panel-heading">
           <div>
             <h2>Diff</h2>
@@ -426,16 +468,35 @@ export function ChangesView({
               </div>
             )}
           </div>
-          <div className="panel-actions">
-            <button
-              className="danger-button"
-              type="button"
-              onClick={discardSelected}
-              disabled={busy || !selectedChange || (!selectedChange.unstaged && !selectedChange.untracked)}
-            >
-              <Trash2 size={17} />
-              {selectedChange?.untracked ? 'Delete' : 'Discard'}
-            </button>
+          <div className="panel-actions diff-controls">
+            <label className="diff-whitespace-toggle" title="Ignore whitespace-only changes in the diff">
+              <input
+                type="checkbox"
+                checked={diffIgnoreWhitespace}
+                onChange={(event) => setDiffIgnoreWhitespace(event.target.checked)}
+              />
+              Ignore whitespace
+            </label>
+            <div className="segmented diff-display-toggle" aria-label="Diff display mode">
+              <button
+                className={diffDisplayMode === 'unified' ? 'active' : ''}
+                type="button"
+                title="Unified diff (single column)"
+                onClick={() => setDiffDisplayMode('unified')}
+              >
+                <Rows3 size={15} />
+                Unified
+              </button>
+              <button
+                className={diffDisplayMode === 'split' ? 'active' : ''}
+                type="button"
+                title="Split diff (side by side)"
+                onClick={() => setDiffDisplayMode('split')}
+              >
+                <Columns2 size={15} />
+                Split
+              </button>
+            </div>
           </div>
         </div>
 
@@ -459,30 +520,6 @@ export function ChangesView({
                 Staged
               </button>
             </div>
-            <label className="diff-whitespace-toggle">
-              <input
-                type="checkbox"
-                checked={diffIgnoreWhitespace}
-                onChange={(event) => setDiffIgnoreWhitespace(event.target.checked)}
-              />
-              Ignore whitespace
-            </label>
-            <div className="segmented diff-display-toggle" aria-label="Diff display mode">
-              <button
-                className={diffDisplayMode === 'unified' ? 'active' : ''}
-                type="button"
-                onClick={() => setDiffDisplayMode('unified')}
-              >
-                Unified
-              </button>
-              <button
-                className={diffDisplayMode === 'split' ? 'active' : ''}
-                type="button"
-                onClick={() => setDiffDisplayMode('split')}
-              >
-                Split
-              </button>
-            </div>
           </div>
         )}
 
@@ -496,6 +533,42 @@ export function ChangesView({
           onUnstageHunk={unstageSelectedHunk}
           onOpenLine={openSelectedFileLineInEditor}
         />
+
+        {diffMenu && selectedChange && (
+          <div className="context-menu" role="menu" style={{ top: diffMenu.y, left: diffMenu.x }}>
+            <button
+              type="button"
+              role="menuitem"
+              title="Stage all changes in this file"
+              onClick={stageSelectedFile}
+              disabled={busy || (!selectedChange.unstaged && !selectedChange.untracked)}
+            >
+              <PlusSquare size={15} />
+              Stage file
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              title="Unstage this file"
+              onClick={unstageSelectedFile}
+              disabled={busy || !selectedChange.staged}
+            >
+              <MinusSquare size={15} />
+              Unstage file
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="danger"
+              title={selectedChange.untracked ? 'Delete this untracked file' : 'Discard changes to this file'}
+              onClick={discardFromMenu}
+              disabled={busy || (!selectedChange.unstaged && !selectedChange.untracked)}
+            >
+              <Trash2 size={15} />
+              {selectedChange.untracked ? 'Delete file' : 'Discard changes'}
+            </button>
+          </div>
+        )}
       </div>
     </section>
   )
