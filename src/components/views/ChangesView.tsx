@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react'
-import { ArrowDownToLine, Bot, Columns2, Copy, GitCommitHorizontal, ListFilter, MinusSquare, Pencil, PlusSquare, Rows3, Save, Search, Trash2, UploadCloud, Users, X } from 'lucide-react'
+import { Archive, ArrowDownToLine, Bot, Columns2, Copy, GitCommitHorizontal, ListFilter, MinusSquare, Pencil, Pilcrow, PlusSquare, Rows3, Save, Search, ShieldCheck, Trash2, UploadCloud, Users, X } from 'lucide-react'
 import type {
   ApiResult, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
@@ -24,7 +24,7 @@ export function ChangesView({
   selectedFilePath, setSelectedFilePath, setDiffMode,
   commitTitle, setCommitTitle, commitDescription, setCommitDescription,
   commitCoAuthors, setCommitCoAuthors,
-  setNotice,
+  setNotice, onOpenReview, onOpenStash,
   generateCommitText, canGenerateCommitText,
   commitActionState, commitAndPushActionState, amendCommitActionState,
   commitChanges, amendLastCommit,
@@ -62,6 +62,8 @@ export function ChangesView({
   commitCoAuthors: string
   setCommitCoAuthors: (value: string) => void
   setNotice: (message: string) => void
+  onOpenReview: () => void
+  onOpenStash: () => void
   generateCommitText: () => void | Promise<void>
   canGenerateCommitText: boolean
   commitActionState: ReturnType<typeof getCommitActionState>
@@ -292,7 +294,15 @@ export function ChangesView({
                   key={change.path}
                   style={{ transform: `translateY(${index * itemHeight}px)` }}
                 >
-                  <div className={selectedFilePath === change.path ? 'change-row selected' : 'change-row'}>
+                  <div
+                    className={selectedFilePath === change.path ? 'change-row selected' : 'change-row'}
+                    onContextMenu={(event) => {
+                      event.preventDefault()
+                      setSelectedFilePath(change.path)
+                      setDiffMode(getDefaultChangeDiffMode(change))
+                      setDiffMenu({ x: event.clientX, y: event.clientY })
+                    }}
+                  >
                     <StageCheckbox
                       change={change}
                       disabled={busy || change.conflicted}
@@ -394,6 +404,12 @@ export function ChangesView({
             >
               <Users size={16} />
             </button>
+            <button className="icon-button" type="button" title="Review changes" aria-label="Review changes" onClick={onOpenReview}>
+              <ShieldCheck size={16} />
+            </button>
+            <button className="icon-button" type="button" title="Stashes" aria-label="Stashes" onClick={onOpenStash}>
+              <Archive size={16} />
+            </button>
             <button
               type="button"
               className={commitActionState.enabled ? undefined : 'blocked'}
@@ -469,59 +485,38 @@ export function ChangesView({
             )}
           </div>
           <div className="panel-actions diff-controls">
-            <label className="diff-whitespace-toggle" title="Ignore whitespace-only changes in the diff">
-              <input
-                type="checkbox"
-                checked={diffIgnoreWhitespace}
-                onChange={(event) => setDiffIgnoreWhitespace(event.target.checked)}
-              />
-              Ignore whitespace
-            </label>
+            <button
+              type="button"
+              className={diffIgnoreWhitespace ? 'icon-button active' : 'icon-button'}
+              title="Ignore whitespace-only changes"
+              aria-label="Ignore whitespace"
+              aria-pressed={diffIgnoreWhitespace}
+              onClick={() => setDiffIgnoreWhitespace(!diffIgnoreWhitespace)}
+            >
+              <Pilcrow size={16} />
+            </button>
             <div className="segmented diff-display-toggle" aria-label="Diff display mode">
               <button
                 className={diffDisplayMode === 'unified' ? 'active' : ''}
                 type="button"
                 title="Unified diff (single column)"
+                aria-label="Unified diff"
                 onClick={() => setDiffDisplayMode('unified')}
               >
-                <Rows3 size={15} />
-                Unified
+                <Rows3 size={16} />
               </button>
               <button
                 className={diffDisplayMode === 'split' ? 'active' : ''}
                 type="button"
                 title="Split diff (side by side)"
+                aria-label="Split diff"
                 onClick={() => setDiffDisplayMode('split')}
               >
-                <Columns2 size={15} />
-                Split
+                <Columns2 size={16} />
               </button>
             </div>
           </div>
         </div>
-
-        {selectedChange && (
-          <div className="diff-options">
-            <div className="segmented">
-              <button
-                className={diffMode === 'unstaged' ? 'active' : ''}
-                type="button"
-                onClick={() => setDiffMode('unstaged')}
-                disabled={!selectedChange.unstaged && !selectedChange.untracked}
-              >
-                Unstaged
-              </button>
-              <button
-                className={diffMode === 'staged' ? 'active' : ''}
-                type="button"
-                onClick={() => setDiffMode('staged')}
-                disabled={!selectedChange.staged}
-              >
-                Staged
-              </button>
-            </div>
-          </div>
-        )}
 
         <DiffPreview
           diff={diff}

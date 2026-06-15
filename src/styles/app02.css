@@ -995,7 +995,7 @@
   z-index: 2;
   bottom: 0;
   display: grid;
-  grid-template-columns: auto repeat(3, minmax(0, 1fr));
+  grid-template-columns: auto auto auto repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 0 -10px;
   padding: 8px 10px 10px;
@@ -1121,6 +1121,57 @@
 
 .context-menu button.danger:hover:not(:disabled) {
   background: #fef2f2;
+}
+
+/* Modal hosting the Review / Stash tools (replaces the old bottom drawer). */
+.tool-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.tool-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  height: min(80vh, 760px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+}
+
+.tool-modal-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-modal-head h2 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tool-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-modal-body > .single-panel {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .commit-actions button:first-child {

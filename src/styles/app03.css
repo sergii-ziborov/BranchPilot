@@ -5,7 +5,7 @@
 
 .split-diff-lines {
   display: grid;
-  min-width: 920px;
+  min-width: 0;
 }
 
 .split-diff-row {
@@ -76,6 +76,16 @@
 .diff-line .line-content,
 .split-diff-cell .line-content {
   overflow: visible;
+}
+
+/* Split cells must wrap long lines so the two columns always fit the panel. */
+.split-diff-cell {
+  align-items: start;
+}
+
+.split-diff-cell .line-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .diff-line.line-add,

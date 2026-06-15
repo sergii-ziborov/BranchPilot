@@ -9,8 +9,9 @@ import { CalendarDays } from 'lucide-react'
 import { AssistantPolicyPanel, AssistantReadiness } from './components/AssistantPanels'
 import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { LinkedinIcon } from './components/BrandIcons'
+import { useEffect, useState } from 'react'
 import { AppShellBar } from './components/AppShellBar'
-import { ChangesWorkspace } from './components/ChangesWorkspace'
+import { ToolModal } from './components/ToolModal'
 import { Toaster } from './components/Toaster'
 import { GlobalTooltip } from './components/GlobalTooltip'
 import { ConflictBanner } from './components/ConflictBanner'
@@ -48,6 +49,12 @@ function App() {
   const {
     snapshot, viewMode, setViewMode, busy, operationLabel, notice, setNotice, error, setError, selectedAssistant, setSelectedAssistant, confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue, answerConfirmation, answerTextPrompt, currentRepoPath, projectMemory, projectMemoryMcpConfig, projectWiki, setSelectedProjectWikiPageId, selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading, selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports, filteredActivityEntries, completedWorkItems, loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage, clearActivityLog, assistants, assistantsChecking, assistantPolicy, assistantPolicyLoading, checkAssistants, updateAssistantPolicy, newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription, branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter, newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef, tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage, editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating, branchComparison, branchComparisonLoading, canGenerateBranchDraft, branchDraftActionState, createBranchActionState, branchComposerSummary, generateBranchDraft, createBranch, deleteBranch, renameBranch, setBranchUpstream, compareBranch, createTag, deleteTag, createWorktree, openWorktree, removeWorktree, startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription, history, historyLoading, historyFilter, setHistoryFilter, selectedCommitSha, setSelectedCommitSha, commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory, loadHistory, loadCommitFileDiff, providers, githubCliStatus, githubAccounts, githubAccountsLoading, githubRepositories, githubRepoOwner, setGithubRepoOwner, githubRepoQuery, setGithubRepoQuery, githubRepoVisibility, setGithubRepoVisibility, githubRepoLimit, setGithubRepoLimit, githubRepoLoading, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber, selectedPullRequestDetails, selectedPullRequestChecks, selectedPullRequestDiff, selectedPullRequestFilePath, setSelectedPullRequestFilePath, pullRequestDetailsLoading, prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch, createdPullRequest, canPublishBranch, canGeneratePullRequestText, selectedPullRequestDiffResult, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest, recentRepositories, repositoryDashboard, contributionGraph, dashboardLoading, dashboardRepositoryFilter, setDashboardRepositoryFilter, cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName, loadRepositoryDashboard, chooseRepository, openRepository, cloneRepository, refreshRepository, openRepoInEditor, openRepositoryTerminal, gitConfig, editorSettings, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand, editorSettingsLoading, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, remoteName, setRemoteName, remoteUrl, setRemoteUrl, editingRemoteName, saveEditorSettings, loadGitConfig, saveLocalGitIdentity, startRemoteEdit, cancelRemoteEdit, saveRemote, removeRemote, dailyReview, dailyReviewDate, setDailyReviewDate, dailyReviewLoading, runDailyReview, copyDailyReviewMarkdown, counts, selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter, diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace, diff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef, filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage, stageSelectedHunk, unstageSelectedHunk, discardSelected, exportPatch, applyPatch, openSelectedFileInEditor, openSelectedFileLineInEditor, selectedMergeBranch, setSelectedMergeBranch, startMergeOperation, continueMergeOperation, abortCurrentOperation, acceptConflictSide, reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport, canRunAssistantReview, runReviewReport, commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors, canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState, commitChanges, amendLastCommit, generateCommitText, canCreateStash, stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage, createStash, createQuickStash, applyStash, dropStash, hasRemote, canFetch, canPull, canPush, canGenerateLinkedInProject, linkedinProject, linkedinHighlightsText, setLinkedinHighlightsText, linkedinTagsText, setLinkedinTagsText, linkedinSkillsText, setLinkedinSkillsText, linkedinRole, setLinkedInRole, linkedinAudience, setLinkedInAudience, linkedinProjectUrl, setLinkedInProjectUrl, linkedinLoading, generateLinkedInProject, updateLinkedInProject, copyLinkedInMarkdown, copyLinkedInTags, openExternalLink, runSnapshotAction, runOperationAction, applyCommitOperation, updateSubmodule, openSubmodule, pullGitLfs
   } = useAppController()
+
+  const [changesTool, setChangesTool] = useState<'review' | 'stash' | null>(null)
+
+  useEffect(() => {
+    if (viewMode === 'review') setChangesTool('review')
+  }, [viewMode])
 
   return (
     <main className="app-shell">
@@ -132,11 +139,10 @@ function App() {
               </div>
             )}
             {(viewMode === 'changes' || viewMode === 'review') && (
-              <ChangesWorkspace
-                forceReviewOpen={viewMode === 'review'}
-                onOpenStash={loadStashes}
-                changes={(
-                  <ChangesView
+              <>
+                <ChangesView
+                onOpenReview={() => setChangesTool('review')}
+                onOpenStash={() => { setChangesTool('stash'); void loadStashes() }}
                 snapshot={snapshot}
                 counts={counts}
                 busy={busy}
@@ -189,44 +195,47 @@ function App() {
                 unstageSelectedHunk={unstageSelectedHunk}
                 openSelectedFileLineInEditor={openSelectedFileLineInEditor}
                 itemHeight={CHANGE_LIST_ITEM_HEIGHT}
-                  />
+                />
+                {changesTool === 'stash' && (
+                  <ToolModal title="Stashes" onClose={() => setChangesTool(null)}>
+                    <StashView
+                      loadStashes={loadStashes}
+                      busy={busy}
+                      stashMessage={stashMessage}
+                      setStashMessage={setStashMessage}
+                      defaultStashMessage={defaultStashMessage}
+                      createStash={createStash}
+                      canCreateStash={canCreateStash}
+                      stashes={stashes}
+                      applyStash={applyStash}
+                      dropStash={dropStash}
+                    />
+                  </ToolModal>
                 )}
-                stash={(
-                  <StashView
-                    loadStashes={loadStashes}
-                    busy={busy}
-                    stashMessage={stashMessage}
-                    setStashMessage={setStashMessage}
-                    defaultStashMessage={defaultStashMessage}
-                    createStash={createStash}
-                    canCreateStash={canCreateStash}
-                    stashes={stashes}
-                    applyStash={applyStash}
-                    dropStash={dropStash}
-                  />
+                {changesTool === 'review' && (
+                  <ToolModal title="Review" onClose={() => setChangesTool(null)}>
+                    <ReviewView
+                      reviewReport={reviewReport}
+                      snapshot={snapshot}
+                      busy={busy}
+                      canRunAssistantReview={canRunAssistantReview}
+                      runReviewReport={runReviewReport}
+                      reviewMode={reviewMode}
+                      setReviewMode={setReviewMode}
+                      reviewScope={reviewScope}
+                      setReviewScope={setReviewScope}
+                      selectedAssistant={selectedAssistant}
+                      setSelectedAssistant={setSelectedAssistant}
+                      assistantPolicy={assistantPolicy}
+                      assistants={assistants}
+                      assistantsChecking={assistantsChecking}
+                      checkAssistants={checkAssistants}
+                      renderAssistantPolicyPanel={renderAssistantPolicyPanel}
+                      renderAssistantReadiness={renderAssistantReadiness}
+                    />
+                  </ToolModal>
                 )}
-                review={(
-                  <ReviewView
-                    reviewReport={reviewReport}
-                    snapshot={snapshot}
-                    busy={busy}
-                    canRunAssistantReview={canRunAssistantReview}
-                    runReviewReport={runReviewReport}
-                    reviewMode={reviewMode}
-                    setReviewMode={setReviewMode}
-                    reviewScope={reviewScope}
-                    setReviewScope={setReviewScope}
-                    selectedAssistant={selectedAssistant}
-                    setSelectedAssistant={setSelectedAssistant}
-                    assistantPolicy={assistantPolicy}
-                    assistants={assistants}
-                    assistantsChecking={assistantsChecking}
-                    checkAssistants={checkAssistants}
-                    renderAssistantPolicyPanel={renderAssistantPolicyPanel}
-                    renderAssistantReadiness={renderAssistantReadiness}
-                  />
-                )}
-              />
+              </>
             )}
             {viewMode === 'history' && (
               <HistoryView
