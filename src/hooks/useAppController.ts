@@ -424,7 +424,7 @@ export function useAppController() {
 
   // Native application menu (GitHub-Desktop-style) dispatches actions here.
   const menuActionRef = useRef<(action: string) => void>(() => {})
-  menuActionRef.current = (action: string) => {
+  const handleMenuAction = (action: string) => {
     switch (action) {
       case 'open-repository':
       case 'clone-repository':
@@ -446,6 +446,10 @@ export function useAppController() {
       case 'view-config': setViewMode('config'); break
     }
   }
+
+  useEffect(() => {
+    menuActionRef.current = handleMenuAction
+  })
 
   useEffect(() => {
     if (!api?.onMenuAction) return
