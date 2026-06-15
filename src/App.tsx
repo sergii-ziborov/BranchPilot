@@ -9,6 +9,7 @@ import { AssistantPolicyPanel, AssistantReadiness } from './components/Assistant
 import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { AppShellBar } from './components/AppShellBar'
 import { Toaster } from './components/Toaster'
+import { GlobalTooltip } from './components/GlobalTooltip'
 import { EmptyState } from './components/EmptyState'
 import { PreCommitReviewPanel } from './components/PreCommitReviewPanel'
 import { GitHubRepositoryBrowser, PullRequestDetailsPanel } from './components/ProvidersPanels'
@@ -58,6 +59,7 @@ function App() {
       />
 
       <Toaster notice={notice} busy={busy} operationLabel={operationLabel} error={error} onDismissError={() => setError(null)} />
+      <GlobalTooltip />
 
       <section className="workspace">
 
