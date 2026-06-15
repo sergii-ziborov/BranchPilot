@@ -853,13 +853,13 @@
 }
 
 .changes-panel-compact .commit-box {
-  max-height: min(46vh, 380px);
+  flex: 0 0 auto;
   min-height: 0;
-  margin: 0 -10px -10px;
-  padding: 10px 10px 0;
+  margin: 0;
+  padding: 10px 0 0;
   border-top: 1px solid var(--border);
   background: #ffffff;
-  overflow: auto;
+  overflow: visible;
 }
 
 .changes-panel-compact .commit-box input {

@@ -1,7 +1,7 @@
-import { useEffect, useState, type ReactNode, type RefObject } from 'react'
-import { ArrowDownToLine, Bot, Copy, GitCommitHorizontal, ListFilter, Loader2, Pencil, Save, Search, Trash2, UploadCloud, Users, X } from 'lucide-react'
+import { useEffect, useState, type RefObject } from 'react'
+import { ArrowDownToLine, Bot, Copy, GitCommitHorizontal, ListFilter, Pencil, Save, Search, Trash2, UploadCloud, Users, X } from 'lucide-react'
 import type {
-  ApiResult, AssistantId, AssistantPolicyStatus, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
+  ApiResult, AssistantId, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
 } from '../../shared/branchPilot'
 import type { ChangeDiffMode } from '../../shared/changeStaging'
@@ -10,7 +10,6 @@ import { getAmendCommitActionState, getCommitActionState, getCommitAndPushAction
 import { virtualRangeLabel } from '../../shared/virtualList'
 import { useVirtualList } from '../../hooks/useVirtualList'
 import { changeLabel, statusToken } from '../../lib/fileChangeLabels'
-import { assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
 import { ActionBlockers } from '../ActionBlockers'
 import { DiffPreview } from '../DiffView'
 import { BulkStageCheckbox, StageCheckbox } from '../StageCheckbox'
@@ -27,8 +26,7 @@ export function ChangesView({
   commitTitle, setCommitTitle, commitDescription, setCommitDescription,
   commitCoAuthors, setCommitCoAuthors,
   selectedAssistant, setSelectedAssistant,
-  generateCommitText, canGenerateCommitText, checkAssistants, assistantsChecking, assistantPolicy,
-  renderPreCommitReviewPanel,
+  generateCommitText, canGenerateCommitText,
   commitActionState, commitAndPushActionState, amendCommitActionState,
   commitChanges, amendLastCommit,
   currentRepoPath, runSnapshotAction, api,
@@ -68,10 +66,6 @@ export function ChangesView({
   setSelectedAssistant: (assistant: AssistantId) => void
   generateCommitText: () => void | Promise<void>
   canGenerateCommitText: boolean
-  checkAssistants: () => void | Promise<void>
-  assistantsChecking: boolean
-  assistantPolicy: AssistantPolicyStatus | null
-  renderPreCommitReviewPanel: () => ReactNode
   commitActionState: ReturnType<typeof getCommitActionState>
   commitAndPushActionState: ReturnType<typeof getCommitAndPushActionState>
   amendCommitActionState: ReturnType<typeof getAmendCommitActionState>
@@ -371,15 +365,7 @@ export function ChangesView({
               <Bot size={17} />
               Generate text
             </button>
-            <button type="button" className="secondary" onClick={checkAssistants} disabled={assistantsChecking}>
-              {assistantsChecking ? <Loader2 className="spin" size={15} /> : <Bot size={15} />}
-              Check
-            </button>
           </div>
-          {!canGenerateCommitText && (
-            <div className="assistant-policy-note">{assistantPolicyBlockedLabel('commit_message', assistantPolicy)}</div>
-          )}
-          {renderPreCommitReviewPanel()}
           {commitActionState.reasons.length > 0 && (
             <ActionBlockers
               title="Commit blocked"
