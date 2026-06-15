@@ -24,7 +24,10 @@ import {
 import {
   PR_CHECK_JSON_FIELDS, PR_DETAILS_JSON_FIELDS, PR_JSON_FIELDS, REPOSITORY_JSON_FIELDS, filterGitHubRepositories, normalizeGitHubAccount, normalizeGitHubPullRequestDetails, normalizeOptionalGitHubOwner, normalizePullRequestNumber, normalizeRepositoryListLimit, parseGitHubAccountList, parseGitHubJson, parseGitHubPullRequest, parseGitHubPullRequestChecks, parseGitHubPullRequestDiff, parseGitHubPullRequestList, parseGitHubRepositoryList, uniqueGitHubAccounts
 } from './githubCliService.parsers.js'
-import { normalizeGitHubRepositoryPath, type GitHubRepositoryInfo } from './githubCliService.shared.js'
+import type { GitHubRepositoryInfo } from './githubCliService.shared.js'
+import {
+  assertHasUpstream, checkoutGitHubPullRequestWithGit, getCurrentBranch, getGitHubRemoteUrl, getGitHubRepositoryInfo, normalizeBranchName, resolveDefaultBaseBranch, resolveGhExecutable, resolveRepositoryRoot
+} from './githubCliService.context.js'
 
 export interface GitHubDesktopCredential {
   username?: string
@@ -553,18 +556,6 @@ export async function isGitHubRepository(runner: CommandRunner, repoPath: string
   }
 }
 
-async function resolveGhExecutable(runner: CommandRunner): Promise<string | undefined> {
-  try {
-    const result = await runner.run('/usr/bin/which', ['gh'], {
-      timeoutMs: 5_000
-    })
-
-    return result.stdout.trim() || 'gh'
-  } catch {
-    return undefined
-  }
-}
-
 async function assertGitHubCliReady(runner: CommandRunner, rootPath: string): Promise<GitHubCliStatus & { executable: string }> {
   const status = await assertGitHubCliAuthenticated(runner, rootPath)
 
@@ -637,167 +628,4 @@ async function resolveGitHubAuth(
     'Run gh auth login or sign in with GitHub Desktop.'
   )
 }
-
-async function resolveRepositoryRoot(runner: CommandRunner, repoPath: string): Promise<string> {
-  const result = await runner.run('/usr/bin/git', ['rev-parse', '--show-toplevel'], {
-    cwd: repoPath,
-    timeoutMs: 10_000
-  })
-
-  return result.stdout.trim()
-}
-
-async function getGitHubRemoteUrl(runner: CommandRunner, rootPath: string): Promise<string> {
-  return (await getGitHubRemote(runner, rootPath)).remoteUrl
-}
-
-async function getGitHubRemote(runner: CommandRunner, rootPath: string): Promise<GitHubRepositoryInfo & { remoteName: string }> {
-  const result = await runner.run('/usr/bin/git', ['remote', '-v'], {
-    cwd: rootPath,
-    allowedExitCodes: [0, 1],
-    timeoutMs: 10_000
-  })
-
-  for (const line of result.stdout.split('\n')) {
-    const match = line.trim().match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/)
-    const parsed = match ? parseGitHubRemoteUrl(match[2]) : undefined
-
-    if (match && parsed) {
-      return {
-        remoteName: match[1],
-        remoteUrl: match[2],
-        owner: parsed.owner,
-        repo: parsed.repo
-      }
-    }
-  }
-
-  throw new BranchPilotUserError('github_remote_missing', 'No GitHub remote was found for this repository.')
-}
-
-async function getGitHubRepositoryInfo(runner: CommandRunner, rootPath: string): Promise<GitHubRepositoryInfo> {
-  const remote = await getGitHubRemote(runner, rootPath)
-
-  return {
-    owner: remote.owner,
-    repo: remote.repo,
-    remoteUrl: remote.remoteUrl
-  }
-}
-
-async function checkoutGitHubPullRequestWithGit(
-  runner: CommandRunner,
-  rootPath: string,
-  prNumber: number
-): Promise<void> {
-  const remote = await getGitHubRemote(runner, rootPath)
-  const branchName = `branchpilot/pr-${prNumber}`
-
-  await runner.run('/usr/bin/git', ['fetch', remote.remoteName, `pull/${prNumber}/head`], {
-    cwd: rootPath,
-    timeoutMs: 120_000
-  })
-
-  const branchExists = await runner.run('/usr/bin/git', ['rev-parse', '--verify', `refs/heads/${branchName}`], {
-    cwd: rootPath,
-    allowedExitCodes: [0, 1],
-    timeoutMs: 10_000
-  })
-
-  if (branchExists.exitCode === 0) {
-    await runner.run('/usr/bin/git', ['switch', branchName], {
-      cwd: rootPath,
-      timeoutMs: 30_000
-    })
-    await runner.run('/usr/bin/git', ['merge', '--ff-only', 'FETCH_HEAD'], {
-      cwd: rootPath,
-      timeoutMs: 120_000
-    })
-    return
-  }
-
-  await runner.run('/usr/bin/git', ['switch', '-c', branchName, 'FETCH_HEAD'], {
-    cwd: rootPath,
-    timeoutMs: 30_000
-  })
-}
-
-function parseGitHubRemoteUrl(remoteUrl: string): Pick<GitHubRepositoryInfo, 'owner' | 'repo'> | undefined {
-  const trimmed = remoteUrl.trim()
-  const scpMatch = trimmed.match(/^(?:[^@\s]+@)?github\.com:([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i)
-
-  if (scpMatch) {
-    return normalizeGitHubRepositoryPath(scpMatch[1], scpMatch[2])
-  }
-
-  try {
-    const parsedUrl = new URL(trimmed)
-
-    if (parsedUrl.hostname.toLowerCase() !== 'github.com') {
-      return undefined
-    }
-
-    const parts = parsedUrl.pathname
-      .replace(/^\/+|\/+$/g, '')
-      .split('/')
-      .filter(Boolean)
-
-    if (parts.length !== 2) {
-      return undefined
-    }
-
-    return normalizeGitHubRepositoryPath(parts[0], parts[1])
-  } catch {
-    return undefined
-  }
-}
-
-async function getCurrentBranch(runner: CommandRunner, rootPath: string): Promise<string> {
-  const result = await runner.run('/usr/bin/git', ['branch', '--show-current'], {
-    cwd: rootPath,
-    allowedExitCodes: [0, 1],
-    timeoutMs: 10_000
-  })
-  const branch = result.stdout.trim()
-
-  if (!branch) {
-    throw new BranchPilotUserError('git_detached_head', 'Cannot create a pull request from a detached HEAD.')
-  }
-
-  return branch
-}
-
-async function assertHasUpstream(runner: CommandRunner, rootPath: string): Promise<void> {
-  const upstream = await runner.run('/usr/bin/git', ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], {
-    cwd: rootPath,
-    allowedExitCodes: [0, 128],
-    timeoutMs: 10_000
-  })
-
-  if (upstream.exitCode !== 0 || !upstream.stdout.trim()) {
-    throw new BranchPilotUserError('git_no_upstream', 'Publish this branch before creating a pull request.')
-  }
-}
-
-async function resolveDefaultBaseBranch(runner: CommandRunner, rootPath: string): Promise<string> {
-  const originHead = await runner.run('/usr/bin/git', ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], {
-    cwd: rootPath,
-    allowedExitCodes: [0, 1],
-    timeoutMs: 10_000
-  })
-  const ref = originHead.stdout.trim()
-
-  return ref ? ref.replace(/^origin\//, '') : 'main'
-}
-
-function normalizeBranchName(branchName: string, label: string): string {
-  const trimmed = branchName.trim()
-
-  if (!trimmed || trimmed.startsWith('-') || trimmed.includes('\0')) {
-    throw new BranchPilotUserError('invalid_branch', `${label} is invalid.`)
-  }
-
-  return trimmed
-}
-
 
