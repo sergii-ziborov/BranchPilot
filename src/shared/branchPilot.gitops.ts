@@ -107,6 +107,16 @@ export interface DiffResult {
   files: DiffFile[]
 }
 
+export interface ContributionDay {
+  date: string
+  count: number
+}
+
+export interface ContributionGraph {
+  days: ContributionDay[]
+  total: number
+}
+
 export interface ImagePreviewRequest {
   repoPath: string
   filePath: string

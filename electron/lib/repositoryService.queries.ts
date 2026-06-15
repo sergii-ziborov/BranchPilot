@@ -7,6 +7,8 @@ import type {
   CommitDetailsRequest,
   CommitFileDiffRequest,
   CommitSummary,
+  ContributionGraph,
+  ContributionDay,
   DashboardRepositorySummary,
   DashboardStaleBranch,
   DiffRequest,
@@ -45,6 +47,47 @@ import { RepositoryServiceBase } from './repositoryService.base.js'
 export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
   async getRecentRepositories(): Promise<RecentRepository[]> {
     return this.settings.getRecentRepositories()
+  }
+
+  /** Commit activity over the last ~53 weeks, aggregated for a GitHub-style heatmap. */
+  async getContributionGraph(repoPath?: string): Promise<ContributionGraph> {
+    const repoPaths = repoPath
+      ? [repoPath]
+      : (await this.settings.getRecentRepositories()).slice(0, 12).map((repo) => repo.path)
+
+    const counts = new Map<string, number>()
+
+    for (const candidate of repoPaths) {
+      try {
+        const result = await this.git(candidate, ['log', '--since=53 weeks ago', '--pretty=format:%ad', '--date=short'], {
+          allowedExitCodes: [0, 128, 129]
+        })
+        if (result.exitCode !== 0) continue
+        for (const line of result.stdout.split('\n')) {
+          const date = line.trim()
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) counts.set(date, (counts.get(date) ?? 0) + 1)
+        }
+      } catch {
+        // Skip repositories that are unavailable or not valid git checkouts.
+      }
+    }
+
+    const end = new Date()
+    end.setHours(0, 0, 0, 0)
+    const start = new Date(end)
+    start.setDate(start.getDate() - 7 * 52)
+    start.setDate(start.getDate() - start.getDay())
+
+    const days: ContributionDay[] = []
+    let total = 0
+    for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      const iso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`
+      const count = counts.get(iso) ?? 0
+      total += count
+      days.push({ date: iso, count })
+    }
+
+    return { days, total }
   }
 
   async getRepositoryDashboard(repoPath?: string): Promise<RepositoryDashboardSnapshot> {

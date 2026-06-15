@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import type {
-  ApiResult, BranchPilotApi, GitOperationResult, RecentRepository,
+  ApiResult, BranchPilotApi, ContributionGraph, GitOperationResult, RecentRepository,
   RepositoryDashboardSnapshot, RepositorySnapshot
 } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
@@ -29,6 +29,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   } = deps
 
   const [repositoryDashboard, setRepositoryDashboard] = useState<RepositoryDashboardSnapshot | null>(null)
+  const [contributionGraph, setContributionGraph] = useState<ContributionGraph | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardRepositoryFilter, setDashboardRepositoryFilter] = useState('')
   const [cloneRemoteUrl, setCloneRemoteUrl] = useState('')
@@ -83,6 +84,13 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     }
 
     setDashboardLoading(false)
+
+    if (typeof api.getContributionGraph === 'function') {
+      const graph = await api.getContributionGraph(currentRepoPath).catch(() => null)
+      if (dashboardRequestIdRef.current === requestId) {
+        setContributionGraph(graph && graph.ok ? graph.data : null)
+      }
+    }
   }
 
   async function toggleRepositoryPinned(repo: RecentRepository) {
@@ -171,7 +179,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
 
   return {
     recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter,
-    filteredRecentRepositories, repositoryDashboard, dashboardLoading,
+    filteredRecentRepositories, repositoryDashboard, contributionGraph, dashboardLoading,
     dashboardRepositoryFilter, setDashboardRepositoryFilter,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
     loadRecentRepositories, loadRepositoryDashboard, toggleRepositoryPinned,

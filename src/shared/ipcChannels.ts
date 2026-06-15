@@ -75,6 +75,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'repository:clone',
   'repository:commitDetails',
   'repository:commitFileDiff',
+  'repository:contributionGraph',
   'repository:dashboard',
   'repository:diff',
   'repository:generateProjectWiki',

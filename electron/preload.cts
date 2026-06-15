@@ -20,6 +20,7 @@ const branchPilot: BranchPilotApi = {
   refreshRepository: (repoPath) => invoke('repository:refresh', repoPath),
   getDiff: (request) => invoke('repository:diff', request),
   getImagePreview: (request) => invoke('repository:imagePreview', request),
+  getContributionGraph: (repoPath) => invoke('repository:contributionGraph', repoPath),
   getHistory: (repoPath) => invoke('repository:history', repoPath),
   getCommitDetails: (request) => invoke('repository:commitDetails', request),
   getCommitFileDiff: (request) => invoke('repository:commitFileDiff', request),

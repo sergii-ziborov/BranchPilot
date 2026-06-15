@@ -100,6 +100,7 @@ export function registerRepositoryHandlers(
   }, (repoPath: string) => repositoryService.getSnapshot(repoPath))
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
   handle('repository:imagePreview', (request: ImagePreviewRequest) => repositoryService.getImagePreview(request))
+  handle('repository:contributionGraph', (repoPath?: string) => repositoryService.getContributionGraph(repoPath))
   handle('repository:history', (repoPath: string) => repositoryService.getHistory(repoPath))
   handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))
   handle('repository:commitFileDiff', (request: CommitFileDiffRequest) => repositoryService.getCommitFileDiff(request))

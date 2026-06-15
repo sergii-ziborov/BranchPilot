@@ -1,5 +1,6 @@
 import { ExternalLink, FolderOpen, GitMerge, GitPullRequest, Loader2, RefreshCcw, Search, X } from 'lucide-react'
-import type { GitHubCliStatus, GitHubPullRequest, RepositoryDashboardSnapshot } from '../../shared/branchPilot'
+import type { ContributionGraph, GitHubCliStatus, GitHubPullRequest, RepositoryDashboardSnapshot } from '../../shared/branchPilot'
+import { ContributionHeatmap } from '../ContributionHeatmap'
 import type { ViewMode } from '../../lib/viewMode'
 import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, matchesDashboardStaleBranch } from '../../lib/dashboardLabels'
 import { formatDate } from '../../lib/format'
@@ -7,6 +8,7 @@ import { Stat } from '../primitives'
 
 export function DashboardView({
   repositoryDashboard,
+  contributionGraph,
   dashboardRepositoryFilter,
   setDashboardRepositoryFilter,
   currentPullRequest,
@@ -20,6 +22,7 @@ export function DashboardView({
   openExternalLink
 }: {
   repositoryDashboard: RepositoryDashboardSnapshot | null
+  contributionGraph: ContributionGraph | null
   dashboardRepositoryFilter: string
   setDashboardRepositoryFilter: (value: string) => void
   currentPullRequest: GitHubPullRequest | null
@@ -72,6 +75,16 @@ export function DashboardView({
         <div className="quiet-box">Dashboard is not loaded yet.</div>
       ) : (
         <>
+          <section className="dashboard-heatmap-card">
+            <div className="dashboard-section-heading">
+              <div>
+                <h3>Commit activity</h3>
+                <p>Commits across your repositories over the last year.</p>
+              </div>
+            </div>
+            <ContributionHeatmap graph={contributionGraph} />
+          </section>
+
           <div className="dashboard-stat-grid" aria-label="Dashboard totals">
             <Stat
               label="Dirty repos"
