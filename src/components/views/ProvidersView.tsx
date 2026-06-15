@@ -76,24 +76,27 @@ export function ProvidersView({
           Refresh
         </button>
       </div>
-      <div className="assistant-grid">
-        {providers.map((provider) => (
-          <div className="provider-card" key={provider.id}>
-            <GitPullRequest size={20} />
-            <strong>{provider.label}</strong>
-            <span>{providerStateLabel(provider.state)}</span>
-          </div>
-        ))}
-      </div>
+      <details className="pr-collapse">
+        <summary>Connection &amp; repository</summary>
+        <div className="assistant-grid">
+          {providers.map((provider) => (
+            <div className="provider-card" key={provider.id}>
+              <GitPullRequest size={20} />
+              <strong>{provider.label}</strong>
+              <span>{providerStateLabel(provider.state)}</span>
+            </div>
+          ))}
+        </div>
 
-      <ProviderRemoteCard
-        remote={providerRemote}
-        remoteName={snapshot?.summary.remoteName}
-        remoteUrl={snapshot?.summary.remoteUrl}
-        hasRepository={Boolean(snapshot)}
-      />
+        <ProviderRemoteCard
+          remote={providerRemote}
+          remoteName={snapshot?.summary.remoteName}
+          remoteUrl={snapshot?.summary.remoteUrl}
+          hasRepository={Boolean(snapshot)}
+        />
 
-      {renderGitHubRepositoryBrowser()}
+        {renderGitHubRepositoryBrowser()}
+      </details>
 
       {showGitHubPullRequestPanel ? (
         <section className="pr-panel">
@@ -163,7 +166,9 @@ export function ProvidersView({
           </article>
         )}
 
-        <div className="pr-form">
+        <details className="pr-collapse pr-create">
+          <summary>Create pull request</summary>
+          <div className="pr-form">
           <label htmlFor="pr-base">Base branch</label>
           <input
             id="pr-base"
@@ -216,7 +221,8 @@ export function ProvidersView({
             title={createPrState.enabled ? 'Ready to create PR' : 'Create PR blocked'}
             reasons={createPrState.reasons}
           />
-        </div>
+          </div>
+        </details>
 
         {createdPullRequest && (
           <div className="created-pr">
