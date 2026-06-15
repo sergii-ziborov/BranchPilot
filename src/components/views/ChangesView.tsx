@@ -1,5 +1,5 @@
-import type { ReactNode, RefObject } from 'react'
-import { ArrowDownToLine, Bot, Copy, GitCommitHorizontal, ListFilter, Loader2, Pencil, Save, Search, Trash2, UploadCloud, X } from 'lucide-react'
+import { useState, type ReactNode, type RefObject } from 'react'
+import { ArrowDownToLine, Bot, Copy, GitCommitHorizontal, ListFilter, Loader2, Pencil, Save, Search, Trash2, UploadCloud, Users, X } from 'lucide-react'
 import type {
   ApiResult, AssistantId, AssistantPolicyStatus, BranchPilotApi, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
@@ -96,6 +96,8 @@ export function ChangesView({
 }) {
     const totalChanges = snapshot?.status.changes.length ?? 0
   const { containerRef: changesContainerRef, onScroll: changesScroll, window: changesWindow, items: changesItems } = virtualChanges
+  const [showCoAuthors, setShowCoAuthors] = useState(false)
+  const coAuthorsVisible = showCoAuthors || commitCoAuthors.trim().length > 0
   const visibleRange = virtualRangeLabel(changesWindow, filteredChanges.length)
   const visibleSummary = changeFilter
     ? `${filteredChanges.length} of ${totalChanges}`
@@ -258,15 +260,27 @@ export function ChangesView({
             onChange={(event) => setCommitDescription(event.target.value)}
             placeholder="Description"
           />
-          <textarea
-            id="commit-coauthors"
-            className="commit-coauthors"
-            aria-label="Commit co-authors"
-            value={commitCoAuthors}
-            onChange={(event) => setCommitCoAuthors(event.target.value)}
-            placeholder="Co-authors: Name <email>, one per line"
-          />
+          {coAuthorsVisible && (
+            <textarea
+              id="commit-coauthors"
+              className="commit-coauthors"
+              aria-label="Commit co-authors"
+              value={commitCoAuthors}
+              onChange={(event) => setCommitCoAuthors(event.target.value)}
+              placeholder="Co-authors: Name <email>, one per line"
+            />
+          )}
           <div className="commit-assistant-row">
+            <button
+              className={coAuthorsVisible ? 'icon-button active' : 'icon-button'}
+              type="button"
+              title="Add co-authors"
+              aria-label="Add co-authors"
+              aria-pressed={coAuthorsVisible}
+              onClick={() => setShowCoAuthors((value) => !value)}
+            >
+              <Users size={16} />
+            </button>
             <select
               id="assistant-select"
               aria-label="Commit text assistant"

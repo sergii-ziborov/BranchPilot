@@ -173,6 +173,12 @@ html[data-platform='darwin'] .shell-bar-row {
   border-bottom: 1px solid var(--border);
 }
 
+button.icon-button.active {
+  border-color: #2563eb;
+  background: #eef2ff;
+  color: #2563eb;
+}
+
 /* Switch-branch dialog option cards (leave vs bring changes). */
 .switch-options {
   display: flex;
