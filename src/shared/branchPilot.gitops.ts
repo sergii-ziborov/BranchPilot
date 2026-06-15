@@ -110,6 +110,8 @@ export interface DiffResult {
 export interface CoAuthor {
   name: string
   email: string
+  login?: string
+  avatarUrl?: string
 }
 
 export interface ContributionDay {

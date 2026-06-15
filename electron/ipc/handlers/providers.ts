@@ -15,6 +15,7 @@ import {
   getGitHubPullRequestDetails,
   getGitHubPullRequestDiff,
   listGitHubAccounts,
+  listGitHubContributors,
   listGitHubPullRequests,
   listGitHubRepositories
 } from '../../providers/githubCliService.js'
@@ -62,6 +63,9 @@ export function registerProviderHandlers(
   )
   handle('providers:listGitHubAccounts', () =>
     listGitHubAccounts(commandRunner)
+  )
+  handle('providers:githubContributors', (repoPath: string) =>
+    listGitHubContributors(commandRunner, repoPath)
   )
   handle('providers:listGitHubRepositories', (request: ListGitHubRepositoriesRequest) =>
     listGitHubRepositories(commandRunner, request)

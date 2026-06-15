@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type {
   CheckoutPullRequestRequest,
+  CoAuthor,
   CreatePullRequestRequest,
   CreatedPullRequest,
   GitHubAccountSummary,
@@ -337,6 +338,56 @@ export async function listGitHubAccounts(
     normalizeGitHubAccount(parseGitHubJson(viewerResult.stdout, 'github_account_parse_failed', 'GitHub CLI did not return a valid account.'), 'user'),
     ...parseGitHubAccountList(orgsResult.stdout, 'organization')
   ])
+}
+
+export async function listGitHubContributors(runner: CommandRunner, repoPath: string): Promise<CoAuthor[]> {
+  const rootPath = await resolveRepositoryRoot(runner, repoPath)
+  const status = await getGitHubCliStatus(runner, rootPath)
+
+  if (status.authProvider !== 'gh' || !status.executable) {
+    return []
+  }
+
+  let remote
+  try {
+    remote = await getGitHubRepositoryInfo(runner, rootPath)
+  } catch {
+    return []
+  }
+
+  const result = await runner.run(status.executable, ['api', `repos/${remote.owner}/${remote.repo}/contributors?per_page=100`], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1],
+    timeoutMs: 30_000
+  })
+
+  if (result.exitCode !== 0) return []
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(result.stdout)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+
+  const contributors: CoAuthor[] = []
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    const login = typeof record.login === 'string' ? record.login : ''
+    const id = record.id
+    const type = typeof record.type === 'string' ? record.type : 'User'
+    if (!login || typeof id !== 'number' || type !== 'User') continue
+    contributors.push({
+      name: login,
+      email: `${id}+${login}@users.noreply.github.com`,
+      login,
+      avatarUrl: typeof record.avatar_url === 'string' ? record.avatar_url : undefined
+    })
+  }
+
+  return contributors.slice(0, 100)
 }
 
 export async function listGitHubRepositories(

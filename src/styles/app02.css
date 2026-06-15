@@ -745,6 +745,13 @@
   color: #2563eb;
 }
 
+.coauthor-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .changes-panel-compact .commit-actions {
   position: sticky;
   z-index: 2;

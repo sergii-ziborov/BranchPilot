@@ -63,6 +63,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'rebase:start',
   'providers:createGitHubPullRequest',
   'providers:currentGitHubPullRequest',
+  'providers:githubContributors',
   'providers:getGitHubPullRequestChecks',
   'providers:getGitHubPullRequestDetails',
   'providers:getGitHubPullRequestDiff',

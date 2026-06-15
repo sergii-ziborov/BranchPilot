@@ -102,11 +102,34 @@ export function ChangesView({
   const [coAuthorFilter, setCoAuthorFilter] = useState('')
 
   useEffect(() => {
-    if (!coAuthorsVisible || !currentRepoPath || typeof api?.getContributors !== 'function') return
+    if (!coAuthorsVisible || !currentRepoPath || !api) return
     let cancelled = false
-    void api.getContributors(currentRepoPath)
-      .then((result) => { if (!cancelled && result.ok) setContributors(result.data) })
-      .catch(() => {})
+    const load = async () => {
+      const merged = new Map<string, CoAuthor>()
+      const seenNames = new Set<string>()
+      // GitHub contributors first (carry avatars + @login), then fill gaps from git log.
+      if (typeof api.getGitHubContributors === 'function') {
+        const result = await api.getGitHubContributors(currentRepoPath).catch(() => null)
+        if (result?.ok) {
+          for (const contributor of result.data) {
+            merged.set(contributor.email.toLowerCase(), contributor)
+            if (contributor.login) seenNames.add(contributor.login.toLowerCase())
+          }
+        }
+      }
+      if (typeof api.getContributors === 'function') {
+        const result = await api.getContributors(currentRepoPath).catch(() => null)
+        if (result?.ok) {
+          for (const contributor of result.data) {
+            const key = contributor.email.toLowerCase()
+            if (merged.has(key) || seenNames.has(contributor.name.toLowerCase())) continue
+            merged.set(key, contributor)
+          }
+        }
+      }
+      if (!cancelled) setContributors([...merged.values()])
+    }
+    void load()
     return () => { cancelled = true }
   }, [coAuthorsVisible, currentRepoPath, api])
 
@@ -310,10 +333,12 @@ export function ChangesView({
                       type="button"
                       key={contributor.email}
                       className="coauthor-chip"
-                      title={contributor.email}
+                      title={contributor.login ? `@${contributor.login} · ${contributor.email}` : contributor.email}
                       onClick={() => addCoAuthor(contributor)}
                     >
-                      <Users size={13} />
+                      {contributor.avatarUrl
+                        ? <img className="coauthor-avatar" src={contributor.avatarUrl} alt="" />
+                        : <Users size={13} />}
                       <span>{contributor.name}</span>
                     </button>
                   ))}
