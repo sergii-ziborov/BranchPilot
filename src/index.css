@@ -18,12 +18,19 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 #root {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
+  overflow: hidden;
 }
 
 * {

@@ -255,7 +255,21 @@
 .history-grid {
   grid-template-columns: minmax(300px, 0.55fr) minmax(620px, 1.45fr);
   align-items: stretch;
-  min-height: calc(100vh - 200px);
+  min-height: 0;
+}
+
+/* History commit-list pane: filter fixed on top, the commit list scrolls. */
+.history-grid .changes-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.history-grid .history-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
 }
 
 /* History detail: commit header on top, then files | diff (3-pane overall). */

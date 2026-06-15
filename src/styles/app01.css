@@ -1,7 +1,8 @@
 .app-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: var(--surface);
 }
 
@@ -566,8 +567,24 @@ button:disabled {
 .workspace {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
-  padding: 24px 26px 16px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 18px 20px;
+}
+
+/* The active view fills the workspace; scrolling stays inside its panes. */
+.workspace > .content-grid,
+.workspace > .single-panel,
+.workspace > .empty-state {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Secondary (single-panel) views scroll inside their own panel, never the page. */
+.single-panel {
+  overflow-y: auto;
 }
 
 .topbar {
@@ -1046,7 +1063,7 @@ button.danger-button:hover {
 .changes-workflow-grid {
   grid-template-columns: minmax(380px, 0.78fr) minmax(520px, 1.22fr);
   align-items: stretch;
-  min-height: calc(100vh - 184px);
+  min-height: 0;
 }
 
 .changes-panel,
@@ -1079,8 +1096,10 @@ button.danger-button:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  height: 100%;
   min-height: 0;
   padding: 10px;
+  overflow: hidden;
 }
 
 .changes-topbar {
@@ -1286,13 +1305,36 @@ button.danger-button:hover {
 }
 
 .changes-panel-compact .change-list {
-  min-height: 200px;
+  flex: 1 1 auto;
+  min-height: 100px;
   border: 1px solid var(--border);
   border-radius: 0 0 8px 8px;
   background: #ffffff;
 }
 
 .changes-panel-compact .virtual-list-viewport {
-  max-height: min(42vh, 420px);
-  min-height: 200px;
+  max-height: none;
+  min-height: 0;
+}
+
+/* Commit composer stays pinned below the (scrolling) file list. */
+.changes-panel-compact .commit-box {
+  flex: 0 0 auto;
+}
+
+/* Changes diff pane: heading + controls fixed, the diff itself scrolls. */
+.changes-workflow-grid .diff-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.changes-workflow-grid .diff-panel .structured-diff,
+.changes-workflow-grid .diff-panel .diff-preview,
+.changes-workflow-grid .diff-panel .diff-empty,
+.changes-workflow-grid .diff-panel .diff-image {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
 }
