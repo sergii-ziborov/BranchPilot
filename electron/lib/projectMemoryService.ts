@@ -252,12 +252,15 @@ async function scanDirectory(rootPath: string, relativeDirectory: string, state:
   const absoluteDirectory = path.join(rootPath, relativeDirectory)
   const entries = await fs.readdir(absoluteDirectory, { withFileTypes: true })
 
+  const fileRelativePaths: string[] = []
+  const subdirectories: string[] = []
+
   for (const entry of entries) {
     const relativePath = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name
 
     if (entry.isDirectory()) {
       if (!IGNORED_DIRECTORIES.has(entry.name)) {
-        await scanDirectory(rootPath, relativePath, state)
+        subdirectories.push(relativePath)
       }
 
       continue
@@ -268,7 +271,16 @@ async function scanDirectory(rootPath: string, relativeDirectory: string, state:
       continue
     }
 
-    await scanFile(rootPath, relativePath, state)
+    fileRelativePaths.push(relativePath)
+  }
+
+  // Files in a directory are independent stat+read operations: scan them in
+  // parallel. Recurse into subdirectories sequentially so the number of
+  // concurrently open file handles stays bounded by one directory's width.
+  await Promise.all(fileRelativePaths.map((relativePath) => scanFile(rootPath, relativePath, state)))
+
+  for (const subdirectory of subdirectories) {
+    await scanDirectory(rootPath, subdirectory, state)
   }
 }
 

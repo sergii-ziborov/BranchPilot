@@ -73,7 +73,13 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     const requestId = dashboardRequestIdRef.current + 1
     dashboardRequestIdRef.current = requestId
     setDashboardLoading(true)
-    const result = await api.getRepositoryDashboard(currentRepoPath)
+    // Dashboard scan and contribution graph are independent: run them concurrently.
+    const dashboardPromise = api.getRepositoryDashboard(currentRepoPath)
+    const graphPromise = typeof api.getContributionGraph === 'function'
+      ? api.getContributionGraph(currentRepoPath).catch(() => null)
+      : Promise.resolve(null)
+
+    const result = await dashboardPromise
 
     if (dashboardRequestIdRef.current !== requestId) return
 
@@ -85,11 +91,9 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
 
     setDashboardLoading(false)
 
-    if (typeof api.getContributionGraph === 'function') {
-      const graph = await api.getContributionGraph(currentRepoPath).catch(() => null)
-      if (dashboardRequestIdRef.current === requestId) {
-        setContributionGraph(graph && graph.ok ? graph.data : null)
-      }
+    const graph = await graphPromise
+    if (dashboardRequestIdRef.current === requestId) {
+      setContributionGraph(graph && graph.ok ? graph.data : null)
     }
   }
 

@@ -81,20 +81,26 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       ? [repoPath]
       : (await this.settings.getRecentRepositories()).slice(0, 12).map((repo) => repo.path)
 
-    const counts = new Map<string, number>()
-
-    for (const candidate of repoPaths) {
-      try {
-        const result = await this.git(candidate, ['log', '--since=53 weeks ago', '--pretty=format:%ad', '--date=short'], {
-          allowedExitCodes: [0, 128, 129]
-        })
-        if (result.exitCode !== 0) continue
-        for (const line of result.stdout.split('\n')) {
-          const date = line.trim()
-          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) counts.set(date, (counts.get(date) ?? 0) + 1)
+    // Repositories are independent: run the git logs in parallel, then merge.
+    const logs = await Promise.all(
+      repoPaths.map(async (candidate) => {
+        try {
+          const result = await this.git(candidate, ['log', '--since=53 weeks ago', '--pretty=format:%ad', '--date=short'], {
+            allowedExitCodes: [0, 128, 129]
+          })
+          return result.exitCode === 0 ? result.stdout : ''
+        } catch {
+          // Skip repositories that are unavailable or not valid git checkouts.
+          return ''
         }
-      } catch {
-        // Skip repositories that are unavailable or not valid git checkouts.
+      })
+    )
+
+    const counts = new Map<string, number>()
+    for (const stdout of logs) {
+      for (const line of stdout.split('\n')) {
+        const date = line.trim()
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) counts.set(date, (counts.get(date) ?? 0) + 1)
       }
     }
 
