@@ -1,7 +1,6 @@
-import type { ReactNode } from 'react'
 import { Copy, Loader2, Star } from 'lucide-react'
 import type {
-  AssistantActionKind, AssistantPolicyStatus, GeneratedLinkedInProject, RepositorySnapshot
+  AssistantPolicyStatus, GeneratedLinkedInProject, RepositorySnapshot
 } from '../../shared/branchPilot'
 import { assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
 
@@ -22,8 +21,7 @@ export function LinkedInView({
   updateLinkedInProject,
   linkedinSkillsText,
   setLinkedinSkillsText,
-  copyLinkedInMarkdown,
-  renderAssistantReadiness
+  copyLinkedInMarkdown
 }: {
   generateLinkedInProject: () => void | Promise<void>
   snapshot: RepositorySnapshot | null
@@ -42,7 +40,6 @@ export function LinkedInView({
   linkedinSkillsText: string
   setLinkedinSkillsText: (value: string) => void
   copyLinkedInMarkdown: () => void | Promise<void>
-  renderAssistantReadiness: (action: AssistantActionKind) => ReactNode
 }) {
   return (
     <section className="single-panel linkedin-panel">
@@ -88,7 +85,6 @@ export function LinkedInView({
           {!canGenerateLinkedInProject && (
             <div className="assistant-policy-note">{assistantPolicyBlockedLabel('linkedin_project', assistantPolicy)}</div>
           )}
-          {renderAssistantReadiness('linkedin_project')}
         </section>
 
         {!linkedinProject ? (

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Bot, Loader2, ShieldCheck } from 'lucide-react'
 import type {
-  AssistantActionKind, AssistantId, AssistantPolicyStatus, AssistantStatus,
+  AssistantId, AssistantPolicyStatus, AssistantStatus,
   ReviewMode, ReviewReport, ReviewScope, ReviewSeverity, RepositorySnapshot
 } from '../../shared/branchPilot'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from '../../lib/reviewLabels'
@@ -24,8 +24,7 @@ export function ReviewView({
   assistants,
   assistantsChecking,
   checkAssistants,
-  renderAssistantPolicyPanel,
-  renderAssistantReadiness
+  renderAssistantPolicyPanel
 }: {
   reviewReport: ReviewReport | null
   snapshot: RepositorySnapshot | null
@@ -43,7 +42,6 @@ export function ReviewView({
   assistantsChecking: boolean
   checkAssistants: () => void | Promise<void>
   renderAssistantPolicyPanel: () => ReactNode
-  renderAssistantReadiness: (action: AssistantActionKind) => ReactNode
 }) {
     const findings = reviewReport?.findings ?? []
   const findingsBySeverity = groupFindingsBySeverity(findings)
@@ -110,7 +108,6 @@ export function ReviewView({
             </select>
           </div>
         </section>
-        {renderAssistantReadiness('review_report')}
 
         {!snapshot ? (
           <div className="quiet-box">Open a repository before running a review.</div>

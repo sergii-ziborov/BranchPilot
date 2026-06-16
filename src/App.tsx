@@ -1,12 +1,9 @@
 import type {
-  AssistantActionKind,
   AssistantPolicyMode,
   EditorPreference,
-
-
 } from './shared/branchPilot'
 import { CalendarDays } from 'lucide-react'
-import { AssistantPolicyPanel, AssistantReadiness } from './components/AssistantPanels'
+import { AssistantPolicyPanel } from './components/AssistantPanels'
 import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { LinkedinIcon } from './components/BrandIcons'
 import { useEffect, useState } from 'react'
@@ -236,7 +233,6 @@ function App() {
                       assistantsChecking={assistantsChecking}
                       checkAssistants={checkAssistants}
                       renderAssistantPolicyPanel={renderAssistantPolicyPanel}
-                      renderAssistantReadiness={renderAssistantReadiness}
                     />
                   </ToolModal>
                 )}
@@ -342,7 +338,6 @@ function App() {
                 deleteTag={deleteTag}
                 runSnapshotAction={runSnapshotAction}
                 runOperationAction={runOperationAction}
-                renderAssistantReadiness={renderAssistantReadiness}
               />
             )}
             {viewMode === 'config' && (
@@ -410,7 +405,6 @@ function App() {
                 selectPullRequest={selectPullRequest}
                 openExternalLink={openExternalLink}
                 runSnapshotAction={runSnapshotAction}
-                renderAssistantReadiness={renderAssistantReadiness}
                 renderGitHubRepositoryBrowser={renderGitHubRepositoryBrowser}
                 renderPullRequestDetailsPanel={renderPullRequestDetailsPanel}
               />
@@ -471,7 +465,6 @@ function App() {
                 linkedinSkillsText={linkedinSkillsText}
                 setLinkedinSkillsText={setLinkedinSkillsText}
                 copyLinkedInMarkdown={copyLinkedInMarkdown}
-                renderAssistantReadiness={renderAssistantReadiness}
                   />
                 )}
               </div>
@@ -490,9 +483,6 @@ function App() {
 
 
 
-  function renderAssistantReadiness(action: AssistantActionKind) {
-    return <AssistantReadiness action={action} assistants={assistants} selectedAssistant={selectedAssistant} checkAssistants={checkAssistants} assistantsChecking={assistantsChecking} />
-  }
 
 
 

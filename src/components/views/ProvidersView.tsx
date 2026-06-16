@@ -1,14 +1,13 @@
 import type { ReactNode } from 'react'
 import { Bot, ExternalLink, GitPullRequest, RefreshCcw, UploadCloud } from 'lucide-react'
 import type {
-  ApiResult, AssistantActionKind, AssistantPolicyStatus, BranchPilotApi, CreatedPullRequest,
+  ApiResult, AssistantPolicyStatus, BranchPilotApi, CreatedPullRequest,
   GitHubCliStatus, GitHubPullRequest, ProviderStatus, RepositorySnapshot
 } from '../../shared/branchPilot'
 import { getProviderRemoteSummary } from '../../shared/providerRemote'
 import { githubRepositoryBrowserSourceLabel, githubStatusLabel } from '../../lib/githubLabels'
 import { providerStateLabel } from '../../lib/dashboardLabels'
 import { assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
-import { ActionBlockers } from '../ActionBlockers'
 import { PlannedProviderWorkflowPanel, ProviderRemoteCard } from '../ProviderRemoteCard'
 import { getCreatePullRequestState, getPullRequestBrowseState } from '../../shared/providerPreconditions'
 
@@ -19,7 +18,7 @@ export function ProvidersView({
   prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch,
   checkoutPullRequest, createPullRequest, generatePullRequestText, loadGitHubPullRequests,
   refreshProvidersPanel, selectPullRequest, openExternalLink, runSnapshotAction,
-  renderAssistantReadiness, renderGitHubRepositoryBrowser, renderPullRequestDetailsPanel
+  renderGitHubRepositoryBrowser, renderPullRequestDetailsPanel
 }: {
   providers: ProviderStatus[]
   snapshot: RepositorySnapshot | null
@@ -49,7 +48,6 @@ export function ProvidersView({
   selectPullRequest: (pullRequest: GitHubPullRequest) => void
   openExternalLink: (url: string | undefined, label?: string) => void
   runSnapshotAction: (label: string, action: () => Promise<ApiResult<RepositorySnapshot>>) => boolean | void | Promise<boolean>
-  renderAssistantReadiness: (action: AssistantActionKind) => ReactNode
   renderGitHubRepositoryBrowser: () => ReactNode
   renderPullRequestDetailsPanel: () => ReactNode
 }) {
@@ -227,11 +225,6 @@ export function ProvidersView({
           {!canGeneratePullRequestText && (
             <div className="assistant-policy-note">{assistantPolicyBlockedLabel('pull_request_text', assistantPolicy)}</div>
           )}
-          {renderAssistantReadiness('pull_request_text')}
-          <ActionBlockers
-            title={createPrState.enabled ? 'Ready to create PR' : 'Create PR blocked'}
-            reasons={createPrState.reasons}
-          />
           </div>
         </section>
 
@@ -254,10 +247,6 @@ export function ProvidersView({
               Refresh PRs
             </button>
           </div>
-          <ActionBlockers
-            title={browsePrState.enabled ? 'Ready to browse PRs' : 'PR browsing blocked'}
-            reasons={browsePrState.reasons}
-          />
 
           {pullRequestsLoading && pullRequests.length === 0 ? (
             <div className="quiet-box">Loading pull requests.</div>

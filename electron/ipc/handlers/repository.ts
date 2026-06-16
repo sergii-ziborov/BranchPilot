@@ -1,5 +1,9 @@
 import { app, dialog } from 'electron'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// ESM module: `__dirname` is not defined, so derive it from the module URL.
+const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 import type {
   ActivityLogQuery,
   AssistantPolicyUpdate,
@@ -141,7 +145,7 @@ export function registerRepositoryHandlers(
       activityDir: activityLogDir,
       wikiDir: projectWikiDir,
       repoPath,
-      serverPath: path.join(__dirname, 'mcp/server.js')
+      serverPath: path.join(moduleDir, '../../mcp/server.js')
     })
   )
   handle('assistants:getPolicy', (repoPath: string) => assistantPolicyService.getAssistantPolicy(repoPath))

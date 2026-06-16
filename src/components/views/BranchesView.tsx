@@ -1,7 +1,6 @@
-import type { ReactNode } from 'react'
 import { Bot, Code2, FileText, FolderOpen, GitBranch, GitCompare, Link2, Loader2, Pencil, Plus, Save, Search, Trash2, UploadCloud, X } from 'lucide-react'
 import type {
-  ApiResult, AssistantActionKind, AssistantId, AssistantPolicyStatus, BranchComparison, BranchPilotApi, BranchSummary,
+  ApiResult, AssistantId, AssistantPolicyStatus, BranchComparison, BranchPilotApi, BranchSummary,
   GitOperationResult, RemoteBranchSummary, RepositorySnapshot, TagSummary, WorktreeSummary
 } from '../../shared/branchPilot'
 import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from '../../shared/branchPreconditions'
@@ -9,7 +8,6 @@ import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { worktreeSummaryLabel } from '../../lib/gitEntityLabels'
 import { formatDate } from '../../lib/format'
 import { assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
-import { ActionBlockers } from '../ActionBlockers'
 
 export function BranchesView({
   branches, remoteBranches, tags, worktrees,
@@ -27,7 +25,7 @@ export function BranchesView({
   newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef,
   createWorktree, openWorktree, removeWorktree,
   newTagName, setNewTagName, newTagMessage, setNewTagMessage, createTag, deleteTag,
-  runSnapshotAction, runOperationAction, renderAssistantReadiness
+  runSnapshotAction, runOperationAction
 }: {
   branches: BranchSummary[]
   remoteBranches: RemoteBranchSummary[]
@@ -85,7 +83,6 @@ export function BranchesView({
   deleteTag: (tag: TagSummary) => void | Promise<void>
   runSnapshotAction: (label: string, action: () => Promise<ApiResult<RepositorySnapshot>>) => boolean | void | Promise<boolean>
   runOperationAction: (label: string, action: () => Promise<ApiResult<GitOperationResult>>) => void | Promise<void>
-  renderAssistantReadiness: (action: AssistantActionKind) => ReactNode
 }) {
   const branchQuery = branchFilter.trim().toLowerCase()
   const filteredBranches = branchQuery
@@ -197,15 +194,6 @@ export function BranchesView({
         {!canGenerateBranchDraft && (
           <div className="assistant-policy-note">{assistantPolicyBlockedLabel('branch_draft', assistantPolicy)}</div>
         )}
-        {renderAssistantReadiness('branch_draft')}
-        <ActionBlockers
-          title={branchDraftActionState.enabled ? 'Ready to generate branch draft' : 'Branch draft blocked'}
-          reasons={branchDraftActionState.reasons}
-        />
-        <ActionBlockers
-          title={createBranchActionState.enabled ? 'Ready to create branch' : 'Create branch blocked'}
-          reasons={createBranchActionState.reasons}
-        />
       </section>
 
       <div className="list-filter-bar">
