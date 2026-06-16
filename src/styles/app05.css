@@ -1036,7 +1036,7 @@ button:not(.shell-tab):active {
 }
 
 .shell-tab.active {
-  background: #eef2ff;
+  background: #ffffff;
 }
 
 .workspace > .content-grid,
