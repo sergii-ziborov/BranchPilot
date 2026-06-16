@@ -22,7 +22,8 @@ export function DailyView({
   dailyReviewLoading,
   dailyReview,
   contributorStats,
-  copyDailyReviewMarkdown
+  copyDailyReviewMarkdown,
+  allReposMode
 }: {
   dailyReviewDate: string
   setDailyReviewDate: (value: string) => void
@@ -32,23 +33,29 @@ export function DailyView({
   dailyReview: DailyReviewReport | null
   contributorStats: ContributorStat[]
   copyDailyReviewMarkdown: () => void | Promise<void>
+  allReposMode: boolean
 }) {
   const topCommits = contributorStats[0]?.commits ?? 0
   return (
     <section className="single-panel daily-panel">
-      <PanelHeading title="Daily Review" description="Repository work summary for the selected day.">
-        <div className="daily-controls">
-          <input
-            aria-label="Daily review date"
-            type="date"
-            value={dailyReviewDate}
-            onChange={(event) => setDailyReviewDate(event.target.value)}
-          />
-          <button type="button" onClick={runDailyReview} disabled={!snapshot || dailyReviewLoading}>
-            {dailyReviewLoading ? <Loader2 className="spin" size={17} /> : <CalendarDays size={17} />}
-            Run daily review
-          </button>
-        </div>
+      <PanelHeading
+        title={allReposMode ? 'Reports' : 'Daily Review'}
+        description={allReposMode ? 'Commit activity across all repositories.' : 'Repository work summary for the selected day.'}
+      >
+        {!allReposMode && (
+          <div className="daily-controls">
+            <input
+              aria-label="Daily review date"
+              type="date"
+              value={dailyReviewDate}
+              onChange={(event) => setDailyReviewDate(event.target.value)}
+            />
+            <button type="button" onClick={runDailyReview} disabled={!snapshot || dailyReviewLoading}>
+              {dailyReviewLoading ? <Loader2 className="spin" size={17} /> : <CalendarDays size={17} />}
+              Run daily review
+            </button>
+          </div>
+        )}
       </PanelHeading>
 
       {contributorStats.length > 0 && (
@@ -80,7 +87,15 @@ export function DailyView({
         </section>
       )}
 
-      {!dailyReview ? (
+      {allReposMode ? (
+        contributorStats.length === 0 && (
+          <div className="review-empty">
+            <CalendarDays size={24} />
+            <strong>No commit activity yet</strong>
+            <span>Open or clone repositories to populate the portfolio report.</span>
+          </div>
+        )
+      ) : !dailyReview ? (
         <div className="review-empty">
           <CalendarDays size={24} />
           <strong>{dailyReviewLoading ? 'Generating daily review' : 'No daily review yet'}</strong>

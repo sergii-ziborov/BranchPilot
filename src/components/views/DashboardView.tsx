@@ -19,7 +19,8 @@ export function DashboardView({
   loadRepositoryDashboard,
   openRepository,
   setViewMode,
-  openExternalLink
+  openExternalLink,
+  allReposMode
 }: {
   repositoryDashboard: RepositoryDashboardSnapshot | null
   contributionGraph: ContributionGraph | null
@@ -34,6 +35,7 @@ export function DashboardView({
   openRepository: (path: string) => Promise<boolean>
   setViewMode: (mode: ViewMode) => void
   openExternalLink: (url: string | undefined, label?: string) => void
+  allReposMode: boolean
 }) {
     const dashboard = repositoryDashboard
   const repositories = dashboard?.repositories ?? []
@@ -85,7 +87,7 @@ export function DashboardView({
             <ContributionHeatmap graph={contributionGraph} />
           </section>
 
-          <details className="dashboard-all-repos">
+          <details className="dashboard-all-repos" open={allReposMode || undefined}>
             <summary>
               <span>All repositories</span>
               <span className="dashboard-all-repos-meta">{dashboard.totals.repositories} scanned</span>
@@ -173,6 +175,7 @@ export function DashboardView({
               )}
             </section>
 
+            {!allReposMode && (
             <section className="dashboard-section">
               <div className="dashboard-section-heading">
                 <div>
@@ -199,6 +202,7 @@ export function DashboardView({
                 </div>
               </article>
             </section>
+            )}
 
             <section className="dashboard-section">
               <div className="dashboard-section-heading">

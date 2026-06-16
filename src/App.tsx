@@ -110,6 +110,7 @@ function App() {
                   openRepository={openRepository}
                   setViewMode={setViewMode}
                   openExternalLink={openExternalLink}
+                  allReposMode={allReposMode}
                 />
                 {!allReposMode && snapshot && (
                   <MemoryView
@@ -448,6 +449,7 @@ function App() {
                     dailyReview={dailyReview}
                     contributorStats={contributorStats}
                     copyDailyReviewMarkdown={copyDailyReviewMarkdown}
+                    allReposMode={allReposMode}
                   />
                 )}
                 {viewMode === 'linkedin' && (
