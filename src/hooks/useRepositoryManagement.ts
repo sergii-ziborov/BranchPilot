@@ -9,6 +9,7 @@ import type { ViewMode } from '../lib/viewMode'
 interface UseRepositoryManagementDeps {
   api: BranchPilotApi | undefined
   currentRepoPath: string | undefined
+  allReposMode: boolean
   viewMode: ViewMode
   snapshot: RepositorySnapshot | null
   runBusyOperation: <T>(label: string, action: () => Promise<T>) => Promise<T>
@@ -23,10 +24,14 @@ interface UseRepositoryManagementDeps {
 /** Repository lifecycle: recent list, dashboard, open/clone/refresh, editor & terminal launch. */
 export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   const {
-    api, currentRepoPath, viewMode, snapshot,
+    api, currentRepoPath, allReposMode, viewMode, snapshot,
     runBusyOperation, runOperationAction, applySnapshot, applySnapshotResult,
     setNotice, setError, refreshProviderStatusOnly
   } = deps
+
+  // In "All repositories" mode the dashboard and heatmap aggregate across every
+  // recent repository (no single-repo scope).
+  const dashboardScopePath = allReposMode ? undefined : currentRepoPath
 
   const [repositoryDashboard, setRepositoryDashboard] = useState<RepositoryDashboardSnapshot | null>(null)
   const [contributionGraph, setContributionGraph] = useState<ContributionGraph | null>(null)
@@ -56,10 +61,10 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     if (!api || viewMode !== 'dashboard') return
     void loadRepositoryDashboard()
 
-    if (snapshot) {
+    if (snapshot && !allReposMode) {
       void refreshProviderStatusOnly()
     }
-  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
+  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode, allReposMode])
 
   async function loadRecentRepositories() {
     if (!api) return
@@ -74,9 +79,9 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     dashboardRequestIdRef.current = requestId
     setDashboardLoading(true)
     // Dashboard scan and contribution graph are independent: run them concurrently.
-    const dashboardPromise = api.getRepositoryDashboard(currentRepoPath)
+    const dashboardPromise = api.getRepositoryDashboard(dashboardScopePath)
     const graphPromise = typeof api.getContributionGraph === 'function'
-      ? api.getContributionGraph(currentRepoPath).catch(() => null)
+      ? api.getContributionGraph(dashboardScopePath).catch(() => null)
       : Promise.resolve(null)
 
     const result = await dashboardPromise

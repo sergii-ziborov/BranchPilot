@@ -76,32 +76,52 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     return [...seen.values()].slice(0, 100)
   }
 
-  /** Commit counts per author across history, ranked for a contributor leaderboard. */
-  async getContributorStats(repoPath: string): Promise<ContributorStat[]> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const result = await this.git(rootPath, ['log', '--format=%an\t%ae\t%ad', '--date=short', '-n', '8000'], {
-      allowedExitCodes: [0, 128, 129]
-    })
-    if (result.exitCode !== 0) return []
+  /**
+   * Commit counts per author, ranked for a contributor leaderboard. With a
+   * `repoPath` it covers that repository; without one it aggregates across the
+   * recent repositories (the "All repositories" report scope).
+   */
+  async getContributorStats(repoPath?: string): Promise<ContributorStat[]> {
+    const repoPaths = repoPath
+      ? [await this.resolveRepositoryRoot(repoPath)]
+      : (await this.settings.getRecentRepositories()).slice(0, 12).map((repo) => repo.path)
+
+    const logs = await Promise.all(
+      repoPaths.map(async (candidate) => {
+        try {
+          const result = await this.git(candidate, ['log', '--format=%an\t%ae\t%ad', '--date=short', '-n', '8000'], {
+            allowedExitCodes: [0, 128, 129]
+          })
+          return result.exitCode === 0 ? result.stdout : ''
+        } catch {
+          return ''
+        }
+      })
+    )
 
     const byEmail = new Map<string, ContributorStat>()
     let total = 0
 
-    for (const line of result.stdout.split('\n')) {
-      const parts = line.split('\t')
-      if (parts.length < 3) continue
-      const name = parts[0].trim()
-      const email = parts[1].trim()
-      const date = parts[2].trim()
-      if (!name || !email) continue
-      total += 1
-      const key = email.toLowerCase()
-      const existing = byEmail.get(key)
-      if (existing) {
-        existing.commits += 1
-      } else {
-        // The log is newest-first, so the first row holds the latest name + date.
-        byEmail.set(key, { name, email, commits: 1, share: 0, lastCommitAt: date })
+    for (const stdout of logs) {
+      for (const line of stdout.split('\n')) {
+        const parts = line.split('\t')
+        if (parts.length < 3) continue
+        const name = parts[0].trim()
+        const email = parts[1].trim()
+        const date = parts[2].trim()
+        if (!name || !email) continue
+        total += 1
+        const key = email.toLowerCase()
+        const existing = byEmail.get(key)
+        if (existing) {
+          existing.commits += 1
+          if (date > existing.lastCommitAt) {
+            existing.lastCommitAt = date
+            existing.name = name
+          }
+        } else {
+          byEmail.set(key, { name, email, commits: 1, share: 0, lastCommitAt: date })
+        }
       }
     }
 

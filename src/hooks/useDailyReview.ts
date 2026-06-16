@@ -25,9 +25,9 @@ export function useDailyReview({
   const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
   const [contributorStats, setContributorStats] = useState<ContributorStat[]>([])
 
-  async function loadContributorStats() {
-    if (!api || !currentRepoPath || typeof api.getContributorStats !== 'function') return
-    const result = await api.getContributorStats(currentRepoPath).catch(() => null)
+  async function loadContributorStats(repoPath: string | undefined = currentRepoPath) {
+    if (!api || typeof api.getContributorStats !== 'function') return
+    const result = await api.getContributorStats(repoPath).catch(() => null)
     setContributorStats(result?.ok ? result.data : [])
   }
 

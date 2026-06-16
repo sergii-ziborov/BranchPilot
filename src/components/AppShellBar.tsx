@@ -38,6 +38,9 @@ export function AppShellBar({
   recentRepositories,
   openRepository,
   chooseRepository,
+  allReposMode,
+  onSelectAllRepos,
+  onExitAllRepos,
   hasRemote,
   canFetch,
   canPull,
@@ -62,6 +65,9 @@ export function AppShellBar({
   recentRepositories: RecentRepository[]
   openRepository: (path: string) => void | Promise<boolean>
   chooseRepository: () => void | Promise<void>
+  allReposMode: boolean
+  onSelectAllRepos: () => void
+  onExitAllRepos: () => void
   hasRemote: boolean
   canFetch: boolean
   canPull: boolean
@@ -159,7 +165,7 @@ export function AppShellBar({
             <span className="shell-seg-label">Repository</span>
             <span className="shell-seg-value">
               <FolderOpen size={16} />
-              {snapshot?.summary.name ?? 'No repository'}
+              {allReposMode ? 'All repositories' : snapshot?.summary.name ?? 'No repository'}
               <ChevronDown size={14} />
             </span>
           </summary>
@@ -169,15 +175,26 @@ export function AppShellBar({
               Open repository…
             </button>
             <div className="shell-dropdown-list" aria-label="Recent repositories">
+              <button
+                className={allReposMode ? 'shell-dropdown-item active' : 'shell-dropdown-item'}
+                type="button"
+                onClick={(event) => { closeMenu(event); onSelectAllRepos() }}
+              >
+                <LayoutDashboard size={13} />
+                <span className="shell-dropdown-item-text">
+                  <strong>All repositories</strong>
+                  <span>Portfolio dashboard &amp; reports</span>
+                </span>
+              </button>
               {recentRepositories.length === 0 ? (
                 <p className="shell-dropdown-empty">No recent repositories.</p>
               ) : (
                 recentRepositories.map((repo) => (
                   <button
-                    className={repo.path === currentRepoPath ? 'shell-dropdown-item active' : 'shell-dropdown-item'}
+                    className={!allReposMode && repo.path === currentRepoPath ? 'shell-dropdown-item active' : 'shell-dropdown-item'}
                     type="button"
                     key={repo.path}
-                    onClick={(event) => { closeMenu(event); void openRepository(repo.path) }}
+                    onClick={(event) => { closeMenu(event); onExitAllRepos(); void openRepository(repo.path) }}
                   >
                     {repo.pinned ? <Star size={13} fill="currentColor" /> : <FolderOpen size={13} />}
                     <span className="shell-dropdown-item-text">
@@ -191,6 +208,8 @@ export function AppShellBar({
           </div>
         </details>
 
+        {!allReposMode && (
+        <>
         <details className="shell-menu shell-branch" onToggle={handleToggle}>
           <summary>
             <span className="shell-seg-label">Current branch</span>
@@ -254,6 +273,8 @@ export function AppShellBar({
             </span>
           )}
         </div>
+        </>
+        )}
 
         <label className="shell-assistant" title="AI assistant for commit text, reviews, and drafts across BranchPilot">
           <Bot size={15} />
@@ -268,6 +289,7 @@ export function AppShellBar({
           </select>
         </label>
 
+        {!allReposMode && (
         <div className="shell-repo-actions">
           <button className="icon-button" type="button" title="Refresh repository" aria-label="Refresh repository" disabled={!snapshot || busy} onClick={() => refreshRepository()}>
             <RefreshCcw size={17} />
@@ -282,11 +304,12 @@ export function AppShellBar({
             <Terminal size={17} />
           </button>
         </div>
+        )}
       </div>
 
       <nav className="shell-tabs" aria-label="Views">
         <div className="shell-tabs-primary">
-          {PRIMARY_TABS.map((tab) => (
+          {(allReposMode ? [] : PRIMARY_TABS).map((tab) => (
             <button
               className={viewMode === tab.id || (tab.id === 'changes' && viewMode === 'review') ? 'shell-tab active' : 'shell-tab'}
               type="button"
@@ -300,7 +323,7 @@ export function AppShellBar({
           ))}
         </div>
         <div className="shell-tabs-tools">
-          {TOOL_TABS.map((tab) => {
+          {TOOL_TABS.filter((tab) => !allReposMode || tab.id === 'dashboard' || tab.id === 'daily').map((tab) => {
             const isActive = viewMode === tab.id || (tab.id === 'daily' && viewMode === 'linkedin')
             return (
             <button

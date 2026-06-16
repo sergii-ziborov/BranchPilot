@@ -211,7 +211,7 @@ export interface BranchPilotApi {
   getDiff: (request: DiffRequest) => Promise<ApiResult<DiffResult>>
   getImagePreview: (request: ImagePreviewRequest) => Promise<ApiResult<ImagePreview>>
   getContributionGraph: (repoPath?: string) => Promise<ApiResult<ContributionGraph>>
-  getContributorStats: (repoPath: string) => Promise<ApiResult<ContributorStat[]>>
+  getContributorStats: (repoPath?: string) => Promise<ApiResult<ContributorStat[]>>
   getContributors: (repoPath: string) => Promise<ApiResult<CoAuthor[]>>
   getGitHubContributors: (repoPath: string) => Promise<ApiResult<CoAuthor[]>>
   getHistory: (repoPath: string) => Promise<ApiResult<CommitSummary[]>>
