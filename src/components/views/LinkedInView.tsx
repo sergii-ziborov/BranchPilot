@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Copy, Loader2, Star } from 'lucide-react'
 import type {
-  AssistantActionKind, AssistantId, AssistantPolicyStatus, GeneratedLinkedInProject, RepositorySnapshot
+  AssistantActionKind, AssistantPolicyStatus, GeneratedLinkedInProject, RepositorySnapshot
 } from '../../shared/branchPilot'
 import { assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
 
@@ -11,8 +11,6 @@ export function LinkedInView({
   busy,
   linkedinLoading,
   canGenerateLinkedInProject,
-  selectedAssistant,
-  setSelectedAssistant,
   linkedinRole,
   setLinkedInRole,
   linkedinAudience,
@@ -22,13 +20,8 @@ export function LinkedInView({
   assistantPolicy,
   linkedinProject,
   updateLinkedInProject,
-  linkedinHighlightsText,
-  setLinkedinHighlightsText,
-  linkedinTagsText,
-  setLinkedinTagsText,
   linkedinSkillsText,
   setLinkedinSkillsText,
-  copyLinkedInTags,
   copyLinkedInMarkdown,
   renderAssistantReadiness
 }: {
@@ -37,8 +30,6 @@ export function LinkedInView({
   busy: boolean
   linkedinLoading: boolean
   canGenerateLinkedInProject: boolean
-  selectedAssistant: AssistantId
-  setSelectedAssistant: (assistant: AssistantId) => void
   linkedinRole: string
   setLinkedInRole: (value: string) => void
   linkedinAudience: string
@@ -48,22 +39,17 @@ export function LinkedInView({
   assistantPolicy: AssistantPolicyStatus | null
   linkedinProject: GeneratedLinkedInProject | null
   updateLinkedInProject: (update: Partial<GeneratedLinkedInProject>) => void
-  linkedinHighlightsText: string
-  setLinkedinHighlightsText: (value: string) => void
-  linkedinTagsText: string
-  setLinkedinTagsText: (value: string) => void
   linkedinSkillsText: string
   setLinkedinSkillsText: (value: string) => void
-  copyLinkedInTags: () => void | Promise<void>
   copyLinkedInMarkdown: () => void | Promise<void>
   renderAssistantReadiness: (action: AssistantActionKind) => ReactNode
 }) {
-    return (
+  return (
     <section className="single-panel linkedin-panel">
       <div className="panel-heading">
         <div>
           <h2>LinkedIn Project</h2>
-          <p>Generate editable LinkedIn project fields from repository context.</p>
+          <p>Draft a LinkedIn “Projects” entry from this repository.</p>
         </div>
         <button type="button" onClick={generateLinkedInProject} disabled={!snapshot || busy || linkedinLoading || !canGenerateLinkedInProject}>
           {linkedinLoading ? <Loader2 className="spin" size={17} /> : <Star size={17} />}
@@ -72,43 +58,33 @@ export function LinkedInView({
       </div>
 
       <div className="linkedin-workspace">
-        <section className="linkedin-controls">
-          <label htmlFor="linkedin-assistant">Assistant</label>
-          <select
-            id="linkedin-assistant"
-            value={selectedAssistant}
-            onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
-            disabled={busy}
-          >
-            <option value="auto">Auto</option>
-            <option value="claude">Claude Code</option>
-            <option value="codex">Codex</option>
-          </select>
-
-          <label htmlFor="linkedin-role">Preferred role</label>
-          <input
-            id="linkedin-role"
-            value={linkedinRole}
-            onChange={(event) => setLinkedInRole(event.target.value)}
-            placeholder="Creator, maintainer, desktop app developer"
-          />
-
-          <label htmlFor="linkedin-audience">Audience</label>
-          <input
-            id="linkedin-audience"
-            value={linkedinAudience}
-            onChange={(event) => setLinkedInAudience(event.target.value)}
-            placeholder="LinkedIn project section"
-          />
-
-          <label htmlFor="linkedin-url">Project URL</label>
-          <input
-            id="linkedin-url"
-            value={linkedinProjectUrl}
-            onChange={(event) => setLinkedInProjectUrl(event.target.value)}
-            placeholder={snapshot?.summary.remoteUrl ?? 'Optional'}
-          />
-
+        <section className="linkedin-controls linkedin-hints">
+          <div className="linkedin-hints-grid">
+            <label>
+              Focus role
+              <input
+                value={linkedinRole}
+                onChange={(event) => setLinkedInRole(event.target.value)}
+                placeholder="Creator, maintainer, app developer"
+              />
+            </label>
+            <label>
+              Audience
+              <input
+                value={linkedinAudience}
+                onChange={(event) => setLinkedInAudience(event.target.value)}
+                placeholder="Who should this impress?"
+              />
+            </label>
+            <label className="linkedin-hint-wide">
+              Project URL
+              <input
+                value={linkedinProjectUrl}
+                onChange={(event) => setLinkedInProjectUrl(event.target.value)}
+                placeholder={snapshot?.summary.remoteUrl ?? 'https://github.com/owner/repo'}
+              />
+            </label>
+          </div>
           {!canGenerateLinkedInProject && (
             <div className="assistant-policy-note">{assistantPolicyBlockedLabel('linkedin_project', assistantPolicy)}</div>
           )}
@@ -119,37 +95,33 @@ export function LinkedInView({
           <section className="review-empty linkedin-empty">
             <Star size={24} />
             <strong>{linkedinLoading ? 'Generating LinkedIn project' : 'No LinkedIn draft yet'}</strong>
-            <span>{snapshot ? 'Generate a project entry from commits, tracked files, README, package metadata, and repository dates.' : 'Open a repository before generating LinkedIn content.'}</span>
+            <span>{snapshot ? 'Generate a project entry from commits, tracked files, README, and package metadata.' : 'Open a repository before generating LinkedIn content.'}</span>
           </section>
         ) : (
-          <section className="linkedin-draft">
+          <section className="linkedin-draft linkedin-card">
+            <label className="linkedin-field">
+              Project name
+              <input
+                value={linkedinProject.projectName}
+                onChange={(event) => updateLinkedInProject({ projectName: event.target.value })}
+              />
+            </label>
+
+            <label className="linkedin-field">
+              Project URL
+              <input
+                value={linkedinProject.urlSuggestion}
+                onChange={(event) => updateLinkedInProject({ urlSuggestion: event.target.value })}
+              />
+            </label>
+
             <div className="linkedin-field-grid">
-              <label>
-                Project name
-                <input
-                  value={linkedinProject.projectName}
-                  onChange={(event) => updateLinkedInProject({ projectName: event.target.value })}
-                />
-              </label>
-              <label>
-                Headline
-                <input
-                  value={linkedinProject.headline}
-                  onChange={(event) => updateLinkedInProject({ headline: event.target.value })}
-                />
-              </label>
-              <label>
-                Role
-                <input
-                  value={linkedinProject.role}
-                  onChange={(event) => updateLinkedInProject({ role: event.target.value })}
-                />
-              </label>
               <label>
                 Start date
                 <input
                   value={linkedinProject.startDate}
                   onChange={(event) => updateLinkedInProject({ startDate: event.target.value })}
+                  placeholder="Jun 2026"
                 />
               </label>
               <label>
@@ -157,85 +129,48 @@ export function LinkedInView({
                 <input
                   value={linkedinProject.endDate}
                   onChange={(event) => updateLinkedInProject({ endDate: event.target.value })}
-                />
-              </label>
-              <label>
-                Project URL
-                <input
-                  value={linkedinProject.urlSuggestion}
-                  onChange={(event) => updateLinkedInProject({ urlSuggestion: event.target.value })}
+                  placeholder="Present"
                 />
               </label>
             </div>
 
-            <label>
+            <label className="linkedin-field">
               Description
               <textarea
+                className="linkedin-description"
                 value={linkedinProject.description}
                 onChange={(event) => updateLinkedInProject({ description: event.target.value })}
               />
             </label>
 
-            <label>
-              Highlights
-              <textarea
-                value={linkedinHighlightsText}
+            <label className="linkedin-field">
+              Skills
+              <input
+                value={linkedinSkillsText}
                 onChange={(event) => {
-                  setLinkedinHighlightsText(event.target.value)
+                  setLinkedinSkillsText(event.target.value)
                   updateLinkedInProject({
-                    highlights: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean)
+                    skills: event.target.value.split(',').map((skill) => skill.trim()).filter(Boolean)
                   })
                 }}
+                placeholder="TypeScript, Electron, React"
               />
             </label>
 
-            <div className="linkedin-field-grid">
-              <label>
-                Tags
-                <textarea
-                  value={linkedinTagsText}
-                  onChange={(event) => {
-                    setLinkedinTagsText(event.target.value)
-                    updateLinkedInProject({
-                      tags: event.target.value.split(',').map((tag) => tag.trim().replace(/^#/, '')).filter(Boolean)
-                    })
-                  }}
-                />
-              </label>
-              <label>
-                Skills
-                <textarea
-                  value={linkedinSkillsText}
-                  onChange={(event) => {
-                    setLinkedinSkillsText(event.target.value)
-                    updateLinkedInProject({
-                      skills: event.target.value.split(',').map((skill) => skill.trim()).filter(Boolean)
-                    })
-                  }}
-                />
-              </label>
-            </div>
-
-            <section className="daily-section">
-              <div className="daily-section-heading">
-                <strong>LinkedIn Markdown</strong>
-                <div className="panel-actions">
-                  <button type="button" onClick={copyLinkedInTags}>
-                    <Copy size={15} />
-                    Tags
-                  </button>
-                  <button type="button" onClick={copyLinkedInMarkdown}>
-                    <Copy size={15} />
-                    Markdown
-                  </button>
-                </div>
+            <div className="linkedin-markdown-block">
+              <div className="linkedin-markdown-heading">
+                <strong>LinkedIn-ready text</strong>
+                <button type="button" onClick={copyLinkedInMarkdown}>
+                  <Copy size={15} />
+                  Copy
+                </button>
               </div>
               <textarea
                 className="linkedin-markdown-editor"
                 value={linkedinProject.markdown}
                 onChange={(event) => updateLinkedInProject({ markdown: event.target.value })}
               />
-            </section>
+            </div>
           </section>
         )}
       </div>
