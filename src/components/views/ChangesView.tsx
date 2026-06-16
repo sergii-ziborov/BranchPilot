@@ -24,7 +24,7 @@ export function ChangesView({
   selectedFilePath, setSelectedFilePath, setDiffMode,
   commitTitle, setCommitTitle, commitDescription, setCommitDescription,
   commitCoAuthors, setCommitCoAuthors,
-  setNotice, onOpenReview, onOpenStash,
+  setNotice, onOpenReview, onOpenStash, stashCount,
   generateCommitText, canGenerateCommitText,
   commitActionState, commitAndPushActionState, amendCommitActionState,
   commitChanges, amendLastCommit,
@@ -64,6 +64,7 @@ export function ChangesView({
   setNotice: (message: string) => void
   onOpenReview: () => void
   onOpenStash: () => void
+  stashCount: number
   generateCommitText: () => void | Promise<void>
   canGenerateCommitText: boolean
   commitActionState: ReturnType<typeof getCommitActionState>
@@ -328,6 +329,14 @@ export function ChangesView({
           )}
         </div>
 
+        {stashCount > 0 && (
+          <button type="button" className="stash-bar" onClick={onOpenStash} title="View stashed changes">
+            <Archive size={16} />
+            <span className="stash-bar-label">Stashed changes</span>
+            <span className="stash-bar-count">{stashCount}</span>
+          </button>
+        )}
+
         <div className="commit-box">
           <div className="commit-summary-row">
             <input
@@ -406,9 +415,6 @@ export function ChangesView({
             </button>
             <button className="icon-button" type="button" title="Review changes" aria-label="Review changes" onClick={onOpenReview}>
               <ShieldCheck size={16} />
-            </button>
-            <button className="icon-button" type="button" title="Stashes" aria-label="Stashes" onClick={onOpenStash}>
-              <Archive size={16} />
             </button>
             <button
               type="button"

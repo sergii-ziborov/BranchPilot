@@ -236,6 +236,14 @@ export function useAppController() {
     stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage,
     createStash, createQuickStash, applyStash, dropStash
   } = useStash({ api, currentRepoPath, snapshot, canCreateStash, setNotice, setError, runSnapshotAction, requestConfirmation, requestTextInput, resetPreCommitReview, setSnapshot, setRecentRepositories })
+
+  // Keep the stash list fresh on the Changes view so the "Stashed changes" bar
+  // (GitHub-Desktop style) only appears when a stash actually exists.
+  useEffect(() => {
+    if (!snapshot || (viewMode !== 'changes' && viewMode !== 'review')) return
+    void loadStashes()
+  }, [snapshot?.summary.rootPath, snapshot?.summary.currentBranch, viewMode])
+
   const hasRemote = Boolean(snapshot?.summary.remoteName)
   const hasUpstream = Boolean(snapshot?.summary.upstream)
   const canFetch = Boolean(snapshot && hasRemote)

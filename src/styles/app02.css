@@ -995,12 +995,53 @@
   z-index: 2;
   bottom: 0;
   display: grid;
-  grid-template-columns: auto auto auto repeat(3, minmax(0, 1fr));
+  grid-template-columns: auto auto repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 0 -10px;
   padding: 8px 10px 10px;
   border-top: 1px solid var(--border);
   background: #ffffff;
+}
+
+/* GitHub-Desktop-style stashed-changes bar; only rendered when a stash exists. */
+.stash-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stash-bar:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.stash-bar-label {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.stash-bar-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .changes-panel-compact .commit-actions button {

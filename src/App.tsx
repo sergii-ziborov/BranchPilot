@@ -143,6 +143,7 @@ function App() {
                 <ChangesView
                 onOpenReview={() => setChangesTool('review')}
                 onOpenStash={() => { setChangesTool('stash'); void loadStashes() }}
+                stashCount={stashes.length}
                 snapshot={snapshot}
                 counts={counts}
                 busy={busy}
