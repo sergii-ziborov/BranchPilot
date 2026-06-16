@@ -44,6 +44,17 @@ html[data-platform='darwin'] .shell-bar-row {
   padding-left: 118px;
 }
 
+/* In fullscreen the macOS traffic lights are hidden, so drop the left inset. */
+html.is-fullscreen[data-platform='darwin'] .shell-bar-row {
+  padding-left: 16px;
+}
+
+@media (display-mode: fullscreen) {
+  html[data-platform='darwin'] .shell-bar-row {
+    padding-left: 16px;
+  }
+}
+
 .shell-menu {
   position: relative;
 }
@@ -293,8 +304,8 @@ button.icon-button.active {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 42px;
-  padding: 4px 16px 5px;
+  min-height: 34px;
+  padding: 2px 16px 3px;
   border-top: 1px solid #edf1f6;
   overflow-x: auto;
   scrollbar-width: none;
@@ -314,7 +325,7 @@ button.icon-button.active {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 32px;
+  min-height: 28px;
   padding: 0 11px;
   border: 0;
   border-radius: 9px;
