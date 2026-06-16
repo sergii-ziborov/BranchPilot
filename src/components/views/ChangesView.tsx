@@ -31,7 +31,7 @@ export function ChangesView({
   currentRepoPath, runSnapshotAction, api,
   selectedChange, selectedDiffStats, discardSelected,
   diffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
-  diff, imagePreview, stageSelectedHunk, unstageSelectedHunk, openSelectedFileLineInEditor
+  diff, imagePreview, stageSelectedHunk, unstageSelectedHunk
 }: {
   snapshot: RepositorySnapshot | null
   counts: RepositorySnapshot['status']['counts'] | undefined
@@ -87,7 +87,6 @@ export function ChangesView({
   imagePreview: ImagePreview | null
   stageSelectedHunk: (hunk: DiffHunk) => void
   unstageSelectedHunk: (hunk: DiffHunk) => void
-  openSelectedFileLineInEditor: (line?: number) => void
 }) {
     const totalChanges = snapshot?.status.changes.length ?? 0
   const { containerRef: changesContainerRef, onScroll: changesScroll, window: changesWindow, items: changesItems } = virtualChanges
@@ -532,7 +531,6 @@ export function ChangesView({
           busy={busy}
           onStageHunk={stageSelectedHunk}
           onUnstageHunk={unstageSelectedHunk}
-          onOpenLine={openSelectedFileLineInEditor}
         />
 
         {diffMenu && selectedChange && (

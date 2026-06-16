@@ -1,9 +1,9 @@
 import { Bot, Code2, FileText, FolderOpen, GitBranch, GitCompare, Link2, Loader2, Pencil, Plus, Save, Search, Trash2, UploadCloud, X } from 'lucide-react'
 import type {
-  ApiResult, AssistantId, AssistantPolicyStatus, BranchComparison, BranchPilotApi, BranchSummary,
+  ApiResult, AssistantPolicyStatus, BranchComparison, BranchPilotApi, BranchSummary,
   GitOperationResult, RemoteBranchSummary, RepositorySnapshot, TagSummary, WorktreeSummary
 } from '../../shared/branchPilot'
-import { getBranchComposerSummary, getBranchDraftActionState, getCreateBranchActionState } from '../../shared/branchPreconditions'
+import { getBranchDraftActionState, getCreateBranchActionState } from '../../shared/branchPreconditions'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { worktreeSummaryLabel } from '../../lib/gitEntityLabels'
 import { formatDate } from '../../lib/format'
@@ -15,8 +15,8 @@ export function BranchesView({
   branchFilter, setBranchFilter, tagFilter, setTagFilter,
   branchDraftGoal, setBranchDraftGoal, newBranchName, setNewBranchName,
   newBranchDescription, setNewBranchDescription,
-  selectedAssistant, setSelectedAssistant, assistantPolicy,
-  canGenerateBranchDraft, branchComposerSummary, branchDraftActionState, createBranchActionState,
+  assistantPolicy,
+  canGenerateBranchDraft, branchDraftActionState, createBranchActionState,
   generateBranchDraft, createBranch,
   editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating,
   startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription,
@@ -45,11 +45,8 @@ export function BranchesView({
   setNewBranchName: (value: string) => void
   newBranchDescription: string
   setNewBranchDescription: (value: string) => void
-  selectedAssistant: AssistantId
-  setSelectedAssistant: (assistant: AssistantId) => void
   assistantPolicy: AssistantPolicyStatus | null
   canGenerateBranchDraft: boolean
-  branchComposerSummary: ReturnType<typeof getBranchComposerSummary>
   branchDraftActionState: ReturnType<typeof getBranchDraftActionState>
   createBranchActionState: ReturnType<typeof getCreateBranchActionState>
   generateBranchDraft: () => void | Promise<void>
@@ -162,25 +159,7 @@ export function BranchesView({
           />
         </div>
 
-        <div className="branch-composer-summary" aria-label="Branch draft readiness">
-          {branchComposerSummary.map((item) => (
-            <div className={`branch-summary-item tone-${item.tone}`} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </div>
-
         <div className="branch-composer-actions">
-          <select
-            aria-label="Branch draft assistant"
-            value={selectedAssistant}
-            onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
-          >
-            <option value="auto">Auto</option>
-            <option value="claude">Claude Code</option>
-            <option value="codex">Codex</option>
-          </select>
           <button type="button" onClick={generateBranchDraft} disabled={busy || !branchDraftActionState.enabled}>
             <Bot size={17} />
             Generate draft
