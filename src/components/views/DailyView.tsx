@@ -1,6 +1,18 @@
-import { CalendarDays, Copy, Loader2 } from 'lucide-react'
-import type { DailyReviewReport, RepositorySnapshot } from '../../shared/branchPilot'
+import { CalendarDays, Copy, Loader2, Trophy } from 'lucide-react'
+import type { ContributorStat, DailyReviewReport, RepositorySnapshot } from '../../shared/branchPilot'
+import { formatDate } from '../../lib/format'
 import { PanelHeading } from '../PanelHeading'
+
+const RANK_MEDAL = ['🥇', '🥈', '🥉']
+
+function contributorInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || '?'
+}
 
 export function DailyView({
   dailyReviewDate,
@@ -9,6 +21,7 @@ export function DailyView({
   snapshot,
   dailyReviewLoading,
   dailyReview,
+  contributorStats,
   copyDailyReviewMarkdown
 }: {
   dailyReviewDate: string
@@ -17,8 +30,10 @@ export function DailyView({
   snapshot: RepositorySnapshot | null
   dailyReviewLoading: boolean
   dailyReview: DailyReviewReport | null
+  contributorStats: ContributorStat[]
   copyDailyReviewMarkdown: () => void | Promise<void>
 }) {
+  const topCommits = contributorStats[0]?.commits ?? 0
   return (
     <section className="single-panel daily-panel">
       <PanelHeading title="Daily Review" description="Repository work summary for the selected day.">
@@ -35,6 +50,35 @@ export function DailyView({
           </button>
         </div>
       </PanelHeading>
+
+      {contributorStats.length > 0 && (
+        <section className="contributor-board">
+          <div className="contributor-board-heading">
+            <Trophy size={16} />
+            <strong>Contributor ranking</strong>
+            <span>{contributorStats.length} committers</span>
+          </div>
+          <div className="contributor-list">
+            {contributorStats.map((contributor, index) => (
+              <article className={`contributor-row${index < 3 ? ' top' : ''}`} key={contributor.email}>
+                <span className="contributor-rank">{RANK_MEDAL[index] ?? index + 1}</span>
+                <span className="contributor-avatar" aria-hidden="true">{contributorInitials(contributor.name)}</span>
+                <div className="contributor-id">
+                  <strong>{contributor.name}</strong>
+                  <span>Last commit {formatDate(contributor.lastCommitAt)}</span>
+                </div>
+                <div className="contributor-meter">
+                  <div className="contributor-bar" style={{ width: `${topCommits > 0 ? Math.max(6, Math.round((contributor.commits / topCommits) * 100)) : 0}%` }} />
+                </div>
+                <div className="contributor-metrics">
+                  <strong>{contributor.commits}</strong>
+                  <span>{Math.round(contributor.share * 100)}%</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {!dailyReview ? (
         <div className="review-empty">

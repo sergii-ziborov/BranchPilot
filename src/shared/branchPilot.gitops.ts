@@ -114,6 +114,16 @@ export interface CoAuthor {
   avatarUrl?: string
 }
 
+export interface ContributorStat {
+  name: string
+  email: string
+  commits: number
+  /** Share of total commits in the repository, 0..1. */
+  share: number
+  /** ISO date of this author's most recent commit. */
+  lastCommitAt: string
+}
+
 export interface ContributionDay {
   date: string
   count: number

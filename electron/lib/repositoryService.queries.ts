@@ -10,6 +10,7 @@ import type {
   CommitSummary,
   ContributionGraph,
   ContributionDay,
+  ContributorStat,
   DashboardRepositorySummary,
   DashboardStaleBranch,
   DiffRequest,
@@ -73,6 +74,41 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     }
 
     return [...seen.values()].slice(0, 100)
+  }
+
+  /** Commit counts per author across history, ranked for a contributor leaderboard. */
+  async getContributorStats(repoPath: string): Promise<ContributorStat[]> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const result = await this.git(rootPath, ['log', '--format=%an\t%ae\t%ad', '--date=short', '-n', '8000'], {
+      allowedExitCodes: [0, 128, 129]
+    })
+    if (result.exitCode !== 0) return []
+
+    const byEmail = new Map<string, ContributorStat>()
+    let total = 0
+
+    for (const line of result.stdout.split('\n')) {
+      const parts = line.split('\t')
+      if (parts.length < 3) continue
+      const name = parts[0].trim()
+      const email = parts[1].trim()
+      const date = parts[2].trim()
+      if (!name || !email) continue
+      total += 1
+      const key = email.toLowerCase()
+      const existing = byEmail.get(key)
+      if (existing) {
+        existing.commits += 1
+      } else {
+        // The log is newest-first, so the first row holds the latest name + date.
+        byEmail.set(key, { name, email, commits: 1, share: 0, lastCommitAt: date })
+      }
+    }
+
+    return [...byEmail.values()]
+      .map((stat) => ({ ...stat, share: total > 0 ? stat.commits / total : 0 }))
+      .sort((first, second) => second.commits - first.commits)
+      .slice(0, 50)
   }
 
   /** Commit activity over the last ~53 weeks, aggregated for a GitHub-style heatmap. */

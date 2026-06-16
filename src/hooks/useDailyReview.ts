@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { BranchPilotApi, DailyReviewReport } from '../shared/branchPilot'
+import type { BranchPilotApi, ContributorStat, DailyReviewReport } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import { formatDateInputValue } from '../lib/format'
 
@@ -23,6 +23,13 @@ export function useDailyReview({
   const [dailyReview, setDailyReview] = useState<DailyReviewReport | null>(null)
   const [dailyReviewDate, setDailyReviewDate] = useState(() => formatDateInputValue(new Date()))
   const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
+  const [contributorStats, setContributorStats] = useState<ContributorStat[]>([])
+
+  async function loadContributorStats() {
+    if (!api || !currentRepoPath || typeof api.getContributorStats !== 'function') return
+    const result = await api.getContributorStats(currentRepoPath).catch(() => null)
+    setContributorStats(result?.ok ? result.data : [])
+  }
 
   async function runDailyReview() {
     if (!api || !currentRepoPath) return
@@ -59,6 +66,8 @@ export function useDailyReview({
     dailyReviewDate,
     setDailyReviewDate,
     dailyReviewLoading,
+    contributorStats,
+    loadContributorStats,
     runDailyReview,
     copyDailyReviewMarkdown
   }
