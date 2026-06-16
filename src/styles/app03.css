@@ -864,6 +864,49 @@
   gap: 14px;
 }
 
+/* Collapsible Config sections (remotes, submodules, LFS) span the full width. */
+.config-collapsible {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.config-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+  user-select: none;
+}
+
+.config-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.config-collapsible > summary::before {
+  content: '▸';
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.config-collapsible[open] > summary::before {
+  content: '▾';
+}
+
+.config-collapsible[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.config-collapsible > .config-card {
+  border: none;
+}
+
 .memory-workspace {
   display: grid;
   gap: 14px;

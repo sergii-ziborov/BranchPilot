@@ -489,6 +489,12 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* Clip the left (directories) so the filename at the end stays visible. */
+.file-name {
+  direction: rtl;
+  text-align: left;
+}
+
 .nav-list {
   display: grid;
   gap: 6px;

@@ -1358,6 +1358,16 @@
   min-height: 0;
 }
 
+/* The modal already shows the tool title, so drop the panel's own title block. */
+.tool-modal-body .panel-heading > div:first-child {
+  display: none;
+}
+
+.tool-modal-body .panel-heading {
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
 .commit-actions button:first-child {
   color: #ffffff;
   border-color: #2563eb;

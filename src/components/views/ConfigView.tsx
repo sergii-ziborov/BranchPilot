@@ -157,6 +157,8 @@ export function ConfigView({
           )}
         </section>
 
+        <details className="config-collapsible">
+          <summary>Remotes</summary>
         <section className="config-card remotes-card">
           <div className="config-card-heading">
             <div>
@@ -218,7 +220,10 @@ export function ConfigView({
             ))
           )}
         </section>
+        </details>
 
+        <details className="config-collapsible">
+          <summary>Submodules</summary>
         <section className="config-card submodules-card">
           <div className="config-card-heading">
             <div>
@@ -258,7 +263,10 @@ export function ConfigView({
             </div>
           )}
         </section>
+        </details>
 
+        <details className="config-collapsible">
+          <summary>Git LFS</summary>
         <section className="config-card lfs-card">
           <div className="config-card-heading">
             <div>
@@ -312,6 +320,7 @@ export function ConfigView({
             </section>
           </div>
         </section>
+        </details>
       </div>
     </section>
   )
