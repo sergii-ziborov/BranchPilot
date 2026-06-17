@@ -175,12 +175,18 @@ export function ProvidersView({
           <div className="pr-form-row">
             <div className="pr-field">
               <label htmlFor="pr-base">Base branch</label>
-              <input
+              <select
                 id="pr-base"
                 value={prBaseBranch}
                 onChange={(event) => setPrBaseBranch(event.target.value)}
-                placeholder="main"
-              />
+              >
+                {prBaseBranch && !(snapshot?.branches ?? []).some((branch) => branch.name === prBaseBranch) && (
+                  <option value={prBaseBranch}>{prBaseBranch}</option>
+                )}
+                {(snapshot?.branches ?? []).map((branch) => (
+                  <option key={branch.name} value={branch.name}>{branch.name}</option>
+                ))}
+              </select>
             </div>
             <div className="pr-field">
               <label htmlFor="pr-title">Title</label>

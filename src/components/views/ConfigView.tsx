@@ -111,10 +111,19 @@ export function ConfigView({
           <label htmlFor="local-user-email">Email</label>
           <input
             id="local-user-email"
+            list="known-emails"
             value={localUserEmail}
             onChange={(event) => setLocalUserEmail(event.target.value)}
             placeholder="Repository user.email"
           />
+          <datalist id="known-emails">
+            {[gitConfig?.effectiveUserEmail, gitConfig?.globalUserEmail]
+              .filter((email): email is string => Boolean(email))
+              .filter((email, index, all) => all.indexOf(email) === index)
+              .map((email) => (
+                <option key={email} value={email} />
+              ))}
+          </datalist>
           <div className="config-identity-actions">
             <button type="button" onClick={saveLocalGitIdentity} disabled={busy || !localUserName.trim() || !localUserEmail.trim()}>
               <Save size={17} />
@@ -138,9 +147,7 @@ export function ConfigView({
         </section>
 
         <section className="config-card">
-          <h3>Effective identity</h3>
-          <InfoRow label="Name" value={gitConfig?.effectiveUserName ?? 'Unset'} />
-          <InfoRow label="Email" value={gitConfig?.effectiveUserEmail ?? 'Unset'} />
+          <h3>Git settings</h3>
           <InfoRow label="Global name" value={gitConfig?.globalUserName ?? 'Unset'} />
           <InfoRow label="Global email" value={gitConfig?.globalUserEmail ?? 'Unset'} />
           <InfoRow label="Default branch" value={gitDefaultBranchLabel(gitConfig)} />
