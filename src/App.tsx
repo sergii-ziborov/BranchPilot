@@ -48,6 +48,7 @@ function App() {
   } = useAppController()
 
   const [changesTool, setChangesTool] = useState<'review' | 'stash' | null>(null)
+  const [showClone, setShowClone] = useState(false)
 
   useEffect(() => {
     if (viewMode === 'review') setChangesTool('review')
@@ -61,6 +62,7 @@ function App() {
         selectedAssistant={selectedAssistant} setSelectedAssistant={setSelectedAssistant}
         recentRepositories={recentRepositories} openRepository={openRepository} chooseRepository={chooseRepository}
         allReposMode={allReposMode} onSelectAllRepos={enableAllReposMode} onExitAllRepos={() => setAllReposMode(false)}
+        onOpenClone={() => setShowClone(true)}
         hasRemote={hasRemote} canFetch={canFetch} canPull={canPull} canPush={canPush}
         selectedFileTarget={selectedFileTarget} runSnapshotAction={runSnapshotAction}
         refreshRepository={refreshRepository} openRepoInEditor={openRepoInEditor}
@@ -474,6 +476,44 @@ function App() {
       )}
       {textPromptRequest && (
         <TextPromptDialog request={textPromptRequest} value={textPromptValue} onChange={setTextPromptValue} onAnswer={answerTextPrompt} />
+      )}
+      {showClone && (
+        <ToolModal title="Clone repository" onClose={() => setShowClone(false)}>
+          <section className="single-panel">
+            <form
+              className="clone-panel"
+              onSubmit={async (event) => {
+                event.preventDefault()
+                if (!cloneRemoteUrl.trim()) return
+                await cloneRepository()
+                setShowClone(false)
+              }}
+            >
+              <div>
+                <strong>Clone repository</strong>
+                <span>Use system Git and your existing credentials.</span>
+              </div>
+              <input
+                aria-label="Clone repository URL"
+                value={cloneRemoteUrl}
+                onChange={(event) => setCloneRemoteUrl(event.target.value)}
+                placeholder="https://github.com/owner/repo.git"
+                disabled={!api || busy}
+                autoFocus
+              />
+              <input
+                aria-label="Clone folder name"
+                value={cloneTargetName}
+                onChange={(event) => setCloneTargetName(event.target.value)}
+                placeholder="Optional folder name"
+                disabled={!api || busy}
+              />
+              <button type="submit" disabled={!api || busy || !cloneRemoteUrl.trim()}>
+                <span>Clone</span>
+              </button>
+            </form>
+          </section>
+        </ToolModal>
       )}
     </main>
   )

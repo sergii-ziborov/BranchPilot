@@ -41,6 +41,7 @@ export function AppShellBar({
   allReposMode,
   onSelectAllRepos,
   onExitAllRepos,
+  onOpenClone,
   hasRemote,
   canFetch,
   canPull,
@@ -68,6 +69,7 @@ export function AppShellBar({
   allReposMode: boolean
   onSelectAllRepos: () => void
   onExitAllRepos: () => void
+  onOpenClone: () => void
   hasRemote: boolean
   canFetch: boolean
   canPull: boolean
@@ -170,9 +172,13 @@ export function AppShellBar({
             </span>
           </summary>
           <div className="shell-dropdown">
-            <button className="shell-dropdown-primary" type="button" disabled={!apiReady || busy} onClick={(event) => { closeMenu(event); void chooseRepository() }}>
+            <button className="shell-dropdown-primary shell-dropdown-top" type="button" disabled={!apiReady || busy} onClick={(event) => { closeMenu(event); void chooseRepository() }}>
               <FolderOpen size={15} />
               Open repository…
+            </button>
+            <button className="shell-dropdown-primary" type="button" disabled={!apiReady || busy} onClick={(event) => { closeMenu(event); onOpenClone() }}>
+              <DownloadCloud size={15} />
+              Clone repository…
             </button>
             <div className="shell-dropdown-list" aria-label="Recent repositories">
               <button

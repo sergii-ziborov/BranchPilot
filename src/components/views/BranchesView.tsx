@@ -293,16 +293,6 @@ export function BranchesView({
                   {branchComparisonLoading === branch.name ? <Loader2 className="spin" size={16} /> : <GitCompare size={16} />}
                 </button>
                 <button
-                  className="icon-button"
-                  type="button"
-                  title="Switch to branch"
-                  aria-label="Switch to branch"
-                  disabled={busy || branch.current || isEditingDescription}
-                  onClick={() => currentRepoPath && runSnapshotAction('Branch switched.', () => api!.switchBranch({ repoPath: currentRepoPath, branchName: branch.name }))}
-                >
-                  <GitBranch size={16} />
-                </button>
-                <button
                   className="danger-button icon-button"
                   type="button"
                   title="Delete branch"
@@ -318,15 +308,9 @@ export function BranchesView({
         })}
       </div>
 
+      <details className="branch-collapsible">
+        <summary>Remote branches <span>{remoteBranches.length}</span></summary>
       <section className="remote-branch-panel">
-        <div className="branch-section-heading">
-          <div>
-            <h3>Remote branches</h3>
-            <p>Read-only remote tracking refs from the last fetch.</p>
-          </div>
-          <span>{filteredRemoteBranches.length} / {remoteBranches.length}</span>
-        </div>
-
         <div className="remote-branch-list">
           {remoteBranches.length === 0 ? (
             <div className="quiet-box">No fetched remote branches.</div>
@@ -345,6 +329,7 @@ export function BranchesView({
           )}
         </div>
       </section>
+      </details>
 
       {branchComparison && (
         <section className="branch-compare-panel">
@@ -379,14 +364,10 @@ export function BranchesView({
         </section>
       )}
 
+      <details className="branch-collapsible">
+        <summary>Worktrees <span>{worktrees.length}</span></summary>
       <section className="worktree-panel">
-        <div className="panel-heading">
-          <div>
-            <h3>Worktrees</h3>
-            <p>Create a linked worktree for safe branch experiments without disturbing this checkout.</p>
-          </div>
-          <span>{worktrees.length} worktree{worktrees.length === 1 ? '' : 's'}</span>
-        </div>
+        <p className="branch-collapsible-hint">Create a linked worktree for safe branch experiments without disturbing this checkout.</p>
 
         <div className="worktree-composer">
           <label htmlFor="worktree-branch">New branch</label>
@@ -455,15 +436,12 @@ export function BranchesView({
           )}
         </div>
       </section>
+      </details>
 
+      <details className="branch-collapsible">
+        <summary>Tags <span>{tags.length}</span></summary>
       <section className="tag-panel">
-        <div className="panel-heading">
-          <div>
-            <h3>Tags</h3>
-            <p>Create lightweight or annotated local tags at the current HEAD.</p>
-          </div>
-          <span>{tags.length} tag{tags.length === 1 ? '' : 's'}</span>
-        </div>
+        <p className="branch-collapsible-hint">Create lightweight or annotated local tags at the current HEAD.</p>
 
         <div className="tag-composer">
           <label htmlFor="tag-name">Tag name</label>
@@ -537,6 +515,7 @@ export function BranchesView({
           )}
         </div>
       </section>
+      </details>
     </section>
   )
 }
