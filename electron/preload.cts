@@ -10,6 +10,11 @@ const branchPilot: BranchPilotApi = {
     ipcRenderer.on('menu:action', listener)
     return () => ipcRenderer.removeListener('menu:action', listener)
   },
+  onFullscreenChange: (callback) => {
+    const listener = (_event: unknown, isFullscreen: boolean) => callback(isFullscreen)
+    ipcRenderer.on('window:fullscreen', listener)
+    return () => ipcRenderer.removeListener('window:fullscreen', listener)
+  },
   getVersion: () => invoke('app:version'),
   chooseAndOpenRepository: () => invoke('repository:chooseAndOpen'),
   cloneRepository: (request) => invoke('repository:clone', request),

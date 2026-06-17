@@ -71,16 +71,18 @@ function createMainWindow() {
     return { action: 'deny' }
   })
 
-  // Toggle a root class so the title bar can drop the macOS traffic-light inset
-  // while the window is in native fullscreen (controls are hidden there).
-  const setFullScreenClass = (isFullScreen: boolean) => {
-    window.webContents
-      .executeJavaScript(`document.documentElement.classList.toggle('is-fullscreen', ${isFullScreen})`)
-      .catch(() => undefined)
+  // Tell the renderer about fullscreen so it can drop the macOS traffic-light
+  // inset (the controls are hidden in native fullscreen). Sent via IPC because
+  // the `display-mode: fullscreen` media query is unreliable in Electron.
+  const sendFullScreen = () => {
+    if (!window.isDestroyed()) {
+      window.webContents.send('window:fullscreen', window.isFullScreen())
+    }
   }
-  window.on('enter-full-screen', () => setFullScreenClass(true))
-  window.on('leave-full-screen', () => setFullScreenClass(false))
-  window.webContents.on('did-finish-load', () => setFullScreenClass(window.isFullScreen()))
+  window.on('enter-full-screen', sendFullScreen)
+  window.on('leave-full-screen', sendFullScreen)
+  window.webContents.on('did-finish-load', sendFullScreen)
+  window.webContents.on('dom-ready', sendFullScreen)
 
   Menu.setApplicationMenu(buildApplicationMenu(window))
 }
