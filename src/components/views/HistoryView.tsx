@@ -180,7 +180,7 @@ export function HistoryView({
           </div>
 
           {commitDetails?.body && <div className="commit-body">{commitDetails.body}</div>}
-          {commitDetails && commitDetails.containingBranches.length > 0 && (
+          {commitDetails && !(commitDetails.containingBranches.length === 1 && commitDetails.containingBranches[0] === snapshot?.summary.currentBranch) && commitDetails.containingBranches.length > 0 && (
             <div className="commit-branch-strip">
               <span>Contained in</span>
               <div>

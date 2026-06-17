@@ -54,7 +54,9 @@ export function useChanges({
   const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
 
   const filteredChanges = useMemo(() => {
-    const changes = snapshot?.status.changes ?? []
+    // Stable alphabetical order so staging/unstaging a file never reorders the
+    // list (git status groups staged/unstaged, which made rows jump).
+    const changes = [...(snapshot?.status.changes ?? [])].sort((a, b) => a.path.localeCompare(b.path))
     const query = changeFilter.trim().toLowerCase()
 
     if (!query) return changes
