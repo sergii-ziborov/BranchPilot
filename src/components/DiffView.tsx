@@ -1,4 +1,4 @@
-import { FileImage, FileText, Plus, X } from 'lucide-react'
+import { FileImage, FileText, Plus, Trash2, X } from 'lucide-react'
 import type { DiffHunk, DiffLine, DiffResult, ImagePreview } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import { buildSplitDiffRows } from '../shared/diffView'
@@ -132,6 +132,7 @@ export function DiffPreview({
   busy = false,
   onStageHunk,
   onUnstageHunk,
+  onDiscardHunk,
   onOpenLine
 }: {
   diff: DiffResult | null
@@ -141,6 +142,7 @@ export function DiffPreview({
   busy?: boolean
   onStageHunk?: (hunk: DiffHunk) => void
   onUnstageHunk?: (hunk: DiffHunk) => void
+  onDiscardHunk?: (hunk: DiffHunk) => void
   onOpenLine?: (line?: number) => void
 }) {
   if (!diff) {
@@ -202,6 +204,12 @@ export function DiffPreview({
                   <button type="button" onClick={() => onStageHunk(hunk)} disabled={busy}>
                     <Plus size={15} />
                     Stage hunk
+                  </button>
+                )}
+                {mode === 'unstaged' && onDiscardHunk && (
+                  <button type="button" className="danger-button" onClick={() => onDiscardHunk(hunk)} disabled={busy}>
+                    <Trash2 size={15} />
+                    Discard hunk
                   </button>
                 )}
                 {mode === 'staged' && onUnstageHunk && (

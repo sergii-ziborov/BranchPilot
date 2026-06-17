@@ -55,13 +55,16 @@ export class ExternalEditorService {
     settings: EditorSettings = DEFAULT_EDITOR_SETTINGS
   ): Promise<GitOperationResult> {
     const codePath = line ? `${targetPath}:${line}` : targetPath
+    // VS Code / Cursor need `--goto file:line`; a bare `file:line` argument is
+    // treated as a (non-existent) filename and opens a blank document.
+    const cliArgs = line ? ['--goto', codePath] : [targetPath]
 
     if (settings.preference === 'custom') {
       return this.openWithCustomCommand(targetPath, codePath, settings.customCommand)
     }
 
     if (settings.preference === 'auto') {
-      const openedWithCli = await this.openFirstAvailableCli(EDITOR_PRESETS, codePath)
+      const openedWithCli = await this.openFirstAvailableCli(EDITOR_PRESETS, cliArgs)
 
       if (openedWithCli) {
         return { message: `Opened in ${openedWithCli.label}` }
@@ -75,7 +78,7 @@ export class ExternalEditorService {
     } else {
       const preset = EDITOR_PRESETS.find((candidate) => candidate.preference === settings.preference)
 
-      if (preset && await this.openWithPreset(preset, targetPath, codePath)) {
+      if (preset && await this.openWithPreset(preset, targetPath, cliArgs)) {
         return { message: `Opened in ${preset.label}` }
       }
     }
@@ -114,17 +117,17 @@ export class ExternalEditorService {
     }
   }
 
-  private async openWithPreset(preset: EditorPreset, targetPath: string, codePath: string): Promise<boolean> {
-    if (await this.tryCommand(preset.cli, [codePath])) {
+  private async openWithPreset(preset: EditorPreset, targetPath: string, cliArgs: string[]): Promise<boolean> {
+    if (await this.tryCommand(preset.cli, cliArgs)) {
       return true
     }
 
     return this.tryCommand('/usr/bin/open', ['-a', preset.macAppName, targetPath])
   }
 
-  private async openFirstAvailableCli(presets: EditorPreset[], codePath: string): Promise<EditorPreset | null> {
+  private async openFirstAvailableCli(presets: EditorPreset[], cliArgs: string[]): Promise<EditorPreset | null> {
     for (const preset of presets) {
-      if (await this.tryCommand(preset.cli, [codePath])) {
+      if (await this.tryCommand(preset.cli, cliArgs)) {
         return preset
       }
     }

@@ -175,6 +175,21 @@ export function useChanges({
     )
   }
 
+  async function discardSelectedHunk(hunk: DiffHunk) {
+    if (!api || !currentRepoPath || !selectedChange) return
+    const confirmed = await requestConfirmation(
+      `Discard this hunk in ${selectedChange.path}? This permanently reverts those lines in the working tree.`,
+      { title: 'Discard Hunk', confirmLabel: 'Discard hunk', variant: 'danger' }
+    )
+    if (!confirmed) return
+
+    await runSnapshotAction(
+      'Hunk discarded.',
+      () => api.discardHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch: hunk.patch }),
+      'Discarding hunk...'
+    )
+  }
+
   async function discardSelected() {
     if (!api || !currentRepoPath || !selectedChange) return
     const isUntracked = selectedChange.untracked
@@ -290,7 +305,7 @@ export function useChanges({
     diff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
     filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
     loadDiff, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,
-    stageSelectedHunk, unstageSelectedHunk, discardSelected, exportPatch, applyPatch,
+    stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch,
     openSelectedFileInEditor, openSelectedFileLineInEditor
   }
 }

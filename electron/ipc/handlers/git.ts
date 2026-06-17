@@ -79,6 +79,7 @@ export function registerGitHandlers(
   handle('git:unstageFile', (request: FileActionRequest) => repositoryService.unstageFile(request))
   handle('git:stageHunk', (request: HunkActionRequest) => repositoryService.stageHunk(request))
   handle('git:unstageHunk', (request: HunkActionRequest) => repositoryService.unstageHunk(request))
+  handle('git:discardHunk', (request: HunkActionRequest) => repositoryService.discardHunk(request))
   handle('git:stageAll', (repoPath: string) => repositoryService.stageAll(repoPath))
   handle('git:unstageAll', (repoPath: string) => repositoryService.unstageAll(repoPath))
   handle('git:discardFile', (request: ConfirmedFileActionRequest) => repositoryService.discardFile(request))

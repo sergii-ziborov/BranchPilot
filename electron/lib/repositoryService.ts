@@ -250,6 +250,20 @@ export class RepositoryService extends RepositoryServiceWrites {
     return this.getStatusOnlySnapshot(rootPath)
   }
 
+  /** Permanently reverts a single unstaged hunk in the working tree (GitHub-Desktop-style discard). */
+  async discardHunk(request: HunkActionRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const filePath = normalizeRelativePath(request.filePath)
+    const patch = normalizeHunkPatch(request.patch, filePath)
+
+    await this.git(rootPath, ['apply', '--reverse', '--whitespace=nowarn'], {
+      input: patch,
+      timeoutMs: 30_000
+    })
+
+    return this.getStatusOnlySnapshot(rootPath)
+  }
+
   async stageAll(repoPath: string): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
     await this.git(rootPath, ['add', '-A'])

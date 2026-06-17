@@ -238,6 +238,7 @@ export interface BranchPilotApi {
   unstageFile: (request: FileActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   stageHunk: (request: HunkActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   unstageHunk: (request: HunkActionRequest) => Promise<ApiResult<RepositorySnapshot>>
+  discardHunk: (request: HunkActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   stageAll: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   unstageAll: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   discardFile: (request: ConfirmedFileActionRequest) => Promise<ApiResult<RepositorySnapshot>>

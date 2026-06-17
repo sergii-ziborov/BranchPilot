@@ -48,6 +48,7 @@ const branchPilot: BranchPilotApi = {
   unstageFile: (request) => invoke('git:unstageFile', request),
   stageHunk: (request) => invoke('git:stageHunk', request),
   unstageHunk: (request) => invoke('git:unstageHunk', request),
+  discardHunk: (request) => invoke('git:discardHunk', request),
   stageAll: (repoPath) => invoke('git:stageAll', repoPath),
   unstageAll: (repoPath) => invoke('git:unstageAll', repoPath),
   discardFile: (request) => invoke('git:discardFile', request),

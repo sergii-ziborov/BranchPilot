@@ -33,11 +33,17 @@
 
 .shell-bar-row {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 8px;
   min-height: 56px;
   /* Left inset clears the macOS traffic-light window controls (hiddenInset). */
   padding: 9px 16px 8px 84px;
+}
+
+/* Keep every top-bar control on one baseline at a single height. */
+.shell-bar button.icon-button {
+  height: 38px;
+  min-height: 38px;
 }
 
 html[data-platform='darwin'] .shell-bar-row {
