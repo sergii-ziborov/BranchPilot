@@ -17,6 +17,16 @@ import { registerIpcHandlers } from './ipc/registerIpcHandlers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
+
+// Branding: name shown in the menu bar + About panel (defaults to "Electron").
+app.setName('BranchPilot')
+app.setAboutPanelOptions({
+  applicationName: 'BranchPilot',
+  applicationVersion: app.getVersion(),
+  version: app.getVersion(),
+  copyright: 'Open source · MIT',
+  credits: 'A fast, local-first Git desktop client.'
+})
 const commandRunner = new CommandRunner()
 const projectMemoryDir = path.join(app.getPath('userData'), 'project-memory')
 const projectWikiDir = path.join(app.getPath('userData'), 'project-wiki')

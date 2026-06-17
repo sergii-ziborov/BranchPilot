@@ -467,6 +467,15 @@
   border-top: 1px solid var(--border);
 }
 
+/* Flatten the PR create card so it doesn't nest a border inside the panel. */
+.pr-composer.branch-composer {
+  margin-bottom: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .compact-heading {
   gap: 12px;
 }
