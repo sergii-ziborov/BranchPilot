@@ -50,14 +50,15 @@ html[data-platform='darwin'] .shell-bar-row {
   padding-left: 118px;
 }
 
-/* In fullscreen the macOS traffic lights are hidden, so drop the left inset. */
-html.is-fullscreen[data-platform='darwin'] .shell-bar-row {
-  padding-left: 16px;
+/* In fullscreen the macOS traffic lights are hidden, so drop the left inset.
+   Platform-independent + !important so it always beats the darwin inset. */
+html.is-fullscreen .shell-bar-row {
+  padding-left: 16px !important;
 }
 
 @media (display-mode: fullscreen) {
-  html[data-platform='darwin'] .shell-bar-row {
-    padding-left: 16px;
+  .shell-bar-row {
+    padding-left: 16px !important;
   }
 }
 

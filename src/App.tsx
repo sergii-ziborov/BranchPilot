@@ -47,6 +47,18 @@ function App() {
   const [changesTool, setChangesTool] = useState<'review' | 'stash' | null>(null)
   const [showClone, setShowClone] = useState(false)
 
+  // Populate the user's GitHub repositories when the Clone dialog opens.
+  useEffect(() => {
+    if (!showClone) return
+    void loadGitHubAccounts()
+    void loadGitHubRepositories()
+  }, [showClone])
+
+  // Close the Clone dialog once a repository is actually opened (clone done).
+  useEffect(() => {
+    if (showClone && snapshot) setShowClone(false)
+  }, [snapshot?.summary.rootPath])
+
   useEffect(() => {
     if (viewMode === 'review') setChangesTool('review')
   }, [viewMode])
@@ -448,9 +460,9 @@ function App() {
       )}
       {showClone && (
         <ToolModal title="Clone repository" onClose={() => setShowClone(false)}>
-          <section className="single-panel">
+          <section className="single-panel clone-modal-body">
             <form
-              className="clone-panel"
+              className="clone-url-row"
               onSubmit={async (event) => {
                 event.preventDefault()
                 if (!cloneRemoteUrl.trim()) return
@@ -458,10 +470,6 @@ function App() {
                 setShowClone(false)
               }}
             >
-              <div>
-                <strong>Clone repository</strong>
-                <span>Use system Git and your existing credentials.</span>
-              </div>
               <input
                 aria-label="Clone repository URL"
                 value={cloneRemoteUrl}
@@ -477,10 +485,12 @@ function App() {
                 placeholder="Optional folder name"
                 disabled={!api || busy}
               />
-              <button type="submit" disabled={!api || busy || !cloneRemoteUrl.trim()}>
-                <span>Clone</span>
+              <button type="submit" className="clone-url-button" disabled={!api || busy || !cloneRemoteUrl.trim()}>
+                Clone URL
               </button>
             </form>
+            <div className="clone-browse-label">Or pick one of your GitHub repositories</div>
+            {renderGitHubRepositoryBrowser()}
           </section>
         </ToolModal>
       )}
