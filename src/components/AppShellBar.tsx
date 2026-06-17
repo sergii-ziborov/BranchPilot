@@ -19,7 +19,6 @@ const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'branches', label: 'Branches', icon: GitBranch },
   { id: 'providers', label: 'Providers', icon: GitPullRequest },
-  { id: 'config', label: 'Git Config', icon: Settings },
   { id: 'daily', label: 'Reports', icon: CalendarDays }
 ]
 
@@ -308,6 +307,16 @@ export function AppShellBar({
           </button>
           <button className="icon-button" type="button" title="Open terminal" aria-label="Open terminal" disabled={!snapshot || busy} onClick={openRepositoryTerminal}>
             <Terminal size={17} />
+          </button>
+          <button
+            className={viewMode === 'config' ? 'icon-button active' : 'icon-button'}
+            type="button"
+            title="Git settings"
+            aria-label="Git settings"
+            disabled={!snapshot || busy}
+            onClick={() => setViewMode('config')}
+          >
+            <Settings size={17} />
           </button>
         </div>
         )}

@@ -167,6 +167,33 @@
   background: #f8fafc;
 }
 
+/* Commit identity: prominent "commits as" summary + paired save/use-global. */
+.config-commit-as {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.config-commit-as span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.config-identity-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.config-identity-actions > button:first-child {
+  flex: 1 1 auto;
+}
+
 .config-card h3 {
   margin-bottom: 2px;
 }

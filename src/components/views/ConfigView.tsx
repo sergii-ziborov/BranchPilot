@@ -89,7 +89,18 @@ export function ConfigView({
 
       <div className="config-grid">
         <section className="config-card">
-          <h3>Local identity</h3>
+          <div className="config-card-heading">
+            <div>
+              <h3>Commit identity</h3>
+              <p>Name and email used for commits in <strong>this</strong> repository.</p>
+            </div>
+          </div>
+          {gitConfig?.effectiveUserEmail && (
+            <div className="config-commit-as">
+              Commits as <strong>{gitConfig.effectiveUserName ?? 'Unknown'}</strong>
+              <span>{gitConfig.effectiveUserEmail}</span>
+            </div>
+          )}
           <label htmlFor="local-user-name">Name</label>
           <input
             id="local-user-name"
@@ -104,10 +115,26 @@ export function ConfigView({
             onChange={(event) => setLocalUserEmail(event.target.value)}
             placeholder="Repository user.email"
           />
-          <button type="button" onClick={saveLocalGitIdentity} disabled={busy || !localUserName.trim() || !localUserEmail.trim()}>
-            <Save size={17} />
-            Save local identity
-          </button>
+          <div className="config-identity-actions">
+            <button type="button" onClick={saveLocalGitIdentity} disabled={busy || !localUserName.trim() || !localUserEmail.trim()}>
+              <Save size={17} />
+              Save commit identity
+            </button>
+            {gitConfig?.globalUserEmail && (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  setLocalUserName(gitConfig.globalUserName ?? '')
+                  setLocalUserEmail(gitConfig.globalUserEmail ?? '')
+                }}
+                disabled={busy}
+                title={`Use ${gitConfig.globalUserEmail}`}
+              >
+                Use global
+              </button>
+            )}
+          </div>
         </section>
 
         <section className="config-card">
