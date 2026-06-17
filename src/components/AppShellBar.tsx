@@ -245,13 +245,13 @@ export function AppShellBar({
                 ))
               )}
             </div>
-            <button className="shell-dropdown-primary" type="button" disabled={!snapshot || busy || branches.length < 2} onClick={(event) => { closeMenu(event); setShowMergeInto(true) }}>
-              <GitMerge size={15} />
-              Merge into {currentBranch ?? 'current'}…
-            </button>
             <button className="shell-dropdown-primary" type="button" onClick={(event) => { closeMenu(event); setViewMode('branches') }}>
               <GitBranch size={15} />
               Manage branches, worktrees & tags
+            </button>
+            <button className="shell-dropdown-primary shell-dropdown-merge" type="button" disabled={!snapshot || busy || branches.length < 2} onClick={(event) => { closeMenu(event); setShowMergeInto(true) }}>
+              <GitMerge size={15} />
+              Choose a branch to merge into {currentBranch ?? 'current'}…
             </button>
           </div>
         </details>

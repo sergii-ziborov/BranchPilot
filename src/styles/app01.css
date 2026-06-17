@@ -199,6 +199,25 @@ html.is-fullscreen[data-platform='darwin'] .shell-bar-row {
   border-bottom: 1px solid var(--border);
 }
 
+/* GitHub-Desktop-style prominent merge action at the bottom of the branch menu. */
+.shell-dropdown-merge {
+  justify-content: center;
+  margin: 6px;
+  width: auto;
+  border-radius: 8px;
+  background: #f1f5f9;
+  font-weight: 600;
+}
+
+.shell-dropdown-merge:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.shell-dropdown-merge:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 button.icon-button.active {
   border-color: #2563eb;
   background: #eef2ff;
