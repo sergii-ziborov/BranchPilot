@@ -17,8 +17,7 @@ const PRIMARY_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
 
 const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'branches', label: 'Branches', icon: GitBranch },
-  { id: 'providers', label: 'Providers', icon: GitPullRequest },
+  { id: 'providers', label: 'Pull requests', icon: GitPullRequest },
   { id: 'daily', label: 'Reports', icon: CalendarDays }
 ]
 
@@ -261,23 +260,35 @@ export function AppShellBar({
           </div>
         </details>
 
-        <div className="shell-sync" aria-label="Sync">
-          <button className="icon-button" type="button" title="Fetch" aria-label="Fetch" disabled={!canFetch || busy} onClick={() => currentRepoPath && runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath))}>
-            <ArrowDownToLine size={17} />
-          </button>
-          <button className="icon-button" type="button" title="Pull" aria-label="Pull" disabled={!canPull || busy} onClick={() => currentRepoPath && runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath))}>
-            <DownloadCloud size={17} />
-          </button>
-          <button className="icon-button" type="button" title="Push" aria-label="Push" disabled={!canPush || busy} onClick={() => currentRepoPath && runSnapshotAction('Push complete.', () => api!.push(currentRepoPath))}>
-            <ArrowUpFromLine size={17} />
-          </button>
-          {hasRemote && snapshot && (
-            <span className="shell-aheadbehind" title="Commits ahead / behind upstream">
-              <ArrowUpFromLine size={12} />{snapshot.summary.ahead}
-              <ArrowDownToLine size={12} />{snapshot.summary.behind}
+        <details className="shell-menu shell-sync" onToggle={handleToggle}>
+          <summary>
+            <span className="shell-seg-value">
+              <RefreshCcw size={16} />
+              Sync
+              {hasRemote && snapshot && (
+                <span className="shell-aheadbehind" title="Commits ahead / behind upstream">
+                  <ArrowUpFromLine size={12} />{snapshot.summary.ahead}
+                  <ArrowDownToLine size={12} />{snapshot.summary.behind}
+                </span>
+              )}
+              <ChevronDown size={14} />
             </span>
-          )}
-        </div>
+          </summary>
+          <div className="shell-dropdown">
+            <button className="shell-dropdown-primary shell-dropdown-top" type="button" disabled={!canFetch || busy} onClick={(event) => { closeMenu(event); currentRepoPath && void runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath)) }}>
+              <ArrowDownToLine size={15} />
+              Fetch origin
+            </button>
+            <button className="shell-dropdown-primary" type="button" disabled={!canPull || busy} onClick={(event) => { closeMenu(event); currentRepoPath && void runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath)) }}>
+              <DownloadCloud size={15} />
+              Pull{snapshot && snapshot.summary.behind > 0 ? ` (${snapshot.summary.behind})` : ''}
+            </button>
+            <button className="shell-dropdown-primary" type="button" disabled={!canPush || busy} onClick={(event) => { closeMenu(event); currentRepoPath && void runSnapshotAction('Push complete.', () => api!.push(currentRepoPath)) }}>
+              <ArrowUpFromLine size={15} />
+              Push{snapshot && snapshot.summary.ahead > 0 ? ` (${snapshot.summary.ahead})` : ''}
+            </button>
+          </div>
+        </details>
         </>
         )}
 
