@@ -1,6 +1,6 @@
-import { Code2, Database, FolderOpen, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
+import { Bot, Code2, Database, FolderOpen, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
 import type {
-  ApiResult, BranchPilotApi, EditorPreference, EditorSettings, GitConfigSnapshot,
+  ApiResult, AssistantId, BranchPilotApi, EditorPreference, EditorSettings, GitConfigSnapshot,
   GitOperationResult, RemoteSummary, RepositorySnapshot, SubmoduleSummary
 } from '../../shared/branchPilot'
 import { gitDefaultBranchLabel, gitSigningLabel } from '../../lib/gitConfigLabels'
@@ -10,6 +10,8 @@ import { formatDate } from '../../lib/format'
 import { InfoRow } from '../primitives'
 
 export function ConfigView({
+  selectedAssistant,
+  setSelectedAssistant,
   loadGitConfig,
   busy,
   localUserName,
@@ -42,6 +44,8 @@ export function ConfigView({
   api,
   pullGitLfs
 }: {
+  selectedAssistant: AssistantId
+  setSelectedAssistant: (assistant: AssistantId) => void
   loadGitConfig: () => void | Promise<void>
   busy: boolean
   localUserName: string
@@ -88,6 +92,28 @@ export function ConfigView({
       </div>
 
       <div className="config-grid">
+        <section className="config-card">
+          <div className="config-card-heading">
+            <div>
+              <h3>AI assistant</h3>
+              <p>Used for commit text, reviews, and drafts across BranchPilot.</p>
+            </div>
+          </div>
+          <label htmlFor="assistant-select" className="config-assistant-label">
+            <Bot size={16} />
+            Assistant
+          </label>
+          <select
+            id="assistant-select"
+            value={selectedAssistant}
+            onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
+          >
+            <option value="auto">Auto</option>
+            <option value="claude">Claude Code</option>
+            <option value="codex">Codex</option>
+          </select>
+        </section>
+
         <section className="config-card">
           <div className="config-card-heading">
             <div>

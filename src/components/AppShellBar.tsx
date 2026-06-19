@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
-  ArrowDownToLine, ArrowUpFromLine, Bot, CalendarDays, ChevronDown, Clock3, Code2,
+  ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2,
   DownloadCloud, FileCode2, FileDiff, FolderOpen, GitBranch, GitMerge, GitPullRequest,
   LayoutDashboard, RefreshCcw, Settings, Star, Terminal, Check
 } from 'lucide-react'
-import type { ApiResult, AssistantId, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
+import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
 
@@ -30,8 +30,6 @@ export function AppShellBar({
   currentRepoPath,
   viewMode,
   setViewMode,
-  selectedAssistant,
-  setSelectedAssistant,
   changedCount,
   recentRepositories,
   openRepository,
@@ -58,8 +56,6 @@ export function AppShellBar({
   currentRepoPath: string | undefined
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
-  selectedAssistant: AssistantId
-  setSelectedAssistant: (assistant: AssistantId) => void
   changedCount: number
   recentRepositories: RecentRepository[]
   openRepository: (path: string) => void | Promise<boolean>
@@ -292,19 +288,6 @@ export function AppShellBar({
         </>
         )}
 
-        <label className="shell-assistant" title="AI assistant for commit text, reviews, and drafts across BranchPilot">
-          <Bot size={15} />
-          <select
-            aria-label="AI assistant"
-            value={selectedAssistant}
-            onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
-          >
-            <option value="auto">Auto</option>
-            <option value="claude">Claude Code</option>
-            <option value="codex">Codex</option>
-          </select>
-        </label>
-
         {!allReposMode && (
         <div className="shell-repo-actions">
           <button className="icon-button" type="button" title="Refresh repository" aria-label="Refresh repository" disabled={!snapshot || busy} onClick={() => refreshRepository()}>
@@ -331,23 +314,7 @@ export function AppShellBar({
           </button>
         </div>
         )}
-      </div>
 
-      <nav className="shell-tabs" aria-label="Views">
-        <div className="shell-tabs-primary">
-          {(allReposMode ? [] : PRIMARY_TABS).map((tab) => (
-            <button
-              className={viewMode === tab.id || (tab.id === 'changes' && viewMode === 'review') ? 'shell-tab active' : 'shell-tab'}
-              type="button"
-              key={tab.id}
-              onClick={() => setViewMode(tab.id)}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-              {tab.id === 'changes' && changedCount > 0 && <span className="shell-tab-badge">{changedCount}</span>}
-            </button>
-          ))}
-        </div>
         <div className="shell-tabs-tools">
           {TOOL_TABS.filter((tab) => !allReposMode || tab.id === 'dashboard' || tab.id === 'daily').map((tab) => {
             const isActive = viewMode === tab.id || (tab.id === 'daily' && viewMode === 'linkedin')
@@ -364,6 +331,23 @@ export function AppShellBar({
             </button>
             )
           })}
+        </div>
+      </div>
+
+      <nav className="shell-tabs" aria-label="Views">
+        <div className="shell-tabs-primary">
+          {(allReposMode ? [] : PRIMARY_TABS).map((tab) => (
+            <button
+              className={viewMode === tab.id || (tab.id === 'changes' && viewMode === 'review') ? 'shell-tab active' : 'shell-tab'}
+              type="button"
+              key={tab.id}
+              onClick={() => setViewMode(tab.id)}
+            >
+              <tab.icon size={16} />
+              {tab.label}
+              {tab.id === 'changes' && changedCount > 0 && <span className="shell-tab-badge">{changedCount}</span>}
+            </button>
+          ))}
         </div>
       </nav>
     </header>

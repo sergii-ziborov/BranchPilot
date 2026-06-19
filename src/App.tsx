@@ -68,7 +68,6 @@ function App() {
       <AppShellBar
         snapshot={snapshot} busy={busy} apiReady={Boolean(api)} api={api} currentRepoPath={currentRepoPath}
         viewMode={viewMode} setViewMode={setViewMode} changedCount={counts?.changed ?? 0}
-        selectedAssistant={selectedAssistant} setSelectedAssistant={setSelectedAssistant}
         recentRepositories={recentRepositories} openRepository={openRepository} chooseRepository={chooseRepository}
         allReposMode={allReposMode} onSelectAllRepos={enableAllReposMode} onExitAllRepos={() => setAllReposMode(false)}
         onOpenClone={() => setShowClone(true)}
@@ -322,6 +321,8 @@ function App() {
             )}
             {viewMode === 'config' && (
               <ConfigView
+                selectedAssistant={selectedAssistant}
+                setSelectedAssistant={setSelectedAssistant}
                 loadGitConfig={loadGitConfig}
                 busy={busy}
                 localUserName={localUserName}
