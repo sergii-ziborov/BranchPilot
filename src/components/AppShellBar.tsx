@@ -49,6 +49,7 @@ const PRIMARY_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
 ]
 
 const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
+  { id: 'branches', label: 'Branches', icon: GitBranch },
   { id: 'providers', label: 'Pull requests', icon: GitPullRequest },
   { id: 'daily', label: 'Reports', icon: CalendarDays }
 ]
@@ -336,7 +337,7 @@ export function AppShellBar({
         )}
 
         <div className="shell-tabs-tools">
-          {TOOL_TABS.filter((tab) => !allReposMode || tab.id === 'dashboard' || tab.id === 'daily').map((tab) => {
+          {TOOL_TABS.filter((tab) => !allReposMode || tab.id === 'daily').map((tab) => {
             const isActive = viewMode === tab.id || (tab.id === 'daily' && viewMode === 'linkedin')
             return (
             <button
