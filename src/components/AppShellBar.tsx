@@ -337,6 +337,22 @@ export function AppShellBar({
         )}
 
         <div className="shell-tabs-tools">
+          {(allReposMode ? [] : PRIMARY_TABS).map((tab) => {
+            const isActive = viewMode === tab.id || (tab.id === 'changes' && viewMode === 'review')
+            return (
+            <button
+              className={isActive ? 'shell-tool active' : 'shell-tool'}
+              type="button"
+              key={tab.id}
+              title={tab.label}
+              onClick={() => setViewMode(tab.id)}
+            >
+              <tab.icon size={15} />
+              <span>{tab.label}</span>
+              {tab.id === 'changes' && changedCount > 0 && <span className="shell-tab-badge">{changedCount}</span>}
+            </button>
+            )
+          })}
           {TOOL_TABS.filter((tab) => !allReposMode || tab.id === 'daily').map((tab) => {
             const isActive = viewMode === tab.id || (tab.id === 'daily' && viewMode === 'linkedin')
             return (
@@ -377,23 +393,6 @@ export function AppShellBar({
           </details>
         </div>
       </div>
-
-      <nav className="shell-tabs" aria-label="Views">
-        <div className="shell-tabs-primary">
-          {(allReposMode ? [] : PRIMARY_TABS).map((tab) => (
-            <button
-              className={viewMode === tab.id || (tab.id === 'changes' && viewMode === 'review') ? 'shell-tab active' : 'shell-tab'}
-              type="button"
-              key={tab.id}
-              onClick={() => setViewMode(tab.id)}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-              {tab.id === 'changes' && changedCount > 0 && <span className="shell-tab-badge">{changedCount}</span>}
-            </button>
-          ))}
-        </div>
-      </nav>
     </header>
     {showCreateBranch && (
       <CreateBranchDialog
