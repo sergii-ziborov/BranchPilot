@@ -1,10 +1,13 @@
 
 .diff-lines {
   display: grid;
+  width: 100%;
+  min-width: 0;
 }
 
 .split-diff-lines {
   display: grid;
+  width: 100%;
   min-width: 0;
 }
 
