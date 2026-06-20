@@ -1927,12 +1927,30 @@ button.danger-button:hover {
 /* Reports: back button inline, before the Daily review / LinkedIn tabs. */
 .reports-topbar {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
 }
 .reports-topbar .reports-switch {
   margin-bottom: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+/* In Reports the back control is a quiet ghost link sitting on the tab baseline. */
+.reports-topbar .back-to-changes {
+  align-self: center;
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+.reports-topbar .back-to-changes:hover {
+  color: var(--text);
+  background: var(--panel-2);
 }
 
 /* App logo at the far left of the top bar. */
