@@ -9,6 +9,7 @@ import { LinkedinIcon } from './components/BrandIcons'
 import { useEffect, useState } from 'react'
 import { AppShellBar } from './components/AppShellBar'
 import { ContributionHeatmap } from './components/ContributionHeatmap'
+import { ViewSwitch } from './components/ViewSwitch'
 import { ToolModal } from './components/ToolModal'
 import { Toaster } from './components/Toaster'
 import { GlobalTooltip } from './components/GlobalTooltip'
@@ -109,6 +110,9 @@ function App() {
           />
         ) : (
           <>
+            {!['changes', 'review', 'history'].includes(viewMode) && (
+              <ViewSwitch viewMode={viewMode} setViewMode={setViewMode} changedCount={counts?.changed ?? 0} />
+            )}
             {viewMode === 'dashboard' && (
               <div className="dashboard-stack">
                 <DashboardView
