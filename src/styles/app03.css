@@ -197,6 +197,30 @@
   transform: translate(-50%, -100%);
 }
 
+/* Small diamond pointer toward the anchored element. */
+.app-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.app-tooltip:not(.app-tooltip-above)::after {
+  top: -4px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.app-tooltip-above::after {
+  bottom: -4px;
+  border-left: 0;
+  border-top: 0;
+}
+
 @keyframes tooltip-fade {
   from { opacity: 0; }
   to { opacity: 1; }
