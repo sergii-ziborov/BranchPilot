@@ -837,28 +837,28 @@
 
 .assistant-policy-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 6px;
 }
 
 .assistant-policy-actions > div {
   display: inline-flex;
-  min-height: 34px;
+  min-height: 28px;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   padding: 0 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--panel-2);
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 600;
 }
 
 .assistant-policy-actions > .allowed {
   color: #166534;
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: #d6f5e0;
+  background: #f4fdf7;
 }
 
 .assistant-policy-actions > .blocked {
