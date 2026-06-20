@@ -337,8 +337,8 @@ button.icon-button.active {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 16px;
-  border-top: 1px solid #edf1f6;
+  padding: 2px 16px;
+  border-top: 1px solid var(--border);
   background: var(--panel-2);
   overflow-x: auto;
   scrollbar-width: none;
@@ -681,7 +681,7 @@ button:disabled {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: 18px 20px;
+  padding: 6px 14px 12px;
 }
 
 /* The active view fills the workspace; scrolling stays inside its panes. */
@@ -1252,7 +1252,7 @@ button.danger-button:hover {
 .content-grid {
   display: grid;
   grid-template-columns: minmax(360px, 0.8fr) minmax(480px, 1.2fr);
-  gap: 18px;
+  gap: 12px;
   min-height: 0;
 }
 
@@ -1294,7 +1294,7 @@ button.danger-button:hover {
   gap: 8px;
   height: 100%;
   min-height: 0;
-  padding: 10px;
+  padding: 6px 8px;
   overflow: hidden;
 }
 
@@ -1524,6 +1524,7 @@ button.danger-button:hover {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  padding: 6px 10px 10px;
 }
 
 .changes-workflow-grid .diff-panel .structured-diff,

@@ -7,7 +7,6 @@ import type {
 import type { ChangeDiffMode } from '../../shared/changeStaging'
 import { getBulkStageToggleState, getDefaultChangeDiffMode } from '../../shared/changeStaging'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from '../../shared/commitPreconditions'
-import { virtualRangeLabel } from '../../shared/virtualList'
 import { useVirtualList } from '../../hooks/useVirtualList'
 import { changeLabel, statusToken } from '../../lib/fileChangeLabels'
 import { DiffPreview } from '../DiffView'
@@ -142,7 +141,6 @@ export function ChangesView({
       || contributor.name.toLowerCase().includes(coAuthorQuery)
       || contributor.email.toLowerCase().includes(coAuthorQuery))
     .slice(0, 8)
-  const visibleRange = virtualRangeLabel(changesWindow, filteredChanges.length)
   const visibleSummary = changeFilter
     ? `${filteredChanges.length} of ${totalChanges}`
     : `${totalChanges}`
@@ -282,7 +280,7 @@ export function ChangesView({
               placeholder="Search changed files"
             />
           </label>
-          <span>{visibleSummary}{visibleRange}</span>
+          <span>{visibleSummary}</span>
           {changeFilter && (
             <button type="button" className="secondary" onClick={() => setChangeFilter('')}>
               <X size={15} />
