@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react'
-import { Archive, ArrowDownToLine, Bot, Columns2, Copy, GitCommitHorizontal, ListFilter, MinusSquare, Pencil, Pilcrow, PlusSquare, Rows3, Save, Search, ShieldCheck, Trash2, UploadCloud, Users, X } from 'lucide-react'
+import { Archive, ArrowDownToLine, Bot, Code2, Columns2, Copy, GitCommitHorizontal, ListFilter, MinusSquare, Pencil, Pilcrow, PlusSquare, Rows3, Save, Search, ShieldCheck, Trash2, UploadCloud, Users, X } from 'lucide-react'
 import type {
   ApiResult, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
@@ -184,6 +184,24 @@ export function ChangesView({
   const discardFromMenu = () => {
     setDiffMenu(null)
     void discardSelected()
+  }
+
+  const openInEditorFromMenu = () => {
+    setDiffMenu(null)
+    if (!selectedChange || !currentRepoPath || !api) return
+    void api.openInEditor({ targetPath: `${currentRepoPath}/${selectedChange.path}` })
+  }
+
+  const copyPathFromMenu = () => {
+    setDiffMenu(null)
+    if (!selectedChange || !currentRepoPath) return
+    void navigator.clipboard.writeText(`${currentRepoPath}/${selectedChange.path}`)
+  }
+
+  const copyNameFromMenu = () => {
+    setDiffMenu(null)
+    if (!selectedChange) return
+    void navigator.clipboard.writeText(selectedChange.path.split('/').pop() ?? selectedChange.path)
   }
 
   if (totalChanges === 0) {
@@ -567,6 +585,19 @@ export function ChangesView({
             >
               <Trash2 size={15} />
               {selectedChange.untracked ? 'Delete file' : 'Discard changes'}
+            </button>
+            <div className="context-menu-separator" role="separator" />
+            <button type="button" role="menuitem" title="Open this file in your editor" onClick={openInEditorFromMenu} disabled={busy || !api}>
+              <Code2 size={15} />
+              Open in editor
+            </button>
+            <button type="button" role="menuitem" title="Copy the absolute file path" onClick={copyPathFromMenu}>
+              <Copy size={15} />
+              Copy path
+            </button>
+            <button type="button" role="menuitem" title="Copy the file name" onClick={copyNameFromMenu}>
+              <Copy size={15} />
+              Copy file name
             </button>
           </div>
         )}

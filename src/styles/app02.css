@@ -1257,6 +1257,12 @@
 .structured-diff .tok-number { color: #79c0ff; }
 .structured-diff .tok-type { color: #ffa657; }
 
+.context-menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
 /* Diff display controls live in the diff heading where Discard used to be. */
 .diff-controls {
   display: flex;
