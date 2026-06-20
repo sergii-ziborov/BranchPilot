@@ -60,11 +60,12 @@ function App() {
     if (showClone && snapshot) setShowClone(false)
   }, [snapshot?.summary.rootPath])
 
-  // Reports now hosts the contribution heatmap; load its data when Reports opens.
+  // Reports hosts the contribution heatmap; (re)load its data when Reports opens
+  // OR the active repository changes while Reports is open.
   useEffect(() => {
     if (viewMode === 'daily') void loadRepositoryDashboard()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode])
+  }, [viewMode, snapshot?.summary.rootPath])
 
   useEffect(() => {
     if (viewMode === 'review') setChangesTool('review')

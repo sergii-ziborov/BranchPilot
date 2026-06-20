@@ -503,8 +503,22 @@
 }
 
 .pr-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-weight: 500;
+}
+
+.pr-actions button:hover:not(:disabled) {
+  border-color: #a7b0c0;
+  background: var(--panel-2);
 }
 
 .pr-current-badge {
@@ -919,12 +933,20 @@
 }
 
 button.secondary {
-  border-color: #dbe1ea;
-  color: #475569;
-  background: var(--panel-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-weight: 500;
 }
 
-button.secondary:hover {
+button.secondary:hover:not(:disabled) {
   border-color: #a7b0c0;
   background: var(--panel-2);
 }
