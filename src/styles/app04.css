@@ -37,7 +37,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .memory-section-heading {
@@ -62,7 +62,7 @@
 .memory-commit-row {
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .memory-file-row {
@@ -121,7 +121,7 @@
 }
 
 .memory-symbol-row span {
-  color: #1d4ed8;
+  color: var(--accent-strong);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -147,7 +147,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted);
-  background: #ffffff;
+  background: var(--panel);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -164,7 +164,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 /* Commit identity: prominent "commits as" summary + paired save/use-global. */
@@ -175,7 +175,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
   font-size: 13px;
   color: var(--text);
 }
@@ -214,7 +214,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-strong);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .config-card code {
@@ -229,23 +229,23 @@
   gap: 8px;
   min-height: 36px;
   padding: 0 12px;
-  border: 1px solid #2563eb;
+  border: 1px solid var(--accent);
   border-radius: 8px;
   color: #ffffff;
-  background: #2563eb;
+  background: var(--accent);
 }
 
 .config-card button.secondary-button,
 .remote-row-actions button:not(.danger-button) {
   border-color: var(--border);
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .config-card button.secondary-button:hover,
 .remote-row-actions button:hover {
   border-color: #a7b0c0;
-  background: #f9fafb;
+  background: var(--panel-2);
 }
 
 .config-card button.danger-button {
@@ -299,7 +299,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .remote-composer {
@@ -322,7 +322,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .remote-row-details {
@@ -359,7 +359,7 @@
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .submodule-row.status-initialized {
@@ -372,7 +372,7 @@
 }
 
 .submodule-row.status-modified {
-  border-left-color: #2563eb;
+  border-left-color: var(--accent);
 }
 
 .submodule-row.status-conflicted {
@@ -447,7 +447,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .lfs-row strong,
@@ -481,7 +481,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .stash-create {
@@ -503,7 +503,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-strong);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .stash-create button,
@@ -523,13 +523,13 @@
 .stash-actions button:not(.danger-button) {
   border-color: var(--border);
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .stash-row {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .stash-row strong {
@@ -553,7 +553,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .merge-start p {
@@ -568,7 +568,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-strong);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .merge-start button {
@@ -581,7 +581,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .assistant-grid {
@@ -595,7 +595,7 @@
 }
 
 .provider-card svg {
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .provider-card span {
@@ -613,7 +613,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .provider-remote-card.provider-github {
@@ -654,7 +654,7 @@
   padding: 0 9px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--panel);
   font-size: 12px;
   font-weight: 700;
 }
@@ -683,7 +683,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #f8fafc;
+  background: var(--panel-2);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -726,7 +726,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .assistant-card code {
@@ -777,7 +777,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .review-workspace {
@@ -791,7 +791,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .assistant-policy-heading {
@@ -819,7 +819,7 @@
   padding: 4px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--panel-2);
   color: var(--text);
   font-size: 12px;
   font-weight: 700;
@@ -832,7 +832,7 @@
 
 .assistant-policy-modes button.locked {
   color: #94a3b8;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .assistant-policy-actions {
@@ -849,7 +849,7 @@
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
@@ -881,7 +881,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .action-blockers > div {
@@ -934,7 +934,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .control-group {
@@ -957,5 +957,5 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-strong);
-  background: #ffffff;
+  background: var(--panel);
 }

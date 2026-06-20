@@ -58,7 +58,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .dashboard-workspace {
@@ -75,7 +75,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .dashboard-section-heading,
@@ -110,7 +110,7 @@
   justify-content: center;
   border-radius: 999px;
   color: var(--text-strong);
-  background: #f1f5f9;
+  background: var(--panel-2);
   font-size: 12px;
   font-weight: 700;
 }
@@ -118,7 +118,7 @@
 .dash-count.tone-warn { background: #fef9c3; color: #92400e; }
 .dash-count.tone-danger { background: #fee2e2; color: #b91c1c; }
 .dash-count.tone-info { background: #e0f2fe; color: #075985; }
-.dash-count.tone-muted { background: #eef2f7; color: #475569; }
+.dash-count.tone-muted { background: var(--panel-2); color: #475569; }
 
 .dashboard-repo-list {
   display: grid;
@@ -130,7 +130,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .dashboard-repo-row.state-dirty {
@@ -145,7 +145,7 @@
 
 .dashboard-repo-row.state-unavailable {
   border-color: #cbd5e1;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .dashboard-repo-row strong,
@@ -187,7 +187,7 @@
   padding: 0 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--panel);
   color: var(--text);
   white-space: nowrap;
 }
@@ -217,7 +217,7 @@
 
 .dashboard-state-badge.state-badge-unavailable {
   border-color: #cbd5e1;
-  background: #f1f5f9;
+  background: var(--panel-2);
   color: #475569;
 }
 
@@ -227,7 +227,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .dashboard-heatmap-card {
@@ -235,7 +235,7 @@
   margin-bottom: 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 /* Dashboard + Memory share one scroll area (Memory folded into Dashboard). */
@@ -373,7 +373,7 @@
 
 .changes-drawer-tabs button.active {
   color: var(--text-strong);
-  background: #ffffff;
+  background: var(--panel);
   border-color: var(--border);
 }
 
@@ -435,7 +435,7 @@
 .memory-collapsible {
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .memory-collapsible > summary {
@@ -534,7 +534,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .change-row {
@@ -545,11 +545,11 @@
   border: 0;
   border-bottom: 1px solid #e5e7eb;
   border-radius: 0;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .change-row:hover {
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .change-row:focus-within {
@@ -583,7 +583,7 @@
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--panel);
   overflow: hidden;
 }
 
@@ -666,7 +666,7 @@
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--text);
-  background: #f8fafc;
+  background: var(--panel-2);
   text-align: left;
 }
 
@@ -703,7 +703,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #f8fafc;
+  background: var(--panel-2);
   white-space: pre-wrap;
 }
 
@@ -714,7 +714,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .commit-branch-strip > span {
@@ -737,7 +737,7 @@
   border-radius: 999px;
   overflow-wrap: anywhere;
   color: var(--text-strong);
-  background: #f8fafc;
+  background: var(--panel-2);
   font-size: 12px;
 }
 
@@ -761,7 +761,7 @@
 
 .change-row.selected {
   background: #eaf2ff;
-  box-shadow: inset 3px 0 0 #2563eb;
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .change-stage-toggle {
@@ -776,7 +776,7 @@
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: #2563eb;
+  accent-color: var(--accent);
 }
 
 .change-stage-toggle input:disabled {
@@ -805,7 +805,7 @@
   border: 2px solid #22c55e;
   border-radius: 4px;
   color: #166534;
-  background: #ffffff;
+  background: var(--panel);
   font-size: 11px;
   font-weight: 800;
 }
@@ -813,13 +813,13 @@
 .status-conflicted {
   border-color: #ef4444;
   color: #991b1b;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .status-untracked {
   border-color: #eab308;
   color: #92400e;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .file-status.status-modified {
@@ -829,14 +829,14 @@
 
 .file-status.status-renamed,
 .file-status.status-copied {
-  border-color: #3b82f6;
-  color: #1d4ed8;
+  border-color: var(--accent-soft);
+  color: var(--accent-strong);
 }
 
 .status-deleted {
   border-color: #f43f5e;
   color: #9f1239;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .file-state {
@@ -858,7 +858,7 @@
   margin: 0;
   padding: 10px 0 0;
   border-top: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--panel);
   overflow: visible;
 }
 
@@ -888,13 +888,13 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
   white-space: nowrap;
 }
 
 .commit-assistant-row button:hover {
   border-color: #a7b0c0;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .commit-box label {
@@ -922,7 +922,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-strong);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .commit-box input,
@@ -971,16 +971,16 @@
   padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #f8fafc;
+  background: var(--panel-2);
   color: var(--text);
   font-size: 12px;
   cursor: pointer;
 }
 
 .coauthor-chip:hover {
-  border-color: #2563eb;
+  border-color: var(--accent);
   background: #eef2ff;
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .coauthor-avatar {
@@ -1000,7 +1000,7 @@
   margin: 0 -10px;
   padding: 8px 10px 10px;
   border-top: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 /* Contributor ranking (Reports): commit leaderboard across the repository. */
@@ -1009,7 +1009,7 @@
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .contributor-board-heading {
@@ -1045,7 +1045,7 @@
 }
 
 .contributor-row.top {
-  background: #f7f9ff;
+  background: var(--panel-2);
 }
 
 .contributor-rank {
@@ -1090,7 +1090,7 @@
 .contributor-meter {
   height: 8px;
   border-radius: 999px;
-  background: #eef2f7;
+  background: var(--panel-2);
   overflow: hidden;
 }
 
@@ -1205,7 +1205,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .shell-assistant select {
@@ -1285,7 +1285,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: #ffffff;
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
@@ -1394,7 +1394,7 @@
   padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
   font-size: 13px;
 }
 
@@ -1402,10 +1402,10 @@
   height: 38px;
   padding: 0 16px;
   white-space: nowrap;
-  border: 1px solid #2563eb;
+  border: 1px solid var(--accent);
   border-radius: 8px;
   color: #ffffff;
-  background: #2563eb;
+  background: var(--accent);
   font-weight: 600;
   cursor: pointer;
 }
@@ -1437,8 +1437,8 @@
 
 .commit-actions button:first-child {
   color: #ffffff;
-  border-color: #2563eb;
-  background: #2563eb;
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 
@@ -1450,7 +1450,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .assistant-readiness span {
@@ -1486,7 +1486,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .assistant-readiness.state-ready {
@@ -1511,7 +1511,7 @@
 
 .assistant-readiness.state-unknown {
   border-color: var(--border);
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .precommit-review {
@@ -1521,7 +1521,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .precommit-review.has-risk {
@@ -1555,7 +1555,7 @@
   padding: 4px 7px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--panel);
   font-weight: 700;
 }
 
@@ -1577,7 +1577,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .precommit-modes {
@@ -1597,7 +1597,7 @@
   padding: 9px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .precommit-warning {
@@ -1675,7 +1675,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted);
-  background: #ffffff;
+  background: var(--panel);
   font-size: 13px;
   white-space: nowrap;
 }
@@ -1684,7 +1684,7 @@
   width: 15px;
   height: 15px;
   margin: 0;
-  accent-color: #2563eb;
+  accent-color: var(--accent);
 }
 
 .diff-display-toggle button {
@@ -1695,8 +1695,8 @@
 
 .segmented button.active {
   color: #ffffff;
-  border-color: #2563eb;
-  background: #2563eb;
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 .diff-preview {

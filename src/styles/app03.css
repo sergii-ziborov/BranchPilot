@@ -156,7 +156,7 @@
   padding: 0 12px;
   border: 1px solid #fca5a5;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
   color: #991b1b;
   cursor: pointer;
 }
@@ -206,7 +206,7 @@
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--panel);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
   color: var(--text);
   font-size: 13px;
@@ -232,7 +232,7 @@
 }
 
 .toast-busy svg {
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .toast-error {
@@ -294,7 +294,7 @@
   max-height: calc(100vh - 320px);
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--panel);
   object-fit: contain;
 }
 
@@ -329,7 +329,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .branch-row > div:first-child,
@@ -351,7 +351,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .branch-composer-heading {
@@ -377,7 +377,7 @@
   padding: 4px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--panel);
   font-weight: 700;
 }
 
@@ -407,7 +407,7 @@
   padding: 9px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .branch-summary-item span,
@@ -442,7 +442,7 @@
 }
 
 .branch-summary-item.tone-neutral {
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .branch-composer-actions {
@@ -466,13 +466,13 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .branch-composer-actions button:last-child {
   color: #ffffff;
-  border-color: #2563eb;
-  background: #2563eb;
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 .branch-row.current {
@@ -549,7 +549,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .remote-branch-row strong,
@@ -576,7 +576,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   color: #475569;
-  background: #f8fafc;
+  background: var(--panel-2);
   font-size: 12px;
 }
 
@@ -586,7 +586,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .branch-compare-heading {
@@ -617,7 +617,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .branch-compare-panel code {
@@ -659,7 +659,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .worktree-panel,
@@ -679,7 +679,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .worktree-composer label {
@@ -703,10 +703,10 @@
   justify-content: center;
   gap: 8px;
   padding: 0 12px;
-  border: 1px solid #2563eb;
+  border: 1px solid var(--accent);
   border-radius: 8px;
   color: #ffffff;
-  background: #2563eb;
+  background: var(--accent);
 }
 
 .worktree-list {
@@ -722,7 +722,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .worktree-row.current {
@@ -779,7 +779,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .tag-composer label {
@@ -808,10 +808,10 @@
   justify-content: center;
   gap: 8px;
   padding: 0 12px;
-  border: 1px solid #2563eb;
+  border: 1px solid var(--accent);
   border-radius: 8px;
   color: #ffffff;
-  background: #2563eb;
+  background: var(--accent);
 }
 
 .tag-list {
@@ -827,7 +827,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .tag-row > div:first-child {
@@ -869,7 +869,7 @@
   grid-column: 1 / -1;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .config-collapsible > summary {
@@ -911,7 +911,7 @@
 .branch-collapsible {
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--panel);
   margin-top: 12px;
 }
 
@@ -981,7 +981,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .memory-stack {
@@ -995,7 +995,7 @@
   padding: 5px 9px;
   border: 1px solid #bfdbfe;
   border-radius: 8px;
-  color: #1d4ed8;
+  color: var(--accent-strong);
   background: #eff6ff;
   font-size: 13px;
   font-weight: 700;
@@ -1007,7 +1007,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .memory-mcp-card > .info-row {
@@ -1029,7 +1029,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .memory-mcp-snippet pre {
@@ -1053,7 +1053,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .project-wiki-grid {
@@ -1077,7 +1077,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #f8fafc;
+  background: var(--panel-2);
   text-align: left;
 }
 
@@ -1112,7 +1112,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .project-wiki-preview pre {
@@ -1137,7 +1137,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .completed-work-list {
@@ -1154,7 +1154,7 @@
   padding: 9px 11px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .completed-work-row strong,
@@ -1181,7 +1181,7 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   color: #475569;
-  background: #ffffff;
+  background: var(--panel);
   font-size: 11px;
   font-style: normal;
   font-weight: 800;
@@ -1196,7 +1196,7 @@
 }
 
 .completed-work-row.source-provider em {
-  color: #1d4ed8;
+  color: var(--accent-strong);
   border-color: #bfdbfe;
   background: #eff6ff;
 }
@@ -1235,7 +1235,7 @@
   border: 1px solid var(--border);
   border-left: 4px solid #93c5fd;
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .activity-row.activity-failure {

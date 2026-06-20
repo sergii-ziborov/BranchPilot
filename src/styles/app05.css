@@ -6,7 +6,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .review-empty {
@@ -28,7 +28,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .review-summary span {
@@ -56,7 +56,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .severity-count span {
@@ -83,7 +83,7 @@
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .finding-card code {
@@ -125,7 +125,7 @@
 .finding-recommendation {
   padding: 8px 10px;
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .finding-card.severity-critical,
@@ -178,7 +178,7 @@
   margin-bottom: 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .pr-collapse > summary {
@@ -225,7 +225,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .github-repo-browser {
@@ -235,7 +235,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .github-repo-controls {
@@ -266,7 +266,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-strong);
-  background: #ffffff;
+  background: var(--panel);
   font: inherit;
 }
 
@@ -283,7 +283,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .github-repo-row > div:first-child {
@@ -323,7 +323,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--muted);
-  background: #ffffff;
+  background: var(--panel);
   font-size: 12px;
   font-weight: 700;
 }
@@ -342,7 +342,7 @@
 }
 
 .github-status.status-available {
-  color: #1d4ed8;
+  color: var(--accent-strong);
   border-color: #bfdbfe;
   background: #eff6ff;
 }
@@ -350,7 +350,7 @@
 .github-status.status-planned {
   color: var(--muted);
   border-color: var(--border);
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .command-hint {
@@ -377,7 +377,7 @@
   border: 1px solid #d97706;
   border-radius: 6px;
   color: #92400e;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .pr-form {
@@ -429,7 +429,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .current-pr {
@@ -515,14 +515,14 @@
   border: 1px solid #bbf7d0;
   border-radius: 6px;
   color: #166534 !important;
-  background: #ffffff;
+  background: var(--panel);
   font-size: 12px !important;
   font-weight: 800;
 }
 
 .selected-badge {
   border-color: #93c5fd;
-  color: #1d4ed8 !important;
+  color: var(--accent-strong) !important;
 }
 
 .pr-details-panel {
@@ -547,7 +547,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
   font-size: 13px;
   line-height: 1.55;
 }
@@ -571,7 +571,7 @@
   padding: 0 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--panel);
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
@@ -600,7 +600,7 @@
 .bucket-other {
   border-color: #dbe1ea;
   color: #475569;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .pr-check-row {
@@ -611,7 +611,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .pr-check-row div {
@@ -660,7 +660,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
   text-align: left;
 }
 
@@ -707,7 +707,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .daily-section-heading {
@@ -730,7 +730,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--muted);
-  background: #f8fafc;
+  background: var(--panel-2);
   font-size: 12px;
   font-weight: 800;
 }
@@ -745,7 +745,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .daily-section ul {
@@ -769,7 +769,7 @@
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 .daily-action.priority-high {
@@ -777,7 +777,7 @@
 }
 
 .daily-action.priority-normal {
-  border-left-color: #2563eb;
+  border-left-color: var(--accent);
 }
 
 .daily-action span {
@@ -826,7 +826,7 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .linkedin-controls label,
@@ -862,7 +862,7 @@
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .linkedin-hints-grid {
@@ -921,12 +921,12 @@
 button.secondary {
   border-color: #dbe1ea;
   color: #475569;
-  background: #f8fafc;
+  background: var(--panel-2);
 }
 
 button.secondary:hover {
   border-color: #a7b0c0;
-  background: #eef2f7;
+  background: var(--panel-2);
 }
 
 @media (max-width: 1280px) {
@@ -1101,7 +1101,7 @@ button:not(.shell-tab):active {
 }
 
 .shell-tab.active {
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .workspace > .content-grid,

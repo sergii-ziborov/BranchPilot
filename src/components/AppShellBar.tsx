@@ -2,13 +2,46 @@ import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
   ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2,
   DownloadCloud, FileCode2, FileDiff, FolderOpen, GitBranch, GitMerge, GitPullRequest,
-  RefreshCcw, Settings, Star, Terminal, Check
+  Palette, RefreshCcw, Settings, Star, Terminal, Check
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
 
 type TabIcon = ComponentType<{ size?: number }>
+
+/** Popular VS Code color themes, applied via document.documentElement[data-theme]. */
+const THEMES: { id: string; label: string; dot: string }[] = [
+  { id: 'github-light', label: 'GitHub Light', dot: '#2563eb' },
+  { id: 'github-dark', label: 'GitHub Dark', dot: '#2f81f7' },
+  { id: 'one-dark-pro', label: 'One Dark Pro', dot: '#61afef' },
+  { id: 'dracula', label: 'Dracula', dot: '#bd93f9' },
+  { id: 'monokai', label: 'Monokai', dot: '#a6e22e' },
+  { id: 'nord', label: 'Nord', dot: '#88c0d0' },
+  { id: 'night-owl', label: 'Night Owl', dot: '#82aaff' },
+  { id: 'tokyo-night', label: 'Tokyo Night', dot: '#7aa2f7' },
+  { id: 'solarized-light', label: 'Solarized Light', dot: '#268bd2' }
+]
+
+const THEME_KEY = 'bp-theme'
+
+function applyTheme(id: string) {
+  const root = document.documentElement
+  if (id === 'github-light') root.removeAttribute('data-theme')
+  else root.setAttribute('data-theme', id)
+}
+
+function useTheme(): [string, (id: string) => void] {
+  const [theme, setTheme] = useState<string>(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(THEME_KEY) : null
+    return saved && THEMES.some((t) => t.id === saved) ? saved : 'github-light'
+  })
+  useEffect(() => {
+    applyTheme(theme)
+    try { localStorage.setItem(THEME_KEY, theme) } catch { /* ignore */ }
+  }, [theme])
+  return [theme, setTheme]
+}
 
 const PRIMARY_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'changes', label: 'Changes', icon: FileDiff },
@@ -79,6 +112,7 @@ export function AppShellBar({
   const [newBranchName, setNewBranchName] = useState('')
   const [pendingSwitch, setPendingSwitch] = useState<string | null>(null)
   const [showMergeInto, setShowMergeInto] = useState(false)
+  const [theme, setTheme] = useTheme()
   const hasChanges = (snapshot?.status.counts.changed ?? 0) > 0
 
   const mergeIntoBranch = (branchName: string) => {
@@ -317,6 +351,29 @@ export function AppShellBar({
             </button>
             )
           })}
+
+          <details className="shell-menu shell-theme" onToggle={handleToggle}>
+            <summary>
+              <span className="shell-seg-value">
+                <Palette size={15} />
+                <ChevronDown size={14} />
+              </span>
+            </summary>
+            <div className="shell-dropdown shell-theme-dropdown">
+              {THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={theme === t.id ? 'shell-theme-item active' : 'shell-theme-item'}
+                  onClick={(event) => { closeMenu(event); setTheme(t.id) }}
+                >
+                  <span className="shell-theme-dot" style={{ background: t.dot }} />
+                  <span>{t.label}</span>
+                  {theme === t.id && <Check size={14} />}
+                </button>
+              ))}
+            </div>
+          </details>
         </div>
       </div>
 
