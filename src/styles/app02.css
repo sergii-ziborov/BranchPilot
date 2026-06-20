@@ -1220,17 +1220,21 @@
 /* Diff heading: title, path and +/- stats on a single line. */
 .diff-heading {
   align-items: center;
+  margin-bottom: 10px;
 }
 
 .diff-heading-main {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   min-width: 0;
 }
 
 .diff-heading-main h2 {
   flex: 0 0 auto;
+  font-size: 15px;
+  line-height: 1.2;
+  margin: 0;
 }
 
 .diff-heading-main p {
