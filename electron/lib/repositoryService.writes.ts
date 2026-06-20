@@ -57,7 +57,9 @@ export class RepositoryServiceWrites extends RepositoryServiceQueries {
     await this.assertCurrentBranch(rootPath, 'pull')
     await this.assertHasAnyRemote(rootPath)
     await this.assertHasUpstream(rootPath, 'pulling')
-    await this.git(rootPath, ['pull', '--ff-only'], { timeoutMs: 120_000 })
+    // --autostash: uncommitted changes are stashed before the pull and restored
+    // after, so a dirty working tree no longer turns a pull into a hard error.
+    await this.git(rootPath, ['pull', '--ff-only', '--autostash'], { timeoutMs: 120_000 })
     return this.getSnapshot(rootPath)
   }
 
