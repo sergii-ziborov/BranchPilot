@@ -486,8 +486,8 @@
 }
 
 .pr-row.current {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
 }
 
 .pr-row.selected {
