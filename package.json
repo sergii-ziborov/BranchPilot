@@ -14,6 +14,9 @@
     "mcp:dev": "tsc -p tsconfig.electron.json && node dist-electron/electron/mcp/server.js",
     "build": "tsc -b && vite build && tsc -p tsconfig.electron.json",
     "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:all": "npm run build && electron-builder --mac --win",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run"
@@ -45,6 +48,26 @@
         "dmg",
         "zip"
       ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BranchPilot"
     }
   },
   "dependencies": {

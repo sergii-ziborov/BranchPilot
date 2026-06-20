@@ -59,21 +59,28 @@ npm run lint
 npm run build
 ```
 
-## Local macOS Build
+## Packaging
+
+Builds are produced with electron-builder and written to `release/`.
 
 ```sh
-npm run dist
+npm run dist        # current platform
+npm run dist:mac    # macOS (dmg + zip, arm64)
+npm run dist:win    # Windows (NSIS installer, x64 + arm64)
+npm run dist:all    # macOS + Windows
 ```
 
-The unsigned local build is written to `release/`:
+**macOS** — `release/mac-arm64/BranchPilot.app`, plus a `.dmg` and `.zip`. Code signing
+and notarization are intentionally deferred; open the `.app` directly or install from the
+DMG for local testing.
 
-- `release/mac-arm64/BranchPilot.app`
-- `release/BranchPilot-0.0.0-arm64.dmg`
-- `release/BranchPilot-0.0.0-arm64-mac.zip`
+**Windows** — an NSIS installer (`BranchPilot-Setup-<version>.exe`) for x64 and arm64.
+The installer is not code-signed. Building the Windows target **on macOS/Linux** requires
+[wine](https://www.winehq.org); the cleanest path is to run `npm run dist:win` on a
+Windows machine or in CI (e.g. a `windows-latest` GitHub Actions runner).
 
-Code signing and notarization are intentionally deferred. For private local testing on
-macOS, open the app from `release/mac-arm64/BranchPilot.app` or install from the
-generated DMG.
+App icons live in `build/` (`icon.icns` for macOS, `icon.ico` for Windows, `icon.png`
+fallback) and are generated from `build/icon.svg`.
 
 ## Private Beta Smoke
 
