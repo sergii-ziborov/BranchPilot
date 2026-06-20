@@ -44,7 +44,6 @@ function useTheme(): [string, (id: string) => void] {
 }
 
 const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
-  { id: 'branches', label: 'Branches', icon: GitBranch },
   { id: 'providers', label: 'Pull requests', icon: GitPullRequest },
   { id: 'daily', label: 'Reports', icon: CalendarDays }
 ]

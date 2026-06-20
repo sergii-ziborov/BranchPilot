@@ -124,6 +124,79 @@
   box-shadow: 0 0 0 1px rgba(248, 81, 73, 0.25);
 }
 
+/* GitHub-Desktop-style line selection: click a +/- line to select it for staging;
+   the selection persists (highlight + accent bar) until you act on it or clear it. */
+.diff-line.selectable {
+  cursor: pointer;
+}
+
+.diff-line.selectable:hover {
+  box-shadow: inset 2px 0 0 rgba(88, 166, 255, 0.5);
+}
+
+.diff-line.line-selected {
+  box-shadow: inset 3px 0 0 #58a6ff;
+}
+
+.diff-line.line-selected .line-number {
+  color: #58a6ff;
+}
+
+.diff-line.line-add.line-selected {
+  background: rgba(46, 160, 67, 0.42);
+}
+
+.diff-line.line-remove.line-selected {
+  background: rgba(248, 81, 73, 0.4);
+}
+
+.diff-selection-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  background: #0d1117;
+  color: #e6edf3;
+  font-size: 13px;
+}
+
+.diff-selection-bar > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+}
+
+.diff-selection-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.diff-selection-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.diff-selection-actions button.secondary {
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #c9d1d9;
+  background: transparent;
+}
+
 .quiet-box {
   padding: 18px;
   color: var(--muted);

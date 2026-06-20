@@ -562,6 +562,10 @@ export function ChangesView({
           onStageHunk={stageSelectedHunk}
           onUnstageHunk={unstageSelectedHunk}
           onDiscardHunk={discardSelectedHunk}
+          onStageLines={(patch) => {
+            if (!currentRepoPath || !selectedChange || !api) return
+            void runSnapshotAction('Selected lines staged.', () => api.stageHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch }))
+          }}
         />
 
         {diffMenu && selectedChange && (

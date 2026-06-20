@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
-import { FileImage, FileText, Plus, Trash2, X } from 'lucide-react'
-import type { DiffHunk, DiffLine, DiffResult, ImagePreview } from '../shared/branchPilot'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { CheckSquare, FileImage, FileText, Plus, Trash2, X } from 'lucide-react'
+import type { DiffFile, DiffHunk, DiffLine, DiffResult, ImagePreview } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import { buildSplitDiffRows } from '../shared/diffView'
 import { highlight, langFromPath } from '../lib/highlight'
@@ -154,20 +154,96 @@ function SplitDiffLines({ lines, lang, onOpenLine }: { lines: DiffLine[]; lang: 
   )
 }
 
-function UnifiedDiffLines({ lines, lang, onOpenLine }: { lines: DiffLine[]; lang: string; onOpenLine?: (line?: number) => void }) {
+function UnifiedDiffLines({
+  lines,
+  lang,
+  onOpenLine,
+  keyPrefix,
+  selectable,
+  selected,
+  onLineSelect
+}: {
+  lines: DiffLine[]
+  lang: string
+  onOpenLine?: (line?: number) => void
+  keyPrefix?: string
+  selectable?: boolean
+  selected?: Set<string>
+  onLineSelect?: (key: string, shift: boolean) => void
+}) {
   const wordContent = buildUnifiedWordDiff(lines, lang)
   return (
     <div className="diff-lines">
-      {lines.map((line, lineIndex) => (
-        <code className={`diff-line line-${line.type}`} key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}>
-          <DiffLineNumber lineNumber={line.oldLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
-          <DiffLineNumber lineNumber={line.newLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
-          <span className="line-marker">{diffLinePrefix(line)}</span>
-          <span className="line-content">{wordContent.get(lineIndex) ?? highlight(line.content, lang)}</span>
-        </code>
-      ))}
+      {lines.map((line, lineIndex) => {
+        const changeLine = line.type === 'add' || line.type === 'remove'
+        const key = `${keyPrefix}:${lineIndex}`
+        const canSelect = Boolean(selectable && changeLine && onLineSelect)
+        const isSelected = Boolean(selected?.has(key))
+        return (
+          <code
+            className={`diff-line line-${line.type}${canSelect ? ' selectable' : ''}${isSelected ? ' line-selected' : ''}`}
+            key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}
+            onMouseDown={canSelect ? (event) => {
+              // Avoid hijacking the line-number "open in editor" button.
+              if ((event.target as HTMLElement).closest('.line-number-button')) return
+              event.preventDefault()
+              onLineSelect!(key, event.shiftKey)
+            } : undefined}
+          >
+            <DiffLineNumber lineNumber={line.oldLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
+            <DiffLineNumber lineNumber={line.newLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
+            <span className="line-marker">{diffLinePrefix(line)}</span>
+            <span className="line-content">{wordContent.get(lineIndex) ?? highlight(line.content, lang)}</span>
+          </code>
+        )
+      })}
     </div>
   )
+}
+
+/** Build a `git apply --cached` patch that stages only the selected +/- lines. */
+function buildStagePatch(files: DiffFile[], selected: Set<string>): string {
+  let out = ''
+  files.forEach((file, fi) => {
+    const hunkPatches: string[] = []
+    file.hunks.forEach((hunk, hi) => {
+      const body: string[] = []
+      let oldCount = 0
+      let newCount = 0
+      let hasSelected = false
+      hunk.lines.forEach((line, li) => {
+        const sel = selected.has(`${fi}:${hi}:${li}`)
+        if (line.type === 'context') {
+          body.push(` ${line.content}`)
+          oldCount += 1
+          newCount += 1
+        } else if (line.type === 'add') {
+          if (sel) {
+            body.push(`+${line.content}`)
+            newCount += 1
+            hasSelected = true
+          }
+        } else if (line.type === 'remove') {
+          if (sel) {
+            body.push(`-${line.content}`)
+            oldCount += 1
+            hasSelected = true
+          } else {
+            body.push(` ${line.content}`)
+            oldCount += 1
+            newCount += 1
+          }
+        }
+      })
+      if (!hasSelected) return
+      hunkPatches.push(`@@ -${hunk.oldStart},${oldCount} +${hunk.newStart},${newCount} @@\n${body.join('\n')}`)
+    })
+    if (hunkPatches.length === 0) return
+    const a = file.oldPath ?? file.newPath
+    const b = file.newPath
+    out += `diff --git a/${a} b/${b}\n--- a/${a}\n+++ b/${b}\n${hunkPatches.join('\n')}\n`
+  })
+  return out
 }
 
 export function DiffPreview({
@@ -179,6 +255,7 @@ export function DiffPreview({
   onStageHunk,
   onUnstageHunk,
   onDiscardHunk,
+  onStageLines,
   onOpenLine
 }: {
   diff: DiffResult | null
@@ -189,8 +266,46 @@ export function DiffPreview({
   onStageHunk?: (hunk: DiffHunk) => void
   onUnstageHunk?: (hunk: DiffHunk) => void
   onDiscardHunk?: (hunk: DiffHunk) => void
+  onStageLines?: (patch: string) => void
   onOpenLine?: (line?: number) => void
 }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const anchorRef = useRef<string | null>(null)
+  // Selection is per-file; clear it when the viewed file (or staged side) changes.
+  useEffect(() => {
+    setSelected(new Set())
+    anchorRef.current = null
+  }, [diff?.filePath, diff?.staged])
+
+  const selectLine = (key: string, shift: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      const anchor = anchorRef.current
+      const kPrefix = key.slice(0, key.lastIndexOf(':'))
+      const kIdx = Number(key.slice(key.lastIndexOf(':') + 1))
+      if (shift && anchor) {
+        const aPrefix = anchor.slice(0, anchor.lastIndexOf(':'))
+        const aIdx = Number(anchor.slice(anchor.lastIndexOf(':') + 1))
+        if (aPrefix === kPrefix) {
+          for (let i = Math.min(aIdx, kIdx); i <= Math.max(aIdx, kIdx); i++) next.add(`${kPrefix}:${i}`)
+          return next
+        }
+      }
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      anchorRef.current = key
+      return next
+    })
+  }
+
+  const stageSelected = () => {
+    if (!diff || selected.size === 0 || !onStageLines) return
+    const patch = buildStagePatch(diff.files, selected)
+    if (patch.trim()) onStageLines(patch)
+    setSelected(new Set())
+    anchorRef.current = null
+  }
+
   if (!diff) {
     return (
       <div className="diff-empty">
@@ -234,9 +349,11 @@ export function DiffPreview({
     return <RawDiffPreview diff={diff} />
   }
 
+  const canSelectLines = displayMode === 'unified'
+
   return (
     <div className="structured-diff">
-      {diff.files.map((file) => (
+      {diff.files.map((file, fileIndex) => (
         <section className="diff-file" key={`${file.oldPath ?? 'none'}-${file.newPath}`}>
           <div className="diff-file-heading">
             <strong>{file.newPath}</strong>
@@ -267,11 +384,36 @@ export function DiffPreview({
               </div>
               {displayMode === 'split'
                 ? <SplitDiffLines lines={hunk.lines} lang={langFromPath(file.newPath)} onOpenLine={onOpenLine} />
-                : <UnifiedDiffLines lines={hunk.lines} lang={langFromPath(file.newPath)} onOpenLine={onOpenLine} />}
+                : <UnifiedDiffLines
+                    lines={hunk.lines}
+                    lang={langFromPath(file.newPath)}
+                    onOpenLine={onOpenLine}
+                    keyPrefix={`${fileIndex}:${index}`}
+                    selectable={canSelectLines}
+                    selected={selected}
+                    onLineSelect={selectLine}
+                  />}
             </article>
           ))}
         </section>
       ))}
+
+      {selected.size > 0 && (
+        <div className="diff-selection-bar">
+          <span><CheckSquare size={15} /> {selected.size} line{selected.size === 1 ? '' : 's'} selected</span>
+          <div className="diff-selection-actions">
+            {mode === 'unstaged' && onStageLines && (
+              <button type="button" onClick={stageSelected} disabled={busy}>
+                <Plus size={15} />
+                Stage selected
+              </button>
+            )}
+            <button type="button" className="secondary" onClick={() => { setSelected(new Set()); anchorRef.current = null }}>
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
