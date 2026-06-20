@@ -534,6 +534,17 @@ export abstract class RepositoryServiceBase {
   protected async getUntrackedFilePreview(rootPath: string, filePath: string): Promise<DiffResult> {
     const fullPath = resolveRepositoryPath(rootPath, filePath)
     const fileStats = await fs.stat(fullPath)
+    if (fileStats.isDirectory()) {
+      // An untracked *directory* has no single file to read (reading it throws EISDIR).
+      return {
+        filePath,
+        staged: false,
+        text: 'Untracked directory — open it to see individual files.',
+        binary: false,
+        tooLarge: false,
+        files: []
+      }
+    }
     const file = await readFilePrefix(fullPath, MAX_DIFF_OUTPUT_BYTES)
     const binary = file.includes(0)
     const tooLarge = fileStats.size > MAX_DIFF_BYTES
