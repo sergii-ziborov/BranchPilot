@@ -393,6 +393,42 @@ export function useAppController() {
     }
   }
 
+  // Auto-refresh the working tree like GitHub Desktop: on window focus and a light
+  // poll. Silent (no busy spinner / notice), and skips re-render when nothing changed.
+  const lastStatusSigRef = useRef('')
+  async function silentRefresh(force: boolean) {
+    if (!api || !currentRepoPath || busy) return
+    try {
+      const result = await api.refreshRepository(currentRepoPath)
+      if (!result.ok) return
+      const { status, summary } = result.data
+      const sig = `${summary.ahead}|${summary.behind}|${status.changes
+        .map((c) => `${c.path}:${c.status}:${c.staged ? 1 : 0}:${c.unstaged ? 1 : 0}`)
+        .join(',')}`
+      if (!force && sig === lastStatusSigRef.current) return
+      lastStatusSigRef.current = sig
+      setSnapshot(result.data)
+      setRecentRepositories(result.data.recentRepositories)
+    } catch {
+      /* ignore transient refresh errors */
+    }
+  }
+
+  useEffect(() => {
+    if (!api) return
+    const onFocus = () => { if (!document.hidden) void silentRefresh(true) }
+    const onPoll = () => { if (!document.hidden) void silentRefresh(false) }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    const id = window.setInterval(onPoll, 4000)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+      window.clearInterval(id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, currentRepoPath, busy])
+
   async function applyCommitOperation(kind: 'revert' | 'cherry-pick') {
     if (!api || !currentRepoPath || !commitDetails) return
 
