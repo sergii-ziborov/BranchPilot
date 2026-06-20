@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
-  ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2,
-  DownloadCloud, FileCode2, FileDiff, FolderOpen, GitBranch, GitMerge, GitPullRequest,
+  ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Code2,
+  DownloadCloud, FileCode2, FolderOpen, GitBranch, GitMerge, GitPullRequest,
   Palette, RefreshCcw, Settings, Star, Terminal, Check
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
@@ -43,11 +43,6 @@ function useTheme(): [string, (id: string) => void] {
   return [theme, setTheme]
 }
 
-const PRIMARY_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
-  { id: 'changes', label: 'Changes', icon: FileDiff },
-  { id: 'history', label: 'History', icon: Clock3 }
-]
-
 const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'branches', label: 'Branches', icon: GitBranch },
   { id: 'providers', label: 'Pull requests', icon: GitPullRequest },
@@ -63,7 +58,6 @@ export function AppShellBar({
   currentRepoPath,
   viewMode,
   setViewMode,
-  changedCount,
   recentRepositories,
   openRepository,
   chooseRepository,
@@ -88,7 +82,6 @@ export function AppShellBar({
   currentRepoPath: string | undefined
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
-  changedCount: number
   recentRepositories: RecentRepository[]
   openRepository: (path: string) => void | Promise<boolean>
   chooseRepository: () => void | Promise<void>
@@ -337,22 +330,6 @@ export function AppShellBar({
         )}
 
         <div className="shell-tabs-tools">
-          {(allReposMode ? [] : PRIMARY_TABS).map((tab) => {
-            const isActive = viewMode === tab.id || (tab.id === 'changes' && viewMode === 'review')
-            return (
-            <button
-              className={isActive ? 'shell-tool active' : 'shell-tool'}
-              type="button"
-              key={tab.id}
-              title={tab.label}
-              onClick={() => setViewMode(tab.id)}
-            >
-              <tab.icon size={15} />
-              <span>{tab.label}</span>
-              {tab.id === 'changes' && changedCount > 0 && <span className="shell-tab-badge">{changedCount}</span>}
-            </button>
-            )
-          })}
           {TOOL_TABS.filter((tab) => !allReposMode || tab.id === 'daily').map((tab) => {
             const isActive = viewMode === tab.id || (tab.id === 'daily' && viewMode === 'linkedin')
             return (

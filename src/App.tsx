@@ -74,7 +74,7 @@ function App() {
     <main className="app-shell">
       <AppShellBar
         snapshot={snapshot} busy={busy} apiReady={Boolean(api)} api={api} currentRepoPath={currentRepoPath}
-        viewMode={viewMode} setViewMode={setViewMode} changedCount={counts?.changed ?? 0}
+        viewMode={viewMode} setViewMode={setViewMode}
         recentRepositories={recentRepositories} openRepository={openRepository} chooseRepository={chooseRepository}
         allReposMode={allReposMode} onExitAllRepos={() => setAllReposMode(false)}
         onOpenClone={() => setShowClone(true)}
@@ -155,6 +155,7 @@ function App() {
                 selectedFilePath={selectedFilePath}
                 setSelectedFilePath={setSelectedFilePath}
                 setDiffMode={setDiffMode}
+                setViewMode={setViewMode}
                 commitTitle={commitTitle}
                 setCommitTitle={setCommitTitle}
                 commitDescription={commitDescription}
@@ -249,6 +250,8 @@ function App() {
                 applyCommitOperation={applyCommitOperation}
                 api={api}
                 currentRepoPath={currentRepoPath}
+                setViewMode={setViewMode}
+                changedCount={counts?.changed ?? 0}
               />
             )}
             {viewMode === 'merge' && (

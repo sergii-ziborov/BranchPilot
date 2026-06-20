@@ -5,7 +5,9 @@ import type {
   FileChange, PatchScope, RepositorySnapshot
 } from '../../shared/branchPilot'
 import type { ChangeDiffMode } from '../../shared/changeStaging'
+import type { ViewMode } from '../../lib/viewMode'
 import { getBulkStageToggleState, getDefaultChangeDiffMode } from '../../shared/changeStaging'
+import { ViewSwitch } from '../ViewSwitch'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from '../../shared/commitPreconditions'
 import { useVirtualList } from '../../hooks/useVirtualList'
 import { changeLabel, statusToken } from '../../lib/fileChangeLabels'
@@ -20,7 +22,7 @@ export function ChangesView({
   createQuickStash, canCreateStash,
   patchScope, setPatchScope, exportPatch, applyPatch,
   bulkStageToggleState, toggleBulkStage, toggleChangeStage,
-  selectedFilePath, setSelectedFilePath, setDiffMode,
+  selectedFilePath, setSelectedFilePath, setDiffMode, setViewMode,
   commitTitle, setCommitTitle, commitDescription, setCommitDescription,
   commitCoAuthors, setCommitCoAuthors,
   setNotice, onOpenReview, onOpenStash, stashCount,
@@ -54,6 +56,7 @@ export function ChangesView({
   selectedFilePath: string | null
   setSelectedFilePath: (path: string) => void
   setDiffMode: (mode: ChangeDiffMode) => void
+  setViewMode: (mode: ViewMode) => void
   commitTitle: string
   setCommitTitle: (value: string) => void
   commitDescription: string
@@ -217,6 +220,7 @@ export function ChangesView({
   return (
     <section className="content-grid changes-workflow-grid">
       <div className="changes-panel changes-panel-compact">
+        <ViewSwitch viewMode="changes" setViewMode={setViewMode} changedCount={counts?.changed ?? 0} />
         <div className="change-filter-bar change-filter-bar-compact">
           <details className="changes-actions-menu" ref={changesActionsMenuRef}>
             <summary>

@@ -4,8 +4,10 @@ import type { BranchPilotApi, CommitDetails, CommitSummary, DiffResult, ImagePre
 import { getProviderCommitUrl } from '../../shared/providerRemote'
 import { formatDate } from '../../lib/format'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
+import type { ViewMode } from '../../lib/viewMode'
 import { useVirtualList } from '../../hooks/useVirtualList'
 import { DiffPreview } from '../DiffView'
+import { ViewSwitch } from '../ViewSwitch'
 
 export function HistoryView({
   snapshot,
@@ -27,7 +29,9 @@ export function HistoryView({
   openExternalLink,
   applyCommitOperation,
   api,
-  currentRepoPath
+  currentRepoPath,
+  setViewMode,
+  changedCount
 }: {
   snapshot: RepositorySnapshot | null
   history: CommitSummary[]
@@ -49,6 +53,8 @@ export function HistoryView({
   applyCommitOperation: (kind: 'revert' | 'cherry-pick') => void | Promise<void>
   api: BranchPilotApi | undefined
   currentRepoPath: string | undefined
+  setViewMode: (mode: ViewMode) => void
+  changedCount: number
 }) {
     const selectedCommitProviderUrl = getProviderCommitUrl(snapshot?.summary.remoteUrl, commitDetails?.sha)
   const { containerRef: historyContainerRef, onScroll: historyScroll, window: historyWindow, items: historyItems } = virtualHistory
@@ -112,6 +118,7 @@ export function HistoryView({
   return (
     <section className="content-grid history-grid">
       <div className="changes-panel">
+        <ViewSwitch viewMode="history" setViewMode={setViewMode} changedCount={changedCount} />
         <div className="panel-heading">
           <div>
             <h2>History</h2>
