@@ -1503,6 +1503,8 @@ button.danger-button:hover {
 .changes-panel-compact .change-list {
   flex: 1 1 auto;
   min-height: 100px;
+  /* Cancel the column gap so the list joins flush to its header (one card). */
+  margin-top: -8px;
   border: 1px solid var(--border);
   border-radius: 0 0 8px 8px;
   background: var(--panel);
