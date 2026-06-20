@@ -271,35 +271,50 @@ export function AppShellBar({
           </div>
         </details>
 
-        <details className="shell-menu shell-sync" onToggle={handleToggle}>
-          <summary>
-            <span className="shell-seg-value">
-              <RefreshCcw size={16} />
-              Sync
-              {hasRemote && snapshot && (
-                <span className="shell-aheadbehind" title="Commits ahead / behind upstream">
-                  <ArrowUpFromLine size={12} />{snapshot.summary.ahead}
-                  <ArrowDownToLine size={12} />{snapshot.summary.behind}
-                </span>
-              )}
-              <ChevronDown size={14} />
-            </span>
-          </summary>
-          <div className="shell-dropdown">
-            <button className="shell-dropdown-primary shell-dropdown-top" type="button" disabled={!canFetch || busy} onClick={(event) => { closeMenu(event); currentRepoPath && void runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath)) }}>
-              <ArrowDownToLine size={15} />
-              Fetch origin
-            </button>
-            <button className="shell-dropdown-primary" type="button" disabled={!canPull || busy} onClick={(event) => { closeMenu(event); currentRepoPath && void runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath)) }}>
-              <DownloadCloud size={15} />
-              Pull{snapshot && snapshot.summary.behind > 0 ? ` (${snapshot.summary.behind})` : ''}
-            </button>
-            <button className="shell-dropdown-primary" type="button" disabled={!canPush || busy} onClick={(event) => { closeMenu(event); currentRepoPath && void runSnapshotAction('Push complete.', () => api!.push(currentRepoPath)) }}>
-              <ArrowUpFromLine size={15} />
-              Push{snapshot && snapshot.summary.ahead > 0 ? ` (${snapshot.summary.ahead})` : ''}
-            </button>
-          </div>
-        </details>
+        {(() => {
+          const ahead = snapshot?.summary.ahead ?? 0
+          const behind = snapshot?.summary.behind ?? 0
+          const doFetch = () => { if (currentRepoPath) void runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath)) }
+          const doPull = () => { if (currentRepoPath) void runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath)) }
+          const doPush = () => { if (currentRepoPath) void runSnapshotAction('Push complete.', () => api!.push(currentRepoPath)) }
+          // GitHub-Desktop priority: pull what's behind first, then push what's ahead, else fetch.
+          const primary = behind > 0
+            ? { label: `Pull origin (${behind})`, Icon: DownloadCloud, run: doPull, disabled: !canPull || busy, hint: hasChanges ? 'Pull origin — uncommitted changes will be stashed first if needed' : 'Pull origin' }
+            : ahead > 0
+              ? { label: `Push origin (${ahead})`, Icon: ArrowUpFromLine, run: doPush, disabled: !canPush || busy, hint: 'Push origin' }
+              : { label: 'Fetch origin', Icon: ArrowDownToLine, run: doFetch, disabled: !canFetch || busy, hint: hasRemote ? 'Fetch origin' : 'No remote configured' }
+          return (
+            <div className="shell-sync-split">
+              <button className="shell-sync-primary" type="button" disabled={primary.disabled} title={primary.hint} onClick={primary.run}>
+                <primary.Icon size={16} />
+                <span>{primary.label}</span>
+                {hasRemote && snapshot && (ahead > 0 || behind > 0) && (
+                  <span className="shell-aheadbehind" title="Commits ahead / behind upstream">
+                    <ArrowUpFromLine size={12} />{ahead}
+                    <ArrowDownToLine size={12} />{behind}
+                  </span>
+                )}
+              </button>
+              <details className="shell-menu shell-sync-menu" onToggle={handleToggle}>
+                <summary className="shell-sync-caret" title="More sync actions"><ChevronDown size={14} /></summary>
+                <div className="shell-dropdown shell-dropdown-right">
+                  <button className="shell-dropdown-primary shell-dropdown-top" type="button" disabled={!canFetch || busy} onClick={(event) => { closeMenu(event); doFetch() }}>
+                    <ArrowDownToLine size={15} />
+                    Fetch origin
+                  </button>
+                  <button className="shell-dropdown-primary" type="button" disabled={!canPull || busy} onClick={(event) => { closeMenu(event); doPull() }}>
+                    <DownloadCloud size={15} />
+                    Pull{behind > 0 ? ` (${behind})` : ''}
+                  </button>
+                  <button className="shell-dropdown-primary" type="button" disabled={!canPush || busy} onClick={(event) => { closeMenu(event); doPush() }}>
+                    <ArrowUpFromLine size={15} />
+                    Push{ahead > 0 ? ` (${ahead})` : ''}
+                  </button>
+                </div>
+              </details>
+            </div>
+          )
+        })()}
         </>
         )}
         </div>

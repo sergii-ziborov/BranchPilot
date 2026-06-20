@@ -114,6 +114,56 @@ html.is-fullscreen .shell-bar-row {
   padding-left: 0;
 }
 
+/* Split Sync control: context-aware primary action + small dropdown caret. */
+.shell-segments .shell-sync-split {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.shell-sync-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shell-sync-primary:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+
+.shell-sync-primary:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.shell-segments .shell-sync-menu > summary {
+  height: 40px;
+  padding: 0 7px;
+  border: 0 !important;
+  border-radius: 0 9px 9px 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.shell-segments .shell-sync-menu > summary:hover {
+  background: var(--panel-2);
+}
+
+.shell-dropdown-right {
+  left: auto;
+  right: 0;
+}
+
 .shell-menu > summary {
   display: flex;
   flex-direction: column;
