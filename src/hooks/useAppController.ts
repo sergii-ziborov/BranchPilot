@@ -79,6 +79,12 @@ export function useAppController() {
     void loadProviders()
     void loadAssistants()
     void loadEditorSettings()
+
+    // Reopen the last repository so a reload doesn't drop back to the empty state.
+    try {
+      const lastRepo = localStorage.getItem('bp-repo')
+      if (lastRepo) void openRepository(lastRepo)
+    } catch { /* ignore */ }
   }, [])
 
 

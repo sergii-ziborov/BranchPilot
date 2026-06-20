@@ -138,6 +138,9 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     return runBusyOperation('Opening repository...', async () => {
       const result = await api.openRepository(path)
       applySnapshotResult(result, 'Repository opened.')
+      if (result.ok) {
+        try { localStorage.setItem('bp-repo', path) } catch { /* ignore */ }
+      }
       return result.ok
     })
   }
