@@ -91,17 +91,9 @@ export function registerRepositoryHandlers(
   handle('repository:recent', () => repositoryService.getRecentRepositories())
   handle('repository:setPinned', (request: RepositoryPinRequest) => repositoryService.setRepositoryPinned(request))
   handle('repository:dashboard', (repoPath?: string) => repositoryService.getRepositoryDashboard(repoPath))
-  handleLogged('repository:refresh', {
-    type: 'repository_refreshed',
-    actor: 'user',
-    title: 'Repository refreshed',
-    repoPath: repoPathArg,
-    metadata: (_args, snapshot) => snapshot ? {
-      branch: snapshot.summary.currentBranch,
-      changed: snapshot.status.counts.changed,
-      staged: snapshot.status.counts.staged
-    } : undefined
-  }, (repoPath: string) => repositoryService.getSnapshot(repoPath))
+  // A status refresh is not a meaningful user action — don't spam the activity log
+  // (auto-refresh polls it, and the log feeds AI generation).
+  handle('repository:refresh', (repoPath: string) => repositoryService.getSnapshot(repoPath))
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
   handle('repository:imagePreview', (request: ImagePreviewRequest) => repositoryService.getImagePreview(request))
   handle('repository:contributionGraph', (repoPath?: string) => repositoryService.getContributionGraph(repoPath))
