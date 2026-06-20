@@ -2,6 +2,7 @@ import { FileImage, FileText, Plus, Trash2, X } from 'lucide-react'
 import type { DiffHunk, DiffLine, DiffResult, ImagePreview } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import { buildSplitDiffRows } from '../shared/diffView'
+import { highlight, langFromPath } from '../lib/highlight'
 
 type DiffMode = ChangeDiffMode
 type DiffDisplayMode = 'unified' | 'split'
@@ -79,10 +80,12 @@ function DiffLineNumber({
 function SplitDiffCell({
   line,
   side,
+  lang,
   onOpenLine
 }: {
   line?: DiffLine
   side: 'old' | 'new'
+  lang: string
   onOpenLine?: (line?: number) => void
 }) {
   const lineNumber = side === 'old' ? line?.oldLineNumber : line?.newLineNumber
@@ -91,25 +94,25 @@ function SplitDiffCell({
     <code className={`split-diff-cell ${line ? `line-${line.type}` : 'line-empty'}`}>
       <DiffLineNumber lineNumber={lineNumber} openLine={line?.newLineNumber} onOpenLine={onOpenLine} />
       <span className="line-marker">{line ? diffLinePrefix(line) : ''}</span>
-      <span className="line-content">{line?.content ?? ''}</span>
+      <span className="line-content">{line ? highlight(line.content, lang) : ''}</span>
     </code>
   )
 }
 
-function SplitDiffLines({ lines, onOpenLine }: { lines: DiffLine[]; onOpenLine?: (line?: number) => void }) {
+function SplitDiffLines({ lines, lang, onOpenLine }: { lines: DiffLine[]; lang: string; onOpenLine?: (line?: number) => void }) {
   return (
     <div className="split-diff-lines">
       {buildSplitDiffRows(lines).map((row, rowIndex) => (
         <div className="split-diff-row" key={`${rowIndex}-${row.oldLine?.content ?? ''}-${row.newLine?.content ?? ''}`}>
-          <SplitDiffCell line={row.oldLine} side="old" onOpenLine={onOpenLine} />
-          <SplitDiffCell line={row.newLine} side="new" onOpenLine={onOpenLine} />
+          <SplitDiffCell line={row.oldLine} side="old" lang={lang} onOpenLine={onOpenLine} />
+          <SplitDiffCell line={row.newLine} side="new" lang={lang} onOpenLine={onOpenLine} />
         </div>
       ))}
     </div>
   )
 }
 
-function UnifiedDiffLines({ lines, onOpenLine }: { lines: DiffLine[]; onOpenLine?: (line?: number) => void }) {
+function UnifiedDiffLines({ lines, lang, onOpenLine }: { lines: DiffLine[]; lang: string; onOpenLine?: (line?: number) => void }) {
   return (
     <div className="diff-lines">
       {lines.map((line, lineIndex) => (
@@ -117,7 +120,7 @@ function UnifiedDiffLines({ lines, onOpenLine }: { lines: DiffLine[]; onOpenLine
           <DiffLineNumber lineNumber={line.oldLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
           <DiffLineNumber lineNumber={line.newLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
           <span className="line-marker">{diffLinePrefix(line)}</span>
-          <span className="line-content">{line.content}</span>
+          <span className="line-content">{highlight(line.content, lang)}</span>
         </code>
       ))}
     </div>
@@ -220,8 +223,8 @@ export function DiffPreview({
                 )}
               </div>
               {displayMode === 'split'
-                ? <SplitDiffLines lines={hunk.lines} onOpenLine={onOpenLine} />
-                : <UnifiedDiffLines lines={hunk.lines} onOpenLine={onOpenLine} />}
+                ? <SplitDiffLines lines={hunk.lines} lang={langFromPath(file.newPath)} onOpenLine={onOpenLine} />
+                : <UnifiedDiffLines lines={hunk.lines} lang={langFromPath(file.newPath)} onOpenLine={onOpenLine} />}
             </article>
           ))}
         </section>

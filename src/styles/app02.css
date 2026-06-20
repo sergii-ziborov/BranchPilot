@@ -1250,6 +1250,13 @@
   margin: 0;
 }
 
+/* Syntax highlighting tokens inside diff lines (dark diff surface). */
+.structured-diff .tok-keyword { color: #ff7b72; }
+.structured-diff .tok-string { color: #a5d6ff; }
+.structured-diff .tok-comment { color: #8b949e; font-style: italic; }
+.structured-diff .tok-number { color: #79c0ff; }
+.structured-diff .tok-type { color: #ffa657; }
+
 /* Diff display controls live in the diff heading where Discard used to be. */
 .diff-controls {
   display: flex;
