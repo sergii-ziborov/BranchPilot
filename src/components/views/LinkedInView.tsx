@@ -1,8 +1,5 @@
-import { Copy, Loader2, Star } from 'lucide-react'
-import type {
-  AssistantPolicyStatus, GeneratedLinkedInProject, RepositorySnapshot
-} from '../../shared/branchPilot'
-import { assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
+import { Loader2, Star } from 'lucide-react'
+import type { GeneratedLinkedInProject, RepositorySnapshot } from '../../shared/branchPilot'
 
 export function LinkedInView({
   generateLinkedInProject,
@@ -10,36 +7,20 @@ export function LinkedInView({
   busy,
   linkedinLoading,
   canGenerateLinkedInProject,
-  linkedinRole,
-  setLinkedInRole,
-  linkedinAudience,
-  setLinkedInAudience,
-  linkedinProjectUrl,
-  setLinkedInProjectUrl,
-  assistantPolicy,
   linkedinProject,
   updateLinkedInProject,
   linkedinSkillsText,
-  setLinkedinSkillsText,
-  copyLinkedInMarkdown
+  setLinkedinSkillsText
 }: {
   generateLinkedInProject: () => void | Promise<void>
   snapshot: RepositorySnapshot | null
   busy: boolean
   linkedinLoading: boolean
   canGenerateLinkedInProject: boolean
-  linkedinRole: string
-  setLinkedInRole: (value: string) => void
-  linkedinAudience: string
-  setLinkedInAudience: (value: string) => void
-  linkedinProjectUrl: string
-  setLinkedInProjectUrl: (value: string) => void
-  assistantPolicy: AssistantPolicyStatus | null
   linkedinProject: GeneratedLinkedInProject | null
   updateLinkedInProject: (update: Partial<GeneratedLinkedInProject>) => void
   linkedinSkillsText: string
   setLinkedinSkillsText: (value: string) => void
-  copyLinkedInMarkdown: () => void | Promise<void>
 }) {
   return (
     <section className="single-panel linkedin-panel">
@@ -55,38 +36,6 @@ export function LinkedInView({
       </div>
 
       <div className="linkedin-workspace">
-        <section className="linkedin-controls linkedin-hints">
-          <div className="linkedin-hints-grid">
-            <label>
-              Focus role
-              <input
-                value={linkedinRole}
-                onChange={(event) => setLinkedInRole(event.target.value)}
-                placeholder="Creator, maintainer, app developer"
-              />
-            </label>
-            <label>
-              Audience
-              <input
-                value={linkedinAudience}
-                onChange={(event) => setLinkedInAudience(event.target.value)}
-                placeholder="Who should this impress?"
-              />
-            </label>
-            <label className="linkedin-hint-wide">
-              Project URL
-              <input
-                value={linkedinProjectUrl}
-                onChange={(event) => setLinkedInProjectUrl(event.target.value)}
-                placeholder={snapshot?.summary.remoteUrl ?? 'https://github.com/owner/repo'}
-              />
-            </label>
-          </div>
-          {!canGenerateLinkedInProject && (
-            <div className="assistant-policy-note">{assistantPolicyBlockedLabel('linkedin_project', assistantPolicy)}</div>
-          )}
-        </section>
-
         {!linkedinProject ? (
           <section className="review-empty linkedin-empty">
             <Star size={24} />
@@ -140,7 +89,7 @@ export function LinkedInView({
             </label>
 
             <label className="linkedin-field">
-              Skills
+              Technologies
               <input
                 value={linkedinSkillsText}
                 onChange={(event) => {
@@ -149,24 +98,9 @@ export function LinkedInView({
                     skills: event.target.value.split(',').map((skill) => skill.trim()).filter(Boolean)
                   })
                 }}
-                placeholder="TypeScript, Electron, React"
+                placeholder="TypeScript, Electron, React, Vite, Node.js"
               />
             </label>
-
-            <div className="linkedin-markdown-block">
-              <div className="linkedin-markdown-heading">
-                <strong>LinkedIn-ready text</strong>
-                <button type="button" onClick={copyLinkedInMarkdown}>
-                  <Copy size={15} />
-                  Copy
-                </button>
-              </div>
-              <textarea
-                className="linkedin-markdown-editor"
-                value={linkedinProject.markdown}
-                onChange={(event) => updateLinkedInProject({ markdown: event.target.value })}
-              />
-            </div>
           </section>
         )}
       </div>
