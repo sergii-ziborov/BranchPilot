@@ -371,6 +371,21 @@ function App() {
                 runOperationAction={runOperationAction}
                 api={api}
                 pullGitLfs={pullGitLfs}
+                newWorktreeBranchName={newWorktreeBranchName}
+                setNewWorktreeBranchName={setNewWorktreeBranchName}
+                newWorktreeBaseRef={newWorktreeBaseRef}
+                setNewWorktreeBaseRef={setNewWorktreeBaseRef}
+                createWorktree={createWorktree}
+                openWorktree={openWorktree}
+                removeWorktree={removeWorktree}
+                tagFilter={tagFilter}
+                setTagFilter={setTagFilter}
+                newTagName={newTagName}
+                setNewTagName={setNewTagName}
+                newTagMessage={newTagMessage}
+                setNewTagMessage={setNewTagMessage}
+                createTag={createTag}
+                deleteTag={deleteTag}
               />
             )}
             {viewMode === 'providers' && (

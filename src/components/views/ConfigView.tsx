@@ -1,8 +1,9 @@
 import { Bot, Code2, Database, FolderOpen, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
 import type {
   ApiResult, AssistantId, BranchPilotApi, EditorPreference, EditorSettings, GitConfigSnapshot,
-  GitOperationResult, RemoteSummary, RepositorySnapshot, SubmoduleSummary
+  GitOperationResult, RemoteSummary, RepositorySnapshot, SubmoduleSummary, TagSummary, WorktreeSummary
 } from '../../shared/branchPilot'
+import { WorktreesTagsPanel } from '../WorktreesTagsPanel'
 import { gitDefaultBranchLabel, gitSigningLabel } from '../../lib/gitConfigLabels'
 import { editorPreferenceLabel } from '../../lib/editorLabels'
 import { gitLfsFileLabel, submoduleStatusLabel } from '../../lib/gitEntityLabels'
@@ -42,7 +43,22 @@ export function ConfigView({
   openSubmodule,
   runOperationAction,
   api,
-  pullGitLfs
+  pullGitLfs,
+  newWorktreeBranchName,
+  setNewWorktreeBranchName,
+  newWorktreeBaseRef,
+  setNewWorktreeBaseRef,
+  createWorktree,
+  openWorktree,
+  removeWorktree,
+  tagFilter,
+  setTagFilter,
+  newTagName,
+  setNewTagName,
+  newTagMessage,
+  setNewTagMessage,
+  createTag,
+  deleteTag
 }: {
   selectedAssistant: AssistantId
   setSelectedAssistant: (assistant: AssistantId) => void
@@ -77,6 +93,21 @@ export function ConfigView({
   runOperationAction: (label: string, action: () => Promise<ApiResult<GitOperationResult>>) => void | Promise<void>
   api: BranchPilotApi | undefined
   pullGitLfs: () => void | Promise<void>
+  newWorktreeBranchName: string
+  setNewWorktreeBranchName: (value: string) => void
+  newWorktreeBaseRef: string
+  setNewWorktreeBaseRef: (value: string) => void
+  createWorktree: () => void | Promise<void>
+  openWorktree: (worktree: WorktreeSummary) => void | Promise<void>
+  removeWorktree: (worktree: WorktreeSummary) => void | Promise<void>
+  tagFilter: string
+  setTagFilter: (value: string) => void
+  newTagName: string
+  setNewTagName: (value: string) => void
+  newTagMessage: string
+  setNewTagMessage: (value: string) => void
+  createTag: () => void | Promise<void>
+  deleteTag: (tag: TagSummary) => void | Promise<void>
 }) {
     return (
     <section className="single-panel">
@@ -381,6 +412,28 @@ export function ConfigView({
           </div>
         </section>
         </details>
+
+        <WorktreesTagsPanel
+          snapshot={snapshot}
+          api={api}
+          busy={busy}
+          runOperationAction={runOperationAction}
+          newWorktreeBranchName={newWorktreeBranchName}
+          setNewWorktreeBranchName={setNewWorktreeBranchName}
+          newWorktreeBaseRef={newWorktreeBaseRef}
+          setNewWorktreeBaseRef={setNewWorktreeBaseRef}
+          createWorktree={createWorktree}
+          openWorktree={openWorktree}
+          removeWorktree={removeWorktree}
+          tagFilter={tagFilter}
+          setTagFilter={setTagFilter}
+          newTagName={newTagName}
+          setNewTagName={setNewTagName}
+          newTagMessage={newTagMessage}
+          setNewTagMessage={setNewTagMessage}
+          createTag={createTag}
+          deleteTag={deleteTag}
+        />
       </div>
     </section>
   )
