@@ -1419,18 +1419,24 @@ button.danger-button:hover {
 
 .change-filter-bar,
 .list-filter-bar {
-  display: grid;
+  display: flex;
   gap: 8px;
   align-items: center;
   margin-bottom: 10px;
 }
 
-.change-filter-bar {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+/* Search field grows to the panel edge; buttons/counters stay their natural size. */
+.change-filter-bar > .change-filter-input,
+.list-filter-bar > .list-filter-input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
-
-.list-filter-bar {
-  grid-template-columns: minmax(0, 1fr) auto auto;
+.change-filter-bar > .changes-actions-menu,
+.change-filter-bar > span,
+.change-filter-bar > button,
+.list-filter-bar > span,
+.list-filter-bar > button {
+  flex: 0 0 auto;
 }
 
 .change-filter-bar-compact {
