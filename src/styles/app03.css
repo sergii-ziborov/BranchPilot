@@ -111,6 +111,19 @@
   color: #94a3b8;
 }
 
+/* Word-level intra-line diff: the exact added/removed text within a changed line. */
+.line-content .word-add {
+  border-radius: 3px;
+  background: rgba(46, 160, 67, 0.45);
+  box-shadow: 0 0 0 1px rgba(46, 160, 67, 0.25);
+}
+
+.line-content .word-del {
+  border-radius: 3px;
+  background: rgba(248, 81, 73, 0.4);
+  box-shadow: 0 0 0 1px rgba(248, 81, 73, 0.25);
+}
+
 .quiet-box {
   padding: 18px;
   color: var(--muted);

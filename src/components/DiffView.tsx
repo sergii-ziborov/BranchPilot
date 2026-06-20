@@ -1,8 +1,36 @@
+import type { ReactNode } from 'react'
 import { FileImage, FileText, Plus, Trash2, X } from 'lucide-react'
 import type { DiffHunk, DiffLine, DiffResult, ImagePreview } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import { buildSplitDiffRows } from '../shared/diffView'
 import { highlight, langFromPath } from '../lib/highlight'
+import { renderSegs, shouldWordDiff, wordDiff } from '../lib/wordDiff'
+
+/** Word-level highlight map for the unified view: line index → highlighted content. */
+function buildUnifiedWordDiff(lines: DiffLine[], lang: string): Map<number, ReactNode> {
+  const map = new Map<number, ReactNode>()
+  let i = 0
+  while (i < lines.length) {
+    if (lines[i].type !== 'remove') {
+      i += 1
+      continue
+    }
+    const removeStart = i
+    while (i < lines.length && lines[i].type === 'remove') i += 1
+    const addStart = i
+    while (i < lines.length && lines[i].type === 'add') i += 1
+    const pairs = Math.min(addStart - removeStart, i - addStart)
+    for (let k = 0; k < pairs; k++) {
+      const oldLine = lines[removeStart + k]
+      const newLine = lines[addStart + k]
+      if (!shouldWordDiff(oldLine.content, newLine.content)) continue
+      const { oldSegs, newSegs } = wordDiff(oldLine.content, newLine.content)
+      map.set(removeStart + k, renderSegs(oldSegs, lang, 'del'))
+      map.set(addStart + k, renderSegs(newSegs, lang, 'add'))
+    }
+  }
+  return map
+}
 
 type DiffMode = ChangeDiffMode
 type DiffDisplayMode = 'unified' | 'split'
@@ -80,12 +108,12 @@ function DiffLineNumber({
 function SplitDiffCell({
   line,
   side,
-  lang,
+  content,
   onOpenLine
 }: {
   line?: DiffLine
   side: 'old' | 'new'
-  lang: string
+  content: ReactNode
   onOpenLine?: (line?: number) => void
 }) {
   const lineNumber = side === 'old' ? line?.oldLineNumber : line?.newLineNumber
@@ -94,7 +122,7 @@ function SplitDiffCell({
     <code className={`split-diff-cell ${line ? `line-${line.type}` : 'line-empty'}`}>
       <DiffLineNumber lineNumber={lineNumber} openLine={line?.newLineNumber} onOpenLine={onOpenLine} />
       <span className="line-marker">{line ? diffLinePrefix(line) : ''}</span>
-      <span className="line-content">{line ? highlight(line.content, lang) : ''}</span>
+      <span className="line-content">{content}</span>
     </code>
   )
 }
@@ -102,17 +130,32 @@ function SplitDiffCell({
 function SplitDiffLines({ lines, lang, onOpenLine }: { lines: DiffLine[]; lang: string; onOpenLine?: (line?: number) => void }) {
   return (
     <div className="split-diff-lines">
-      {buildSplitDiffRows(lines).map((row, rowIndex) => (
-        <div className="split-diff-row" key={`${rowIndex}-${row.oldLine?.content ?? ''}-${row.newLine?.content ?? ''}`}>
-          <SplitDiffCell line={row.oldLine} side="old" lang={lang} onOpenLine={onOpenLine} />
-          <SplitDiffCell line={row.newLine} side="new" lang={lang} onOpenLine={onOpenLine} />
-        </div>
-      ))}
+      {buildSplitDiffRows(lines).map((row, rowIndex) => {
+        const { oldLine, newLine } = row
+        let oldContent: ReactNode = oldLine ? highlight(oldLine.content, lang) : ''
+        let newContent: ReactNode = newLine ? highlight(newLine.content, lang) : ''
+        if (
+          oldLine?.type === 'remove' &&
+          newLine?.type === 'add' &&
+          shouldWordDiff(oldLine.content, newLine.content)
+        ) {
+          const { oldSegs, newSegs } = wordDiff(oldLine.content, newLine.content)
+          oldContent = renderSegs(oldSegs, lang, 'del')
+          newContent = renderSegs(newSegs, lang, 'add')
+        }
+        return (
+          <div className="split-diff-row" key={`${rowIndex}-${oldLine?.content ?? ''}-${newLine?.content ?? ''}`}>
+            <SplitDiffCell line={oldLine} side="old" content={oldContent} onOpenLine={onOpenLine} />
+            <SplitDiffCell line={newLine} side="new" content={newContent} onOpenLine={onOpenLine} />
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 function UnifiedDiffLines({ lines, lang, onOpenLine }: { lines: DiffLine[]; lang: string; onOpenLine?: (line?: number) => void }) {
+  const wordContent = buildUnifiedWordDiff(lines, lang)
   return (
     <div className="diff-lines">
       {lines.map((line, lineIndex) => (
@@ -120,7 +163,7 @@ function UnifiedDiffLines({ lines, lang, onOpenLine }: { lines: DiffLine[]; lang
           <DiffLineNumber lineNumber={line.oldLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
           <DiffLineNumber lineNumber={line.newLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
           <span className="line-marker">{diffLinePrefix(line)}</span>
-          <span className="line-content">{highlight(line.content, lang)}</span>
+          <span className="line-content">{wordContent.get(lineIndex) ?? highlight(line.content, lang)}</span>
         </code>
       ))}
     </div>
