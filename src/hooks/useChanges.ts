@@ -47,6 +47,7 @@ export function useChanges({
   const [diffMode, setDiffMode] = useState<ChangeDiffMode>('unstaged')
   const [diffDisplayMode, setDiffDisplayMode] = useState<DiffDisplayMode>('unified')
   const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
+  const [diffExpanded, setDiffExpanded] = useState(false)
   const [diff, setDiff] = useState<DiffResult | null>(null)
   const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null)
   const [patchScope, setPatchScope] = useState<PatchScope>('working-tree')
@@ -91,7 +92,8 @@ export function useChanges({
       repoPath: currentRepoPath,
       filePath: change.path,
       staged,
-      ignoreWhitespace: diffIgnoreWhitespace
+      ignoreWhitespace: diffIgnoreWhitespace,
+      contextLines: diffExpanded ? 100000 : 3
     })
 
     if (diffRequestIdRef.current !== requestId) return
@@ -298,12 +300,18 @@ export function useChanges({
     }
 
     void loadDiff(selectedChange, availableMode)
-     
-  }, [diffIgnoreWhitespace, diffMode, selectedChange, snapshot])
+
+  }, [diffIgnoreWhitespace, diffExpanded, diffMode, selectedChange, snapshot])
+
+  // Each newly selected file starts collapsed (compact context).
+  useEffect(() => {
+    setDiffExpanded(false)
+  }, [selectedFilePath])
 
   return {
     selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter,
     diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
+    diffExpanded, setDiffExpanded,
     diff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
     filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
     loadDiff, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,

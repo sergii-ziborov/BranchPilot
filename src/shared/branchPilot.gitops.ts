@@ -71,6 +71,8 @@ export interface DiffRequest {
   filePath: string
   staged: boolean
   ignoreWhitespace?: boolean
+  /** Lines of unchanged context around each hunk. Large value ≈ show the whole file. */
+  contextLines?: number
 }
 
 export type DiffLineType = 'context' | 'add' | 'remove' | 'meta'

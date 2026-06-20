@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react'
-import { Archive, ArrowDownToLine, Bot, Code2, Columns2, Copy, GitCommitHorizontal, ListFilter, MinusSquare, Pencil, Pilcrow, PlusSquare, Rows3, Save, Search, ShieldCheck, Trash2, UploadCloud, Users, X } from 'lucide-react'
+import { Archive, ArrowDownToLine, Bot, Code2, Columns2, Copy, FoldVertical, GitCommitHorizontal, ListFilter, MinusSquare, Pencil, Pilcrow, PlusSquare, Rows3, Save, Search, ShieldCheck, Trash2, UnfoldVertical, UploadCloud, Users, X } from 'lucide-react'
 import type {
   ApiResult, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
@@ -32,6 +32,7 @@ export function ChangesView({
   currentRepoPath, runSnapshotAction, api,
   selectedChange, selectedDiffStats, discardSelected,
   diffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
+  diffExpanded, setDiffExpanded,
   diff, imagePreview, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk
 }: {
   snapshot: RepositorySnapshot | null
@@ -85,6 +86,8 @@ export function ChangesView({
   setDiffDisplayMode: (mode: 'unified' | 'split') => void
   diffIgnoreWhitespace: boolean
   setDiffIgnoreWhitespace: (value: boolean) => void
+  diffExpanded: boolean
+  setDiffExpanded: (value: boolean) => void
   diff: DiffResult | null
   imagePreview: ImagePreview | null
   stageSelectedHunk: (hunk: DiffHunk) => void
@@ -507,6 +510,16 @@ export function ChangesView({
             )}
           </div>
           <div className="panel-actions diff-controls">
+            <button
+              type="button"
+              className={diffExpanded ? 'icon-button active' : 'icon-button'}
+              title={diffExpanded ? 'Collapse to changed lines' : 'Expand the whole file'}
+              aria-label="Expand whole file"
+              aria-pressed={diffExpanded}
+              onClick={() => setDiffExpanded(!diffExpanded)}
+            >
+              {diffExpanded ? <FoldVertical size={16} /> : <UnfoldVertical size={16} />}
+            </button>
             <button
               type="button"
               className={diffIgnoreWhitespace ? 'icon-button active' : 'icon-button'}

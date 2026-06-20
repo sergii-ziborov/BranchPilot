@@ -389,7 +389,8 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       return this.getUntrackedFilePreview(rootPath, relativePath)
     }
 
-    const args = ['diff', '--no-ext-diff', '--unified=3']
+    const context = Number.isFinite(request.contextLines) ? Math.max(0, Math.min(100000, Math.trunc(request.contextLines as number))) : 3
+    const args = ['diff', '--no-ext-diff', `--unified=${context}`]
 
     if (request.staged) {
       args.push('--cached')
