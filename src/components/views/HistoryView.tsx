@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ExternalLink, GitCommitHorizontal, RefreshCcw, Search, Trash2, X } from 'lucide-react'
+import { Code2, Copy, ExternalLink, GitCommitHorizontal, RefreshCcw, Search, Trash2, X } from 'lucide-react'
 import type { BranchPilotApi, CommitDetails, CommitSummary, DiffResult, ImagePreview, RepositorySnapshot } from '../../shared/branchPilot'
 import { getProviderCommitUrl } from '../../shared/providerRemote'
 import { formatDate } from '../../lib/format'
@@ -69,6 +69,45 @@ export function HistoryView({
       cancelled = true
     }
   }, [commitFileDiff, commitDetails?.sha, selectedCommitFilePath, api, currentRepoPath])
+
+  const [fileMenu, setFileMenu] = useState<{ x: number; y: number; path: string } | null>(null)
+
+  useEffect(() => {
+    if (!fileMenu) return
+    const close = () => setFileMenu(null)
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFileMenu(null)
+    }
+    window.addEventListener('click', close)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [fileMenu])
+
+  const openInEditorFromMenu = () => {
+    const path = fileMenu?.path
+    setFileMenu(null)
+    if (!path || !currentRepoPath || !api) return
+    void api.openInEditor({ targetPath: `${currentRepoPath}/${path}` })
+  }
+
+  const copyPathFromMenu = () => {
+    const path = fileMenu?.path
+    setFileMenu(null)
+    if (!path || !currentRepoPath) return
+    void navigator.clipboard.writeText(`${currentRepoPath}/${path}`)
+  }
+
+  const copyNameFromMenu = () => {
+    const path = fileMenu?.path
+    setFileMenu(null)
+    if (!path) return
+    void navigator.clipboard.writeText(path.split('/').pop() ?? path)
+  }
 
   return (
     <section className="content-grid history-grid">
@@ -205,6 +244,11 @@ export function HistoryView({
                   type="button"
                   key={`${file.rawStatus}-${file.path}-${file.originalPath ?? ''}`}
                   onClick={() => commitDetails && loadCommitFileDiff(commitDetails.sha, file.path)}
+                  onContextMenu={(event) => {
+                    event.preventDefault()
+                    if (commitDetails) loadCommitFileDiff(commitDetails.sha, file.path)
+                    setFileMenu({ x: event.clientX, y: event.clientY, path: file.path })
+                  }}
                   title={file.path}
                 >
                   <span className={`file-status status-${file.status}`}>{fileStatusToken(file.status)}</span>
@@ -218,6 +262,23 @@ export function HistoryView({
           </div>
         </div>
       </div>
+
+      {fileMenu && (
+        <div className="context-menu" role="menu" style={{ top: fileMenu.y, left: fileMenu.x }}>
+          <button type="button" role="menuitem" title="Open this file in your editor" onClick={openInEditorFromMenu} disabled={busy || !api}>
+            <Code2 size={15} />
+            Open in editor
+          </button>
+          <button type="button" role="menuitem" title="Copy the absolute file path" onClick={copyPathFromMenu}>
+            <Copy size={15} />
+            Copy path
+          </button>
+          <button type="button" role="menuitem" title="Copy the file name" onClick={copyNameFromMenu}>
+            <Copy size={15} />
+            Copy file name
+          </button>
+        </div>
+      )}
     </section>
   )
 }
