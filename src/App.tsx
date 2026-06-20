@@ -111,7 +111,9 @@ function App() {
         ) : (
           <>
             {!['changes', 'review', 'history'].includes(viewMode) && (
-              <ViewSwitch viewMode={viewMode} setViewMode={setViewMode} changedCount={counts?.changed ?? 0} />
+              <div className="tool-view-switch">
+                <ViewSwitch viewMode={viewMode} setViewMode={setViewMode} changedCount={counts?.changed ?? 0} />
+              </div>
             )}
             {viewMode === 'dashboard' && (
               <div className="dashboard-stack">

@@ -1798,3 +1798,36 @@ button.danger-button:hover {
 .shell-branch-confirm span {
   flex: 1 1 auto;
 }
+
+/* Changes|History switch shown atop tool views — give it a contained pill look
+   (the bare underline style is only for the Changes/History left column). */
+.tool-view-switch {
+  margin-bottom: 12px;
+}
+.tool-view-switch .view-switch {
+  display: inline-flex;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel-2);
+}
+.tool-view-switch .view-switch-tab {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  padding: 5px 16px;
+  border: 0;
+  border-radius: 6px;
+}
+.tool-view-switch .view-switch-tab:hover {
+  color: var(--text);
+  background: var(--panel);
+}
+.tool-view-switch .view-switch-tab.active {
+  color: var(--text-strong);
+  border-bottom-color: transparent;
+  background: var(--panel);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
