@@ -363,24 +363,23 @@ export function DiffPreview({
             <article className="diff-hunk" key={`${hunk.header}-${index}`}>
               <div className="diff-hunk-heading">
                 <code>{hunk.header}</code>
-                {mode === 'unstaged' && onStageHunk && (
-                  <button type="button" onClick={() => onStageHunk(hunk)} disabled={busy}>
-                    <Plus size={15} />
-                    Stage hunk
-                  </button>
-                )}
-                {mode === 'unstaged' && onDiscardHunk && (
-                  <button type="button" className="danger-button" onClick={() => onDiscardHunk(hunk)} disabled={busy}>
-                    <Trash2 size={15} />
-                    Discard hunk
-                  </button>
-                )}
-                {mode === 'staged' && onUnstageHunk && (
-                  <button type="button" onClick={() => onUnstageHunk(hunk)} disabled={busy}>
-                    <X size={15} />
-                    Unstage hunk
-                  </button>
-                )}
+                <div className="diff-hunk-actions">
+                  {mode === 'unstaged' && onStageHunk && (
+                    <button type="button" className="hunk-icon-btn" title="Stage hunk" aria-label="Stage hunk" onClick={() => onStageHunk(hunk)} disabled={busy}>
+                      <Plus size={15} />
+                    </button>
+                  )}
+                  {mode === 'unstaged' && onDiscardHunk && (
+                    <button type="button" className="hunk-icon-btn danger" title="Discard hunk" aria-label="Discard hunk" onClick={() => onDiscardHunk(hunk)} disabled={busy}>
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                  {mode === 'staged' && onUnstageHunk && (
+                    <button type="button" className="hunk-icon-btn" title="Unstage hunk" aria-label="Unstage hunk" onClick={() => onUnstageHunk(hunk)} disabled={busy}>
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
               </div>
               {displayMode === 'split'
                 ? <SplitDiffLines lines={hunk.lines} lang={langFromPath(file.newPath)} onOpenLine={onOpenLine} />
