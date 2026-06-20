@@ -73,6 +73,47 @@ html.is-fullscreen .shell-bar-row {
   position: relative;
 }
 
+/* GitHub-Desktop-style joined Repository | Branch | Sync bar (saves space). */
+.shell-segments {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.shell-segments .shell-menu > summary {
+  height: 40px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.shell-segments .shell-menu:first-child > summary {
+  border-top-left-radius: 9px;
+  border-bottom-left-radius: 9px;
+}
+
+.shell-segments .shell-menu:last-child > summary {
+  border-top-right-radius: 9px;
+  border-bottom-right-radius: 9px;
+}
+
+.shell-segments .shell-menu:not(:first-child) > summary {
+  border-left: 1px solid var(--border);
+}
+
+.shell-segments .shell-menu > summary:hover {
+  background: var(--panel-2);
+  box-shadow: none;
+}
+
+.shell-segments .shell-sync {
+  padding-left: 0;
+}
+
 .shell-menu > summary {
   display: flex;
   flex-direction: column;

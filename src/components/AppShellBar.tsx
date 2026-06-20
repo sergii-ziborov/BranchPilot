@@ -181,6 +181,7 @@ export function AppShellBar({
     <>
     <header className="shell-bar" ref={headerRef}>
       <div className="shell-bar-row">
+        <div className="shell-segments">
         <details className="shell-menu shell-repo" onToggle={handleToggle}>
           <summary>
             <span className="shell-seg-label">Repository</span>
@@ -301,6 +302,7 @@ export function AppShellBar({
         </details>
         </>
         )}
+        </div>
 
         {!allReposMode && (
         <div className="shell-repo-actions">
