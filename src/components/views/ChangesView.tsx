@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react'
-import { Archive, ArrowDownToLine, Bot, Code2, Columns2, Copy, FoldVertical, GitCommitHorizontal, ListFilter, MinusSquare, Pencil, Pilcrow, PlusSquare, Rows3, Save, Search, ShieldCheck, Trash2, UnfoldVertical, UploadCloud, Users, X } from 'lucide-react'
+import { Archive, ArrowDownToLine, Bot, Clock3, Code2, Columns2, Copy, GitCommitHorizontal, GitPullRequest, ListFilter, MinusSquare, Pencil, Pilcrow, PlusSquare, Rows3, Save, Search, ShieldCheck, Trash2, UploadCloud, Users, X } from 'lucide-react'
 import type {
   ApiResult, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
   FileChange, PatchScope, RepositorySnapshot
@@ -32,7 +32,6 @@ export function ChangesView({
   currentRepoPath, runSnapshotAction, api,
   selectedChange, selectedDiffStats, discardSelected,
   diffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
-  diffExpanded, setDiffExpanded,
   diff, imagePreview, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk
 }: {
   snapshot: RepositorySnapshot | null
@@ -86,8 +85,6 @@ export function ChangesView({
   setDiffDisplayMode: (mode: 'unified' | 'split') => void
   diffIgnoreWhitespace: boolean
   setDiffIgnoreWhitespace: (value: boolean) => void
-  diffExpanded: boolean
-  setDiffExpanded: (value: boolean) => void
   diff: DiffResult | null
   imagePreview: ImagePreview | null
   stageSelectedHunk: (hunk: DiffHunk) => void
@@ -207,11 +204,37 @@ export function ChangesView({
 
   if (totalChanges === 0) {
     return (
-      <section className="single-panel">
-        <div className="diff-empty">
-          <GitCommitHorizontal size={30} />
-          <strong>No local changes</strong>
-          <span>There are no uncommitted changes in this branch. Open History to review past commits.</span>
+      <section className="single-panel no-changes-view">
+        <ViewSwitch viewMode="changes" setViewMode={setViewMode} changedCount={0} />
+        <div className="no-changes">
+          <div className="no-changes-hero">
+            <span className="no-changes-icon"><GitCommitHorizontal size={26} /></span>
+            <h2>No local changes</h2>
+            <p>There are no uncommitted changes in this repository. Here are a few things you can do next.</p>
+          </div>
+          <div className="no-changes-cards">
+            <button type="button" className="no-changes-card" disabled={!currentRepoPath || busy || !api} onClick={() => currentRepoPath && api && void api.openInEditor({ targetPath: currentRepoPath })}>
+              <Code2 size={18} />
+              <span className="no-changes-card-text">
+                <strong>Open in your editor</strong>
+                <span>Edit files in your configured editor.</span>
+              </span>
+            </button>
+            <button type="button" className="no-changes-card" onClick={() => setViewMode('history')}>
+              <Clock3 size={18} />
+              <span className="no-changes-card-text">
+                <strong>Review history</strong>
+                <span>Browse past commits on this branch.</span>
+              </span>
+            </button>
+            <button type="button" className="no-changes-card" onClick={() => setViewMode('providers')}>
+              <GitPullRequest size={18} />
+              <span className="no-changes-card-text">
+                <strong>Pull requests</strong>
+                <span>Open or create a pull request.</span>
+              </span>
+            </button>
+          </div>
         </div>
       </section>
     )
@@ -510,16 +533,6 @@ export function ChangesView({
             )}
           </div>
           <div className="panel-actions diff-controls">
-            <button
-              type="button"
-              className={diffExpanded ? 'icon-button active' : 'icon-button'}
-              title={diffExpanded ? 'Collapse to changed lines' : 'Expand the whole file'}
-              aria-label="Expand whole file"
-              aria-pressed={diffExpanded}
-              onClick={() => setDiffExpanded(!diffExpanded)}
-            >
-              {diffExpanded ? <FoldVertical size={16} /> : <UnfoldVertical size={16} />}
-            </button>
             <button
               type="button"
               className={diffIgnoreWhitespace ? 'icon-button active' : 'icon-button'}

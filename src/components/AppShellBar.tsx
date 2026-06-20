@@ -7,7 +7,7 @@ import {
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
-import { BranchPilotMark } from './BrandIcons'
+import { BranchPilotLogo } from './BrandIcons'
 
 type TabIcon = ComponentType<{ size?: number }>
 
@@ -204,7 +204,7 @@ export function AppShellBar({
     <header className="shell-bar" ref={headerRef}>
       <div className="shell-bar-row">
         <span className="shell-brand" title="BranchPilot" aria-label="BranchPilot">
-          <BranchPilotMark size={26} />
+          <BranchPilotLogo size={24} />
         </span>
         <div className="shell-segments">
         <details className="shell-menu shell-repo" onToggle={handleToggle}>
