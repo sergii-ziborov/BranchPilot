@@ -344,7 +344,7 @@
 .github-status.status-available {
   color: var(--accent-strong);
   border-color: #bfdbfe;
-  background: #eff6ff;
+  background: var(--sel-bg);
 }
 
 .github-status.status-planned {
@@ -434,7 +434,7 @@
 
 .current-pr {
   border-color: #bfdbfe;
-  background: #eff6ff;
+  background: var(--sel-bg);
 }
 
 .current-pr > div:first-child,
@@ -491,7 +491,7 @@
 }
 
 .pr-row.selected {
-  border-color: #93c5fd;
+  border-color: var(--sel-border);
   box-shadow: 0 0 0 2px #dbeafe;
 }
 
@@ -535,7 +535,7 @@
 }
 
 .selected-badge {
-  border-color: #93c5fd;
+  border-color: var(--sel-border);
   color: var(--accent-strong) !important;
 }
 
@@ -679,8 +679,8 @@
 }
 
 .pr-file-row.selected {
-  border-color: #93c5fd;
-  background: #eff6ff;
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
 }
 
 .daily-panel {

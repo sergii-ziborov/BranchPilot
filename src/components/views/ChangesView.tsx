@@ -202,43 +202,7 @@ export function ChangesView({
     void navigator.clipboard.writeText(selectedChange.path.split('/').pop() ?? selectedChange.path)
   }
 
-  if (totalChanges === 0) {
-    return (
-      <section className="single-panel no-changes-view">
-        <ViewSwitch viewMode="changes" setViewMode={setViewMode} changedCount={0} />
-        <div className="no-changes">
-          <div className="no-changes-hero">
-            <span className="no-changes-icon"><GitCommitHorizontal size={26} /></span>
-            <h2>No local changes</h2>
-            <p>There are no uncommitted changes in this repository. Here are a few things you can do next.</p>
-          </div>
-          <div className="no-changes-cards">
-            <button type="button" className="no-changes-card" disabled={!currentRepoPath || busy || !api} onClick={() => currentRepoPath && api && void api.openInEditor({ targetPath: currentRepoPath })}>
-              <Code2 size={18} />
-              <span className="no-changes-card-text">
-                <strong>Open in your editor</strong>
-                <span>Edit files in your configured editor.</span>
-              </span>
-            </button>
-            <button type="button" className="no-changes-card" onClick={() => setViewMode('history')}>
-              <Clock3 size={18} />
-              <span className="no-changes-card-text">
-                <strong>Review history</strong>
-                <span>Browse past commits on this branch.</span>
-              </span>
-            </button>
-            <button type="button" className="no-changes-card" onClick={() => setViewMode('providers')}>
-              <GitPullRequest size={18} />
-              <span className="no-changes-card-text">
-                <strong>Pull requests</strong>
-                <span>Open or create a pull request.</span>
-              </span>
-            </button>
-          </div>
-        </div>
-      </section>
-    )
-  }
+  const noChanges = totalChanges === 0
 
   return (
     <section className="content-grid changes-workflow-grid">
@@ -521,6 +485,39 @@ export function ChangesView({
           setDiffMenu({ x: event.clientX, y: event.clientY })
         }}
       >
+        {noChanges ? (
+        <div className="no-changes">
+          <div className="no-changes-hero">
+            <span className="no-changes-icon"><GitCommitHorizontal size={26} /></span>
+            <h2>No local changes</h2>
+            <p>There are no uncommitted changes in this repository. Here are a few things you can do next.</p>
+          </div>
+          <div className="no-changes-cards">
+            <button type="button" className="no-changes-card" disabled={!currentRepoPath || busy || !api} onClick={() => currentRepoPath && api && void api.openInEditor({ targetPath: currentRepoPath })}>
+              <Code2 size={18} />
+              <span className="no-changes-card-text">
+                <strong>Open in your editor</strong>
+                <span>Edit files in your configured editor.</span>
+              </span>
+            </button>
+            <button type="button" className="no-changes-card" onClick={() => setViewMode('history')}>
+              <Clock3 size={18} />
+              <span className="no-changes-card-text">
+                <strong>Review history</strong>
+                <span>Browse past commits on this branch.</span>
+              </span>
+            </button>
+            <button type="button" className="no-changes-card" onClick={() => setViewMode('providers')}>
+              <GitPullRequest size={18} />
+              <span className="no-changes-card-text">
+                <strong>Pull requests</strong>
+                <span>Open or create a pull request.</span>
+              </span>
+            </button>
+          </div>
+        </div>
+        ) : (
+        <>
         <div className="panel-heading diff-heading">
           <div className="diff-heading-main">
             <h2>Diff</h2>
@@ -580,6 +577,8 @@ export function ChangesView({
             void runSnapshotAction('Selected lines staged.', () => api.stageHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch }))
           }}
         />
+        </>
+        )}
 
         {diffMenu && selectedChange && (
           <div className="context-menu" role="menu" style={{ top: diffMenu.y, left: diffMenu.x }}>

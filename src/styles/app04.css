@@ -77,8 +77,8 @@
 
 .memory-file-row:hover,
 .memory-file-row.selected {
-  border-color: #93c5fd;
-  background: #eff6ff;
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
 }
 
 .memory-file-row strong,
@@ -763,7 +763,7 @@
 
 .assistant-card.state-detected {
   border-color: #bfdbfe;
-  background: #eff6ff;
+  background: var(--sel-bg);
 }
 
 .panel-heading > button,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
   AlignLeft, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Code2,
-  DownloadCloud, FileCode2, FolderOpen, GitBranch, GitMerge, GitPullRequest,
+  DownloadCloud, FolderOpen, GitBranch, GitMerge, GitPullRequest,
   Palette, Pencil, RefreshCcw, Settings, Star, Terminal, Trash2, X, Check
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
@@ -68,11 +68,9 @@ export function AppShellBar({
   canFetch,
   canPull,
   canPush,
-  selectedFileTarget,
   runSnapshotAction,
   refreshRepository,
   openRepoInEditor,
-  openSelectedFileInEditor,
   openRepositoryTerminal
 }: {
   snapshot: RepositorySnapshot | null
@@ -92,11 +90,9 @@ export function AppShellBar({
   canFetch: boolean
   canPull: boolean
   canPush: boolean
-  selectedFileTarget: string | null
   runSnapshotAction: (label: string, action: () => Promise<ApiResult<RepositorySnapshot>>, progressLabel?: string) => Promise<boolean>
   refreshRepository: () => void | Promise<void>
   openRepoInEditor: () => void | Promise<void>
-  openSelectedFileInEditor: () => void | Promise<void>
   openRepositoryTerminal: () => void | Promise<void>
 }) {
   const branches = snapshot?.branches ?? []
@@ -386,9 +382,6 @@ export function AppShellBar({
           </button>
           <button className="icon-button" type="button" title="Open repository in editor" aria-label="Open repository in editor" disabled={!snapshot || busy} onClick={openRepoInEditor}>
             <Code2 size={17} />
-          </button>
-          <button className="icon-button" type="button" title="Open selected file in editor" aria-label="Open selected file in editor" disabled={!selectedFileTarget || busy} onClick={openSelectedFileInEditor}>
-            <FileCode2 size={17} />
           </button>
           <button className="icon-button" type="button" title="Open terminal" aria-label="Open terminal" disabled={!snapshot || busy} onClick={openRepositoryTerminal}>
             <Terminal size={17} />
