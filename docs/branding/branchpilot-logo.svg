@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="64" viewBox="0 0 340 64" fill="none">
+  <defs>
+    <linearGradient id="g" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(8,8)">
+    <rect x="0" y="0" width="48" height="48" rx="13" fill="url(#g)"/>
+    <circle cx="15" cy="35" r="3.4" fill="#ffffff"/>
+    <path d="M15 34 V24 Q15 17.5 21.5 15.5" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+    <path d="M36 11 L20.5 17.6 L26.4 20 L28.8 25.9 Z" fill="#ffffff"/>
+    <path d="M26.4 20 L36 11" stroke="#3b82f6" stroke-width="1.4" stroke-linecap="round"/>
+  </g>
+  <text x="74" y="41" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" font-weight="700" letter-spacing="-0.5" fill="#0f172a">Branch<tspan fill="#3b82f6">Pilot</tspan></text>
+</svg>

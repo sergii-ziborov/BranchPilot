@@ -1,4 +1,5 @@
-import { Bot, Code2, Database, FolderOpen, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
+import { Bot, Code2, Database, FolderOpen, GitBranch, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
+import { BranchPilotLogo } from '../BrandIcons'
 import type {
   ApiResult, AssistantId, BranchPilotApi, EditorPreference, EditorSettings, GitConfigSnapshot,
   GitOperationResult, RemoteSummary, RepositorySnapshot, SubmoduleSummary, TagSummary, WorktreeSummary
@@ -11,6 +12,7 @@ import { formatDate } from '../../lib/format'
 import { InfoRow } from '../primitives'
 
 export function ConfigView({
+  appVersion,
   selectedAssistant,
   setSelectedAssistant,
   loadGitConfig,
@@ -60,6 +62,7 @@ export function ConfigView({
   createTag,
   deleteTag
 }: {
+  appVersion: string
   selectedAssistant: AssistantId
   setSelectedAssistant: (assistant: AssistantId) => void
   loadGitConfig: () => void | Promise<void>
@@ -123,6 +126,20 @@ export function ConfigView({
       </div>
 
       <div className="config-grid">
+        <section className="config-card about-card">
+          <div className="about-card-headline">
+            <BranchPilotLogo size={30} />
+            <span className="about-card-version">v{appVersion}</span>
+          </div>
+          <p className="about-tagline">A local-first desktop Git client — pilot your branches with confidence.</p>
+          <p>BranchPilot manages local repositories and hosted providers: stage by hunk or line, review diffs with word-level highlighting, draft commit and pull-request text with an AI assistant, pull safely with auto-stash, and track work via reports — all read-only by default for assistants, with destructive actions gated behind explicit confirmations.</p>
+          <div className="about-card-features">
+            <span><GitBranch size={14} /> Branches, worktrees & tags</span>
+            <span><Bot size={14} /> AI commit / PR / review drafts</span>
+            <span><Database size={14} /> Git LFS & submodules</span>
+          </div>
+        </section>
+
         <section className="config-card">
           <div className="config-card-heading">
             <div>

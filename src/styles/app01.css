@@ -1831,3 +1831,54 @@ button.danger-button:hover {
   background: var(--panel);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
+
+/* Brand mark is a self-contained gradient badge — drop the generic icon tile. */
+.empty-state-icon.empty-state-brand {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+
+/* About BranchPilot card (Settings). */
+.about-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.about-card-headline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.about-card-version {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.about-card p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.about-card .about-tagline {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+.about-card-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+  margin-top: 4px;
+}
+.about-card-features span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}

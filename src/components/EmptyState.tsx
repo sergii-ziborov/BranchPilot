@@ -1,4 +1,5 @@
 import { ArrowDownToLine, FolderOpen, GitBranch, GitCommitHorizontal, ShieldCheck } from 'lucide-react'
+import { BranchPilotMark } from './BrandIcons'
 
 /** Shown when no repository is open: open-folder prompt and clone panel. */
 export function EmptyState({
@@ -23,12 +24,12 @@ export function EmptyState({
   return (
     <section className="empty-state">
       <div className="empty-state-hero">
-        <span className="empty-state-icon">
-          <FolderOpen size={34} />
+        <span className="empty-state-icon empty-state-brand">
+          <BranchPilotMark size={48} />
         </span>
-        <p className="eyebrow">Workspace</p>
+        <p className="eyebrow">BranchPilot</p>
         <h2>Open a Git repository</h2>
-        <p>Choose a local repository or clone one from a remote URL.</p>
+        <p>A local-first Git client with AI drafts, safe sync, and pull-request tools. Choose a local repository or clone one from a remote URL.</p>
         <button className="empty-primary-action" type="button" onClick={chooseRepository} disabled={!apiReady || busy}>
           <FolderOpen size={17} />
           Open repository
