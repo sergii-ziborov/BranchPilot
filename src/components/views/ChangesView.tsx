@@ -144,9 +144,6 @@ export function ChangesView({
       || contributor.name.toLowerCase().includes(coAuthorQuery)
       || contributor.email.toLowerCase().includes(coAuthorQuery))
     .slice(0, 8)
-  const visibleSummary = changeFilter
-    ? `${filteredChanges.length} of ${totalChanges}`
-    : `${totalChanges}`
 
   const notifyBlocked = (title: string, reasons: string[]) => {
     setNotice(reasons.length > 0 ? `${title}: ${reasons.join(' · ')}` : title)
@@ -284,7 +281,6 @@ export function ChangesView({
               placeholder="Search changed files"
             />
           </label>
-          <span>{visibleSummary}</span>
           {changeFilter && (
             <button type="button" className="secondary" onClick={() => setChangeFilter('')}>
               <X size={15} />

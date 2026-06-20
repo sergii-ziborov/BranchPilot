@@ -6,6 +6,7 @@ interface TipState {
   text: string
   x: number
   y: number
+  above: boolean
 }
 
 /**
@@ -27,8 +28,13 @@ export function GlobalTooltip() {
       const text = tooltipText(el)
       if (!text) return
       const rect = el.getBoundingClientRect()
-      const x = Math.min(Math.max(rect.left + rect.width / 2, 70), window.innerWidth - 70)
-      setTip({ text, x, y: rect.bottom + 8 })
+      // Keep the (center-anchored, max 280px wide) bubble fully on screen.
+      const margin = 150
+      const x = Math.min(Math.max(rect.left + rect.width / 2, margin), window.innerWidth - margin)
+      // Flip above the element when there isn't room below (e.g. bottom-row buttons).
+      const below = rect.bottom + 46 < window.innerHeight
+      const y = below ? rect.bottom + 8 : rect.top - 8
+      setTip({ text, x, y, above: !below })
     }
 
     const restoreTitle = (el: Element) => {
@@ -90,7 +96,11 @@ export function GlobalTooltip() {
   if (!tip) return null
 
   return (
-    <div className="app-tooltip" role="tooltip" style={{ left: tip.x, top: tip.y }}>
+    <div
+      className={tip.above ? 'app-tooltip app-tooltip-above' : 'app-tooltip'}
+      role="tooltip"
+      style={{ left: tip.x, top: tip.y }}
+    >
       {tip.text}
     </div>
   )

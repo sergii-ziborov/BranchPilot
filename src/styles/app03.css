@@ -175,21 +175,31 @@
   position: fixed;
   z-index: 100;
   transform: translateX(-50%);
-  max-width: 260px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: #0f172a;
-  color: #f8fafc;
+  max-width: 280px;
+  width: max-content;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #f1f5f9;
   font-size: 12px;
-  line-height: 1.4;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
   pointer-events: none;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.35);
   animation: tooltip-fade 0.12s ease both;
 }
 
+/* Flipped above the anchor (used near the bottom edge of the window). */
+.app-tooltip-above {
+  transform: translate(-50%, -100%);
+}
+
 @keyframes tooltip-fade {
-  from { opacity: 0; transform: translateX(-50%) translateY(-3px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .toast-stack {
