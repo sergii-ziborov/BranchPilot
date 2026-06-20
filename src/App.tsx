@@ -8,6 +8,7 @@ import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { LinkedinIcon } from './components/BrandIcons'
 import { useEffect, useState } from 'react'
 import { AppShellBar } from './components/AppShellBar'
+import { ContributionHeatmap } from './components/ContributionHeatmap'
 import { ToolModal } from './components/ToolModal'
 import { Toaster } from './components/Toaster'
 import { GlobalTooltip } from './components/GlobalTooltip'
@@ -58,6 +59,12 @@ function App() {
   useEffect(() => {
     if (showClone && snapshot) setShowClone(false)
   }, [snapshot?.summary.rootPath])
+
+  // Reports now hosts the contribution heatmap; load its data when Reports opens.
+  useEffect(() => {
+    if (viewMode === 'daily') void loadRepositoryDashboard()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode])
 
   useEffect(() => {
     if (viewMode === 'review') setChangesTool('review')
@@ -415,6 +422,12 @@ function App() {
                   </button>
                 </div>
                 {viewMode === 'daily' && (
+                  <>
+                  {contributionGraph && (
+                    <div className="dashboard-heatmap-card reports-heatmap">
+                      <ContributionHeatmap graph={contributionGraph} />
+                    </div>
+                  )}
                   <DailyView
                     dailyReviewDate={dailyReviewDate}
                     setDailyReviewDate={setDailyReviewDate}
@@ -426,6 +439,7 @@ function App() {
                     copyDailyReviewMarkdown={copyDailyReviewMarkdown}
                     allReposMode={allReposMode}
                   />
+                  </>
                 )}
                 {viewMode === 'linkedin' && (
                   <LinkedInView

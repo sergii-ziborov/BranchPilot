@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
   ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Clock3, Code2,
   DownloadCloud, FileCode2, FileDiff, FolderOpen, GitBranch, GitMerge, GitPullRequest,
-  LayoutDashboard, RefreshCcw, Settings, Star, Terminal, Check
+  RefreshCcw, Settings, Star, Terminal, Check
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
@@ -16,7 +16,6 @@ const PRIMARY_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
 ]
 
 const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'providers', label: 'Pull requests', icon: GitPullRequest },
   { id: 'daily', label: 'Reports', icon: CalendarDays }
 ]
