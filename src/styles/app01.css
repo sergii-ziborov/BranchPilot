@@ -34,16 +34,23 @@
 .shell-bar-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 56px;
+  gap: 6px;
+  min-height: 46px;
   /* Left inset clears the macOS traffic-light window controls (hiddenInset). */
-  padding: 9px 16px 8px 84px;
+  padding: 6px 14px 6px 84px;
 }
 
 /* Keep every top-bar control on one baseline at a single height. */
 .shell-bar button.icon-button {
-  height: 38px;
-  min-height: 38px;
+  height: 30px;
+  min-height: 30px;
+  width: 30px !important;
+}
+
+/* GitHub-Desktop-scale icons in the top bar (lucide sets size via attributes). */
+.shell-bar .icon-button svg {
+  width: 16px;
+  height: 16px;
 }
 
 html[data-platform='darwin'] .shell-bar-row {
@@ -858,8 +865,8 @@ button.icon-button {
   justify-content: center;
   flex: 0 0 auto;
   gap: 0 !important;
-  width: 36px !important;
-  min-height: 36px;
+  width: 32px !important;
+  min-height: 32px;
   padding: 0 !important;
   border: 1px solid var(--border);
   border-radius: 8px;
