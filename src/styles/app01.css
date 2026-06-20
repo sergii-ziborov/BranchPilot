@@ -1634,8 +1634,14 @@ button.danger-button:hover {
   padding: 6px 8px;
 }
 .shell-theme-dropdown {
-  min-width: 180px;
+  left: auto;
+  right: 0;
+  width: 210px;
+  min-width: 210px;
   padding: 4px;
+}
+.shell-theme-item > span:nth-child(2) {
+  white-space: nowrap;
 }
 .shell-theme-item {
   display: flex;
@@ -1881,4 +1887,35 @@ button.danger-button:hover {
   gap: 7px;
   color: var(--muted);
   font-size: 12px;
+}
+
+/* Compact "back to Changes" control inside secondary-view headings. */
+.panel-heading-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.back-to-changes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.back-to-changes:hover {
+  border-color: #a7b0c0;
+  background: var(--panel-2);
+}
+.reports-stack > .back-to-changes {
+  margin-bottom: 10px;
 }

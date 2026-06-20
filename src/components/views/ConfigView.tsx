@@ -1,5 +1,6 @@
 import { Bot, Code2, Database, FolderOpen, GitBranch, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
 import { BranchPilotLogo } from '../BrandIcons'
+import { BackToChanges } from '../BackToChanges'
 import type {
   ApiResult, AssistantId, BranchPilotApi, EditorPreference, EditorSettings, GitConfigSnapshot,
   GitOperationResult, RemoteSummary, RepositorySnapshot, SubmoduleSummary, TagSummary, WorktreeSummary
@@ -12,6 +13,7 @@ import { formatDate } from '../../lib/format'
 import { InfoRow } from '../primitives'
 
 export function ConfigView({
+  onBack,
   appVersion,
   selectedAssistant,
   setSelectedAssistant,
@@ -62,6 +64,7 @@ export function ConfigView({
   createTag,
   deleteTag
 }: {
+  onBack: () => void
   appVersion: string
   selectedAssistant: AssistantId
   setSelectedAssistant: (assistant: AssistantId) => void
@@ -115,9 +118,12 @@ export function ConfigView({
     return (
     <section className="single-panel">
       <div className="panel-heading">
-        <div>
-          <h2>Git Config</h2>
-          <p>Inspect effective Git identity and update repository-local commit identity.</p>
+        <div className="panel-heading-main">
+          <BackToChanges onClick={onBack} />
+          <div>
+            <h2>Settings</h2>
+            <p>Inspect effective Git identity and update repository-local commit identity.</p>
+          </div>
         </div>
         <button type="button" onClick={loadGitConfig} disabled={busy}>
           <RefreshCcw size={17} />

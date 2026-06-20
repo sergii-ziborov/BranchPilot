@@ -9,7 +9,7 @@ import { LinkedinIcon } from './components/BrandIcons'
 import { useEffect, useState } from 'react'
 import { AppShellBar } from './components/AppShellBar'
 import { ContributionHeatmap } from './components/ContributionHeatmap'
-import { ViewSwitch } from './components/ViewSwitch'
+import { BackToChanges } from './components/BackToChanges'
 import { ToolModal } from './components/ToolModal'
 import { Toaster } from './components/Toaster'
 import { GlobalTooltip } from './components/GlobalTooltip'
@@ -110,11 +110,6 @@ function App() {
           />
         ) : (
           <>
-            {!['changes', 'review', 'history'].includes(viewMode) && (
-              <div className="tool-view-switch">
-                <ViewSwitch viewMode={viewMode} setViewMode={setViewMode} changedCount={counts?.changed ?? 0} />
-              </div>
-            )}
             {viewMode === 'dashboard' && (
               <div className="dashboard-stack">
                 <DashboardView
@@ -340,6 +335,7 @@ function App() {
             )}
             {viewMode === 'config' && (
               <ConfigView
+                onBack={() => setViewMode('changes')}
                 appVersion={appVersion}
                 selectedAssistant={selectedAssistant}
                 setSelectedAssistant={setSelectedAssistant}
@@ -393,6 +389,7 @@ function App() {
             )}
             {viewMode === 'providers' && (
               <ProvidersView
+                onBack={() => setViewMode('changes')}
                 providers={providers}
                 snapshot={snapshot}
                 api={api}
@@ -427,6 +424,7 @@ function App() {
             )}
             {(viewMode === 'daily' || viewMode === 'linkedin') && (
               <div className="reports-stack">
+                <BackToChanges onClick={() => setViewMode('changes')} />
                 <div className="reports-switch" role="tablist" aria-label="Reports">
                   <button
                     type="button"

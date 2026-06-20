@@ -10,8 +10,10 @@ import { providerStateLabel } from '../../lib/dashboardLabels'
 import { assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
 import { PlannedProviderWorkflowPanel, ProviderRemoteCard } from '../ProviderRemoteCard'
 import { getCreatePullRequestState, getPullRequestBrowseState } from '../../shared/providerPreconditions'
+import { BackToChanges } from '../BackToChanges'
 
 export function ProvidersView({
+  onBack,
   providers, snapshot, api, currentRepoPath, busy, assistantPolicy, githubCliStatus,
   canGeneratePullRequestText, canPublishBranch,
   createdPullRequest, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber,
@@ -20,6 +22,7 @@ export function ProvidersView({
   refreshProvidersPanel, selectPullRequest, openExternalLink, runSnapshotAction,
   renderGitHubRepositoryBrowser, renderPullRequestDetailsPanel
 }: {
+  onBack: () => void
   providers: ProviderStatus[]
   snapshot: RepositorySnapshot | null
   api: BranchPilotApi | undefined
@@ -65,9 +68,12 @@ export function ProvidersView({
   return (
     <section className="single-panel">
       <div className="panel-heading">
-        <div>
-          <h2>Providers</h2>
-          <p>GitHub uses authenticated gh when available, with GitHub Desktop credentials as a PR creation fallback.</p>
+        <div className="panel-heading-main">
+          <BackToChanges onClick={onBack} />
+          <div>
+            <h2>Pull requests</h2>
+            <p>GitHub uses authenticated gh when available, with GitHub Desktop credentials as a PR creation fallback.</p>
+          </div>
         </div>
         <button type="button" onClick={refreshProvidersPanel} disabled={busy}>
           <RefreshCcw size={17} />
