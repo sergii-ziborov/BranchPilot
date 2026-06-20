@@ -35,7 +35,6 @@ export function AppShellBar({
   openRepository,
   chooseRepository,
   allReposMode,
-  onSelectAllRepos,
   onExitAllRepos,
   onOpenClone,
   hasRemote,
@@ -61,7 +60,6 @@ export function AppShellBar({
   openRepository: (path: string) => void | Promise<boolean>
   chooseRepository: () => void | Promise<void>
   allReposMode: boolean
-  onSelectAllRepos: () => void
   onExitAllRepos: () => void
   onOpenClone: () => void
   hasRemote: boolean
@@ -175,17 +173,6 @@ export function AppShellBar({
               Clone repository…
             </button>
             <div className="shell-dropdown-list" aria-label="Recent repositories">
-              <button
-                className={allReposMode ? 'shell-dropdown-item active' : 'shell-dropdown-item'}
-                type="button"
-                onClick={(event) => { closeMenu(event); onSelectAllRepos() }}
-              >
-                <LayoutDashboard size={13} />
-                <span className="shell-dropdown-item-text">
-                  <strong>All repositories</strong>
-                  <span>Portfolio dashboard &amp; reports</span>
-                </span>
-              </button>
               {recentRepositories.length === 0 ? (
                 <p className="shell-dropdown-empty">No recent repositories.</p>
               ) : (
