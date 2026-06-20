@@ -32,7 +32,7 @@
   display: grid;
   grid-template-columns: 48px 48px 22px minmax(0, 1fr);
   min-height: 24px;
-  align-items: center;
+  align-items: start;
   color: #d1d5db;
   font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre;
@@ -78,11 +78,12 @@
   overflow: visible;
 }
 
-/* Split cells must wrap long lines so the two columns always fit the panel. */
+/* Wrap long lines (inline + split) so nothing runs off into endless rows. */
 .split-diff-cell {
   align-items: start;
 }
 
+.diff-line .line-content,
 .split-diff-cell .line-content {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

@@ -1220,7 +1220,27 @@
 /* Diff heading: title, path and +/- stats on a single line. */
 .diff-heading {
   align-items: center;
+  flex-wrap: nowrap;
+  /* Match the Changes|History switch height so both panes share one header line. */
+  height: 32px;
+  min-height: 32px;
   margin-bottom: 6px;
+  padding-bottom: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Compact diff controls so they fit the fixed header height (no vertical jump). */
+.diff-controls .icon-button {
+  width: 28px !important;
+  min-height: 28px;
+  height: 28px;
+}
+
+.diff-controls .segmented button,
+.diff-controls .diff-display-toggle button {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 8px;
 }
 
 .diff-heading-main {
