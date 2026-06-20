@@ -20,13 +20,26 @@ const devServerUrl = process.env.VITE_DEV_SERVER_URL
 
 // Branding: name shown in the menu bar + About panel (defaults to "Electron").
 app.setName('BranchPilot')
+// Resolve the app icon for the About panel + dock (dev uses the repo build/ asset).
+const brandIconPath = path.join(__dirname, '..', 'build', 'icon.png')
 app.setAboutPanelOptions({
   applicationName: 'BranchPilot',
   applicationVersion: app.getVersion(),
   version: app.getVersion(),
-  copyright: 'Open source · MIT',
-  credits: 'A fast, local-first Git desktop client.'
+  copyright: '© 2026 Serhii Ziborov · MIT License',
+  authors: ['Serhii Ziborov'],
+  website: 'https://github.com/serhii-ziborov/BranchPilot',
+  iconPath: brandIconPath,
+  credits: 'BranchPilot — a fast, local-first Git desktop client.\nBuilt by Serhii Ziborov. Commit, branch, review and ship without leaving your machine.'
 })
+// In dev the dock would otherwise show the generic Electron atom.
+if (process.platform === 'darwin' && app.dock) {
+  try {
+    app.dock.setIcon(brandIconPath)
+  } catch {
+    /* icon optional — ignore if missing */
+  }
+}
 const commandRunner = new CommandRunner()
 const projectMemoryDir = path.join(app.getPath('userData'), 'project-memory')
 const projectWikiDir = path.join(app.getPath('userData'), 'project-wiki')
