@@ -1939,9 +1939,9 @@ button.danger-button:hover {
 }
 /* In Reports the back control is a quiet ghost link sitting on the tab baseline. */
 .reports-topbar .back-to-changes {
-  align-self: center;
-  margin: 0 0 8px;
-  padding: 4px 8px;
+  align-self: flex-end;
+  margin: 0 0 5px;
+  padding: 6px 8px;
   border: 0;
   border-radius: 7px;
   background: transparent;
