@@ -319,10 +319,11 @@ export function AppShellBar({
           <button
             className={viewMode === 'config' ? 'icon-button active' : 'icon-button'}
             type="button"
-            title="Git settings"
+            title={viewMode === 'config' ? 'Back to Changes' : 'Git settings'}
             aria-label="Git settings"
+            aria-pressed={viewMode === 'config'}
             disabled={!snapshot || busy}
-            onClick={() => setViewMode('config')}
+            onClick={() => setViewMode(viewMode === 'config' ? 'changes' : 'config')}
           >
             <Settings size={17} />
           </button>
@@ -337,8 +338,9 @@ export function AppShellBar({
               className={isActive ? 'shell-tool active' : 'shell-tool'}
               type="button"
               key={tab.id}
-              title={tab.label}
-              onClick={() => setViewMode(tab.id)}
+              title={isActive ? `Back to Changes (close ${tab.label})` : tab.label}
+              aria-pressed={isActive}
+              onClick={() => setViewMode(isActive ? 'changes' : tab.id)}
             >
               <tab.icon size={15} />
               <span>{tab.label}</span>
