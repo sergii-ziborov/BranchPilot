@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
-  ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Code2,
+  AlignLeft, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Code2,
   DownloadCloud, FileCode2, FolderOpen, GitBranch, GitMerge, GitPullRequest,
-  Palette, RefreshCcw, Settings, Star, Terminal, Check
+  Palette, Pencil, RefreshCcw, Settings, Star, Terminal, Trash2, X, Check
 } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
@@ -106,7 +106,29 @@ export function AppShellBar({
   const [pendingSwitch, setPendingSwitch] = useState<string | null>(null)
   const [showMergeInto, setShowMergeInto] = useState(false)
   const [theme, setTheme] = useTheme()
+  const [branchAction, setBranchAction] = useState<{ name: string; mode: 'rename' | 'describe' | 'delete' } | null>(null)
+  const [branchActionValue, setBranchActionValue] = useState('')
   const hasChanges = (snapshot?.status.counts.changed ?? 0) > 0
+
+  const startBranchAction = (name: string, mode: 'rename' | 'describe' | 'delete', value: string) => {
+    setBranchAction({ name, mode })
+    setBranchActionValue(value)
+  }
+  const cancelBranchAction = () => { setBranchAction(null); setBranchActionValue('') }
+  const confirmBranchAction = () => {
+    if (!branchAction || !currentRepoPath) return
+    const { name, mode } = branchAction
+    const value = branchActionValue.trim()
+    if (mode === 'rename') {
+      if (!value || value === name) return cancelBranchAction()
+      void runSnapshotAction('Branch renamed.', () => api!.renameBranch({ repoPath: currentRepoPath, oldBranchName: name, newBranchName: value }))
+    } else if (mode === 'describe') {
+      void runSnapshotAction('Branch description updated.', () => api!.updateBranchDescription({ repoPath: currentRepoPath, branchName: name, description: value }))
+    } else if (mode === 'delete') {
+      void runSnapshotAction('Branch deleted.', () => api!.deleteBranch({ repoPath: currentRepoPath, branchName: name, confirmed: true, force: false }))
+    }
+    cancelBranchAction()
+  }
 
   const mergeIntoBranch = (branchName: string) => {
     if (!currentRepoPath) return
@@ -242,27 +264,60 @@ export function AppShellBar({
               {branches.length === 0 ? (
                 <p className="shell-dropdown-empty">No local branches.</p>
               ) : (
-                branches.map((branch) => (
-                  <button
-                    className={branch.name === currentBranch ? 'shell-dropdown-item active' : 'shell-dropdown-item'}
-                    type="button"
-                    key={branch.name}
-                    disabled={busy || branch.name === currentBranch}
-                    onClick={(event) => { closeMenu(event); switchBranch(branch.name) }}
-                  >
-                    {branch.name === currentBranch ? <Check size={13} /> : <GitBranch size={13} />}
-                    <span className="shell-dropdown-item-text">
-                      <strong>{branch.name}</strong>
-                      {branch.upstream && <span>{branch.upstream}</span>}
-                    </span>
-                  </button>
-                ))
+                branches.map((branch) => {
+                  const editing = branchAction?.name === branch.name
+                  if (editing && branchAction?.mode !== 'delete') {
+                    return (
+                      <form
+                        key={branch.name}
+                        className="shell-branch-edit"
+                        onSubmit={(event) => { event.preventDefault(); confirmBranchAction() }}
+                      >
+                        <input
+                          autoFocus
+                          value={branchActionValue}
+                          onChange={(event) => setBranchActionValue(event.target.value)}
+                          onKeyDown={(event) => { if (event.key === 'Escape') cancelBranchAction() }}
+                          placeholder={branchAction?.mode === 'rename' ? 'New branch name' : 'Branch description'}
+                        />
+                        <button type="submit" className="icon-button" title="Save" aria-label="Save"><Check size={14} /></button>
+                        <button type="button" className="icon-button" title="Cancel" aria-label="Cancel" onClick={cancelBranchAction}><X size={14} /></button>
+                      </form>
+                    )
+                  }
+                  if (editing && branchAction?.mode === 'delete') {
+                    return (
+                      <div key={branch.name} className="shell-branch-confirm">
+                        <span>Delete <strong>{branch.name}</strong>?</span>
+                        <button type="button" className="icon-button danger" title="Confirm delete" aria-label="Confirm delete" onClick={confirmBranchAction}><Check size={14} /></button>
+                        <button type="button" className="icon-button" title="Cancel" aria-label="Cancel" onClick={cancelBranchAction}><X size={14} /></button>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className={branch.name === currentBranch ? 'shell-branch-row active' : 'shell-branch-row'} key={branch.name}>
+                      <button
+                        className="shell-branch-pick"
+                        type="button"
+                        disabled={busy || branch.name === currentBranch}
+                        onClick={(event) => { closeMenu(event); switchBranch(branch.name) }}
+                      >
+                        {branch.name === currentBranch ? <Check size={13} /> : <GitBranch size={13} />}
+                        <span className="shell-dropdown-item-text">
+                          <strong>{branch.name}</strong>
+                          {branch.upstream && <span>{branch.upstream}</span>}
+                        </span>
+                      </button>
+                      <span className="shell-branch-actions">
+                        <button type="button" className="icon-button" title="Rename branch" aria-label="Rename branch" disabled={busy} onClick={() => startBranchAction(branch.name, 'rename', branch.name)}><Pencil size={13} /></button>
+                        <button type="button" className="icon-button" title="Edit description" aria-label="Edit description" disabled={busy} onClick={() => startBranchAction(branch.name, 'describe', branch.description ?? '')}><AlignLeft size={13} /></button>
+                        <button type="button" className="icon-button danger" title="Delete branch" aria-label="Delete branch" disabled={busy || branch.name === currentBranch} onClick={() => startBranchAction(branch.name, 'delete', '')}><Trash2 size={13} /></button>
+                      </span>
+                    </div>
+                  )
+                })
               )}
             </div>
-            <button className="shell-dropdown-primary" type="button" onClick={(event) => { closeMenu(event); setViewMode('branches') }}>
-              <GitBranch size={15} />
-              Manage branches, worktrees & tags
-            </button>
             <button className="shell-dropdown-primary shell-dropdown-merge" type="button" disabled={!snapshot || busy || branches.length < 2} onClick={(event) => { closeMenu(event); setShowMergeInto(true) }}>
               <GitMerge size={15} />
               Choose a branch to merge into {currentBranch ?? 'current'}…

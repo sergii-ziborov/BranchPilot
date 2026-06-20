@@ -1716,3 +1716,85 @@ button.danger-button:hover {
 .history-grid .changes-panel {
   padding: 8px 10px;
 }
+
+/* Branch dropdown rows with inline rename / describe / delete actions. */
+.shell-branch-row {
+  display: flex;
+  align-items: center;
+  border-radius: 7px;
+}
+.shell-branch-row:hover,
+.shell-branch-row.active {
+  background: var(--panel-2);
+}
+.shell-branch-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.shell-branch-actions {
+  display: inline-flex;
+  gap: 2px;
+  padding-right: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.shell-branch-row:hover .shell-branch-actions {
+  opacity: 1;
+}
+.shell-branch-actions .icon-button {
+  width: 26px !important;
+  min-height: 26px;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.shell-branch-actions .icon-button:hover:not(:disabled) {
+  background: var(--panel);
+  color: var(--text);
+}
+.icon-button.danger:hover:not(:disabled) {
+  color: #b91c1c;
+}
+.shell-branch-edit,
+.shell-branch-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+.shell-branch-edit input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text-strong);
+  font: inherit;
+}
+.shell-branch-edit .icon-button,
+.shell-branch-confirm .icon-button {
+  width: 28px !important;
+  min-height: 28px;
+  height: 28px;
+}
+.shell-branch-confirm {
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text);
+}
+.shell-branch-confirm span {
+  flex: 1 1 auto;
+}
