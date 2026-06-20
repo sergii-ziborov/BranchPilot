@@ -7,6 +7,7 @@ import {
 import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
+import { BranchPilotMark } from './BrandIcons'
 
 type TabIcon = ComponentType<{ size?: number }>
 
@@ -202,15 +203,20 @@ export function AppShellBar({
     <>
     <header className="shell-bar" ref={headerRef}>
       <div className="shell-bar-row">
+        <span className="shell-brand" title="BranchPilot" aria-label="BranchPilot">
+          <BranchPilotMark size={26} />
+        </span>
         <div className="shell-segments">
         <details className="shell-menu shell-repo" onToggle={handleToggle}>
           <summary>
-            <span className="shell-seg-label">Repository</span>
-            <span className="shell-seg-value">
-              <FolderOpen size={16} />
-              {allReposMode ? 'All repositories' : snapshot?.summary.name ?? 'No repository'}
-              <ChevronDown size={14} />
+            <FolderOpen size={17} className="shell-seg-icon" />
+            <span className="shell-seg-stack">
+              <span className="shell-seg-label">Repository</span>
+              <span className="shell-seg-value">
+                {allReposMode ? 'All repositories' : snapshot?.summary.name ?? 'No repository'}
+              </span>
             </span>
+            <ChevronDown size={14} className="shell-seg-caret" />
           </summary>
           <div className="shell-dropdown">
             <button className="shell-dropdown-primary shell-dropdown-top" type="button" disabled={!apiReady || busy} onClick={(event) => { closeMenu(event); void chooseRepository() }}>
@@ -248,12 +254,12 @@ export function AppShellBar({
         <>
         <details className="shell-menu shell-branch" onToggle={handleToggle}>
           <summary>
-            <span className="shell-seg-label">Current branch</span>
-            <span className="shell-seg-value">
-              <GitBranch size={16} />
-              {currentBranch ?? 'No branch'}
-              <ChevronDown size={14} />
+            <GitBranch size={17} className="shell-seg-icon" />
+            <span className="shell-seg-stack">
+              <span className="shell-seg-label">Current branch</span>
+              <span className="shell-seg-value">{currentBranch ?? 'No branch'}</span>
             </span>
+            <ChevronDown size={14} className="shell-seg-caret" />
           </summary>
           <div className="shell-dropdown">
             <button className="shell-dropdown-primary shell-dropdown-top" type="button" disabled={!snapshot || busy} onClick={(event) => { closeMenu(event); openCreateBranch() }}>

@@ -197,12 +197,10 @@ html.is-fullscreen .shell-bar-row {
 }
 
 .shell-seg-value {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 260px;
+  display: block;
+  max-width: 220px;
   overflow: hidden;
-  color: #111827;
+  color: var(--text-strong);
   font-size: 13px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -1929,4 +1927,43 @@ button.danger-button:hover {
 }
 .reports-topbar .reports-switch {
   margin-bottom: 0;
+}
+
+/* App logo at the far left of the top bar. */
+.shell-brand {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin-right: 4px;
+  -webkit-app-region: no-drag;
+}
+
+/* GitHub-Desktop segment layout: icon left, label/value stack, caret far right. */
+.shell-repo > summary,
+.shell-branch > summary {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+}
+.shell-repo > summary {
+  min-width: 212px;
+}
+.shell-branch > summary {
+  min-width: 184px;
+}
+.shell-seg-icon {
+  flex: none;
+  color: var(--muted);
+}
+.shell-seg-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.18;
+}
+.shell-seg-caret {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
 }
