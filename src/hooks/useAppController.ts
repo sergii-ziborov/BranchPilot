@@ -32,7 +32,11 @@ const api = window.branchPilot
 export function useAppController() {
   const [appVersion, setAppVersion] = useState('0.0.0')
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('changes')
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof localStorage === 'undefined') return 'changes'
+    const saved = localStorage.getItem('bp-view') as ViewMode | null
+    return saved ?? 'changes'
+  })
   const [allReposMode, setAllReposMode] = useState(false)
   const [busy, setBusy] = useState(false)
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
@@ -58,6 +62,11 @@ export function useAppController() {
 
 
 
+
+  // Remember the active view across reloads.
+  useEffect(() => {
+    try { localStorage.setItem('bp-view', viewMode) } catch { /* ignore */ }
+  }, [viewMode])
 
   useEffect(() => {
     if (!api) {
