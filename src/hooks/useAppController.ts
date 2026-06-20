@@ -393,19 +393,26 @@ export function useAppController() {
     }
   }
 
-  // Auto-refresh the working tree like GitHub Desktop: on window focus and a light
-  // poll. Silent (no busy spinner / notice), and skips re-render when nothing changed.
+  // Auto-refresh the working tree like GitHub Desktop, but only on window focus —
+  // silent, and guarded so an in-flight refresh for a repo the user just left can
+  // never apply its (phantom) snapshot to the now-current repo.
   const lastStatusSigRef = useRef('')
-  async function silentRefresh(force: boolean) {
-    if (!api || !currentRepoPath || busy) return
+  const latestRepoRef = useRef(currentRepoPath)
+  useEffect(() => { latestRepoRef.current = currentRepoPath }, [currentRepoPath])
+
+  async function silentRefresh() {
+    const repo = currentRepoPath
+    if (!api || !repo || busy) return
     try {
-      const result = await api.refreshRepository(currentRepoPath)
+      const result = await api.refreshRepository(repo)
       if (!result.ok) return
+      // Discard stale results if the user switched repositories mid-flight.
+      if (repo !== latestRepoRef.current) return
       const { status, summary } = result.data
-      const sig = `${summary.ahead}|${summary.behind}|${status.changes
+      const sig = `${repo}|${summary.ahead}|${summary.behind}|${status.changes
         .map((c) => `${c.path}:${c.status}:${c.staged ? 1 : 0}:${c.unstaged ? 1 : 0}`)
         .join(',')}`
-      if (!force && sig === lastStatusSigRef.current) return
+      if (sig === lastStatusSigRef.current) return
       lastStatusSigRef.current = sig
       setSnapshot(result.data)
       setRecentRepositories(result.data.recentRepositories)
@@ -416,15 +423,12 @@ export function useAppController() {
 
   useEffect(() => {
     if (!api) return
-    const onFocus = () => { if (!document.hidden) void silentRefresh(true) }
-    const onPoll = () => { if (!document.hidden) void silentRefresh(false) }
+    const onFocus = () => { if (!document.hidden) void silentRefresh() }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onFocus)
-    const id = window.setInterval(onPoll, 4000)
     return () => {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onFocus)
-      window.clearInterval(id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, currentRepoPath, busy])
