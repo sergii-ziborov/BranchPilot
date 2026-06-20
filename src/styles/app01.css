@@ -1919,3 +1919,14 @@ button.danger-button:hover {
 .reports-stack > .back-to-changes {
   margin-bottom: 10px;
 }
+
+/* Reports: back button inline, before the Daily review / LinkedIn tabs. */
+.reports-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.reports-topbar .reports-switch {
+  margin-bottom: 0;
+}

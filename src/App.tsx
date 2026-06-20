@@ -424,6 +424,7 @@ function App() {
             )}
             {(viewMode === 'daily' || viewMode === 'linkedin') && (
               <div className="reports-stack">
+                <div className="reports-topbar">
                 <BackToChanges onClick={() => setViewMode('changes')} />
                 <div className="reports-switch" role="tablist" aria-label="Reports">
                   <button
@@ -446,6 +447,7 @@ function App() {
                     <LinkedinIcon size={15} />
                     LinkedIn
                   </button>
+                </div>
                 </div>
                 {viewMode === 'daily' && (
                   <>
