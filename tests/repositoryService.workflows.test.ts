@@ -111,7 +111,7 @@ describe('RepositoryService', () => {
     expect(conflicted.status.counts.conflicted).toBe(1)
     expect(conflicted.status.merge.files[0].path).toBe('conflict.txt')
 
-    const aborted = await service.abortMergeOperation(repoPath)
+    const aborted = await service.merge.abortMergeOperation(repoPath)
     expect(aborted.status.merge.operation).toBe('none')
     expect(aborted.status.counts.conflicted).toBe(0)
   })
@@ -121,11 +121,11 @@ describe('RepositoryService', () => {
     const theirsRepo = createConflictedRepository()
     const service = createService()
 
-    const ours = await service.acceptOurs({ repoPath: oursRepo, filePath: 'conflict.txt' })
+    const ours = await service.merge.acceptOurs({ repoPath: oursRepo, filePath: 'conflict.txt' })
     expect(ours.status.counts.conflicted).toBe(0)
     expect(readFileSync(path.join(oursRepo, 'conflict.txt'), 'utf8')).toBe('main\n')
 
-    const theirs = await service.acceptTheirs({ repoPath: theirsRepo, filePath: 'conflict.txt' })
+    const theirs = await service.merge.acceptTheirs({ repoPath: theirsRepo, filePath: 'conflict.txt' })
     expect(theirs.status.counts.conflicted).toBe(0)
     expect(readFileSync(path.join(theirsRepo, 'conflict.txt'), 'utf8')).toBe('feature\n')
   })
@@ -140,7 +140,7 @@ describe('RepositoryService', () => {
     git(repoPath, ['commit', '-m', 'Feature clean merge'])
     git(repoPath, ['switch', '--quiet', 'main'])
 
-    const merged = await service.mergeBranch({
+    const merged = await service.merge.mergeBranch({
       repoPath,
       branchName: 'feature/clean-merge'
     })
@@ -154,7 +154,7 @@ describe('RepositoryService', () => {
     const repoPath = createMergeConflictReadyRepository()
     const service = createService()
 
-    const conflicted = await service.mergeBranch({
+    const conflicted = await service.merge.mergeBranch({
       repoPath,
       branchName: 'feature/conflict'
     })
@@ -178,7 +178,7 @@ describe('RepositoryService', () => {
     git(repoPath, ['commit', '-m', 'Main rebase base'])
     git(repoPath, ['switch', '--quiet', 'feature/clean-rebase'])
 
-    const rebased = await service.rebaseBranch({
+    const rebased = await service.merge.rebaseBranch({
       repoPath,
       branchName: 'main'
     })
@@ -198,7 +198,7 @@ describe('RepositoryService', () => {
     const repoPath = createRebaseConflictReadyRepository()
     const service = createService()
 
-    const conflicted = await service.rebaseBranch({
+    const conflicted = await service.merge.rebaseBranch({
       repoPath,
       branchName: 'main'
     })
@@ -212,14 +212,14 @@ describe('RepositoryService', () => {
     const repoPath = createMergeConflictReadyRepository()
     const service = createService()
 
-    await service.mergeBranch({
+    await service.merge.mergeBranch({
       repoPath,
       branchName: 'feature/conflict'
     })
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'resolved\n')
-    await service.markResolved({ repoPath, filePath: 'tracked.txt' })
+    await service.merge.markResolved({ repoPath, filePath: 'tracked.txt' })
 
-    const continued = await service.continueMergeOperation(repoPath)
+    const continued = await service.merge.continueMergeOperation(repoPath)
 
     expect(continued.status.merge.operation).toBe('none')
     expect(continued.status.counts.changed).toBe(0)
@@ -230,14 +230,14 @@ describe('RepositoryService', () => {
     const repoPath = createRebaseConflictReadyRepository()
     const service = createService()
 
-    await service.rebaseBranch({
+    await service.merge.rebaseBranch({
       repoPath,
       branchName: 'main'
     })
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'resolved\n')
-    await service.markResolved({ repoPath, filePath: 'tracked.txt' })
+    await service.merge.markResolved({ repoPath, filePath: 'tracked.txt' })
 
-    const continued = await service.continueMergeOperation(repoPath)
+    const continued = await service.merge.continueMergeOperation(repoPath)
 
     expect(continued.status.merge.operation).toBe('none')
     expect(continued.status.counts.changed).toBe(0)
@@ -251,38 +251,38 @@ describe('RepositoryService', () => {
 
     git(repoPath, ['branch', 'feature/blocked'])
 
-    await expect(service.mergeBranch({
+    await expect(service.merge.mergeBranch({
       repoPath,
       branchName: 'main'
     })).rejects.toMatchObject({ code: 'invalid_branch' })
-    await expect(service.rebaseBranch({
+    await expect(service.merge.rebaseBranch({
       repoPath,
       branchName: 'main'
     })).rejects.toMatchObject({ code: 'invalid_branch' })
 
     git(repoPath, ['checkout', '--quiet', '--detach', 'HEAD'])
-    await expect(service.mergeBranch({
+    await expect(service.merge.mergeBranch({
       repoPath,
       branchName: 'feature/blocked'
     })).rejects.toMatchObject({ code: 'git_detached_head' })
-    await expect(service.rebaseBranch({
+    await expect(service.merge.rebaseBranch({
       repoPath,
       branchName: 'feature/blocked'
     })).rejects.toMatchObject({ code: 'git_detached_head' })
 
     git(repoPath, ['switch', '--quiet', 'main'])
-    await expect(service.continueMergeOperation(repoPath)).rejects.toMatchObject({ code: 'no_merge_operation' })
+    await expect(service.merge.continueMergeOperation(repoPath)).rejects.toMatchObject({ code: 'no_merge_operation' })
   })
 
   it('blocks starting a merge while another operation is active', async () => {
     const repoPath = createConflictedRepository()
     const service = createService()
 
-    await expect(service.mergeBranch({
+    await expect(service.merge.mergeBranch({
       repoPath,
       branchName: 'feature'
     })).rejects.toMatchObject({ code: 'git_operation_active' })
-    await expect(service.rebaseBranch({
+    await expect(service.merge.rebaseBranch({
       repoPath,
       branchName: 'feature'
     })).rejects.toMatchObject({ code: 'git_operation_active' })

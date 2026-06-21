@@ -50,6 +50,7 @@ import { RepositoryConfigService } from './repositoryService.config.js'
 import { RepositoryWorktreeTagService } from './repositoryService.worktreeTag.js'
 import { RepositorySubmoduleLfsService } from './repositoryService.submoduleLfs.js'
 import { RepositoryBranchService } from './repositoryService.branches.js'
+import { RepositoryMergeService } from './repositoryService.merge.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
   // Composition over inheritance: each cohesive domain lives in its own collaborator,
@@ -120,6 +121,15 @@ export class RepositoryService extends RepositoryServiceWrites {
     assertBranchDoesNotExist: (rootPath, name) => this.assertBranchDoesNotExist(rootPath, name),
     assertRemoteTrackingBranchExists: (rootPath, upstream) => this.assertRemoteTrackingBranchExists(rootPath, upstream),
     getBranchComparisonFiles: (rootPath, range) => this.getBranchComparisonFiles(rootPath, range)
+  })
+
+  readonly merge = new RepositoryMergeService({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    git: (cwd, args, options) => this.git(cwd, args, options),
+    getSnapshot: (repoPath) => this.getSnapshot(repoPath),
+    assertCurrentBranch: (rootPath, action) => this.assertCurrentBranch(rootPath, action),
+    assertNoActiveOperation: (rootPath) => this.assertNoActiveOperation(rootPath),
+    getMergeState: (rootPath, conflictFiles) => this.getMergeState(rootPath, conflictFiles)
   })
 
   async getImagePreview(request: ImagePreviewRequest): Promise<ImagePreview> {

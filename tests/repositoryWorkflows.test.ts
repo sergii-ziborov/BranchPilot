@@ -83,7 +83,7 @@ describe('local repository workflows', () => {
     git(repoPath, ['add', 'tracked.txt'])
     git(repoPath, ['commit', '-m', 'Main conflict content'])
 
-    const conflicted = await service.mergeBranch({
+    const conflicted = await service.merge.mergeBranch({
       repoPath,
       branchName: 'feature/conflict-workflow'
     })
@@ -93,11 +93,11 @@ describe('local repository workflows', () => {
       type: 'both modified'
     })
 
-    const resolved = await service.acceptTheirs({ repoPath, filePath: 'tracked.txt' })
+    const resolved = await service.merge.acceptTheirs({ repoPath, filePath: 'tracked.txt' })
     expect(resolved.status.counts.conflicted).toBe(0)
     expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('feature conflict content\n')
 
-    const continued = await service.continueMergeOperation(repoPath)
+    const continued = await service.merge.continueMergeOperation(repoPath)
     expect(continued.status.merge.operation).toBe('none')
     expect(continued.status.counts.changed).toBe(0)
     expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toContain('feature/conflict-workflow')

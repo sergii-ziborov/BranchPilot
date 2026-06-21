@@ -407,7 +407,7 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ file: request.filePath, resolution: 'ours' })
   }, async (request: FileActionRequest) =>
-    withProjectMemoryRefresh(await repositoryService.acceptOurs(request))
+    withProjectMemoryRefresh(await repositoryService.merge.acceptOurs(request))
   )
   handleLogged('merge:acceptTheirs', {
     type: 'merge_resolved',
@@ -416,7 +416,7 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ file: request.filePath, resolution: 'theirs' })
   }, async (request: FileActionRequest) =>
-    withProjectMemoryRefresh(await repositoryService.acceptTheirs(request))
+    withProjectMemoryRefresh(await repositoryService.merge.acceptTheirs(request))
   )
   handleLogged('merge:markResolved', {
     type: 'merge_resolved',
@@ -425,7 +425,7 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ file: request.filePath, resolution: 'manual' })
   }, async (request: FileActionRequest) =>
-    withProjectMemoryRefresh(await repositoryService.markResolved(request))
+    withProjectMemoryRefresh(await repositoryService.merge.markResolved(request))
   )
   handleLogged('merge:start', {
     type: 'merge_started',
@@ -438,7 +438,7 @@ export function registerGitHandlers(
       conflicts: snapshot?.status.merge.files.length ?? 0
     })
   }, async (request: MergeBranchRequest) =>
-    withProjectMemoryRefresh(await repositoryService.mergeBranch(request))
+    withProjectMemoryRefresh(await repositoryService.merge.mergeBranch(request))
   )
   handleLogged('rebase:start', {
     type: 'rebase_started',
@@ -451,7 +451,7 @@ export function registerGitHandlers(
       conflicts: snapshot?.status.merge.files.length ?? 0
     })
   }, async (request: MergeBranchRequest) =>
-    withProjectMemoryRefresh(await repositoryService.rebaseBranch(request))
+    withProjectMemoryRefresh(await repositoryService.merge.rebaseBranch(request))
   )
   handleLogged('merge:continue', {
     type: 'merge_continued',
@@ -459,7 +459,7 @@ export function registerGitHandlers(
     title: 'Merge continued',
     repoPath: repoPathArg
   }, async (repoPath: string) =>
-    withProjectMemoryRefresh(await repositoryService.continueMergeOperation(repoPath))
+    withProjectMemoryRefresh(await repositoryService.merge.continueMergeOperation(repoPath))
   )
   handleLogged('merge:abort', {
     type: 'merge_aborted',
@@ -467,7 +467,7 @@ export function registerGitHandlers(
     title: 'Merge aborted',
     repoPath: repoPathArg
   }, async (repoPath: string) =>
-    withProjectMemoryRefresh(await repositoryService.abortMergeOperation(repoPath))
+    withProjectMemoryRefresh(await repositoryService.merge.abortMergeOperation(repoPath))
   )
 
 }
