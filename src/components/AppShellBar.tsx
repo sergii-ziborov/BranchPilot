@@ -4,10 +4,10 @@ import {
   DownloadCloud, FolderOpen, GitBranch, GitMerge, GitPullRequest,
   Palette, Pencil, RefreshCcw, Settings, Star, Terminal, Trash2, X, Check
 } from 'lucide-react'
-import type { ApiResult, BranchPilotApi, RecentRepository, RepositorySnapshot } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
 import { BranchPilotLogo } from './BrandIcons'
+import { useController } from '../hooks/AppControllerContext'
 
 type TabIcon = ComponentType<{ size?: number }>
 
@@ -50,53 +50,24 @@ const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
 ]
 
 /** GitHub-Desktop-style top bar: repository + branch pickers, sync actions, and view tabs. */
-export function AppShellBar({
-  snapshot,
-  busy,
-  apiReady,
-  api,
-  currentRepoPath,
-  viewMode,
-  setViewMode,
-  recentRepositories,
-  openRepository,
-  chooseRepository,
-  allReposMode,
-  onExitAllRepos,
-  onOpenClone,
-  hasRemote,
-  canFetch,
-  canPull,
-  canPush,
-  repoStatuses,
-  runSnapshotAction,
-  refreshRepository,
-  openRepoInEditor,
-  openRepositoryTerminal
-}: {
-  snapshot: RepositorySnapshot | null
-  busy: boolean
-  apiReady: boolean
-  api: BranchPilotApi | undefined
-  currentRepoPath: string | undefined
-  viewMode: ViewMode
-  setViewMode: (mode: ViewMode) => void
-  recentRepositories: RecentRepository[]
-  repoStatuses: Record<string, { state: string; changed: number; ahead: number; behind: number }>
-  openRepository: (path: string) => void | Promise<boolean>
-  chooseRepository: () => void | Promise<void>
-  allReposMode: boolean
-  onExitAllRepos: () => void
-  onOpenClone: () => void
-  hasRemote: boolean
-  canFetch: boolean
-  canPull: boolean
-  canPush: boolean
-  runSnapshotAction: (label: string, action: () => Promise<ApiResult<RepositorySnapshot>>, progressLabel?: string) => Promise<boolean>
-  refreshRepository: () => void | Promise<void>
-  openRepoInEditor: () => void | Promise<void>
-  openRepositoryTerminal: () => void | Promise<void>
-}) {
+export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
+  const {
+    snapshot, busy, currentRepoPath, viewMode, setViewMode,
+    recentRepositories, openRepository, chooseRepository,
+    allReposMode, setAllReposMode, hasRemote, canFetch, canPull, canPush,
+    runSnapshotAction, refreshRepository, openRepoInEditor, openRepositoryTerminal,
+    repositoryDashboard
+  } = useController()
+  const api = window.branchPilot
+  const apiReady = Boolean(api)
+  const onExitAllRepos = () => setAllReposMode(false)
+  const repoStatuses: Record<string, { state: string; changed: number; ahead: number; behind: number }> =
+    Object.fromEntries(
+      (repositoryDashboard?.repositories ?? []).map((r) => [
+        r.path,
+        { state: r.state, changed: r.changed, ahead: r.ahead, behind: r.behind }
+      ])
+    )
   const branches = snapshot?.branches ?? []
   const currentBranch = snapshot?.summary.currentBranch ?? null
   const headerRef = useRef<HTMLElement>(null)
