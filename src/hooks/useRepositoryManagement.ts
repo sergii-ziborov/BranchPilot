@@ -66,6 +66,13 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     }
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode, allReposMode])
 
+  // Keep the repo-switcher badges populated even when the dashboard view is closed:
+  // load the multi-repo status quietly whenever the API or active repo becomes ready.
+  useEffect(() => {
+    if (!api) return
+    void silentRefreshDashboard()
+  }, [api, currentRepoPath])
+
   async function loadRecentRepositories() {
     if (!api) return
     const result = await api.getRecentRepositories()
@@ -99,6 +106,22 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     const graph = await graphPromise
     if (dashboardRequestIdRef.current === requestId) {
       setContributionGraph(graph && graph.ok ? graph.data : null)
+    }
+  }
+
+  // Background-friendly dashboard scan: refreshes every repo's working-tree state
+  // (clean / dirty / ahead / behind) without flipping the loading spinner, so the
+  // repository switcher badges update live the way GitHub Desktop's sidebar does.
+  async function silentRefreshDashboard() {
+    if (!api) return
+    const requestId = dashboardRequestIdRef.current + 1
+    dashboardRequestIdRef.current = requestId
+    try {
+      const result = await api.getRepositoryDashboard(dashboardScopePath)
+      if (dashboardRequestIdRef.current !== requestId) return
+      if (result.ok) setRepositoryDashboard(result.data)
+    } catch {
+      /* ignore transient scan errors */
     }
   }
 
@@ -194,7 +217,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     filteredRecentRepositories, repositoryDashboard, contributionGraph, dashboardLoading,
     dashboardRepositoryFilter, setDashboardRepositoryFilter,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
-    loadRecentRepositories, loadRepositoryDashboard, toggleRepositoryPinned,
+    loadRecentRepositories, loadRepositoryDashboard, silentRefreshDashboard, toggleRepositoryPinned,
     chooseRepository, openRepository, cloneRepository, refreshRepository,
     openRepoInEditor, openRepositoryTerminal
   }

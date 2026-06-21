@@ -265,8 +265,46 @@ html.is-fullscreen .shell-bar-row {
 
 .shell-dropdown-item-text {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
+}
+
+/* Live working-tree badges in the repository switcher (GitHub-Desktop style). */
+.shell-repo-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  margin-left: 6px;
+}
+
+.shell-repo-ab {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-repo-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-repo-dot.conflicted {
+  background: #e11d48;
 }
 
 .shell-dropdown-item-text strong {

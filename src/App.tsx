@@ -81,6 +81,12 @@ function App() {
         allReposMode={allReposMode} onExitAllRepos={() => setAllReposMode(false)}
         onOpenClone={() => setShowClone(true)}
         hasRemote={hasRemote} canFetch={canFetch} canPull={canPull} canPush={canPush}
+        repoStatuses={Object.fromEntries(
+          (repositoryDashboard?.repositories ?? []).map((r) => [
+            r.path,
+            { state: r.state, changed: r.changed, ahead: r.ahead, behind: r.behind }
+          ])
+        )}
         runSnapshotAction={runSnapshotAction}
         refreshRepository={refreshRepository} openRepoInEditor={openRepoInEditor}
         openRepositoryTerminal={openRepositoryTerminal}

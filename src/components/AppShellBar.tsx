@@ -68,6 +68,7 @@ export function AppShellBar({
   canFetch,
   canPull,
   canPush,
+  repoStatuses,
   runSnapshotAction,
   refreshRepository,
   openRepoInEditor,
@@ -81,6 +82,7 @@ export function AppShellBar({
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
   recentRepositories: RecentRepository[]
+  repoStatuses: Record<string, { state: string; changed: number; ahead: number; behind: number }>
   openRepository: (path: string) => void | Promise<boolean>
   chooseRepository: () => void | Promise<void>
   allReposMode: boolean
@@ -227,7 +229,9 @@ export function AppShellBar({
               {recentRepositories.length === 0 ? (
                 <p className="shell-dropdown-empty">No recent repositories.</p>
               ) : (
-                recentRepositories.map((repo) => (
+                recentRepositories.map((repo) => {
+                  const st = repoStatuses[repo.path]
+                  return (
                   <button
                     className={!allReposMode && repo.path === currentRepoPath ? 'shell-dropdown-item active' : 'shell-dropdown-item'}
                     type="button"
@@ -239,8 +243,31 @@ export function AppShellBar({
                       <strong>{repo.name}</strong>
                       <span>{repo.path}</span>
                     </span>
+                    {st && (st.changed > 0 || st.ahead > 0 || st.behind > 0 || st.state === 'conflicted') && (
+                      <span className="shell-repo-status">
+                        {st.behind > 0 && (
+                          <span className="shell-repo-ab" title={`${st.behind} commit(s) behind`}>
+                            <ArrowDownToLine size={11} />{st.behind}
+                          </span>
+                        )}
+                        {st.ahead > 0 && (
+                          <span className="shell-repo-ab" title={`${st.ahead} commit(s) ahead`}>
+                            <ArrowUpFromLine size={11} />{st.ahead}
+                          </span>
+                        )}
+                        {st.changed > 0 && (
+                          <span
+                            className={st.state === 'conflicted' ? 'shell-repo-dot conflicted' : 'shell-repo-dot dirty'}
+                            title={`${st.changed} uncommitted change(s)${st.state === 'conflicted' ? ' · conflicts' : ''}`}
+                          >
+                            {st.changed}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </button>
-                ))
+                  )
+                })
               )}
             </div>
           </div>

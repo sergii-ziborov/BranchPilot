@@ -174,7 +174,7 @@ export function useAppController() {
     filteredRecentRepositories, repositoryDashboard, contributionGraph, dashboardLoading,
     dashboardRepositoryFilter, setDashboardRepositoryFilter,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
-    loadRecentRepositories, loadRepositoryDashboard, toggleRepositoryPinned,
+    loadRecentRepositories, loadRepositoryDashboard, silentRefreshDashboard, toggleRepositoryPinned,
     chooseRepository, openRepository, cloneRepository, refreshRepository,
     openRepoInEditor, openRepositoryTerminal
   } = useRepositoryManagement({
@@ -393,16 +393,20 @@ export function useAppController() {
     }
   }
 
-  // Auto-refresh the working tree like GitHub Desktop, but only on window focus —
-  // silent, and guarded so an in-flight refresh for a repo the user just left can
-  // never apply its (phantom) snapshot to the now-current repo.
+  // Keep every repository live the way GitHub Desktop does: a background scan
+  // refreshes the active repo's working tree AND every sibling repo's status
+  // (clean / dirty / ahead / behind) on a timer plus on window focus. Silent (no
+  // spinner, no activity-log entries) and guarded so an in-flight refresh for a
+  // repo the user just left can never apply its (phantom) snapshot to the current one.
   const lastStatusSigRef = useRef('')
   const latestRepoRef = useRef(currentRepoPath)
+  const busyRef = useRef(busy)
   useEffect(() => { latestRepoRef.current = currentRepoPath }, [currentRepoPath])
+  useEffect(() => { busyRef.current = busy }, [busy])
 
   async function silentRefresh() {
     const repo = currentRepoPath
-    if (!api || !repo || busy) return
+    if (!api || !repo || busyRef.current) return
     try {
       const result = await api.refreshRepository(repo)
       if (!result.ok) return
@@ -421,17 +425,26 @@ export function useAppController() {
     }
   }
 
+  function silentScan() {
+    if (document.hidden || busyRef.current) return
+    void silentRefresh()
+    void silentRefreshDashboard()
+  }
+
   useEffect(() => {
     if (!api) return
-    const onFocus = () => { if (!document.hidden) void silentRefresh() }
+    const onFocus = () => { if (!document.hidden) silentScan() }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onFocus)
+    // Periodic background scan (paused while the window is hidden or an op is busy).
+    const interval = window.setInterval(silentScan, 10_000)
     return () => {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onFocus)
+      window.clearInterval(interval)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, currentRepoPath, busy])
+  }, [api, currentRepoPath])
 
   async function applyCommitOperation(kind: 'revert' | 'cherry-pick') {
     if (!api || !currentRepoPath || !commitDetails) return
