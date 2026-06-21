@@ -97,6 +97,7 @@ export function registerRepositoryHandlers(
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
   handle('repository:imagePreview', (request: ImagePreviewRequest) => repositoryService.getImagePreview(request))
   handle('repository:contributionGraph', (repoPath?: string) => repositoryService.getContributionGraph(repoPath))
+  handle('repository:rhythm', (repoPath?: string) => repositoryService.getRepositoryRhythm(repoPath))
   handle('repository:contributorStats', (repoPath?: string) => repositoryService.getContributorStats(repoPath))
   handle('repository:contributors', (repoPath: string) => repositoryService.getContributors(repoPath))
   handle('repository:history', (repoPath: string) => repositoryService.getHistory(repoPath))

@@ -26,6 +26,7 @@ const branchPilot: BranchPilotApi = {
   getDiff: (request) => invoke('repository:diff', request),
   getImagePreview: (request) => invoke('repository:imagePreview', request),
   getContributionGraph: (repoPath) => invoke('repository:contributionGraph', repoPath),
+  getRepositoryRhythm: (repoPath) => invoke('repository:rhythm', repoPath),
   getContributorStats: (repoPath) => invoke('repository:contributorStats', repoPath),
   getContributors: (repoPath) => invoke('repository:contributors', repoPath),
   getGitHubContributors: (repoPath) => invoke('providers:githubContributors', repoPath),

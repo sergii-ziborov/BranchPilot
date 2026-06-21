@@ -136,6 +136,41 @@ export interface ContributionGraph {
   total: number
 }
 
+export interface RhythmWeek {
+  /** ISO date (Sunday) of the week start. */
+  weekStart: string
+  commits: number
+}
+
+export interface RhythmHotFile {
+  path: string
+  /** Number of commits in the window that touched this file. */
+  commits: number
+  added: number
+  removed: number
+}
+
+/** Local-git "rhythm" analytics: cadence, velocity and churn. */
+export interface RepositoryRhythm {
+  generatedAt: string
+  /** Days of git history scanned (the analysis window). */
+  windowDays: number
+  // Cadence
+  currentStreakDays: number
+  longestStreakDays: number
+  activeDaysLast30: number
+  // Velocity
+  commitsThisWeek: number
+  commitsLastWeek: number
+  avgCommitsPerActiveDay: number
+  /** Most recent weeks (oldest → newest) for a sparkline. */
+  weeklyCommits: RhythmWeek[]
+  // Churn (last 30 days)
+  linesAdded30: number
+  linesRemoved30: number
+  hotFiles: RhythmHotFile[]
+}
+
 export interface ImagePreviewRequest {
   repoPath: string
   filePath: string

@@ -1,5 +1,5 @@
-import { ExternalLink, FolderOpen, GitMerge, GitPullRequest, Loader2, RefreshCcw, Search, X } from 'lucide-react'
-import type { ContributionGraph, GitHubCliStatus, GitHubPullRequest, RepositoryDashboardSnapshot } from '../../shared/branchPilot'
+import { Activity, ExternalLink, Flame, FolderOpen, GitMerge, GitPullRequest, Loader2, RefreshCcw, Search, TrendingDown, TrendingUp, X } from 'lucide-react'
+import type { ContributionGraph, ContributorStat, GitHubCliStatus, GitHubPullRequest, RepositoryDashboardSnapshot, RepositoryRhythm } from '../../shared/branchPilot'
 import { ContributionHeatmap } from '../ContributionHeatmap'
 import type { ViewMode } from '../../lib/viewMode'
 import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, matchesDashboardStaleBranch } from '../../lib/dashboardLabels'
@@ -9,6 +9,8 @@ import { Stat } from '../primitives'
 export function DashboardView({
   repositoryDashboard,
   contributionGraph,
+  repositoryRhythm,
+  contributorStats,
   dashboardRepositoryFilter,
   setDashboardRepositoryFilter,
   currentPullRequest,
@@ -24,6 +26,8 @@ export function DashboardView({
 }: {
   repositoryDashboard: RepositoryDashboardSnapshot | null
   contributionGraph: ContributionGraph | null
+  repositoryRhythm: RepositoryRhythm | null
+  contributorStats: ContributorStat[]
   dashboardRepositoryFilter: string
   setDashboardRepositoryFilter: (value: string) => void
   currentPullRequest: GitHubPullRequest | null
@@ -86,6 +90,104 @@ export function DashboardView({
             </div>
             <ContributionHeatmap graph={contributionGraph} />
           </section>
+
+          {repositoryRhythm && (() => {
+            const r = repositoryRhythm
+            const weekDelta = r.commitsThisWeek - r.commitsLastWeek
+            const sparkMax = Math.max(1, ...r.weeklyCommits.map((w) => w.commits))
+            return (
+              <section className="dashboard-rhythm-card">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <h3>Rhythm</h3>
+                    <p>Cadence, velocity and churn from the last {r.windowDays} days of commits.</p>
+                  </div>
+                </div>
+
+                <div className="rhythm-stat-grid">
+                  <article className="rhythm-stat">
+                    <span className="rhythm-stat-label"><Flame size={14} /> Current streak</span>
+                    <strong>{r.currentStreakDays} day{r.currentStreakDays === 1 ? '' : 's'}</strong>
+                    <span className="rhythm-stat-sub">Longest {r.longestStreakDays}</span>
+                  </article>
+                  <article className="rhythm-stat">
+                    <span className="rhythm-stat-label"><Activity size={14} /> Active days</span>
+                    <strong>{r.activeDaysLast30}<span className="rhythm-stat-unit"> / 30</span></strong>
+                    <span className="rhythm-stat-sub">{r.avgCommitsPerActiveDay.toFixed(1)} commits / active day</span>
+                  </article>
+                  <article className="rhythm-stat">
+                    <span className="rhythm-stat-label">
+                      {weekDelta >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />} This week
+                    </span>
+                    <strong>{r.commitsThisWeek}</strong>
+                    <span className={weekDelta > 0 ? 'rhythm-stat-sub up' : weekDelta < 0 ? 'rhythm-stat-sub down' : 'rhythm-stat-sub'}>
+                      {weekDelta === 0 ? 'same as last week' : `${weekDelta > 0 ? '+' : ''}${weekDelta} vs last week`}
+                    </span>
+                  </article>
+                  <article className="rhythm-stat">
+                    <span className="rhythm-stat-label">Churn (30d)</span>
+                    <strong className="rhythm-churn-line">
+                      <span className="churn-add">+{r.linesAdded30.toLocaleString()}</span>
+                      <span className="churn-del">−{r.linesRemoved30.toLocaleString()}</span>
+                    </strong>
+                    <span className="rhythm-stat-sub">lines changed</span>
+                  </article>
+                </div>
+
+                <div className="rhythm-spark">
+                  <span className="rhythm-spark-label">Weekly commits (last 8 weeks)</span>
+                  <div className="rhythm-spark-bars">
+                    {r.weeklyCommits.map((w) => (
+                      <span
+                        key={w.weekStart}
+                        className="rhythm-spark-bar"
+                        style={{ height: `${Math.max(6, (w.commits / sparkMax) * 100)}%` }}
+                        title={`Week of ${w.weekStart}: ${w.commits} commit${w.commits === 1 ? '' : 's'}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {r.hotFiles.length > 0 && (
+                  <div className="rhythm-hotfiles">
+                    <span className="rhythm-spark-label">Hot files (most changed, 30d)</span>
+                    {r.hotFiles.map((file) => (
+                      <div className="rhythm-hotfile" key={file.path}>
+                        <span className="rhythm-hotfile-path" title={file.path}>{file.path}</span>
+                        <span className="rhythm-hotfile-meta">
+                          <span className="churn-add">+{file.added}</span>
+                          <span className="churn-del">−{file.removed}</span>
+                          <span className="rhythm-hotfile-commits">{file.commits}×</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )
+          })()}
+
+          {contributorStats.length > 1 && (
+            <section className="dashboard-rhythm-card">
+              <div className="dashboard-section-heading">
+                <div>
+                  <h3>Contributors</h3>
+                  <p>Top committers by share of commit history.</p>
+                </div>
+                <span className="dash-count tone-info">{contributorStats.length}</span>
+              </div>
+              <div className="rhythm-leaderboard">
+                {contributorStats.slice(0, 8).map((person, index) => (
+                  <div className="leader-row" key={person.email}>
+                    <span className="leader-rank">{index + 1}</span>
+                    <span className="leader-name" title={person.email}>{person.name}</span>
+                    <span className="leader-bar"><span style={{ width: `${Math.max(3, person.share * 100)}%` }} /></span>
+                    <span className="leader-commits">{person.commits}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <details className="dashboard-all-repos" open={allReposMode || undefined}>
             <summary>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import type {
   ApiResult, BranchPilotApi, ContributionGraph, GitOperationResult, RecentRepository,
-  RepositoryDashboardSnapshot, RepositorySnapshot
+  RepositoryDashboardSnapshot, RepositoryRhythm, RepositorySnapshot
 } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 
@@ -35,6 +35,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
 
   const [repositoryDashboard, setRepositoryDashboard] = useState<RepositoryDashboardSnapshot | null>(null)
   const [contributionGraph, setContributionGraph] = useState<ContributionGraph | null>(null)
+  const [repositoryRhythm, setRepositoryRhythm] = useState<RepositoryRhythm | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardRepositoryFilter, setDashboardRepositoryFilter] = useState('')
   const [cloneRemoteUrl, setCloneRemoteUrl] = useState('')
@@ -85,10 +86,13 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     const requestId = dashboardRequestIdRef.current + 1
     dashboardRequestIdRef.current = requestId
     setDashboardLoading(true)
-    // Dashboard scan and contribution graph are independent: run them concurrently.
+    // Dashboard scan, contribution graph and rhythm are independent: run concurrently.
     const dashboardPromise = api.getRepositoryDashboard(dashboardScopePath)
     const graphPromise = typeof api.getContributionGraph === 'function'
       ? api.getContributionGraph(dashboardScopePath).catch(() => null)
+      : Promise.resolve(null)
+    const rhythmPromise = typeof api.getRepositoryRhythm === 'function'
+      ? api.getRepositoryRhythm(dashboardScopePath).catch(() => null)
       : Promise.resolve(null)
 
     const result = await dashboardPromise
@@ -103,9 +107,10 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
 
     setDashboardLoading(false)
 
-    const graph = await graphPromise
+    const [graph, rhythm] = await Promise.all([graphPromise, rhythmPromise])
     if (dashboardRequestIdRef.current === requestId) {
       setContributionGraph(graph && graph.ok ? graph.data : null)
+      setRepositoryRhythm(rhythm && rhythm.ok ? rhythm.data : null)
     }
   }
 
@@ -214,7 +219,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
 
   return {
     recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter,
-    filteredRecentRepositories, repositoryDashboard, contributionGraph, dashboardLoading,
+    filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading,
     dashboardRepositoryFilter, setDashboardRepositoryFilter,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
     loadRecentRepositories, loadRepositoryDashboard, silentRefreshDashboard, toggleRepositoryPinned,
