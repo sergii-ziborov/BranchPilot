@@ -797,14 +797,16 @@
   text-align: left;
 }
 
+/* Status badge: the letter shares the (vivid) border color so it stays legible on
+   both light and dark panels. Dark-tinted text colors washed out on dark themes. */
 .file-status {
   display: grid;
   width: 20px;
   height: 20px;
   place-items: center;
-  border: 2px solid #22c55e;
+  border: 2px solid #16a34a;
   border-radius: 4px;
-  color: #166534;
+  color: #16a34a;
   background: var(--panel);
   font-size: 11px;
   font-weight: 800;
@@ -812,19 +814,19 @@
 
 .status-conflicted {
   border-color: #ef4444;
-  color: #991b1b;
+  color: #ef4444;
   background: var(--panel);
 }
 
 .status-untracked {
-  border-color: #eab308;
-  color: #92400e;
+  border-color: #ca8a04;
+  color: #ca8a04;
   background: var(--panel);
 }
 
 .file-status.status-modified {
   border-color: #f59e0b;
-  color: #92400e;
+  color: #f59e0b;
 }
 
 .file-status.status-renamed,
@@ -835,7 +837,7 @@
 
 .status-deleted {
   border-color: #f43f5e;
-  color: #9f1239;
+  color: #f43f5e;
   background: var(--panel);
 }
 
