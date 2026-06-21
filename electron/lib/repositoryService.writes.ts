@@ -8,7 +8,6 @@ import type {
   ExportedPatch,
   FileActionRequest,
   MergeBranchRequest,
-  PublishBranchRequest,
   RepositorySnapshot
 } from '../../src/shared/branchPilot.js'
 import {
@@ -21,16 +20,11 @@ import {
   assertPatchFileExists,
   isConflictOutput,
   normalizeBranchName,
-  normalizeConfigValue,
-  normalizeGitRef,
   normalizePatchInputPath,
   normalizePatchOutputPath,
   normalizePatchScope,
   normalizeRelativePath
 } from './repositoryService.helpers.js'
-import {
-  DEFAULT_REMOTE
-} from './repositoryService.base.js'
 import {
   RepositoryServiceQueries
 } from './repositoryService.queries.js'
@@ -60,116 +54,6 @@ export class RepositoryServiceWrites extends RepositoryServiceQueries {
     await this.assertHasAnyRemote(rootPath)
     await this.assertHasUpstream(rootPath, 'pushing')
     await this.git(rootPath, ['push'], { timeoutMs: 120_000 })
-    return this.getSnapshot(rootPath)
-  }
-
-  async publishBranch(request: PublishBranchRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const currentBranch = await this.assertCurrentBranch(rootPath, 'publish')
-    const branch = normalizeBranchName(request.branch || currentBranch)
-    const remote = await this.assertRemoteExists(rootPath, request.remote || DEFAULT_REMOTE)
-
-    if (branch !== currentBranch) {
-      throw new BranchPilotUserError('invalid_branch', 'Only the checked-out branch can be published.')
-    }
-
-    await this.git(rootPath, ['push', '-u', remote, branch], {
-      timeoutMs: 120_000
-    })
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async createBranch(repoPath: string, branchName: string, description?: string): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const normalizedName = normalizeBranchName(branchName)
-    await this.git(rootPath, ['switch', '-c', normalizedName])
-
-    if (description?.trim()) {
-      await this.git(rootPath, [
-        'config',
-        `branch.${normalizedName}.description`,
-        normalizeConfigValue(description, 'Branch description')
-      ])
-    }
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async renameBranch(repoPath: string, oldBranchName: string, newBranchName: string): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const oldName = normalizeBranchName(oldBranchName)
-    const newName = normalizeBranchName(newBranchName)
-
-    if (oldName === newName) {
-      throw new BranchPilotUserError('same_branch', 'Choose a different branch name.')
-    }
-
-    await this.assertLocalBranchExists(rootPath, oldName)
-    await this.assertBranchDoesNotExist(rootPath, newName)
-    await this.git(rootPath, ['branch', '-m', oldName, newName])
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async setBranchUpstream(repoPath: string, branchName: string, upstream: string): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const normalizedName = normalizeBranchName(branchName)
-    const normalizedUpstream = normalizeGitRef(upstream)
-
-    await this.assertLocalBranchExists(rootPath, normalizedName)
-    await this.assertRemoteTrackingBranchExists(rootPath, normalizedUpstream)
-    await this.git(rootPath, ['branch', `--set-upstream-to=${normalizedUpstream}`, normalizedName])
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async updateBranchDescription(repoPath: string, branchName: string, description: string): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const normalizedName = normalizeBranchName(branchName)
-    await this.assertLocalBranchExists(rootPath, normalizedName)
-
-    if (description.trim()) {
-      await this.git(rootPath, [
-        'config',
-        `branch.${normalizedName}.description`,
-        normalizeConfigValue(description, 'Branch description')
-      ])
-    } else {
-      await this.git(rootPath, ['config', '--unset', `branch.${normalizedName}.description`], {
-        allowedExitCodes: [0, 5]
-      })
-    }
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async switchBranch(repoPath: string, branchName: string, stashChanges = false): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-
-    if (stashChanges) {
-      // "Leave my changes" — stash on the current branch before switching away.
-      await this.git(rootPath, ['stash', 'push', '--include-untracked', '-m', 'BranchPilot: auto-stash on branch switch'])
-    }
-
-    await this.git(rootPath, ['switch', normalizeBranchName(branchName)])
-    return this.getSnapshot(rootPath)
-  }
-
-  async deleteBranch(repoPath: string, branchName: string, force: boolean, confirmed: boolean): Promise<RepositorySnapshot> {
-    if (!confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Deleting a branch requires explicit confirmation.')
-    }
-
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const normalizedName = normalizeBranchName(branchName)
-    const currentBranch = await this.getCurrentBranch(rootPath)
-
-    if (currentBranch === normalizedName) {
-      throw new BranchPilotUserError('git_current_branch', 'Cannot delete the checked-out branch. Switch branches first.')
-    }
-
-    await this.git(rootPath, ['branch', force ? '-D' : '-d', normalizedName])
     return this.getSnapshot(rootPath)
   }
 

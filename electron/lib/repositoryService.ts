@@ -55,6 +55,7 @@ import { RepositoryStashService } from './repositoryService.stash.js'
 import { RepositoryConfigService } from './repositoryService.config.js'
 import { RepositoryWorktreeTagService } from './repositoryService.worktreeTag.js'
 import { RepositorySubmoduleLfsService } from './repositoryService.submoduleLfs.js'
+import { RepositoryBranchService } from './repositoryService.branches.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
   // Composition over inheritance: contributor / activity reporting lives in its own
@@ -116,6 +117,52 @@ export class RepositoryService extends RepositoryServiceWrites {
     assertNoActiveOperation: (rootPath) => this.assertNoActiveOperation(rootPath),
     assertNoConflicts: (rootPath, actionLabel) => this.assertNoConflicts(rootPath, actionLabel)
   })
+
+  // Local branch lifecycle as a composed collaborator.
+  private readonly branchService = new RepositoryBranchService({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    git: (cwd, args, options) => this.git(cwd, args, options),
+    getSnapshot: (repoPath) => this.getSnapshot(repoPath),
+    getCurrentBranch: (rootPath) => this.getCurrentBranch(rootPath),
+    assertCurrentBranch: (rootPath, action) => this.assertCurrentBranch(rootPath, action),
+    assertRemoteExists: (rootPath, name) => this.assertRemoteExists(rootPath, name),
+    assertLocalBranchExists: (rootPath, name) => this.assertLocalBranchExists(rootPath, name),
+    assertBranchDoesNotExist: (rootPath, name) => this.assertBranchDoesNotExist(rootPath, name),
+    assertRemoteTrackingBranchExists: (rootPath, upstream) => this.assertRemoteTrackingBranchExists(rootPath, upstream),
+    getBranchComparisonFiles: (rootPath, range) => this.getBranchComparisonFiles(rootPath, range)
+  })
+
+  publishBranch(request: PublishBranchRequest) {
+    return this.branchService.publishBranch(request)
+  }
+
+  createBranch(repoPath: string, branchName: string, description?: string) {
+    return this.branchService.createBranch(repoPath, branchName, description)
+  }
+
+  renameBranch(repoPath: string, oldBranchName: string, newBranchName: string) {
+    return this.branchService.renameBranch(repoPath, oldBranchName, newBranchName)
+  }
+
+  setBranchUpstream(repoPath: string, branchName: string, upstream: string) {
+    return this.branchService.setBranchUpstream(repoPath, branchName, upstream)
+  }
+
+  updateBranchDescription(repoPath: string, branchName: string, description: string) {
+    return this.branchService.updateBranchDescription(repoPath, branchName, description)
+  }
+
+  switchBranch(repoPath: string, branchName: string, stashChanges = false) {
+    return this.branchService.switchBranch(repoPath, branchName, stashChanges)
+  }
+
+  deleteBranch(repoPath: string, branchName: string, force: boolean, confirmed: boolean) {
+    return this.branchService.deleteBranch(repoPath, branchName, force, confirmed)
+  }
+
+  compareBranch(request: BranchCompareRequest) {
+    return this.branchService.compareBranch(request)
+  }
 
   listSubmodules(repoPath: string) {
     return this.submoduleLfsService.listSubmodules(repoPath)

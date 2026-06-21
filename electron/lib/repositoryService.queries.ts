@@ -1,7 +1,5 @@
 import path from 'node:path'
 import type {
-  BranchCompareRequest,
-  BranchComparison,
   BranchSummary,
   CommitDetails,
   CommitDetailsRequest,
@@ -18,14 +16,11 @@ import { parseUnifiedDiff } from './diffParser.js'
 import { BranchPilotUserError } from './errors.js'
 import { parseGitStatus } from './gitStatusParser.js'
 import {
-  normalizeBranchName,
   normalizeCommitSha,
   normalizeRelativePath,
-  parseBranchCompareCommitCounts,
   parseCommitSummary
 } from './repositoryService.helpers.js'
 import {
-  MAX_BRANCH_COMPARE_SUMMARY_BYTES,
   MAX_DIFF_BYTES,
   MAX_DIFF_OUTPUT_BYTES
 } from './repositoryService.base.js'
@@ -232,42 +227,6 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     }
   }
 
-  async compareBranch(request: BranchCompareRequest): Promise<BranchComparison> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const baseBranch = normalizeBranchName(request.baseBranch ?? await this.assertCurrentBranch(rootPath, 'compare branches'))
-    const targetBranch = normalizeBranchName(request.targetBranch)
-
-    await this.assertLocalBranchExists(rootPath, baseBranch)
-    await this.assertLocalBranchExists(rootPath, targetBranch)
-
-    if (baseBranch === targetBranch) {
-      throw new BranchPilotUserError('same_branch', 'Choose a different branch to compare.')
-    }
-
-    const range = `${baseBranch}...${targetBranch}`
-    const commitCounts = await this.git(rootPath, ['rev-list', '--left-right', '--count', range])
-    const [baseOnlyCommits, targetOnlyCommits] = parseBranchCompareCommitCounts(commitCounts.stdout)
-    const files = await this.getBranchComparisonFiles(rootPath, range)
-    const summary = await this.git(rootPath, [
-      'diff',
-      '--stat',
-      '--compact-summary',
-      '--find-renames',
-      range
-    ], {
-      maxOutputBytes: MAX_BRANCH_COMPARE_SUMMARY_BYTES
-    })
-
-    return {
-      baseBranch,
-      targetBranch,
-      baseOnlyCommits,
-      targetOnlyCommits,
-      files,
-      summaryText: summary.stdout.trim(),
-      tooLarge: Boolean(summary.stdoutTruncated)
-    }
-  }
 
 
 }
