@@ -1,6 +1,5 @@
 import path from 'node:path'
 import type {
-  BranchSummary,
   CommitDetails,
   CommitDetailsRequest,
   CommitFileDiffRequest,
@@ -13,7 +12,6 @@ import type {
   RepositorySummary
 } from '../../src/shared/branchPilot.js'
 import { parseUnifiedDiff } from './diffParser.js'
-import { BranchPilotUserError } from './errors.js'
 import { parseGitStatus } from './gitStatusParser.js'
 import {
   normalizeCommitSha,

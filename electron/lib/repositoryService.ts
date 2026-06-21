@@ -8,19 +8,13 @@ import type {
   CommitRequest,
   ConfirmedCommitReferenceRequest,
   ConfirmedCommitRequest,
-  ConfirmedStashActionRequest,
-  CreateStashRequest,
   FileActionRequest,
   ImagePreview,
   ImagePreviewRequest,
-  GitIdentityUpdate,
   HunkActionRequest,
   RecentRepository,
-  RemoteRemoveRequest,
-  RemoteUpsertRequest,
   RepositoryPinRequest,
-  RepositorySnapshot,
-  StashActionRequest
+  RepositorySnapshot
 } from '../../src/shared/branchPilot.js'
 import {
   CommandExecutionError
@@ -236,26 +230,6 @@ export class RepositoryService extends RepositoryServiceWrites {
     return this.settings.setRepositoryPinned(rootPath, request.pinned)
   }
 
-  getGitConfig(repoPath: string) {
-    return this.configService.getGitConfig(repoPath)
-  }
-
-  setLocalGitIdentity(request: GitIdentityUpdate) {
-    return this.configService.setLocalGitIdentity(request)
-  }
-
-  addRemote(request: RemoteUpsertRequest) {
-    return this.configService.addRemote(request)
-  }
-
-  setRemoteUrl(request: RemoteUpsertRequest) {
-    return this.configService.setRemoteUrl(request)
-  }
-
-  removeRemote(request: RemoteRemoveRequest) {
-    return this.configService.removeRemote(request)
-  }
-
   async stageFile(request: FileActionRequest): Promise<RepositorySnapshot> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     await this.git(rootPath, ['add', '--', normalizeRelativePath(request.filePath)])
@@ -452,21 +426,5 @@ export class RepositoryService extends RepositoryServiceWrites {
     }
 
     throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
-  }
-
-  listStashes(repoPath: string) {
-    return this.stashService.listStashes(repoPath)
-  }
-
-  createStash(request: CreateStashRequest) {
-    return this.stashService.createStash(request)
-  }
-
-  applyStash(request: StashActionRequest) {
-    return this.stashService.applyStash(request)
-  }
-
-  dropStash(request: ConfirmedStashActionRequest) {
-    return this.stashService.dropStash(request)
   }
 }
