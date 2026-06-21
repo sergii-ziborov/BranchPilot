@@ -58,33 +58,32 @@ import { RepositorySubmoduleLfsService } from './repositoryService.submoduleLfs.
 import { RepositoryBranchService } from './repositoryService.branches.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
-  // Composition over inheritance: contributor / activity reporting lives in its own
-  // collaborator, wired to a narrow slice of this service's git kernel.
-  private readonly activityAnalytics = new RepositoryActivityAnalytics({
+  // Composition over inheritance: each cohesive domain lives in its own collaborator,
+  // wired to a narrow slice of this service's git kernel. The IPC layer calls these
+  // sub-services directly (e.g. repositoryService.branches.createBranch(...)), so the
+  // facade stays a thin composition root rather than a wall of delegations.
+  readonly activity = new RepositoryActivityAnalytics({
     resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
     getRecentRepositories: () => this.settings.getRecentRepositories(),
     getConfig: (rootPath, key, scope) => this.getConfig(rootPath, key, scope),
     git: (cwd, args, options) => this.git(cwd, args, options)
   })
 
-  // Cross-repository portfolio scan, also a composed collaborator.
-  private readonly dashboardService = new RepositoryDashboardService({
+  readonly dashboard = new RepositoryDashboardService({
     resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
     getRecentRepositories: () => this.settings.getRecentRepositories(),
     getRepositoryStatusContext: (rootPath, options) => this.getRepositoryStatusContext(rootPath, options),
     listBranches: (rootPath, options) => this.listBranches(rootPath, options)
   })
 
-  // Stash domain (list / push / apply / drop) as a composed collaborator.
-  private readonly stashService = new RepositoryStashService({
+  readonly stash = new RepositoryStashService({
     resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
     git: (cwd, args, options) => this.git(cwd, args, options),
     getSnapshot: (repoPath) => this.getSnapshot(repoPath),
     getStatusOnlySnapshot: (rootPath) => this.getStatusOnlySnapshot(rootPath)
   })
 
-  // Git identity, signing and remote management as a composed collaborator.
-  private readonly configService = new RepositoryConfigService({
+  readonly config = new RepositoryConfigService({
     resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
     git: (cwd, args, options) => this.git(cwd, args, options),
     getConfig: (rootPath, key, scope) => this.getConfig(rootPath, key, scope),
@@ -94,8 +93,7 @@ export class RepositoryService extends RepositoryServiceWrites {
     assertRemoteExists: (rootPath, name) => this.assertRemoteExists(rootPath, name)
   })
 
-  // Tag + linked-worktree management as a composed collaborator.
-  private readonly worktreeTagService = new RepositoryWorktreeTagService({
+  readonly worktreeTag = new RepositoryWorktreeTagService({
     resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
     git: (cwd, args, options) => this.git(cwd, args, options),
     getSnapshot: (repoPath) => this.getSnapshot(repoPath),
@@ -107,8 +105,7 @@ export class RepositoryService extends RepositoryServiceWrites {
     listRepositoryWorktrees: (rootPath) => this.listRepositoryWorktrees(rootPath)
   })
 
-  // Submodule + Git LFS management as a composed collaborator.
-  private readonly submoduleLfsService = new RepositorySubmoduleLfsService({
+  readonly submoduleLfs = new RepositorySubmoduleLfsService({
     resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
     git: (cwd, args, options) => this.git(cwd, args, options),
     getSnapshot: (repoPath) => this.getSnapshot(repoPath),
@@ -118,8 +115,7 @@ export class RepositoryService extends RepositoryServiceWrites {
     assertNoConflicts: (rootPath, actionLabel) => this.assertNoConflicts(rootPath, actionLabel)
   })
 
-  // Local branch lifecycle as a composed collaborator.
-  private readonly branchService = new RepositoryBranchService({
+  readonly branches = new RepositoryBranchService({
     resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
     git: (cwd, args, options) => this.git(cwd, args, options),
     getSnapshot: (repoPath) => this.getSnapshot(repoPath),
@@ -131,94 +127,6 @@ export class RepositoryService extends RepositoryServiceWrites {
     assertRemoteTrackingBranchExists: (rootPath, upstream) => this.assertRemoteTrackingBranchExists(rootPath, upstream),
     getBranchComparisonFiles: (rootPath, range) => this.getBranchComparisonFiles(rootPath, range)
   })
-
-  publishBranch(request: PublishBranchRequest) {
-    return this.branchService.publishBranch(request)
-  }
-
-  createBranch(repoPath: string, branchName: string, description?: string) {
-    return this.branchService.createBranch(repoPath, branchName, description)
-  }
-
-  renameBranch(repoPath: string, oldBranchName: string, newBranchName: string) {
-    return this.branchService.renameBranch(repoPath, oldBranchName, newBranchName)
-  }
-
-  setBranchUpstream(repoPath: string, branchName: string, upstream: string) {
-    return this.branchService.setBranchUpstream(repoPath, branchName, upstream)
-  }
-
-  updateBranchDescription(repoPath: string, branchName: string, description: string) {
-    return this.branchService.updateBranchDescription(repoPath, branchName, description)
-  }
-
-  switchBranch(repoPath: string, branchName: string, stashChanges = false) {
-    return this.branchService.switchBranch(repoPath, branchName, stashChanges)
-  }
-
-  deleteBranch(repoPath: string, branchName: string, force: boolean, confirmed: boolean) {
-    return this.branchService.deleteBranch(repoPath, branchName, force, confirmed)
-  }
-
-  compareBranch(request: BranchCompareRequest) {
-    return this.branchService.compareBranch(request)
-  }
-
-  listSubmodules(repoPath: string) {
-    return this.submoduleLfsService.listSubmodules(repoPath)
-  }
-
-  getGitLfsSummary(repoPath: string) {
-    return this.submoduleLfsService.getGitLfsSummary(repoPath)
-  }
-
-  updateSubmodule(request: UpdateSubmoduleRequest) {
-    return this.submoduleLfsService.updateSubmodule(request)
-  }
-
-  pullGitLfs(repoPath: string) {
-    return this.submoduleLfsService.pullGitLfs(repoPath)
-  }
-
-  listWorktrees(repoPath: string) {
-    return this.worktreeTagService.listWorktrees(repoPath)
-  }
-
-  createTag(request: CreateTagRequest) {
-    return this.worktreeTagService.createTag(request)
-  }
-
-  deleteTag(request: DeleteTagRequest) {
-    return this.worktreeTagService.deleteTag(request)
-  }
-
-  createWorktree(request: CreateWorktreeRequest) {
-    return this.worktreeTagService.createWorktree(request)
-  }
-
-  removeWorktree(request: RemoveWorktreeRequest) {
-    return this.worktreeTagService.removeWorktree(request)
-  }
-
-  getContributors(repoPath: string) {
-    return this.activityAnalytics.getContributors(repoPath)
-  }
-
-  getContributorStats(repoPath?: string) {
-    return this.activityAnalytics.getContributorStats(repoPath)
-  }
-
-  getContributionGraph(repoPath?: string) {
-    return this.activityAnalytics.getContributionGraph(repoPath)
-  }
-
-  getRepositoryRhythm(repoPath?: string) {
-    return this.activityAnalytics.getRepositoryRhythm(repoPath)
-  }
-
-  getRepositoryDashboard(repoPath?: string) {
-    return this.dashboardService.getRepositoryDashboard(repoPath)
-  }
 
   async getImagePreview(request: ImagePreviewRequest): Promise<ImagePreview> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)

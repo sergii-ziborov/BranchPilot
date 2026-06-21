@@ -35,12 +35,12 @@ describe('RepositoryService', () => {
     expect(snapshot.submodules[0].head).toMatch(/^[a-f0-9]{40}$/)
 
     git(repoPath, ['submodule', 'deinit', '-f', '--', 'libs/child'])
-    expect((await service.listSubmodules(repoPath))[0]).toMatchObject({
+    expect((await service.submoduleLfs.listSubmodules(repoPath))[0]).toMatchObject({
       path: 'libs/child',
       status: 'uninitialized'
     })
 
-    await expect(service.updateSubmodule({
+    await expect(service.submoduleLfs.updateSubmodule({
       repoPath,
       path: 'libs/missing',
       init: true,
@@ -49,7 +49,7 @@ describe('RepositoryService', () => {
       code: 'submodule_not_found'
     })
 
-    const updated = await service.updateSubmodule({
+    const updated = await service.submoduleLfs.updateSubmodule({
       repoPath,
       path: 'libs/child',
       init: true,
@@ -92,11 +92,11 @@ describe('RepositoryService', () => {
     ])
     expect(snapshot.lfs.fileCount).toBe(snapshot.lfs.files.length)
 
-    const summary = await service.getGitLfsSummary(repoPath)
+    const summary = await service.submoduleLfs.getGitLfsSummary(repoPath)
     expect(summary.trackedPatterns).toHaveLength(2)
 
     if (!summary.installed) {
-      await expect(service.pullGitLfs(repoPath)).rejects.toMatchObject({
+      await expect(service.submoduleLfs.pullGitLfs(repoPath)).rejects.toMatchObject({
         code: 'git_lfs_missing'
       })
     }
@@ -292,7 +292,7 @@ describe('RepositoryService', () => {
     const { repoPath, remotePath } = createRemoteBackedRepository()
     const service = createService()
 
-    const snapshot = await service.publishBranch({ repoPath })
+    const snapshot = await service.branches.publishBranch({ repoPath })
 
     expect(snapshot.summary.upstream).toBe('origin/main')
     expect(git(repoPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])).toBe('origin/main')
@@ -306,11 +306,11 @@ describe('RepositoryService', () => {
     git(repoPath, ['push', '--quiet', 'origin', 'main:tracked-main'])
     git(repoPath, ['fetch', '--quiet', 'origin'])
 
-    const snapshot = await service.setBranchUpstream(repoPath, 'main', 'origin/tracked-main')
+    const snapshot = await service.branches.setBranchUpstream(repoPath, 'main', 'origin/tracked-main')
 
     expect(snapshot.summary.upstream).toBe('origin/tracked-main')
     expect(git(repoPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])).toBe('origin/tracked-main')
-    await expect(service.setBranchUpstream(repoPath, 'main', 'origin/missing')).rejects.toMatchObject({
+    await expect(service.branches.setBranchUpstream(repoPath, 'main', 'origin/missing')).rejects.toMatchObject({
       code: 'invalid_upstream'
     })
   })
@@ -321,7 +321,7 @@ describe('RepositoryService', () => {
 
     git(repoPath, ['checkout', '--quiet', '--detach', 'HEAD'])
 
-    await expect(service.publishBranch({ repoPath, branch: 'main' })).rejects.toMatchObject({ code: 'git_detached_head' })
+    await expect(service.branches.publishBranch({ repoPath, branch: 'main' })).rejects.toMatchObject({ code: 'git_detached_head' })
     await expect(service.pull(repoPath)).rejects.toMatchObject({ code: 'git_detached_head' })
     await expect(service.push(repoPath)).rejects.toMatchObject({ code: 'git_detached_head' })
   })
@@ -331,7 +331,7 @@ describe('RepositoryService', () => {
     const service = createService()
 
     await expect(service.push(repoPath)).rejects.toMatchObject({ code: 'git_no_upstream' })
-    await service.publishBranch({ repoPath })
+    await service.branches.publishBranch({ repoPath })
 
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'pushed\n')
     git(repoPath, ['add', 'tracked.txt'])
@@ -347,7 +347,7 @@ describe('RepositoryService', () => {
     const { repoPath, remotePath } = createRemoteBackedRepository()
     const service = createService()
 
-    await service.publishBranch({ repoPath })
+    await service.branches.publishBranch({ repoPath })
     const clonePath = cloneRemote(remotePath)
     writeFileSync(path.join(clonePath, 'tracked.txt'), 'remote\n')
     git(clonePath, ['add', 'tracked.txt'])
@@ -367,7 +367,7 @@ describe('RepositoryService', () => {
     const { repoPath, remotePath } = createRemoteBackedRepository()
     const service = createService()
 
-    await service.publishBranch({ repoPath })
+    await service.branches.publishBranch({ repoPath })
     const clonePath = cloneRemote(remotePath)
     writeFileSync(path.join(clonePath, 'tracked.txt'), 'remote\n')
     git(clonePath, ['add', 'tracked.txt'])
@@ -390,34 +390,34 @@ describe('RepositoryService', () => {
     const repoPath = createTempRepository()
     const service = createService()
 
-    const created = await service.createBranch(repoPath, 'feature/work', 'Tracks the generated branch purpose.')
+    const created = await service.branches.createBranch(repoPath, 'feature/work', 'Tracks the generated branch purpose.')
     expect(created.summary.currentBranch).toBe('feature/work')
     expect(created.branches.find((branch) => branch.name === 'feature/work')?.description).toBe('Tracks the generated branch purpose.')
 
-    const renamed = await service.renameBranch(repoPath, 'feature/work', 'feature/renamed')
+    const renamed = await service.branches.renameBranch(repoPath, 'feature/work', 'feature/renamed')
     expect(renamed.summary.currentBranch).toBe('feature/renamed')
     expect(renamed.branches.map((branch) => branch.name)).not.toContain('feature/work')
     expect(renamed.branches.find((branch) => branch.name === 'feature/renamed')?.description).toBe('Tracks the generated branch purpose.')
 
-    await expect(service.renameBranch(repoPath, 'feature/renamed', 'feature/renamed')).rejects.toMatchObject({
+    await expect(service.branches.renameBranch(repoPath, 'feature/renamed', 'feature/renamed')).rejects.toMatchObject({
       code: 'same_branch'
     })
 
-    const switched = await service.switchBranch(repoPath, 'main')
+    const switched = await service.branches.switchBranch(repoPath, 'main')
     expect(switched.summary.currentBranch).toBe('main')
 
-    await expect(service.renameBranch(repoPath, 'feature/renamed', 'main')).rejects.toMatchObject({
+    await expect(service.branches.renameBranch(repoPath, 'feature/renamed', 'main')).rejects.toMatchObject({
       code: 'branch_exists'
     })
 
-    await expect(service.deleteBranch(repoPath, 'feature/renamed', false, false)).rejects.toMatchObject({
+    await expect(service.branches.deleteBranch(repoPath, 'feature/renamed', false, false)).rejects.toMatchObject({
       code: 'confirmation_required'
     })
-    await expect(service.deleteBranch(repoPath, 'feature/renamed', true, false)).rejects.toMatchObject({
+    await expect(service.branches.deleteBranch(repoPath, 'feature/renamed', true, false)).rejects.toMatchObject({
       code: 'confirmation_required'
     })
 
-    const deleted = await service.deleteBranch(repoPath, 'feature/renamed', false, true)
+    const deleted = await service.branches.deleteBranch(repoPath, 'feature/renamed', false, true)
     expect(deleted.branches.map((branch) => branch.name)).not.toContain('feature/renamed')
   })
 
@@ -425,7 +425,7 @@ describe('RepositoryService', () => {
     const { repoPath, remotePath } = createRemoteBackedRepository()
     const service = createService()
 
-    await service.publishBranch({ repoPath })
+    await service.branches.publishBranch({ repoPath })
 
     const clonePath = cloneRemote(remotePath)
     git(clonePath, ['switch', '--quiet', '-c', 'feature/remote-only'])
@@ -456,9 +456,9 @@ describe('RepositoryService', () => {
     const repoPath = createTempRepository()
     const service = createService()
 
-    await service.createBranch(repoPath, 'feature/described')
+    await service.branches.createBranch(repoPath, 'feature/described')
 
-    const updated = await service.updateBranchDescription(
+    const updated = await service.branches.updateBranchDescription(
       repoPath,
       'feature/described',
       'Documents the user-facing purpose of the branch.'
@@ -466,10 +466,10 @@ describe('RepositoryService', () => {
     expect(updated.branches.find((branch) => branch.name === 'feature/described')?.description)
       .toBe('Documents the user-facing purpose of the branch.')
 
-    const cleared = await service.updateBranchDescription(repoPath, 'feature/described', '  ')
+    const cleared = await service.branches.updateBranchDescription(repoPath, 'feature/described', '  ')
     expect(cleared.branches.find((branch) => branch.name === 'feature/described')?.description).toBeUndefined()
 
-    await expect(service.updateBranchDescription(repoPath, 'feature/missing', 'No branch.')).rejects.toMatchObject({
+    await expect(service.branches.updateBranchDescription(repoPath, 'feature/missing', 'No branch.')).rejects.toMatchObject({
       code: 'invalid_branch'
     })
   })
@@ -478,17 +478,17 @@ describe('RepositoryService', () => {
     const repoPath = createTempRepository()
     const service = createService()
 
-    await service.createBranch(repoPath, 'feature/compare')
+    await service.branches.createBranch(repoPath, 'feature/compare')
     writeFileSync(path.join(repoPath, 'feature.txt'), 'feature\n')
     git(repoPath, ['add', 'feature.txt'])
     git(repoPath, ['commit', '-m', 'Feature compare work'])
 
-    await service.switchBranch(repoPath, 'main')
+    await service.branches.switchBranch(repoPath, 'main')
     writeFileSync(path.join(repoPath, 'main.txt'), 'main\n')
     git(repoPath, ['add', 'main.txt'])
     git(repoPath, ['commit', '-m', 'Main compare work'])
 
-    const comparison = await service.compareBranch({
+    const comparison = await service.branches.compareBranch({
       repoPath,
       targetBranch: 'feature/compare'
     })
@@ -509,7 +509,7 @@ describe('RepositoryService', () => {
     ])
     expect(comparison.summaryText).toContain('feature.txt')
     expect(git(repoPath, ['branch', '--show-current'])).toBe('main')
-    await expect(service.compareBranch({
+    await expect(service.branches.compareBranch({
       repoPath,
       targetBranch: 'main'
     })).rejects.toMatchObject({ code: 'same_branch' })
@@ -519,7 +519,7 @@ describe('RepositoryService', () => {
     const repoPath = createTempRepository()
     const service = createService()
 
-    const lightweight = await service.createTag({
+    const lightweight = await service.worktreeTag.createTag({
       repoPath,
       tagName: 'v0.1.0'
     })
@@ -527,14 +527,14 @@ describe('RepositoryService', () => {
       targetShortSha: git(repoPath, ['rev-parse', '--short', 'HEAD'])
     })
 
-    const annotated = await service.createTag({
+    const annotated = await service.worktreeTag.createTag({
       repoPath,
       tagName: 'release/v0.1.1',
       message: 'Release v0.1.1'
     })
     expect(annotated.tags.find((tag) => tag.name === 'release/v0.1.1')?.subject).toBe('Release v0.1.1')
 
-    await expect(service.deleteTag({
+    await expect(service.worktreeTag.deleteTag({
       repoPath,
       tagName: 'v0.1.0',
       confirmed: false
@@ -542,7 +542,7 @@ describe('RepositoryService', () => {
       code: 'confirmation_required'
     })
 
-    const deleted = await service.deleteTag({
+    const deleted = await service.worktreeTag.deleteTag({
       repoPath,
       tagName: 'v0.1.0',
       confirmed: true
@@ -558,7 +558,7 @@ describe('RepositoryService', () => {
     const targetPath = path.join(worktreeParent, 'repo-experiment')
     const service = createService()
 
-    const initialWorktrees = await service.listWorktrees(repoPath)
+    const initialWorktrees = await service.worktreeTag.listWorktrees(repoPath)
     expect(initialWorktrees).toHaveLength(1)
     expect(initialWorktrees[0]).toMatchObject({
       path: realpathSync(repoPath),
@@ -566,7 +566,7 @@ describe('RepositoryService', () => {
       current: true
     })
 
-    await expect(service.createWorktree({
+    await expect(service.worktreeTag.createWorktree({
       repoPath,
       branchName: 'main',
       baseRef: 'main',
@@ -575,7 +575,7 @@ describe('RepositoryService', () => {
       code: 'branch_exists'
     })
 
-    const created = await service.createWorktree({
+    const created = await service.worktreeTag.createWorktree({
       repoPath,
       branchName: 'experiment/worktree',
       baseRef: 'main',
@@ -591,7 +591,7 @@ describe('RepositoryService', () => {
     expect(git(targetPath, ['branch', '--show-current'])).toBe('experiment/worktree')
     expect(readFileSync(path.join(targetPath, 'tracked.txt'), 'utf8')).toBe('initial\n')
 
-    await expect(service.removeWorktree({
+    await expect(service.worktreeTag.removeWorktree({
       repoPath,
       targetPath,
       confirmed: false
@@ -599,7 +599,7 @@ describe('RepositoryService', () => {
       code: 'confirmation_required'
     })
 
-    await expect(service.removeWorktree({
+    await expect(service.worktreeTag.removeWorktree({
       repoPath,
       targetPath: repoPath,
       confirmed: true
@@ -607,7 +607,7 @@ describe('RepositoryService', () => {
       code: 'current_worktree'
     })
 
-    await expect(service.removeWorktree({
+    await expect(service.worktreeTag.removeWorktree({
       repoPath,
       targetPath,
       confirmed: true,
@@ -616,7 +616,7 @@ describe('RepositoryService', () => {
       code: 'unsupported_force_remove'
     })
 
-    const removed = await service.removeWorktree({
+    const removed = await service.worktreeTag.removeWorktree({
       repoPath,
       targetPath,
       confirmed: true
@@ -630,22 +630,22 @@ describe('RepositoryService', () => {
     const repoPath = createTempRepository()
     const service = createService()
 
-    await expect(service.deleteBranch(repoPath, 'main', false, true)).rejects.toMatchObject({ code: 'git_current_branch' })
+    await expect(service.branches.deleteBranch(repoPath, 'main', false, true)).rejects.toMatchObject({ code: 'git_current_branch' })
 
-    await service.createBranch(repoPath, 'feature/unmerged')
+    await service.branches.createBranch(repoPath, 'feature/unmerged')
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'unmerged\n')
     git(repoPath, ['add', 'tracked.txt'])
     git(repoPath, ['commit', '-m', 'Unmerged work'])
-    await service.switchBranch(repoPath, 'main')
+    await service.branches.switchBranch(repoPath, 'main')
 
     try {
-      await service.deleteBranch(repoPath, 'feature/unmerged', false, true)
+      await service.branches.deleteBranch(repoPath, 'feature/unmerged', false, true)
       throw new Error('Expected delete to fail')
     } catch (error) {
       expect(toBranchPilotError(error).code).toBe('git_branch_not_merged')
     }
 
-    const forced = await service.deleteBranch(repoPath, 'feature/unmerged', true, true)
+    const forced = await service.branches.deleteBranch(repoPath, 'feature/unmerged', true, true)
     expect(forced.branches.map((branch) => branch.name)).not.toContain('feature/unmerged')
   })
 })

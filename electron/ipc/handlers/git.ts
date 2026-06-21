@@ -39,8 +39,8 @@ export function registerGitHandlers(
   const { handle, handleLogged, repoPathArg, requestRepoPath, choosePatchOutputPath, choosePatchInputPath, chooseWorktreeTargetPath } = helpers
   const { repositoryService } = services
 
-  handle('repository:gitConfig', (repoPath: string) => repositoryService.getGitConfig(repoPath))
-  handle('repository:setLocalGitIdentity', (request: GitIdentityUpdate) => repositoryService.setLocalGitIdentity(request))
+  handle('repository:gitConfig', (repoPath: string) => repositoryService.config.getGitConfig(repoPath))
+  handle('repository:setLocalGitIdentity', (request: GitIdentityUpdate) => repositoryService.config.setLocalGitIdentity(request))
   handleLogged('git:addRemote', {
     type: 'remote_added',
     actor: 'user',
@@ -50,7 +50,7 @@ export function registerGitHandlers(
       remote: request.name
     })
   }, (request: RemoteUpsertRequest) =>
-    repositoryService.addRemote(request)
+    repositoryService.config.addRemote(request)
   )
   handleLogged('git:setRemoteUrl', {
     type: 'remote_updated',
@@ -61,7 +61,7 @@ export function registerGitHandlers(
       remote: request.name
     })
   }, (request: RemoteUpsertRequest) =>
-    repositoryService.setRemoteUrl(request)
+    repositoryService.config.setRemoteUrl(request)
   )
   handleLogged('git:removeRemote', {
     type: 'remote_removed',
@@ -72,7 +72,7 @@ export function registerGitHandlers(
       remote: request.name
     })
   }, (request: RemoteRemoveRequest) =>
-    repositoryService.removeRemote(request)
+    repositoryService.config.removeRemote(request)
   )
 
   handle('git:stageFile', (request: FileActionRequest) => repositoryService.stageFile(request))
@@ -138,7 +138,7 @@ export function registerGitHandlers(
   }, async (request: ConfirmedCommitReferenceRequest) =>
     withProjectMemoryRefresh(await repositoryService.cherryPickCommit(request))
   )
-  handle('stash:list', (repoPath: string) => repositoryService.listStashes(repoPath))
+  handle('stash:list', (repoPath: string) => repositoryService.stash.listStashes(repoPath))
   handleLogged('stash:create', {
     type: 'stash_created',
     actor: 'user',
@@ -148,21 +148,21 @@ export function registerGitHandlers(
       message_length: request.message.trim().length,
       include_untracked: request.includeUntracked
     })
-  }, (request: CreateStashRequest) => repositoryService.createStash(request))
+  }, (request: CreateStashRequest) => repositoryService.stash.createStash(request))
   handleLogged('stash:apply', {
     type: 'stash_applied',
     actor: 'user',
     title: 'Stash applied',
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ stash_ref: request.stashRef })
-  }, (request: StashActionRequest) => repositoryService.applyStash(request))
+  }, (request: StashActionRequest) => repositoryService.stash.applyStash(request))
   handleLogged('stash:drop', {
     type: 'stash_dropped',
     actor: 'user',
     title: 'Stash dropped',
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ stash_ref: request.stashRef })
-  }, (request: ConfirmedStashActionRequest) => repositoryService.dropStash(request))
+  }, (request: ConfirmedStashActionRequest) => repositoryService.stash.dropStash(request))
   handleLogged('git:fetch', {
     type: 'git_fetched',
     actor: 'user',
@@ -199,7 +199,7 @@ export function registerGitHandlers(
       remote: request.remote ?? snapshot?.summary.remoteName ?? 'origin'
     })
   }, async (request: PublishBranchRequest) =>
-    withProjectMemoryRefresh(await repositoryService.publishBranch(request))
+    withProjectMemoryRefresh(await repositoryService.branches.publishBranch(request))
   )
   handleLogged('git:createBranch', {
     type: 'branch_created',
@@ -208,7 +208,7 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName })
   }, async (request: BranchActionRequest) =>
-    withProjectMemoryRefresh(await repositoryService.createBranch(request.repoPath, request.branchName, request.description))
+    withProjectMemoryRefresh(await repositoryService.branches.createBranch(request.repoPath, request.branchName, request.description))
   )
   handleLogged('git:renameBranch', {
     type: 'branch_renamed',
@@ -220,7 +220,7 @@ export function registerGitHandlers(
       new_branch: request.newBranchName
     })
   }, async (request: RenameBranchRequest) =>
-    withProjectMemoryRefresh(await repositoryService.renameBranch(request.repoPath, request.oldBranchName, request.newBranchName))
+    withProjectMemoryRefresh(await repositoryService.branches.renameBranch(request.repoPath, request.oldBranchName, request.newBranchName))
   )
   handleLogged('git:setBranchUpstream', {
     type: 'branch_upstream_updated',
@@ -232,7 +232,7 @@ export function registerGitHandlers(
       upstream: request.upstream
     })
   }, async (request: SetBranchUpstreamRequest) =>
-    withProjectMemoryRefresh(await repositoryService.setBranchUpstream(request.repoPath, request.branchName, request.upstream))
+    withProjectMemoryRefresh(await repositoryService.branches.setBranchUpstream(request.repoPath, request.branchName, request.upstream))
   )
   handleLogged('git:updateBranchDescription', {
     type: 'branch_description_updated',
@@ -244,10 +244,10 @@ export function registerGitHandlers(
       description_length: request.description.trim().length
     })
   }, async (request: UpdateBranchDescriptionRequest) =>
-    withProjectMemoryRefresh(await repositoryService.updateBranchDescription(request.repoPath, request.branchName, request.description))
+    withProjectMemoryRefresh(await repositoryService.branches.updateBranchDescription(request.repoPath, request.branchName, request.description))
   )
   handle('git:compareBranch', (request: BranchCompareRequest) =>
-    repositoryService.compareBranch(request)
+    repositoryService.branches.compareBranch(request)
   )
   handleLogged('git:switchBranch', {
     type: 'branch_switched',
@@ -256,7 +256,7 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName })
   }, async (request: BranchActionRequest) =>
-    withProjectMemoryRefresh(await repositoryService.switchBranch(request.repoPath, request.branchName, request.stashChanges))
+    withProjectMemoryRefresh(await repositoryService.branches.switchBranch(request.repoPath, request.branchName, request.stashChanges))
   )
   handleLogged('git:deleteBranch', {
     type: 'branch_deleted',
@@ -265,7 +265,7 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName, force: request.force })
   }, async (request: DeleteBranchRequest) =>
-    withProjectMemoryRefresh(await repositoryService.deleteBranch(request.repoPath, request.branchName, request.force, request.confirmed))
+    withProjectMemoryRefresh(await repositoryService.branches.deleteBranch(request.repoPath, request.branchName, request.force, request.confirmed))
   )
   handleLogged('git:createTag', {
     type: 'tag_created',
@@ -277,7 +277,7 @@ export function registerGitHandlers(
       annotated: Boolean(request.message?.trim())
     })
   }, async (request: CreateTagRequest) =>
-    withProjectMemoryRefresh(await repositoryService.createTag(request))
+    withProjectMemoryRefresh(await repositoryService.worktreeTag.createTag(request))
   )
   handleLogged('git:deleteTag', {
     type: 'tag_deleted',
@@ -286,10 +286,10 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ tag: request.tagName })
   }, async (request: DeleteTagRequest) =>
-    withProjectMemoryRefresh(await repositoryService.deleteTag(request))
+    withProjectMemoryRefresh(await repositoryService.worktreeTag.deleteTag(request))
   )
   handle('git:listWorktrees', async (repoPath: string) =>
-    repositoryService.listWorktrees(repoPath)
+    repositoryService.worktreeTag.listWorktrees(repoPath)
   )
   handleLogged('git:createWorktree', {
     type: 'worktree_created',
@@ -308,7 +308,7 @@ export function registerGitHandlers(
       return null
     }
 
-    return withProjectMemoryRefresh(await repositoryService.createWorktree({
+    return withProjectMemoryRefresh(await repositoryService.worktreeTag.createWorktree({
       ...request,
       targetPath
     }))
@@ -323,10 +323,10 @@ export function registerGitHandlers(
       force: Boolean(request.force)
     })
   }, async (request: RemoveWorktreeRequest) =>
-    withProjectMemoryRefresh(await repositoryService.removeWorktree(request))
+    withProjectMemoryRefresh(await repositoryService.worktreeTag.removeWorktree(request))
   )
   handle('git:listSubmodules', async (repoPath: string) =>
-    repositoryService.listSubmodules(repoPath)
+    repositoryService.submoduleLfs.listSubmodules(repoPath)
   )
   handleLogged('git:updateSubmodule', {
     type: 'submodule_updated',
@@ -339,10 +339,10 @@ export function registerGitHandlers(
       recursive: request.recursive
     })
   }, async (request: UpdateSubmoduleRequest) =>
-    withProjectMemoryRefresh(await repositoryService.updateSubmodule(request))
+    withProjectMemoryRefresh(await repositoryService.submoduleLfs.updateSubmodule(request))
   )
   handle('git:lfsSummary', async (repoPath: string) =>
-    repositoryService.getGitLfsSummary(repoPath)
+    repositoryService.submoduleLfs.getGitLfsSummary(repoPath)
   )
   handleLogged('git:lfsPull', {
     type: 'git_lfs_pulled',
@@ -354,7 +354,7 @@ export function registerGitHandlers(
       files: snapshot?.lfs.fileCount ?? 0
     })
   }, async (repoPath: string) =>
-    withProjectMemoryRefresh(await repositoryService.pullGitLfs(repoPath))
+    withProjectMemoryRefresh(await repositoryService.submoduleLfs.pullGitLfs(repoPath))
   )
   handleLogged('git:exportPatch', {
     type: 'patch_exported',

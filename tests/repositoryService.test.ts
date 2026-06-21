@@ -132,7 +132,7 @@ describe('RepositoryService', () => {
       pinned: true
     })
 
-    const dashboard = await service.getRepositoryDashboard(activeRepoPath)
+    const dashboard = await service.dashboard.getRepositoryDashboard(activeRepoPath)
     const dirtyRepo = dashboard.repositories.find((repo) => repo.path === dirtyRepoRoot)
     const activeRepo = dashboard.repositories.find((repo) => repo.path === activeRepoRoot)
 
@@ -173,7 +173,7 @@ describe('RepositoryService', () => {
     await service.openRepository(activeRepoPath)
 
     runner.reset()
-    const dashboard = await service.getRepositoryDashboard(activeRepoPath)
+    const dashboard = await service.dashboard.getRepositoryDashboard(activeRepoPath)
     const commandLines = runner.calls.map((call) => call.args.join(' '))
 
     expect(dashboard.totals.repositories).toBe(2)
@@ -573,7 +573,7 @@ describe('RepositoryService', () => {
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'stashed tracked\n')
     writeFileSync(path.join(repoPath, 'untracked.txt'), 'stashed untracked\n')
 
-    const stashed = await service.createStash({
+    const stashed = await service.stash.createStash({
       repoPath,
       message: 'Save WIP fixture',
       includeUntracked: true
@@ -582,28 +582,28 @@ describe('RepositoryService', () => {
     expect(stashed.status.counts.changed).toBe(0)
     expect(git(repoPath, ['status', '--porcelain'])).toBe('')
 
-    const stashes = await service.listStashes(repoPath)
+    const stashes = await service.stash.listStashes(repoPath)
     expect(stashes[0].ref).toBe('stash@{0}')
     expect(stashes[0].message).toContain('Save WIP fixture')
 
-    const applied = await service.applyStash({ repoPath, stashRef: stashes[0].ref })
+    const applied = await service.stash.applyStash({ repoPath, stashRef: stashes[0].ref })
     expect(applied.status.counts.changed).toBe(2)
     expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('stashed tracked\n')
     expect(readFileSync(path.join(repoPath, 'untracked.txt'), 'utf8')).toBe('stashed untracked\n')
 
-    await expect(service.dropStash({
+    await expect(service.stash.dropStash({
       repoPath,
       stashRef: stashes[0].ref,
       confirmed: false
     })).rejects.toMatchObject({ code: 'confirmation_required' })
 
-    await service.dropStash({
+    await service.stash.dropStash({
       repoPath,
       stashRef: stashes[0].ref,
       confirmed: true
     })
 
-    expect(await service.listStashes(repoPath)).toEqual([])
+    expect(await service.stash.listStashes(repoPath)).toEqual([])
   })
 
   it('reports conflicts when applying a stash over incompatible work', async () => {
@@ -611,7 +611,7 @@ describe('RepositoryService', () => {
     const service = createService()
 
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'stashed\n')
-    await service.createStash({
+    await service.stash.createStash({
       repoPath,
       message: 'Conflicting stash',
       includeUntracked: true
@@ -622,7 +622,7 @@ describe('RepositoryService', () => {
     git(repoPath, ['commit', '-m', 'Conflicting local change'])
 
     try {
-      await service.applyStash({ repoPath, stashRef: 'stash@{0}' })
+      await service.stash.applyStash({ repoPath, stashRef: 'stash@{0}' })
       throw new Error('Expected stash apply to conflict')
     } catch (error) {
       expect(toBranchPilotError(error).code).toBe('git_conflict')
@@ -670,13 +670,13 @@ describe('RepositoryService', () => {
     const repoPath = createTempRepository()
     const service = createService()
 
-    const before = await service.getGitConfig(repoPath)
+    const before = await service.config.getGitConfig(repoPath)
     expect(before.localUserName).toBe('BranchPilot Test')
     expect(before.localUserEmail).toBe('branchpilot@example.com')
     expect(before.defaultBranch).toBe('main')
     expect(before.defaultBranchSource).toBe('local')
 
-    const after = await service.setLocalGitIdentity({
+    const after = await service.config.setLocalGitIdentity({
       repoPath,
       name: 'BranchPilot Local',
       email: 'local@example.com'
@@ -693,9 +693,9 @@ describe('RepositoryService', () => {
     const firstUrl = 'https://github.com/example/project.git'
     const secondUrl = 'git@github.com:example/project.git'
 
-    expect((await service.getGitConfig(repoPath)).remotes).toEqual([])
+    expect((await service.config.getGitConfig(repoPath)).remotes).toEqual([])
 
-    const added = await service.addRemote({
+    const added = await service.config.addRemote({
       repoPath,
       name: 'origin',
       url: firstUrl
@@ -708,13 +708,13 @@ describe('RepositoryService', () => {
         pushUrl: firstUrl
       }
     ])
-    await expect(service.addRemote({
+    await expect(service.config.addRemote({
       repoPath,
       name: 'origin',
       url: firstUrl
     })).rejects.toMatchObject({ code: 'remote_exists' })
 
-    const updated = await service.setRemoteUrl({
+    const updated = await service.config.setRemoteUrl({
       repoPath,
       name: 'origin',
       url: secondUrl
@@ -729,35 +729,35 @@ describe('RepositoryService', () => {
     ])
     git(repoPath, ['update-ref', 'refs/remotes/origin/trunk', 'HEAD'])
     git(repoPath, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk'])
-    expect(await service.getGitConfig(repoPath)).toMatchObject({
+    expect(await service.config.getGitConfig(repoPath)).toMatchObject({
       defaultBranch: 'trunk',
       defaultBranchSource: 'remote',
       defaultBranchRemote: 'origin'
     })
-    await expect(service.addRemote({
+    await expect(service.config.addRemote({
       repoPath,
       name: '-bad',
       url: firstUrl
     })).rejects.toMatchObject({ code: 'invalid_remote' })
-    await expect(service.addRemote({
+    await expect(service.config.addRemote({
       repoPath,
       name: 'upstream',
       url: ''
     })).rejects.toMatchObject({ code: 'invalid_remote_url' })
-    await expect(service.removeRemote({
+    await expect(service.config.removeRemote({
       repoPath,
       name: 'origin',
       confirmed: false
     })).rejects.toMatchObject({ code: 'confirmation_required' })
 
-    const removed = await service.removeRemote({
+    const removed = await service.config.removeRemote({
       repoPath,
       name: 'origin',
       confirmed: true
     })
 
     expect(removed.remotes).toEqual([])
-    await expect(service.setRemoteUrl({
+    await expect(service.config.setRemoteUrl({
       repoPath,
       name: 'origin',
       url: firstUrl

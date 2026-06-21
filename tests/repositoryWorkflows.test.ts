@@ -60,7 +60,7 @@ describe('local repository workflows', () => {
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'dirty main content\n')
 
     try {
-      await service.switchBranch(repoPath, 'feature/switch-target')
+      await service.branches.switchBranch(repoPath, 'feature/switch-target')
       throw new Error('Expected dirty branch switch to fail')
     } catch (error) {
       expect(toBranchPilotError(error).code).toBe('git_dirty_worktree')
