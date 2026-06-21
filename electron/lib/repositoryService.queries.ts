@@ -9,12 +9,10 @@ import type {
   CommitSummary,
   DiffRequest,
   DiffResult,
-  GitLfsSummary,
   RecentRepository,
   RepositorySnapshot,
   RepositoryStatus,
-  RepositorySummary,
-  SubmoduleSummary
+  RepositorySummary
 } from '../../src/shared/branchPilot.js'
 import { parseUnifiedDiff } from './diffParser.js'
 import { BranchPilotUserError } from './errors.js'
@@ -271,14 +269,5 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     }
   }
 
-  async listSubmodules(repoPath: string): Promise<SubmoduleSummary[]> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    return this.listRepositorySubmodules(rootPath)
-  }
-
-  async getGitLfsSummary(repoPath: string): Promise<GitLfsSummary> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    return this.getRepositoryGitLfsSummary(rootPath)
-  }
 
 }

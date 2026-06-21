@@ -54,6 +54,7 @@ import { RepositoryDashboardService } from './repositoryService.dashboard.js'
 import { RepositoryStashService } from './repositoryService.stash.js'
 import { RepositoryConfigService } from './repositoryService.config.js'
 import { RepositoryWorktreeTagService } from './repositoryService.worktreeTag.js'
+import { RepositorySubmoduleLfsService } from './repositoryService.submoduleLfs.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
   // Composition over inheritance: contributor / activity reporting lives in its own
@@ -104,6 +105,33 @@ export class RepositoryService extends RepositoryServiceWrites {
     assertValidBaseRef: (rootPath, baseRef) => this.assertValidBaseRef(rootPath, baseRef),
     listRepositoryWorktrees: (rootPath) => this.listRepositoryWorktrees(rootPath)
   })
+
+  // Submodule + Git LFS management as a composed collaborator.
+  private readonly submoduleLfsService = new RepositorySubmoduleLfsService({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    git: (cwd, args, options) => this.git(cwd, args, options),
+    getSnapshot: (repoPath) => this.getSnapshot(repoPath),
+    listRepositorySubmodules: (rootPath) => this.listRepositorySubmodules(rootPath),
+    getRepositoryGitLfsSummary: (rootPath) => this.getRepositoryGitLfsSummary(rootPath),
+    assertNoActiveOperation: (rootPath) => this.assertNoActiveOperation(rootPath),
+    assertNoConflicts: (rootPath, actionLabel) => this.assertNoConflicts(rootPath, actionLabel)
+  })
+
+  listSubmodules(repoPath: string) {
+    return this.submoduleLfsService.listSubmodules(repoPath)
+  }
+
+  getGitLfsSummary(repoPath: string) {
+    return this.submoduleLfsService.getGitLfsSummary(repoPath)
+  }
+
+  updateSubmodule(request: UpdateSubmoduleRequest) {
+    return this.submoduleLfsService.updateSubmodule(request)
+  }
+
+  pullGitLfs(repoPath: string) {
+    return this.submoduleLfsService.pullGitLfs(repoPath)
+  }
 
   listWorktrees(repoPath: string) {
     return this.worktreeTagService.listWorktrees(repoPath)

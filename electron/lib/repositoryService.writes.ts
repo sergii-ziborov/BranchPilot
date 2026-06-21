@@ -9,8 +9,7 @@ import type {
   FileActionRequest,
   MergeBranchRequest,
   PublishBranchRequest,
-  RepositorySnapshot,
-  UpdateSubmoduleRequest
+  RepositorySnapshot
 } from '../../src/shared/branchPilot.js'
 import {
   CommandExecutionError
@@ -171,53 +170,6 @@ export class RepositoryServiceWrites extends RepositoryServiceQueries {
     }
 
     await this.git(rootPath, ['branch', force ? '-D' : '-d', normalizedName])
-    return this.getSnapshot(rootPath)
-  }
-
-  async updateSubmodule(request: UpdateSubmoduleRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const submodulePath = request.path ? normalizeRelativePath(request.path) : undefined
-    const submodules = await this.listRepositorySubmodules(rootPath)
-
-    if (submodulePath && !submodules.some((submodule) => submodule.path === submodulePath)) {
-      throw new BranchPilotUserError('submodule_not_found', 'Submodule is not configured in this repository.')
-    }
-
-    const syncArgs = ['submodule', 'sync']
-    const updateArgs = ['submodule', 'update']
-
-    if (request.recursive) {
-      syncArgs.push('--recursive')
-      updateArgs.push('--recursive')
-    }
-
-    if (request.init) {
-      updateArgs.push('--init')
-    }
-
-    if (submodulePath) {
-      syncArgs.push('--', submodulePath)
-      updateArgs.push('--', submodulePath)
-    }
-
-    await this.git(rootPath, syncArgs, { timeoutMs: 120_000 })
-    await this.git(rootPath, updateArgs, { timeoutMs: 120_000 })
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async pullGitLfs(repoPath: string): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const summary = await this.getRepositoryGitLfsSummary(rootPath)
-
-    if (!summary.installed) {
-      throw new BranchPilotUserError('git_lfs_missing', 'Git LFS is not installed. Install git-lfs before pulling LFS objects.')
-    }
-
-    await this.assertNoActiveOperation(rootPath)
-    await this.assertNoConflicts(rootPath, 'pulling Git LFS objects')
-    await this.git(rootPath, ['lfs', 'pull'], { timeoutMs: 120_000 })
-
     return this.getSnapshot(rootPath)
   }
 
