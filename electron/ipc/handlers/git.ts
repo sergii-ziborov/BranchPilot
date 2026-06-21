@@ -75,16 +75,16 @@ export function registerGitHandlers(
     repositoryService.config.removeRemote(request)
   )
 
-  handle('git:stageFile', (request: FileActionRequest) => repositoryService.stageFile(request))
-  handle('git:unstageFile', (request: FileActionRequest) => repositoryService.unstageFile(request))
-  handle('git:stageHunk', (request: HunkActionRequest) => repositoryService.stageHunk(request))
-  handle('git:unstageHunk', (request: HunkActionRequest) => repositoryService.unstageHunk(request))
-  handle('git:discardHunk', (request: HunkActionRequest) => repositoryService.discardHunk(request))
-  handle('git:stageAll', (repoPath: string) => repositoryService.stageAll(repoPath))
-  handle('git:unstageAll', (repoPath: string) => repositoryService.unstageAll(repoPath))
-  handle('git:discardFile', (request: ConfirmedFileActionRequest) => repositoryService.discardFile(request))
+  handle('git:stageFile', (request: FileActionRequest) => repositoryService.staging.stageFile(request))
+  handle('git:unstageFile', (request: FileActionRequest) => repositoryService.staging.unstageFile(request))
+  handle('git:stageHunk', (request: HunkActionRequest) => repositoryService.staging.stageHunk(request))
+  handle('git:unstageHunk', (request: HunkActionRequest) => repositoryService.staging.unstageHunk(request))
+  handle('git:discardHunk', (request: HunkActionRequest) => repositoryService.staging.discardHunk(request))
+  handle('git:stageAll', (repoPath: string) => repositoryService.staging.stageAll(repoPath))
+  handle('git:unstageAll', (repoPath: string) => repositoryService.staging.unstageAll(repoPath))
+  handle('git:discardFile', (request: ConfirmedFileActionRequest) => repositoryService.staging.discardFile(request))
   handle('git:deleteUntrackedFile', (request: ConfirmedFileActionRequest) =>
-    repositoryService.deleteUntrackedFile(request)
+    repositoryService.staging.deleteUntrackedFile(request)
   )
   handleLogged('git:commit', {
     type: 'commit_created',
@@ -97,7 +97,7 @@ export function registerGitHandlers(
       branch: snapshot?.summary.currentBranch ?? 'unknown'
     })
   }, async (request: CommitRequest) =>
-    withProjectMemoryRefresh(await repositoryService.commit(request))
+    withProjectMemoryRefresh(await repositoryService.commits.commit(request))
   )
   handleLogged('git:amendCommit', {
     type: 'commit_amended',
@@ -110,7 +110,7 @@ export function registerGitHandlers(
       branch: snapshot?.summary.currentBranch ?? 'unknown'
     })
   }, async (request: ConfirmedCommitRequest) =>
-    withProjectMemoryRefresh(await repositoryService.amendCommit(request))
+    withProjectMemoryRefresh(await repositoryService.commits.amendCommit(request))
   )
   handleLogged('git:revertCommit', {
     type: 'commit_reverted',
@@ -123,7 +123,7 @@ export function registerGitHandlers(
       conflicts: snapshot?.status.counts.conflicted ?? 0
     })
   }, async (request: ConfirmedCommitReferenceRequest) =>
-    withProjectMemoryRefresh(await repositoryService.revertCommit(request))
+    withProjectMemoryRefresh(await repositoryService.commits.revertCommit(request))
   )
   handleLogged('git:cherryPickCommit', {
     type: 'commit_cherry_picked',
@@ -136,7 +136,7 @@ export function registerGitHandlers(
       conflicts: snapshot?.status.counts.conflicted ?? 0
     })
   }, async (request: ConfirmedCommitReferenceRequest) =>
-    withProjectMemoryRefresh(await repositoryService.cherryPickCommit(request))
+    withProjectMemoryRefresh(await repositoryService.commits.cherryPickCommit(request))
   )
   handle('stash:list', (repoPath: string) => repositoryService.stash.listStashes(repoPath))
   handleLogged('stash:create', {

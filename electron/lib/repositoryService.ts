@@ -5,30 +5,17 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import type {
   CloneRepositoryRequest,
-  CommitRequest,
-  ConfirmedCommitReferenceRequest,
-  ConfirmedCommitRequest,
-  FileActionRequest,
   ImagePreview,
   ImagePreviewRequest,
-  HunkActionRequest,
   RecentRepository,
   RepositoryPinRequest,
   RepositorySnapshot
 } from '../../src/shared/branchPilot.js'
 import {
-  CommandExecutionError
-} from './commandRunner.js'
-import {
   BranchPilotUserError
 } from './errors.js'
 import {
-  parseGitStatus
-} from './gitStatusParser.js'
-import {
-  buildCommitMessage,
   cloneNameFromRemoteUrl,
-  isConflictOutput,
   imageMimeFromPath,
   MAX_IMAGE_PREVIEW_BYTES,
   resolveRepositoryPath,
@@ -36,7 +23,6 @@ import {
   normalizeCloneRemoteUrl,
   normalizeCloneTargetName,
   normalizeCommitSha,
-  normalizeHunkPatch,
   normalizeRelativePath,
   pathExists
 } from './repositoryService.helpers.js'
@@ -51,6 +37,8 @@ import { RepositoryWorktreeTagService } from './repositoryService.worktreeTag.js
 import { RepositorySubmoduleLfsService } from './repositoryService.submoduleLfs.js'
 import { RepositoryBranchService } from './repositoryService.branches.js'
 import { RepositoryMergeService } from './repositoryService.merge.js'
+import { RepositoryStagingService } from './repositoryService.staging.js'
+import { RepositoryCommitService } from './repositoryService.commits.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
   // Composition over inheritance: each cohesive domain lives in its own collaborator,
@@ -130,6 +118,22 @@ export class RepositoryService extends RepositoryServiceWrites {
     assertCurrentBranch: (rootPath, action) => this.assertCurrentBranch(rootPath, action),
     assertNoActiveOperation: (rootPath) => this.assertNoActiveOperation(rootPath),
     getMergeState: (rootPath, conflictFiles) => this.getMergeState(rootPath, conflictFiles)
+  })
+
+  readonly staging = new RepositoryStagingService({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    git: (cwd, args, options) => this.git(cwd, args, options),
+    getStatusOnlySnapshot: (rootPath) => this.getStatusOnlySnapshot(rootPath)
+  })
+
+  readonly commits = new RepositoryCommitService({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    git: (cwd, args, options) => this.git(cwd, args, options),
+    getSnapshot: (repoPath) => this.getSnapshot(repoPath),
+    getMergeState: (rootPath, conflictFiles) => this.getMergeState(rootPath, conflictFiles),
+    assertNoActiveOperation: (rootPath) => this.assertNoActiveOperation(rootPath),
+    assertNoConflicts: (rootPath, actionLabel) => this.assertNoConflicts(rootPath, actionLabel),
+    gitCommitWithMessageFile: (rootPath, argsPrefix, message) => this.gitCommitWithMessageFile(rootPath, argsPrefix, message)
   })
 
   async getImagePreview(request: ImagePreviewRequest): Promise<ImagePreview> {
@@ -240,201 +244,4 @@ export class RepositoryService extends RepositoryServiceWrites {
     return this.settings.setRepositoryPinned(rootPath, request.pinned)
   }
 
-  async stageFile(request: FileActionRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    await this.git(rootPath, ['add', '--', normalizeRelativePath(request.filePath)])
-    return this.getStatusOnlySnapshot(rootPath)
-  }
-
-  async unstageFile(request: FileActionRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    await this.git(rootPath, ['restore', '--staged', '--', normalizeRelativePath(request.filePath)])
-    return this.getStatusOnlySnapshot(rootPath)
-  }
-
-  async stageHunk(request: HunkActionRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const filePath = normalizeRelativePath(request.filePath)
-    const patch = normalizeHunkPatch(request.patch, filePath)
-
-    await this.git(rootPath, ['apply', '--cached', '--whitespace=nowarn'], {
-      input: patch,
-      timeoutMs: 30_000
-    })
-
-    return this.getStatusOnlySnapshot(rootPath)
-  }
-
-  async unstageHunk(request: HunkActionRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const filePath = normalizeRelativePath(request.filePath)
-    const patch = normalizeHunkPatch(request.patch, filePath)
-
-    await this.git(rootPath, ['apply', '--reverse', '--cached', '--whitespace=nowarn'], {
-      input: patch,
-      timeoutMs: 30_000
-    })
-
-    return this.getStatusOnlySnapshot(rootPath)
-  }
-
-  /** Permanently reverts a single unstaged hunk in the working tree (GitHub-Desktop-style discard). */
-  async discardHunk(request: HunkActionRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const filePath = normalizeRelativePath(request.filePath)
-    const patch = normalizeHunkPatch(request.patch, filePath)
-
-    await this.git(rootPath, ['apply', '--reverse', '--whitespace=nowarn'], {
-      input: patch,
-      timeoutMs: 30_000
-    })
-
-    return this.getStatusOnlySnapshot(rootPath)
-  }
-
-  async stageAll(repoPath: string): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    await this.git(rootPath, ['add', '-A'])
-    return this.getStatusOnlySnapshot(rootPath)
-  }
-
-  async unstageAll(repoPath: string): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    await this.git(rootPath, ['restore', '--staged', '--', '.'])
-    return this.getStatusOnlySnapshot(rootPath)
-  }
-
-  async discardFile(request: FileActionRequest & { confirmed: boolean }): Promise<RepositorySnapshot> {
-    if (!request.confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Discard requires explicit confirmation.')
-    }
-
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    await this.git(rootPath, ['restore', '--', normalizeRelativePath(request.filePath)])
-    return this.getStatusOnlySnapshot(rootPath)
-  }
-
-  async deleteUntrackedFile(request: FileActionRequest & { confirmed: boolean }): Promise<RepositorySnapshot> {
-    if (!request.confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Deleting an untracked file requires explicit confirmation.')
-    }
-
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    await this.git(rootPath, ['clean', '-f', '--', normalizeRelativePath(request.filePath)])
-    return this.getStatusOnlySnapshot(rootPath)
-  }
-
-  async commit(request: CommitRequest): Promise<RepositorySnapshot> {
-    const title = request.title.trim()
-
-    if (!title) {
-      throw new BranchPilotUserError('invalid_commit_message', 'Commit title is required.')
-    }
-
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const hasNoStagedChanges = await this.git(rootPath, ['diff', '--cached', '--quiet'], {
-      allowedExitCodes: [0, 1]
-    })
-
-    if (hasNoStagedChanges.exitCode === 0) {
-      throw new BranchPilotUserError('nothing_to_commit', 'Stage at least one change before committing.')
-    }
-
-    const message = buildCommitMessage(title, request.description, request.coAuthors)
-    await this.gitCommitWithMessageFile(rootPath, ['commit', '-F'], message)
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async amendCommit(request: ConfirmedCommitRequest): Promise<RepositorySnapshot> {
-    if (!request.confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Amending the last commit requires explicit confirmation.')
-    }
-
-    const title = request.title.trim()
-
-    if (!title) {
-      throw new BranchPilotUserError('invalid_commit_message', 'Commit title is required.')
-    }
-
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    await this.git(rootPath, ['rev-parse', '--verify', 'HEAD'])
-
-    const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
-    const parsedStatus = parseGitStatus(statusOutput.stdout)
-    const mergeState = await this.getMergeState(rootPath, parsedStatus.conflicts)
-
-    if (mergeState.operation !== 'none') {
-      throw new BranchPilotUserError('git_operation_in_progress', `Finish or abort the ${mergeState.operation} before amending.`)
-    }
-
-    if (parsedStatus.counts.conflicted > 0) {
-      throw new BranchPilotUserError('conflicts_present', 'Resolve conflicted files before amending.')
-    }
-
-    const message = buildCommitMessage(title, request.description, request.coAuthors)
-    await this.gitCommitWithMessageFile(rootPath, ['commit', '--amend', '-F'], message)
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async revertCommit(request: ConfirmedCommitReferenceRequest): Promise<RepositorySnapshot> {
-    if (!request.confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Reverting a commit requires explicit confirmation.')
-    }
-
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const commitSha = normalizeCommitSha(request.commitSha)
-
-    await this.assertNoActiveOperation(rootPath)
-    await this.assertNoConflicts(rootPath, 'reverting')
-
-    const result = await this.git(rootPath, ['revert', '--no-edit', commitSha], {
-      allowedExitCodes: [0, 1],
-      timeoutMs: 120_000
-    })
-
-    if (result.exitCode === 0) {
-      return this.getSnapshot(rootPath)
-    }
-
-    const snapshot = await this.getSnapshot(rootPath)
-    const output = [result.stderr, result.stdout].filter(Boolean).join('\n')
-
-    if (snapshot.status.merge.operation !== 'none' || isConflictOutput(output)) {
-      return snapshot
-    }
-
-    throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
-  }
-
-  async cherryPickCommit(request: ConfirmedCommitReferenceRequest): Promise<RepositorySnapshot> {
-    if (!request.confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Cherry-picking a commit requires explicit confirmation.')
-    }
-
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const commitSha = normalizeCommitSha(request.commitSha)
-
-    await this.assertNoActiveOperation(rootPath)
-    await this.assertNoConflicts(rootPath, 'cherry-picking')
-
-    const result = await this.git(rootPath, ['cherry-pick', commitSha], {
-      allowedExitCodes: [0, 1],
-      timeoutMs: 120_000
-    })
-
-    if (result.exitCode === 0) {
-      return this.getSnapshot(rootPath)
-    }
-
-    const snapshot = await this.getSnapshot(rootPath)
-    const output = [result.stderr, result.stdout].filter(Boolean).join('\n')
-
-    if (snapshot.status.merge.operation !== 'none' || isConflictOutput(output)) {
-      return snapshot
-    }
-
-    throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
-  }
 }

@@ -33,10 +33,10 @@ describe('local repository workflows', () => {
     })
     expect(diff.text).toContain('+workflow change')
 
-    const staged = await service.stageFile({ repoPath, filePath: 'tracked.txt' })
+    const staged = await service.staging.stageFile({ repoPath, filePath: 'tracked.txt' })
     expect(staged.status.counts.staged).toBe(1)
 
-    const committed = await service.commit({
+    const committed = await service.commits.commit({
       repoPath,
       title: 'Commit workflow change',
       description: 'Covers the local open, diff, stage, and commit path.'

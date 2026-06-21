@@ -193,7 +193,7 @@ describe('RepositoryService', () => {
     writeFileSync(path.join(repoPath, 'new.txt'), 'new\n')
 
     runner.reset()
-    const snapshot = await service.stageFile({
+    const snapshot = await service.staging.stageFile({
       repoPath,
       filePath: 'new.txt'
     })
@@ -220,7 +220,7 @@ describe('RepositoryService', () => {
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'changed\n')
     git(repoPath, ['add', 'tracked.txt'])
 
-    const snapshot = await service.commit({
+    const snapshot = await service.commits.commit({
       repoPath,
       title: 'Update tracked file',
       description: 'Adds a second line of commit context.'
@@ -238,7 +238,7 @@ describe('RepositoryService', () => {
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'coauthored change\n')
     git(repoPath, ['add', 'tracked.txt'])
 
-    await service.commit({
+    await service.commits.commit({
       repoPath,
       title: 'Update with coauthors',
       description: 'Adds commit trailers through BranchPilot.',
@@ -261,7 +261,7 @@ describe('RepositoryService', () => {
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'invalid coauthor\n')
     git(repoPath, ['add', 'tracked.txt'])
 
-    await expect(service.commit({
+    await expect(service.commits.commit({
       repoPath,
       title: 'Invalid coauthor',
       description: '',
@@ -276,7 +276,7 @@ describe('RepositoryService', () => {
     const service = createService()
     const originalHead = git(repoPath, ['rev-parse', 'HEAD'])
 
-    await expect(service.amendCommit({
+    await expect(service.commits.amendCommit({
       repoPath,
       title: 'Blocked amend',
       description: '',
@@ -285,7 +285,7 @@ describe('RepositoryService', () => {
       code: 'confirmation_required'
     })
 
-    const snapshot = await service.amendCommit({
+    const snapshot = await service.commits.amendCommit({
       repoPath,
       title: 'Amended initial commit',
       description: 'Keeps the tree and rewrites the commit message.',
@@ -309,7 +309,7 @@ describe('RepositoryService', () => {
     git(repoPath, ['commit', '-m', 'Change tracked file'])
     const commitToRevert = git(repoPath, ['rev-parse', 'HEAD'])
 
-    await expect(service.revertCommit({
+    await expect(service.commits.revertCommit({
       repoPath,
       commitSha: commitToRevert,
       confirmed: false
@@ -317,7 +317,7 @@ describe('RepositoryService', () => {
       code: 'confirmation_required'
     })
 
-    const snapshot = await service.revertCommit({
+    const snapshot = await service.commits.revertCommit({
       repoPath,
       commitSha: commitToRevert,
       confirmed: true
@@ -340,7 +340,7 @@ describe('RepositoryService', () => {
 
     git(repoPath, ['switch', '--quiet', 'main'])
 
-    await expect(service.cherryPickCommit({
+    await expect(service.commits.cherryPickCommit({
       repoPath,
       commitSha: commitToPick,
       confirmed: false
@@ -348,7 +348,7 @@ describe('RepositoryService', () => {
       code: 'confirmation_required'
     })
 
-    const snapshot = await service.cherryPickCommit({
+    const snapshot = await service.commits.cherryPickCommit({
       repoPath,
       commitSha: commitToPick,
       confirmed: true
@@ -400,7 +400,7 @@ describe('RepositoryService', () => {
     const unstagedDiff = await service.getDiff({ repoPath, filePath: 'tracked.txt', staged: false })
     expect(unstagedDiff.files[0].hunks).toHaveLength(2)
 
-    await service.stageHunk({
+    await service.staging.stageHunk({
       repoPath,
       filePath: 'tracked.txt',
       patch: unstagedDiff.files[0].hunks[0].patch
@@ -415,7 +415,7 @@ describe('RepositoryService', () => {
     expect(unstagedAfterStage).not.toContain('line 2 changed')
 
     const stagedDiff = await service.getDiff({ repoPath, filePath: 'tracked.txt', staged: true })
-    await service.unstageHunk({
+    await service.staging.unstageHunk({
       repoPath,
       filePath: 'tracked.txt',
       patch: stagedDiff.files[0].hunks[0].patch
@@ -453,10 +453,10 @@ describe('RepositoryService', () => {
     const diff = await service.getDiff({ repoPath, filePath: 'tracked.txt', staged: false })
     const patch = diff.files[0].hunks[0].patch
 
-    await service.stageHunk({ repoPath, filePath: 'tracked.txt', patch })
+    await service.staging.stageHunk({ repoPath, filePath: 'tracked.txt', patch })
 
     try {
-      await service.stageHunk({ repoPath, filePath: 'tracked.txt', patch })
+      await service.staging.stageHunk({ repoPath, filePath: 'tracked.txt', patch })
       throw new Error('Expected stale hunk patch to fail')
     } catch (error) {
       expect(toBranchPilotError(error).code).toBe('git_patch_failed')
@@ -509,7 +509,7 @@ describe('RepositoryService', () => {
       staged: false
     })).rejects.toMatchObject({ code: 'invalid_path' })
 
-    await expect(service.stageFile({
+    await expect(service.staging.stageFile({
       repoPath,
       filePath: path.join(repoPath, 'tracked.txt')
     })).rejects.toMatchObject({ code: 'invalid_path' })
