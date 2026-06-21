@@ -56,6 +56,7 @@ import {
   RepositoryServiceWrites
 } from './repositoryService.writes.js'
 import { RepositoryActivityAnalytics } from './repositoryService.activityAnalytics.js'
+import { RepositoryDashboardService } from './repositoryService.dashboard.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
   // Composition over inheritance: contributor / activity reporting lives in its own
@@ -65,6 +66,14 @@ export class RepositoryService extends RepositoryServiceWrites {
     getRecentRepositories: () => this.settings.getRecentRepositories(),
     getConfig: (rootPath, key, scope) => this.getConfig(rootPath, key, scope),
     git: (cwd, args, options) => this.git(cwd, args, options)
+  })
+
+  // Cross-repository portfolio scan, also a composed collaborator.
+  private readonly dashboardService = new RepositoryDashboardService({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    getRecentRepositories: () => this.settings.getRecentRepositories(),
+    getRepositoryStatusContext: (rootPath, options) => this.getRepositoryStatusContext(rootPath, options),
+    listBranches: (rootPath, options) => this.listBranches(rootPath, options)
   })
 
   getContributors(repoPath: string) {
@@ -81,6 +90,10 @@ export class RepositoryService extends RepositoryServiceWrites {
 
   getRepositoryRhythm(repoPath?: string) {
     return this.activityAnalytics.getRepositoryRhythm(repoPath)
+  }
+
+  getRepositoryDashboard(repoPath?: string) {
+    return this.dashboardService.getRepositoryDashboard(repoPath)
   }
 
   async getImagePreview(request: ImagePreviewRequest): Promise<ImagePreview> {

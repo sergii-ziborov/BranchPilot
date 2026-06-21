@@ -7,14 +7,11 @@ import type {
   CommitDetailsRequest,
   CommitFileDiffRequest,
   CommitSummary,
-  DashboardRepositorySummary,
-  DashboardStaleBranch,
   DiffRequest,
   DiffResult,
   GitConfigSnapshot,
   GitLfsSummary,
   RecentRepository,
-  RepositoryDashboardSnapshot,
   RepositorySnapshot,
   RepositoryStatus,
   RepositorySummary,
@@ -31,61 +28,18 @@ import {
   normalizeRelativePath,
   parseBranchCompareCommitCounts,
   parseCommitSummary,
-  parseStashEntry,
-  staleBranchesForRepository
+  parseStashEntry
 } from './repositoryService.helpers.js'
 import {
   MAX_BRANCH_COMPARE_SUMMARY_BYTES,
   MAX_DIFF_BYTES,
   MAX_DIFF_OUTPUT_BYTES
 } from './repositoryService.base.js'
-import { STALE_BRANCH_THRESHOLD_DAYS } from './repositoryService.constants.js'
 import { RepositoryServiceBase } from './repositoryService.base.js'
 
 export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
   async getRecentRepositories(): Promise<RecentRepository[]> {
     return this.settings.getRecentRepositories()
-  }
-
-  async getRepositoryDashboard(repoPath?: string): Promise<RepositoryDashboardSnapshot> {
-    const recentRepositories = await this.settings.getRecentRepositories()
-    const activeRootPath = repoPath ? await this.resolveRepositoryRoot(repoPath) : undefined
-    const activeRecent = activeRootPath
-      ? recentRepositories.find((repo) => repo.path === activeRootPath)
-      : undefined
-    const repositories = activeRootPath && !activeRecent
-      ? [
-          {
-            path: activeRootPath,
-            name: path.basename(activeRootPath),
-            lastOpenedAt: new Date().toISOString(),
-            pinned: false
-          },
-          ...recentRepositories
-        ]
-      : recentRepositories
-
-    const entries = await Promise.all(
-      repositories.map((repo) => this.getDashboardRepository(repo, activeRootPath))
-    )
-    const staleBranches = entries.flatMap((entry) => entry.staleBranches)
-    const dashboardRepositories = entries.map((entry) => entry.repository)
-
-    return {
-      generatedAt: new Date().toISOString(),
-      staleBranchThresholdDays: STALE_BRANCH_THRESHOLD_DAYS,
-      repositories: dashboardRepositories,
-      staleBranches,
-      totals: {
-        repositories: dashboardRepositories.length,
-        dirty: dashboardRepositories.filter((repo) => repo.state === 'dirty').length,
-        conflicted: dashboardRepositories.filter((repo) => repo.state === 'conflicted').length,
-        unavailable: dashboardRepositories.filter((repo) => repo.state === 'unavailable').length,
-        ahead: dashboardRepositories.reduce((sum, repo) => sum + repo.ahead, 0),
-        behind: dashboardRepositories.reduce((sum, repo) => sum + repo.behind, 0),
-        staleBranches: staleBranches.length
-      }
-    }
   }
 
   async getSnapshot(repoPath: string): Promise<RepositorySnapshot> {
@@ -130,81 +84,6 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       status,
       recentRepositories
     })
-  }
-
-  protected async getDashboardRepository(repo: RecentRepository, activeRootPath?: string): Promise<{
-    repository: DashboardRepositorySummary
-    staleBranches: DashboardStaleBranch[]
-  }> {
-    try {
-      const context = await this.getDashboardRepositoryContext(repo.path)
-      const state = context.status.counts.conflicted > 0 || context.status.merge.operation !== 'none'
-        ? 'conflicted'
-        : context.status.counts.changed > 0
-          ? 'dirty'
-          : 'clean'
-
-      return {
-        repository: {
-          path: context.summary.rootPath,
-          name: context.summary.name,
-          pinned: repo.pinned,
-          active: context.summary.rootPath === activeRootPath,
-          state,
-          currentBranch: context.summary.currentBranch,
-          upstream: context.summary.upstream,
-          remoteName: context.summary.remoteName,
-          ahead: context.summary.ahead,
-          behind: context.summary.behind,
-          changed: context.status.counts.changed,
-          staged: context.status.counts.staged,
-          unstaged: context.status.counts.unstaged,
-          untracked: context.status.counts.untracked,
-          conflicted: context.status.counts.conflicted,
-          mergeOperation: context.status.merge.operation,
-          lastOpenedAt: repo.lastOpenedAt
-        },
-        staleBranches: staleBranchesForRepository(context.summary.rootPath, context.summary.name, context.branches)
-      }
-    } catch (error) {
-      return {
-        repository: {
-          path: repo.path,
-          name: repo.name,
-          pinned: repo.pinned,
-          active: repo.path === activeRootPath,
-          state: 'unavailable',
-          ahead: 0,
-          behind: 0,
-          changed: 0,
-          staged: 0,
-          unstaged: 0,
-          untracked: 0,
-          conflicted: 0,
-          mergeOperation: 'none',
-          lastOpenedAt: repo.lastOpenedAt,
-          error: error instanceof Error ? error.message : 'Repository is unavailable.'
-        },
-        staleBranches: []
-      }
-    }
-  }
-
-  protected async getDashboardRepositoryContext(repoPath: string): Promise<{
-    summary: RepositorySummary
-    status: RepositoryStatus
-    branches: BranchSummary[]
-  }> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const [context, branches] = await Promise.all([
-      this.getRepositoryStatusContext(rootPath),
-      this.listBranches(rootPath, { includeDescriptions: false })
-    ])
-
-    return {
-      ...context,
-      branches
-    }
   }
 
   protected async getRepositoryStatusContext(rootPath: string, options: {
