@@ -1,6 +1,5 @@
 import { Activity, ExternalLink, Flame, FolderOpen, GitMerge, GitPullRequest, Loader2, RefreshCcw, Search, TrendingDown, TrendingUp, X } from 'lucide-react'
-import type { ContributionGraph, ContributorStat, GitHubCliStatus, GitHubPullRequest, RepositoryDashboardSnapshot, RepositoryRhythm } from '../../shared/branchPilot'
-import { ContributionHeatmap } from '../ContributionHeatmap'
+import type { ContributorStat, GitHubCliStatus, GitHubPullRequest, RepositoryDashboardSnapshot, RepositoryRhythm } from '../../shared/branchPilot'
 import type { ViewMode } from '../../lib/viewMode'
 import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, matchesDashboardStaleBranch } from '../../lib/dashboardLabels'
 import { formatDate } from '../../lib/format'
@@ -8,7 +7,6 @@ import { Stat } from '../primitives'
 
 export function DashboardView({
   repositoryDashboard,
-  contributionGraph,
   repositoryRhythm,
   contributorStats,
   dashboardRepositoryFilter,
@@ -25,7 +23,6 @@ export function DashboardView({
   allReposMode
 }: {
   repositoryDashboard: RepositoryDashboardSnapshot | null
-  contributionGraph: ContributionGraph | null
   repositoryRhythm: RepositoryRhythm | null
   contributorStats: ContributorStat[]
   dashboardRepositoryFilter: string
@@ -81,16 +78,6 @@ export function DashboardView({
         <div className="quiet-box">Dashboard is not loaded yet.</div>
       ) : (
         <>
-          <section className="dashboard-heatmap-card">
-            <div className="dashboard-section-heading">
-              <div>
-                <h3>Commit activity</h3>
-                <p>Commits across your repositories over the last year.</p>
-              </div>
-            </div>
-            <ContributionHeatmap graph={contributionGraph} />
-          </section>
-
           {repositoryRhythm && (() => {
             const r = repositoryRhythm
             const weekDelta = r.commitsThisWeek - r.commitsLastWeek

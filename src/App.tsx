@@ -120,7 +120,6 @@ function App() {
               <div className="dashboard-stack">
                 <DashboardView
                   repositoryDashboard={repositoryDashboard}
-                  contributionGraph={contributionGraph}
                   repositoryRhythm={repositoryRhythm}
                   contributorStats={contributorStats}
                   dashboardRepositoryFilter={dashboardRepositoryFilter}
