@@ -1,10 +1,8 @@
 import { Bot, Code2, Database, FolderOpen, GitBranch, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
 import { BranchPilotLogo } from '../BrandIcons'
 import { BackToChanges } from '../BackToChanges'
-import type {
-  ApiResult, AssistantId, BranchPilotApi, EditorPreference, EditorSettings, GitConfigSnapshot,
-  GitOperationResult, RemoteSummary, RepositorySnapshot, SubmoduleSummary, TagSummary, WorktreeSummary
-} from '../../shared/branchPilot'
+import type { AssistantId, EditorPreference } from '../../shared/branchPilot'
+import { useController } from '../../hooks/AppControllerContext'
 import { WorktreesTagsPanel } from '../WorktreesTagsPanel'
 import { gitDefaultBranchLabel, gitSigningLabel } from '../../lib/gitConfigLabels'
 import { editorPreferenceLabel } from '../../lib/editorLabels'
@@ -12,109 +10,24 @@ import { gitLfsFileLabel, submoduleStatusLabel } from '../../lib/gitEntityLabels
 import { formatDate } from '../../lib/format'
 import { InfoRow } from '../primitives'
 
-export function ConfigView({
-  onBack,
-  appVersion,
-  selectedAssistant,
-  setSelectedAssistant,
-  loadGitConfig,
-  busy,
-  localUserName,
-  setLocalUserName,
-  localUserEmail,
-  setLocalUserEmail,
-  saveLocalGitIdentity,
-  gitConfig,
-  editorPreference,
-  setEditorPreference,
-  editorPreferences,
-  editorCustomCommand,
-  setEditorCustomCommand,
-  saveEditorSettings,
-  editorSettings,
-  editorSettingsLoading,
-  remoteName,
-  setRemoteName,
-  remoteUrl,
-  setRemoteUrl,
-  saveRemote,
-  editingRemoteName,
-  cancelRemoteEdit,
-  startRemoteEdit,
-  removeRemote,
-  snapshot,
-  updateSubmodule,
-  openSubmodule,
-  runOperationAction,
-  api,
-  pullGitLfs,
-  newWorktreeBranchName,
-  setNewWorktreeBranchName,
-  newWorktreeBaseRef,
-  setNewWorktreeBaseRef,
-  createWorktree,
-  openWorktree,
-  removeWorktree,
-  tagFilter,
-  setTagFilter,
-  newTagName,
-  setNewTagName,
-  newTagMessage,
-  setNewTagMessage,
-  createTag,
-  deleteTag
-}: {
+export function ConfigView({ onBack, editorPreferences }: {
   onBack: () => void
-  appVersion: string
-  selectedAssistant: AssistantId
-  setSelectedAssistant: (assistant: AssistantId) => void
-  loadGitConfig: () => void | Promise<void>
-  busy: boolean
-  localUserName: string
-  setLocalUserName: (value: string) => void
-  localUserEmail: string
-  setLocalUserEmail: (value: string) => void
-  saveLocalGitIdentity: () => void | Promise<void>
-  gitConfig: GitConfigSnapshot | null
-  editorPreference: EditorPreference
-  setEditorPreference: (preference: EditorPreference) => void
   editorPreferences: EditorPreference[]
-  editorCustomCommand: string
-  setEditorCustomCommand: (value: string) => void
-  saveEditorSettings: () => void | Promise<void>
-  editorSettings: EditorSettings | null
-  editorSettingsLoading: boolean
-  remoteName: string
-  setRemoteName: (value: string) => void
-  remoteUrl: string
-  setRemoteUrl: (value: string) => void
-  saveRemote: () => void | Promise<void>
-  editingRemoteName: string | null
-  cancelRemoteEdit: () => void
-  startRemoteEdit: (remote: RemoteSummary) => void
-  removeRemote: (remote: RemoteSummary) => void | Promise<void>
-  snapshot: RepositorySnapshot | null
-  updateSubmodule: (submodule?: SubmoduleSummary) => void | Promise<void>
-  openSubmodule: (submodule: SubmoduleSummary) => void | Promise<void>
-  runOperationAction: (label: string, action: () => Promise<ApiResult<GitOperationResult>>) => void | Promise<void>
-  api: BranchPilotApi | undefined
-  pullGitLfs: () => void | Promise<void>
-  newWorktreeBranchName: string
-  setNewWorktreeBranchName: (value: string) => void
-  newWorktreeBaseRef: string
-  setNewWorktreeBaseRef: (value: string) => void
-  createWorktree: () => void | Promise<void>
-  openWorktree: (worktree: WorktreeSummary) => void | Promise<void>
-  removeWorktree: (worktree: WorktreeSummary) => void | Promise<void>
-  tagFilter: string
-  setTagFilter: (value: string) => void
-  newTagName: string
-  setNewTagName: (value: string) => void
-  newTagMessage: string
-  setNewTagMessage: (value: string) => void
-  createTag: () => void | Promise<void>
-  deleteTag: (tag: TagSummary) => void | Promise<void>
 }) {
+  const api = window.branchPilot
+  const {
+    appVersion, selectedAssistant, setSelectedAssistant, loadGitConfig, busy,
+    localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, saveLocalGitIdentity,
+    gitConfig, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand,
+    saveEditorSettings, editorSettings, editorSettingsLoading,
+    remoteName, setRemoteName, remoteUrl, setRemoteUrl, saveRemote, editingRemoteName,
+    cancelRemoteEdit, startRemoteEdit, removeRemote, snapshot,
+    updateSubmodule, openSubmodule, runOperationAction, pullGitLfs,
+    newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef,
+    createWorktree, openWorktree, removeWorktree,
+    tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage,
+    createTag, deleteTag
+  } = useController()
     return (
     <section className="single-panel">
       <div className="panel-heading">
