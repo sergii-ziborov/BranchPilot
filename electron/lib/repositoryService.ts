@@ -53,6 +53,7 @@ import { RepositoryActivityAnalytics } from './repositoryService.activityAnalyti
 import { RepositoryDashboardService } from './repositoryService.dashboard.js'
 import { RepositoryStashService } from './repositoryService.stash.js'
 import { RepositoryConfigService } from './repositoryService.config.js'
+import { RepositoryWorktreeTagService } from './repositoryService.worktreeTag.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
   // Composition over inheritance: contributor / activity reporting lives in its own
@@ -90,6 +91,39 @@ export class RepositoryService extends RepositoryServiceWrites {
     assertRemoteMissing: (rootPath, name) => this.assertRemoteMissing(rootPath, name),
     assertRemoteExists: (rootPath, name) => this.assertRemoteExists(rootPath, name)
   })
+
+  // Tag + linked-worktree management as a composed collaborator.
+  private readonly worktreeTagService = new RepositoryWorktreeTagService({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    git: (cwd, args, options) => this.git(cwd, args, options),
+    getSnapshot: (repoPath) => this.getSnapshot(repoPath),
+    getCurrentBranch: (rootPath) => this.getCurrentBranch(rootPath),
+    assertValidTagName: (rootPath, tagName) => this.assertValidTagName(rootPath, tagName),
+    assertValidBranchName: (rootPath, branchName) => this.assertValidBranchName(rootPath, branchName),
+    assertBranchDoesNotExist: (rootPath, branchName) => this.assertBranchDoesNotExist(rootPath, branchName),
+    assertValidBaseRef: (rootPath, baseRef) => this.assertValidBaseRef(rootPath, baseRef),
+    listRepositoryWorktrees: (rootPath) => this.listRepositoryWorktrees(rootPath)
+  })
+
+  listWorktrees(repoPath: string) {
+    return this.worktreeTagService.listWorktrees(repoPath)
+  }
+
+  createTag(request: CreateTagRequest) {
+    return this.worktreeTagService.createTag(request)
+  }
+
+  deleteTag(request: DeleteTagRequest) {
+    return this.worktreeTagService.deleteTag(request)
+  }
+
+  createWorktree(request: CreateWorktreeRequest) {
+    return this.worktreeTagService.createWorktree(request)
+  }
+
+  removeWorktree(request: RemoveWorktreeRequest) {
+    return this.worktreeTagService.removeWorktree(request)
+  }
 
   getContributors(repoPath: string) {
     return this.activityAnalytics.getContributors(repoPath)

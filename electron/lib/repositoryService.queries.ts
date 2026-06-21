@@ -14,8 +14,7 @@ import type {
   RepositorySnapshot,
   RepositoryStatus,
   RepositorySummary,
-  SubmoduleSummary,
-  WorktreeSummary
+  SubmoduleSummary
 } from '../../src/shared/branchPilot.js'
 import { parseUnifiedDiff } from './diffParser.js'
 import { BranchPilotUserError } from './errors.js'
@@ -270,11 +269,6 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       summaryText: summary.stdout.trim(),
       tooLarge: Boolean(summary.stdoutTruncated)
     }
-  }
-
-  async listWorktrees(repoPath: string): Promise<WorktreeSummary[]> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    return this.listRepositoryWorktrees(rootPath)
   }
 
   async listSubmodules(repoPath: string): Promise<SubmoduleSummary[]> {

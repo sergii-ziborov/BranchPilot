@@ -4,15 +4,11 @@ import {
 import path from 'node:path'
 import type {
   ApplyPatchRequest,
-  CreateTagRequest,
-  CreateWorktreeRequest,
-  DeleteTagRequest,
   ExportPatchRequest,
   ExportedPatch,
   FileActionRequest,
   MergeBranchRequest,
   PublishBranchRequest,
-  RemoveWorktreeRequest,
   RepositorySnapshot,
   UpdateSubmoduleRequest
 } from '../../src/shared/branchPilot.js'
@@ -24,18 +20,14 @@ import {
 } from './errors.js'
 import {
   assertPatchFileExists,
-  assertWorktreeTargetAvailable,
   isConflictOutput,
   normalizeBranchName,
   normalizeConfigValue,
-  normalizeExistingWorktreePath,
   normalizeGitRef,
   normalizePatchInputPath,
   normalizePatchOutputPath,
   normalizePatchScope,
-  normalizeRelativePath,
-  normalizeTagName,
-  normalizeWorktreePath
+  normalizeRelativePath
 } from './repositoryService.helpers.js'
 import {
   DEFAULT_REMOTE
@@ -179,82 +171,6 @@ export class RepositoryServiceWrites extends RepositoryServiceQueries {
     }
 
     await this.git(rootPath, ['branch', force ? '-D' : '-d', normalizedName])
-    return this.getSnapshot(rootPath)
-  }
-
-  async createTag(request: CreateTagRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const tagName = normalizeTagName(request.tagName)
-    await this.assertValidTagName(rootPath, tagName)
-
-    const message = request.message?.trim()
-
-    if (message) {
-      await this.git(rootPath, ['tag', '-a', tagName, '-m', normalizeConfigValue(message, 'Tag message')])
-    } else {
-      await this.git(rootPath, ['tag', tagName])
-    }
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async deleteTag(request: DeleteTagRequest): Promise<RepositorySnapshot> {
-    if (!request.confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Deleting a tag requires explicit confirmation.')
-    }
-
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const tagName = normalizeTagName(request.tagName)
-    await this.assertValidTagName(rootPath, tagName)
-    await this.git(rootPath, ['tag', '-d', tagName])
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async createWorktree(request: CreateWorktreeRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const branchName = normalizeBranchName(request.branchName)
-    const baseRef = normalizeGitRef(request.baseRef || await this.getCurrentBranch(rootPath) || 'HEAD')
-    const targetPath = normalizeWorktreePath(rootPath, request.targetPath)
-
-    await this.assertValidBranchName(rootPath, branchName)
-    await this.assertBranchDoesNotExist(rootPath, branchName)
-    await this.assertValidBaseRef(rootPath, baseRef)
-    await assertWorktreeTargetAvailable(targetPath)
-    await this.git(rootPath, ['worktree', 'add', '-b', branchName, targetPath, baseRef], { timeoutMs: 120_000 })
-
-    return this.getSnapshot(rootPath)
-  }
-
-  async removeWorktree(request: RemoveWorktreeRequest): Promise<RepositorySnapshot> {
-    if (!request.confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Removing a worktree requires explicit confirmation.')
-    }
-
-    if (request.force) {
-      throw new BranchPilotUserError('unsupported_force_remove', 'Force removing worktrees is not available in BranchPilot v1.')
-    }
-
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const targetPath = await normalizeExistingWorktreePath(rootPath, request.targetPath)
-    const worktree = (await this.listRepositoryWorktrees(rootPath))
-      .find((candidate) => path.resolve(candidate.path) === targetPath)
-
-    if (!worktree) {
-      throw new BranchPilotUserError('worktree_not_found', 'Worktree is not linked to this repository.')
-    }
-
-    if (worktree.current) {
-      throw new BranchPilotUserError('current_worktree', 'Cannot remove the currently open worktree.')
-    }
-
-    await this.git(rootPath, [
-      'worktree',
-      'remove',
-      ...(request.force ? ['--force'] : []),
-      worktree.path
-    ], { timeoutMs: 120_000 })
-
     return this.getSnapshot(rootPath)
   }
 
