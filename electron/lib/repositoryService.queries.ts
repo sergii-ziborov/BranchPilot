@@ -9,7 +9,6 @@ import type {
   CommitSummary,
   DiffRequest,
   DiffResult,
-  GitConfigSnapshot,
   GitLfsSummary,
   RecentRepository,
   RepositorySnapshot,
@@ -233,34 +232,6 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       binary,
       tooLarge,
       files: binary || tooLarge ? [] : parseUnifiedDiff(text)
-    }
-  }
-
-  async getGitConfig(repoPath: string): Promise<GitConfigSnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const localUserName = await this.getConfig(rootPath, 'user.name', 'local')
-    const localUserEmail = await this.getConfig(rootPath, 'user.email', 'local')
-    const globalUserName = await this.getConfig(rootPath, 'user.name', 'global')
-    const globalUserEmail = await this.getConfig(rootPath, 'user.email', 'global')
-    const localSigning = await this.getConfig(rootPath, 'commit.gpgsign', 'local')
-    const globalSigning = await this.getConfig(rootPath, 'commit.gpgsign', 'global')
-    const signingValue = localSigning ?? globalSigning
-    const remotes = await this.listRemotes(rootPath)
-    const defaultBranch = await this.getDefaultBranch(rootPath, remotes)
-
-    return {
-      localUserName,
-      localUserEmail,
-      globalUserName,
-      globalUserEmail,
-      effectiveUserName: localUserName ?? globalUserName,
-      effectiveUserEmail: localUserEmail ?? globalUserEmail,
-      defaultBranch: defaultBranch.name,
-      defaultBranchSource: defaultBranch.source,
-      defaultBranchRemote: defaultBranch.remote,
-      commitSigningEnabled: signingValue ? signingValue === 'true' : undefined,
-      commitSigningSource: localSigning ? 'local' : globalSigning ? 'global' : 'unset',
-      remotes
     }
   }
 

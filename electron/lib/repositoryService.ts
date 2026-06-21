@@ -13,7 +13,6 @@ import type {
   FileActionRequest,
   ImagePreview,
   ImagePreviewRequest,
-  GitConfigSnapshot,
   GitIdentityUpdate,
   HunkActionRequest,
   RecentRepository,
@@ -43,11 +42,8 @@ import {
   normalizeCloneRemoteUrl,
   normalizeCloneTargetName,
   normalizeCommitSha,
-  normalizeConfigValue,
   normalizeHunkPatch,
   normalizeRelativePath,
-  normalizeRemoteName,
-  normalizeRemoteUrl,
   pathExists
 } from './repositoryService.helpers.js'
 import {
@@ -56,6 +52,7 @@ import {
 import { RepositoryActivityAnalytics } from './repositoryService.activityAnalytics.js'
 import { RepositoryDashboardService } from './repositoryService.dashboard.js'
 import { RepositoryStashService } from './repositoryService.stash.js'
+import { RepositoryConfigService } from './repositoryService.config.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
   // Composition over inheritance: contributor / activity reporting lives in its own
@@ -81,6 +78,17 @@ export class RepositoryService extends RepositoryServiceWrites {
     git: (cwd, args, options) => this.git(cwd, args, options),
     getSnapshot: (repoPath) => this.getSnapshot(repoPath),
     getStatusOnlySnapshot: (rootPath) => this.getStatusOnlySnapshot(rootPath)
+  })
+
+  // Git identity, signing and remote management as a composed collaborator.
+  private readonly configService = new RepositoryConfigService({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    git: (cwd, args, options) => this.git(cwd, args, options),
+    getConfig: (rootPath, key, scope) => this.getConfig(rootPath, key, scope),
+    listRemotes: (rootPath) => this.listRemotes(rootPath),
+    getDefaultBranch: (rootPath, remotes) => this.getDefaultBranch(rootPath, remotes),
+    assertRemoteMissing: (rootPath, name) => this.assertRemoteMissing(rootPath, name),
+    assertRemoteExists: (rootPath, name) => this.assertRemoteExists(rootPath, name)
   })
 
   getContributors(repoPath: string) {
@@ -211,51 +219,24 @@ export class RepositoryService extends RepositoryServiceWrites {
     return this.settings.setRepositoryPinned(rootPath, request.pinned)
   }
 
-  async setLocalGitIdentity(request: GitIdentityUpdate): Promise<GitConfigSnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const name = normalizeConfigValue(request.name, 'Name')
-    const email = normalizeConfigValue(request.email, 'Email')
-
-    await this.git(rootPath, ['config', '--local', 'user.name', name])
-    await this.git(rootPath, ['config', '--local', 'user.email', email])
-
-    return this.getGitConfig(rootPath)
+  getGitConfig(repoPath: string) {
+    return this.configService.getGitConfig(repoPath)
   }
 
-  async addRemote(request: RemoteUpsertRequest): Promise<GitConfigSnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const name = normalizeRemoteName(request.name)
-    const url = normalizeRemoteUrl(request.url)
-
-    await this.assertRemoteMissing(rootPath, name)
-    await this.git(rootPath, ['remote', 'add', name, url])
-
-    return this.getGitConfig(rootPath)
+  setLocalGitIdentity(request: GitIdentityUpdate) {
+    return this.configService.setLocalGitIdentity(request)
   }
 
-  async setRemoteUrl(request: RemoteUpsertRequest): Promise<GitConfigSnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const name = normalizeRemoteName(request.name)
-    const url = normalizeRemoteUrl(request.url)
-
-    await this.assertRemoteExists(rootPath, name)
-    await this.git(rootPath, ['remote', 'set-url', name, url])
-
-    return this.getGitConfig(rootPath)
+  addRemote(request: RemoteUpsertRequest) {
+    return this.configService.addRemote(request)
   }
 
-  async removeRemote(request: RemoteRemoveRequest): Promise<GitConfigSnapshot> {
-    if (!request.confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Removing a remote requires explicit confirmation.')
-    }
+  setRemoteUrl(request: RemoteUpsertRequest) {
+    return this.configService.setRemoteUrl(request)
+  }
 
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const name = normalizeRemoteName(request.name)
-
-    await this.assertRemoteExists(rootPath, name)
-    await this.git(rootPath, ['remote', 'remove', name])
-
-    return this.getGitConfig(rootPath)
+  removeRemote(request: RemoteRemoveRequest) {
+    return this.configService.removeRemote(request)
   }
 
   async stageFile(request: FileActionRequest): Promise<RepositorySnapshot> {
