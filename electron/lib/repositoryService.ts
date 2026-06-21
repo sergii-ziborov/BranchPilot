@@ -55,8 +55,34 @@ import {
 import {
   RepositoryServiceWrites
 } from './repositoryService.writes.js'
+import { RepositoryActivityAnalytics } from './repositoryService.activityAnalytics.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
+  // Composition over inheritance: contributor / activity reporting lives in its own
+  // collaborator, wired to a narrow slice of this service's git kernel.
+  private readonly activityAnalytics = new RepositoryActivityAnalytics({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    getRecentRepositories: () => this.settings.getRecentRepositories(),
+    getConfig: (rootPath, key, scope) => this.getConfig(rootPath, key, scope),
+    git: (cwd, args, options) => this.git(cwd, args, options)
+  })
+
+  getContributors(repoPath: string) {
+    return this.activityAnalytics.getContributors(repoPath)
+  }
+
+  getContributorStats(repoPath?: string) {
+    return this.activityAnalytics.getContributorStats(repoPath)
+  }
+
+  getContributionGraph(repoPath?: string) {
+    return this.activityAnalytics.getContributionGraph(repoPath)
+  }
+
+  getRepositoryRhythm(repoPath?: string) {
+    return this.activityAnalytics.getRepositoryRhythm(repoPath)
+  }
+
   async getImagePreview(request: ImagePreviewRequest): Promise<ImagePreview> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     const relativePath = normalizeRelativePath(request.filePath)
