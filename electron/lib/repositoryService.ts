@@ -48,8 +48,6 @@ import {
   normalizeRelativePath,
   normalizeRemoteName,
   normalizeRemoteUrl,
-  normalizeStashMessage,
-  normalizeStashRef,
   pathExists
 } from './repositoryService.helpers.js'
 import {
@@ -57,6 +55,7 @@ import {
 } from './repositoryService.writes.js'
 import { RepositoryActivityAnalytics } from './repositoryService.activityAnalytics.js'
 import { RepositoryDashboardService } from './repositoryService.dashboard.js'
+import { RepositoryStashService } from './repositoryService.stash.js'
 
 export class RepositoryService extends RepositoryServiceWrites {
   // Composition over inheritance: contributor / activity reporting lives in its own
@@ -74,6 +73,14 @@ export class RepositoryService extends RepositoryServiceWrites {
     getRecentRepositories: () => this.settings.getRecentRepositories(),
     getRepositoryStatusContext: (rootPath, options) => this.getRepositoryStatusContext(rootPath, options),
     listBranches: (rootPath, options) => this.listBranches(rootPath, options)
+  })
+
+  // Stash domain (list / push / apply / drop) as a composed collaborator.
+  private readonly stashService = new RepositoryStashService({
+    resolveRepositoryRoot: (selectedPath) => this.resolveRepositoryRoot(selectedPath),
+    git: (cwd, args, options) => this.git(cwd, args, options),
+    getSnapshot: (repoPath) => this.getSnapshot(repoPath),
+    getStatusOnlySnapshot: (rootPath) => this.getStatusOnlySnapshot(rootPath)
   })
 
   getContributors(repoPath: string) {
@@ -449,42 +456,19 @@ export class RepositoryService extends RepositoryServiceWrites {
     throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
   }
 
-  async createStash(request: CreateStashRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const snapshot = await this.getSnapshot(rootPath)
-
-    if (snapshot.status.counts.changed === 0) {
-      throw new BranchPilotUserError('nothing_to_stash', 'No local changes to stash.')
-    }
-
-    const args = ['stash', 'push']
-
-    if (request.includeUntracked) {
-      args.push('-u')
-    }
-
-    args.push('-m', normalizeStashMessage(request.message))
-
-    await this.git(rootPath, args, { timeoutMs: 120_000 })
-
-    return this.getStatusOnlySnapshot(rootPath)
+  listStashes(repoPath: string) {
+    return this.stashService.listStashes(repoPath)
   }
 
-  async applyStash(request: StashActionRequest): Promise<RepositorySnapshot> {
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    await this.git(rootPath, ['stash', 'apply', normalizeStashRef(request.stashRef)], { timeoutMs: 120_000 })
-
-    return this.getStatusOnlySnapshot(rootPath)
+  createStash(request: CreateStashRequest) {
+    return this.stashService.createStash(request)
   }
 
-  async dropStash(request: ConfirmedStashActionRequest): Promise<RepositorySnapshot> {
-    if (!request.confirmed) {
-      throw new BranchPilotUserError('confirmation_required', 'Dropping a stash requires explicit confirmation.')
-    }
+  applyStash(request: StashActionRequest) {
+    return this.stashService.applyStash(request)
+  }
 
-    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    await this.git(rootPath, ['stash', 'drop', normalizeStashRef(request.stashRef)], { timeoutMs: 120_000 })
-
-    return this.getStatusOnlySnapshot(rootPath)
+  dropStash(request: ConfirmedStashActionRequest) {
+    return this.stashService.dropStash(request)
   }
 }

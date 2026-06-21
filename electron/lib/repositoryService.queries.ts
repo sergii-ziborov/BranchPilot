@@ -15,7 +15,6 @@ import type {
   RepositorySnapshot,
   RepositoryStatus,
   RepositorySummary,
-  StashEntry,
   SubmoduleSummary,
   WorktreeSummary
 } from '../../src/shared/branchPilot.js'
@@ -27,8 +26,7 @@ import {
   normalizeCommitSha,
   normalizeRelativePath,
   parseBranchCompareCommitCounts,
-  parseCommitSummary,
-  parseStashEntry
+  parseCommitSummary
 } from './repositoryService.helpers.js'
 import {
   MAX_BRANCH_COMPARE_SUMMARY_BYTES,
@@ -264,18 +262,6 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       commitSigningSource: localSigning ? 'local' : globalSigning ? 'global' : 'unset',
       remotes
     }
-  }
-
-  async listStashes(repoPath: string): Promise<StashEntry[]> {
-    const rootPath = await this.resolveRepositoryRoot(repoPath)
-    const result = await this.git(rootPath, ['stash', 'list', '--format=%gd%x00%H%x00%cr%x00%gs'], {
-      allowedExitCodes: [0]
-    })
-
-    return result.stdout
-      .split('\n')
-      .filter(Boolean)
-      .map(parseStashEntry)
   }
 
   async compareBranch(request: BranchCompareRequest): Promise<BranchComparison> {
