@@ -5,7 +5,7 @@ import { CommandRunner } from './commandRunner.js'
 import { BranchPilotUserError } from './errors.js'
 
 const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
-  preference: 'auto'
+  preference: 'vscode'
 }
 
 interface EditorPreset {

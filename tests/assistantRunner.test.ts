@@ -17,6 +17,7 @@ import {
   generateCommitMessage,
   generateLinkedInProject,
   generatePullRequestText,
+  generateRepositoryStarter,
   generateReviewReport,
   listAssistantStatuses
 } from '../electron/assistants/assistantRunner'
@@ -410,6 +411,38 @@ describe('assistant commit message generation', () => {
     expect(runner.assistantPrompt).toContain('Add project metadata')
     expect(runner.assistantPrompt).toContain('BranchPilot README context')
     expect(runner.assistantPrompt).toContain('electron')
+  })
+
+  it('generates repository starter files including .gitignore', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({
+      available: ['codex'],
+      assistantOutput: JSON.stringify({
+        description: 'A local-first desktop Git client.',
+        readme: '# BranchPilot\n\nA local-first desktop Git client.',
+        gitignore: 'node_modules/\ndist/\n.env.local\n'
+      })
+    })
+
+    writeFileSync(path.join(repoPath, 'package.json'), '{"scripts":{"build":"vite build"},"dependencies":{"vite":"latest"}}\n')
+    git(repoPath, ['add', 'package.json'])
+    git(repoPath, ['commit', '-m', 'Add package metadata'])
+
+    const result = await generateRepositoryStarter(runner, {
+      repoPath,
+      assistant: 'auto',
+      repositoryName: 'BranchPilot'
+    })
+
+    expect(result).toMatchObject({
+      description: 'A local-first desktop Git client.',
+      gitignore: 'node_modules/\ndist/\n.env.local',
+      assistant: 'codex',
+      truncated: false
+    })
+    expect(runner.assistantPrompt).toContain('"gitignore":"..."')
+    expect(runner.assistantPrompt).toContain('gitignore is required')
+    expect(runner.assistantPrompt).toContain('vite build')
   })
 
   it('rejects branch description generation for missing branches', async () => {

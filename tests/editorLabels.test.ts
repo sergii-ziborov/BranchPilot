@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editorPreferenceLabel } from '../src/lib/editorLabels'
+import { editorPreferenceCommandHint, editorPreferenceLabel } from '../src/lib/editorLabels'
 
 describe('editorPreferenceLabel', () => {
   it('labels each known editor preference', () => {
@@ -13,5 +13,10 @@ describe('editorPreferenceLabel', () => {
 
   it('falls back to a custom-command label', () => {
     expect(editorPreferenceLabel('custom')).toBe('Custom command')
+  })
+
+  it('shows a ready VS Code command hint for settings', () => {
+    expect(editorPreferenceCommandHint('vscode')).toBe('code --goto %TARGET_PATH%')
+    expect(editorPreferenceCommandHint('custom')).toBe('')
   })
 })

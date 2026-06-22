@@ -13,11 +13,11 @@ describe('SettingsStore', () => {
     }
   })
 
-  it('defaults editor settings to auto', async () => {
+  it('defaults editor settings to Visual Studio Code', async () => {
     const store = createStore()
 
     await expect(store.getEditorSettings()).resolves.toEqual({
-      preference: 'auto'
+      preference: 'vscode'
     })
   })
 
