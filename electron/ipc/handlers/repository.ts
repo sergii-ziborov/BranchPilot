@@ -1,12 +1,15 @@
-import { app, dialog } from 'electron'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
+const require = createRequire(import.meta.url)
+const { app, BrowserWindow, dialog } = require('electron') as typeof import('electron')
 // ESM module: `__dirname` is not defined, so derive it from the module URL.
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 import type {
   ActivityLogQuery,
   AssistantPolicyUpdate,
+  ChromeThemeRequest,
   CloneRepositoryRequest,
   CommitDetailsRequest,
   CommitFileDiffRequest,
@@ -21,6 +24,14 @@ import { withProjectMemoryRefresh } from '../ipcTypes.js'
 import type { createIpcHelpers } from '../ipcHelpers.js'
 import type { RegisterIpcHandlersServices } from '../ipcTypes.js'
 
+function normalizeChromeThemeColor(value: string | undefined, fallback: string): string {
+  const color = value?.trim()
+
+  return color && /^(#[\da-f]{3,8}|rgba?\([^)]+\)|color\([^)]+\))$/i.test(color)
+    ? color
+    : fallback
+}
+
 export function registerRepositoryHandlers(
   helpers: ReturnType<typeof createIpcHelpers>,
   services: RegisterIpcHandlersServices
@@ -29,6 +40,19 @@ export function registerRepositoryHandlers(
   const { repositoryService, assistantPolicyService, activityLogService, projectMemoryService, projectWikiService, dailyReviewService, projectMemoryDir, projectWikiDir, activityLogDir } = services
 
   handleUnwrapped('app:version', () => app.getVersion())
+  handleUnwrapped('app:setChromeTheme', (request: ChromeThemeRequest) => {
+    const window = BrowserWindow.getAllWindows().find((candidate) => !candidate.isDestroyed())
+
+    if (!window || process.platform === 'darwin') {
+      return
+    }
+
+    window.setTitleBarOverlay({
+      color: normalizeChromeThemeColor(request.backgroundColor, '#f8fafc'),
+      symbolColor: normalizeChromeThemeColor(request.symbolColor, '#0f172a'),
+      height: 32
+    })
+  })
 
   handleLogged('repository:chooseAndOpen', {
     type: 'repository_opened',
@@ -98,7 +122,9 @@ export function registerRepositoryHandlers(
   handle('repository:imagePreview', (request: ImagePreviewRequest) => repositoryService.getImagePreview(request))
   handle('repository:contributionGraph', (repoPath?: string) => repositoryService.activity.getContributionGraph(repoPath))
   handle('repository:rhythm', (repoPath?: string) => repositoryService.activity.getRepositoryRhythm(repoPath))
-  handle('repository:contributorStats', (repoPath?: string) => repositoryService.activity.getContributorStats(repoPath))
+  handle('repository:contributorStats', (request?: string | { repoPath?: string; window?: 'all' | 'year' | 'month' | 'week' | 'day' }) =>
+    repositoryService.activity.getContributorStats(request)
+  )
   handle('repository:contributors', (repoPath: string) => repositoryService.activity.getContributors(repoPath))
   handle('repository:history', (repoPath: string) => repositoryService.getHistory(repoPath))
   handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))

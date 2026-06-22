@@ -20,6 +20,7 @@ import type {
 import { CommandRunner } from './commandRunner.js'
 import { BranchPilotUserError } from './errors.js'
 import { parseGitStatus } from './gitStatusParser.js'
+import { GIT_EXECUTABLE, normalizeNativePath } from './platformExecutables.js'
 import { SettingsStore } from './settingsStore.js'
 import {
   gitLfsMessage,
@@ -239,7 +240,7 @@ export abstract class RepositoryServiceBase {
 
   protected async resolveRepositoryRoot(selectedPath: string): Promise<string> {
     const result = await this.git(selectedPath, ['rev-parse', '--show-toplevel'])
-    return result.stdout.trim()
+    return normalizeNativePath(result.stdout.trim())
   }
 
   protected async ensureSupportedRepository(rootPath: string): Promise<void> {
@@ -584,7 +585,7 @@ export abstract class RepositoryServiceBase {
     args: string[],
     options: { allowedExitCodes?: number[]; input?: string; timeoutMs?: number; maxOutputBytes?: number } = {}
   ) {
-    return this.runner.run('/usr/bin/git', args, {
+    return this.runner.run(GIT_EXECUTABLE, args, {
       cwd,
       allowedExitCodes: options.allowedExitCodes,
       input: options.input,

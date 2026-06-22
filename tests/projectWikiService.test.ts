@@ -5,6 +5,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ActivityLogService } from '../electron/lib/activityLogService'
 import { CommandRunner } from '../electron/lib/commandRunner'
+import { GIT_EXECUTABLE, normalizeNativePath } from '../electron/lib/platformExecutables'
 import { ProjectMemoryService, ProjectMemoryStore } from '../electron/lib/projectMemoryService'
 import { ProjectWikiService, ProjectWikiStore } from '../electron/lib/projectWikiService'
 
@@ -38,7 +39,7 @@ describe('ProjectWikiService', () => {
     const wiki = result.wiki
 
     expect(result.memory.scannedFileCount).toBeGreaterThan(0)
-    expect(wiki.repository.rootPath).toBe(rootPath)
+    expect(wiki.repository.rootPath).toBe(normalizeNativePath(rootPath))
     expect(wiki.pages.map((page) => page.id)).toEqual([
       'overview',
       'module_map',
@@ -153,7 +154,7 @@ function createTempDirectory(prefix: string) {
 }
 
 function git(cwd: string, args: string[]) {
-  return execFileSync('/usr/bin/git', args, {
+  return execFileSync(GIT_EXECUTABLE, args, {
     cwd,
     encoding: 'utf8'
   }).trim()

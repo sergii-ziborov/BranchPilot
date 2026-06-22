@@ -16,8 +16,10 @@ const suggestOnlyActions: AssistantActionKind[] = [
   'pull_request_text',
   'review_report',
   'branch_draft',
-  'linkedin_project'
+  'linkedin_project',
+  'repository_starter'
 ]
+const reviewOnlyActions: AssistantActionKind[] = ['review_report', 'linkedin_project', 'repository_starter']
 
 describe('AssistantPolicyService', () => {
   afterEach(() => {
@@ -58,7 +60,7 @@ describe('AssistantPolicyService', () => {
         repoPath: '/repo/a',
         mode: 'review-only'
       },
-      allowedActions: ['review_report']
+      allowedActions: reviewOnlyActions
     })
     await expect(secondService.getAssistantPolicy('/repo/b')).resolves.toMatchObject({
       settings: {
@@ -80,7 +82,7 @@ describe('AssistantPolicyService', () => {
     })
 
     await service.setAssistantPolicy({ repoPath, mode: 'review-only' })
-    await expectAllowed(service, repoPath, ['review_report'])
+    await expectAllowed(service, repoPath, reviewOnlyActions)
     await expect(service.assertActionAllowed(repoPath, 'commit_message')).rejects.toMatchObject({
       code: 'assistant_policy_blocked'
     })
@@ -89,9 +91,6 @@ describe('AssistantPolicyService', () => {
     })
 
     await expect(service.assertActionAllowed(repoPath, 'branch_draft')).rejects.toMatchObject({
-      code: 'assistant_policy_blocked'
-    })
-    await expect(service.assertActionAllowed(repoPath, 'linkedin_project')).rejects.toMatchObject({
       code: 'assistant_policy_blocked'
     })
 
@@ -140,7 +139,14 @@ describe('AssistantPolicyService', () => {
 })
 
 async function expectAllowed(service: AssistantPolicyService, repoPath: string, actions: AssistantActionKind[]) {
-  const allActions: AssistantActionKind[] = ['commit_message', 'pull_request_text', 'review_report', 'branch_draft', 'linkedin_project']
+  const allActions: AssistantActionKind[] = [
+    'commit_message',
+    'pull_request_text',
+    'review_report',
+    'branch_draft',
+    'linkedin_project',
+    'repository_starter'
+  ]
 
   for (const action of allActions) {
     const assertion = expect(service.assertActionAllowed(repoPath, action))

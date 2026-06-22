@@ -21,16 +21,17 @@ export function getCreatePullRequestState(input: PullRequestActionInput): PullRe
     reasons.push('Open a repository.')
   } else {
     const remote = getProviderRemoteSummary(summary.remoteUrl)
+    const hasGitHubRemote = remote.kind === 'github'
 
     if (summary.isDetached) {
       reasons.push('Switch from detached HEAD to a branch.')
     }
 
-    if (!summary.upstream) {
+    if (hasGitHubRemote && !summary.upstream) {
       reasons.push('Publish the current branch.')
     }
 
-    if (remote.kind !== 'github') {
+    if (!hasGitHubRemote) {
       reasons.push(githubRemoteReason(remote.label))
     }
   }
@@ -40,7 +41,7 @@ export function getCreatePullRequestState(input: PullRequestActionInput): PullRe
   }
 
   if (!input.githubStatus?.authenticated) {
-    reasons.push('Authenticate GitHub with gh or GitHub Desktop.')
+    reasons.push('Connect GitHub with GitHub CLI or Git Credential Manager.')
   }
 
   if (input.currentPullRequestExists) {
@@ -70,7 +71,7 @@ export function getPullRequestBrowseState(
   }
 
   if (!githubStatus?.authenticated) {
-    reasons.push('Authenticate GitHub with gh or GitHub Desktop to browse pull requests.')
+    reasons.push('Connect GitHub with GitHub CLI or Git Credential Manager to browse pull requests.')
   }
 
   return {

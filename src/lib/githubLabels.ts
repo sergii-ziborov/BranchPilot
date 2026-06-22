@@ -5,7 +5,7 @@ import { formatDate } from './format'
 export function githubStatusLabel(status: GitHubCliStatus): string {
   if (status.state === 'authenticated') {
     if (status.authProvider === 'git-credential') {
-      return status.username ? `GitHub Desktop: ${status.username}` : 'GitHub Desktop credential'
+      return status.username ? `Git credential: ${status.username}` : 'Git credential'
     }
 
     return status.username ? `Authenticated as ${status.username}` : 'Authenticated'
@@ -25,7 +25,7 @@ export function githubRepositoryBrowserSourceLabel(status: GitHubCliStatus | nul
   }
 
   if (status.authProvider === 'git-credential') {
-    return 'GitHub Desktop'
+    return 'Git credential'
   }
 
   return 'gh'

@@ -14,6 +14,7 @@ import type {
 import {
   BranchPilotUserError
 } from './errors.js'
+import { GIT_EXECUTABLE, gitArgsWithCredentialManager } from './platformExecutables.js'
 import {
   cloneNameFromRemoteUrl,
   imageMimeFromPath,
@@ -174,7 +175,7 @@ export class RepositoryService extends RepositoryServiceWrites {
   /** Reads a git blob (e.g. `<sha>:<path>`) as raw bytes so binary images survive intact. */
   private readGitBlob(rootPath: string, ref: string): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) => {
-      const child = spawn('/usr/bin/git', ['-C', rootPath, 'cat-file', 'blob', ref], {
+      const child = spawn(GIT_EXECUTABLE, ['-C', rootPath, 'cat-file', 'blob', ref], {
         stdio: ['ignore', 'pipe', 'pipe']
       })
       const chunks: Buffer[] = []
@@ -230,7 +231,7 @@ export class RepositoryService extends RepositoryServiceWrites {
       throw new BranchPilotUserError('clone_target_exists', 'Clone target already exists.')
     }
 
-    await this.runner.run('/usr/bin/git', ['clone', '--', remoteUrl, targetPath], {
+    await this.runner.run(GIT_EXECUTABLE, gitArgsWithCredentialManager(['clone', '--', remoteUrl, targetPath]), {
       cwd: targetParentPath,
       timeoutMs: 120_000
     })

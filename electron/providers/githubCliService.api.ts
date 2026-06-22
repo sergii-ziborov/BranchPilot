@@ -1,9 +1,10 @@
 import { normalizeApiBranchRef, type GitHubRepositoryInfo } from './githubCliService.shared.js'
 import type {
-  GitHubAccountSummary, GitHubPullRequest, GitHubPullRequestDetails, GitHubPullRequestDiff, GitHubRepositorySummary, ListGitHubRepositoriesRequest
+  CreateGitHubRepositoryRequest, GitHubAccountSummary, GitHubPullRequest, GitHubPullRequestDetails, GitHubPullRequestDiff, GitHubRepositorySummary, ListGitHubRepositoriesRequest
 } from '../../src/shared/branchPilot.js'
 import { spawn } from 'node:child_process'
 import { BranchPilotUserError } from '../lib/errors.js'
+import { GIT_EXECUTABLE, gitArgsWithNonInteractiveCredentialManager } from '../lib/platformExecutables.js'
 import type {
   GitHubDesktopCredential, GitHubApiClient, GitHubApiPullRequest
 } from './githubCliService.js'
@@ -26,19 +27,40 @@ export async function readGitHubDesktopCredential(): Promise<GitHubDesktopCreden
 
 export async function runPrivateCredentialFill(): Promise<string> {
   return new Promise((resolve) => {
-    const child = spawn('/usr/bin/git', ['credential', 'fill'], {
+    const args = process.platform === 'win32'
+      ? ['credential-manager', 'get']
+      : gitArgsWithNonInteractiveCredentialManager(['credential', 'fill'])
+    const child = spawn(GIT_EXECUTABLE, args, {
+      env: {
+        ...process.env,
+        GCM_INTERACTIVE: 'never',
+        GIT_TERMINAL_PROMPT: '0'
+      },
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe']
     })
     let stdout = ''
+    let settled = false
+
+    const finish = (output: string) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      resolve(output)
+    }
+
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM')
+      finish('')
+    }, 5_000)
 
     child.stdout.setEncoding('utf8')
     child.stdout.on('data', (chunk: string) => {
       stdout += chunk
     })
-    child.on('error', () => resolve(''))
+    child.on('error', () => finish(''))
     child.on('close', (exitCode) => {
-      resolve(exitCode === 0 ? stdout : '')
+      finish(exitCode === 0 ? stdout : '')
     })
     child.stdin.write('protocol=https\nhost=github.com\n\n')
     child.stdin.end()
@@ -91,7 +113,7 @@ export async function getGitHubApiViewer(credential: GitHubDesktopCredential): P
   if (!response.ok || !login) {
     throw new BranchPilotUserError(
       'github_credential_invalid',
-      'GitHub Desktop credential could not be verified.',
+      'Git credential could not be verified.',
       githubApiErrorMessage(body, response.status)
     )
   }
@@ -194,33 +216,81 @@ export async function listGitHubApiRepositories(
   request: ListGitHubRepositoriesRequest
 ): Promise<GitHubRepositorySummary[]> {
   const limit = normalizeRepositoryListLimit(request.limit)
-  const url = new URL('https://api.github.com/user/repos')
-  url.searchParams.set('per_page', String(limit))
-  url.searchParams.set('sort', 'pushed')
-  url.searchParams.set('direction', 'desc')
-  url.searchParams.set('affiliation', 'owner,collaborator,organization_member')
-  url.searchParams.set('visibility', request.visibility === 'public' || request.visibility === 'private'
-    ? request.visibility
-    : 'all')
+  const repositories: GitHubRepositorySummary[] = []
+  let filteredRepositories: GitHubRepositorySummary[] = []
 
+  for (let page = 1; page <= 10 && filteredRepositories.length < limit; page += 1) {
+    const url = new URL('https://api.github.com/user/repos')
+    url.searchParams.set('per_page', '100')
+    url.searchParams.set('page', String(page))
+    url.searchParams.set('sort', 'pushed')
+    url.searchParams.set('direction', 'desc')
+    url.searchParams.set('affiliation', 'owner,collaborator,organization_member')
+    url.searchParams.set('visibility', request.visibility === 'public' || request.visibility === 'private'
+      ? request.visibility
+      : 'all')
+
+    const response = await fetch(url, {
+      headers: githubApiHeaders(credential)
+    })
+    const body = await readGitHubApiJson(response)
+
+    if (!response.ok) {
+      throw new BranchPilotUserError(
+        'github_repo_list_failed',
+        'GitHub API could not list repositories.',
+        githubApiErrorMessage(body, response.status)
+      )
+    }
+
+    if (!Array.isArray(body)) {
+      throw new BranchPilotUserError('github_repo_parse_failed', 'GitHub API did not return a repository list.')
+    }
+
+    repositories.push(...body.map((value) => normalizeGitHubRepository(value)))
+    filteredRepositories = filterGitHubRepositories(repositories, request).slice(0, limit)
+
+    if (body.length < 100) {
+      break
+    }
+  }
+
+  return filteredRepositories
+}
+
+export async function createGitHubApiRepository(
+  credential: GitHubDesktopCredential,
+  request: CreateGitHubRepositoryRequest
+): Promise<GitHubRepositorySummary> {
+  const viewer = await getGitHubApiViewer(credential)
+  const owner = request.owner.trim()
+  const url = owner === viewer.login
+    ? 'https://api.github.com/user/repos'
+    : `https://api.github.com/orgs/${encodeURIComponent(owner)}/repos`
   const response = await fetch(url, {
-    headers: githubApiHeaders(credential)
+    method: 'POST',
+    headers: {
+      ...githubApiHeaders(credential),
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: request.name.trim(),
+      description: request.description.trim(),
+      private: request.visibility === 'private',
+      auto_init: false
+    })
   })
   const body = await readGitHubApiJson(response)
 
   if (!response.ok) {
     throw new BranchPilotUserError(
-      'github_repo_list_failed',
-      'GitHub API could not list repositories.',
+      'github_repo_create_failed',
+      'GitHub API could not create the repository.',
       githubApiErrorMessage(body, response.status)
     )
   }
 
-  if (!Array.isArray(body)) {
-    throw new BranchPilotUserError('github_repo_parse_failed', 'GitHub API did not return a repository list.')
-  }
-
-  return filterGitHubRepositories(body.map((value) => normalizeGitHubRepository(value)), request)
+  return normalizeGitHubRepository(body)
 }
 
 export async function listGitHubApiPullRequests(

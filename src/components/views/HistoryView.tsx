@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Code2, Copy, ExternalLink, GitCommitHorizontal, RefreshCcw, Search, Trash2, X } from 'lucide-react'
+import { Code2, Copy, ExternalLink, GitCommitHorizontal, Search, Trash2, X } from 'lucide-react'
 import type { BranchPilotApi, CommitDetails, CommitSummary, DiffResult, ImagePreview, RepositorySnapshot } from '../../shared/branchPilot'
 import { getProviderCommitUrl } from '../../shared/providerRemote'
 import { formatDate } from '../../lib/format'
@@ -14,7 +14,6 @@ export function HistoryView({
   history,
   filteredHistory,
   historyLoading,
-  loadHistory,
   busy,
   historyFilter,
   setHistoryFilter,
@@ -37,7 +36,6 @@ export function HistoryView({
   history: CommitSummary[]
   filteredHistory: CommitSummary[]
   historyLoading: boolean
-  loadHistory: () => void | Promise<void>
   busy: boolean
   historyFilter: string
   setHistoryFilter: (value: string) => void
@@ -124,10 +122,6 @@ export function HistoryView({
             <h2>History</h2>
             <p>{history.length >= 200 ? 'Latest 200 commits on this branch.' : `${history.length} commits on this branch.`}</p>
           </div>
-          <button type="button" onClick={loadHistory} disabled={busy}>
-            <RefreshCcw size={17} />
-            Refresh
-          </button>
         </div>
 
         <div className="list-filter-bar">

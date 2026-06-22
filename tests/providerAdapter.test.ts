@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CommandExecutionError, CommandRunner, type CommandRunOptions, type CommandRunResult } from '../electron/lib/commandRunner'
+import { WHICH_EXECUTABLE } from '../electron/lib/platformExecutables'
 import { listProviderStatuses } from '../electron/providers/providerAdapter'
 import type { GitHubCredentialProvider } from '../electron/providers/githubCliService'
 
@@ -56,7 +57,7 @@ class ProviderStatusTestRunner extends CommandRunner {
   }
 
   override async run(command: string, args: string[], options: CommandRunOptions = {}): Promise<CommandRunResult> {
-    if (command === '/usr/bin/which' && args[0] === 'gh') {
+    if (command === WHICH_EXECUTABLE && args[0] === 'gh') {
       return this.complete(
         command,
         args,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import type {
-  ApiResult, BranchPilotApi, ContributionGraph, GitOperationResult, RecentRepository,
+  ApiResult, BranchPilotApi, ContributionGraph, RecentRepository,
   RepositoryDashboardSnapshot, RepositoryRhythm, RepositorySnapshot
 } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
@@ -11,9 +11,9 @@ interface UseRepositoryManagementDeps {
   currentRepoPath: string | undefined
   allReposMode: boolean
   viewMode: ViewMode
+  setViewMode: (mode: ViewMode) => void
   snapshot: RepositorySnapshot | null
   runBusyOperation: <T>(label: string, action: () => Promise<T>) => Promise<T>
-  runOperationAction: (label: string, action: () => Promise<ApiResult<GitOperationResult>>, progressLabel?: string) => Promise<void>
   applySnapshot: (nextSnapshot: RepositorySnapshot, successMessage: string) => void
   applySnapshotResult: (result: ApiResult<RepositorySnapshot>, successMessage: string) => void
   setNotice: (value: string) => void
@@ -24,8 +24,8 @@ interface UseRepositoryManagementDeps {
 /** Repository lifecycle: recent list, dashboard, open/clone/refresh, editor & terminal launch. */
 export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   const {
-    api, currentRepoPath, allReposMode, viewMode, snapshot,
-    runBusyOperation, runOperationAction, applySnapshot, applySnapshotResult,
+    api, currentRepoPath, allReposMode, viewMode, setViewMode, snapshot,
+    runBusyOperation, applySnapshot, applySnapshotResult,
     setNotice, setError, refreshProviderStatusOnly
   } = deps
 
@@ -209,12 +209,48 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
 
   async function openRepoInEditor() {
     if (!api || !currentRepoPath) return
-    await runOperationAction('Repository opened in editor.', () => api.openInEditor({ targetPath: currentRepoPath }))
+    await runBusyOperation('Opening editor...', async () => {
+      const result = await api.openInEditor({ targetPath: currentRepoPath })
+
+      if (result.ok) {
+        setNotice(result.data.message || 'Repository opened in editor.')
+        setError(null)
+        return
+      }
+
+      if (isEditorSetupError(result.error.code)) {
+        setViewMode('config')
+        setError(null)
+        setNotice(`${result.error.message} Configure your editor in Settings.`)
+        return
+      }
+
+      setError(result.error.message)
+      setNotice(branchPilotErrorText(result.error))
+    })
   }
 
   async function openRepositoryTerminal() {
     if (!api || !currentRepoPath) return
-    await runOperationAction('Terminal opened.', () => api.openTerminal(currentRepoPath))
+    await runBusyOperation('Opening terminal...', async () => {
+      const result = await api.openTerminal(currentRepoPath)
+
+      if (result.ok) {
+        setNotice(result.data.message || 'Terminal opened.')
+        setError(null)
+        return
+      }
+
+      if (result.error.code === 'terminal_open_failed') {
+        setViewMode('config')
+        setError(null)
+        setNotice(`${result.error.message} Check editor and terminal settings.`)
+        return
+      }
+
+      setError(result.error.message)
+      setNotice(branchPilotErrorText(result.error))
+    })
   }
 
   return {
@@ -226,4 +262,8 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     chooseRepository, openRepository, cloneRepository, refreshRepository,
     openRepoInEditor, openRepositoryTerminal
   }
+}
+
+function isEditorSetupError(code: string): boolean {
+  return code === 'editor_open_failed' || code === 'editor_custom_command_missing'
 }

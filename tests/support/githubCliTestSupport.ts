@@ -1,14 +1,23 @@
 import { CommandExecutionError, CommandRunner } from '../../electron/lib/commandRunner'
 import type { CommandRunOptions, CommandRunResult } from '../../electron/lib/commandRunner'
+import { GIT_EXECUTABLE, WHICH_EXECUTABLE } from '../../electron/lib/platformExecutables'
 import type { GitHubApiClient, GitHubCredentialProvider, GitHubDesktopCredential } from '../../electron/providers/githubCliService'
 import type {
-  GitHubAccountSummary, GitHubPullRequest, GitHubPullRequestCheck,
-  GitHubPullRequestDetails, GitHubPullRequestDiff, GitHubRepositorySummary
+  CoAuthor,
+  GitHubAccountSummary,
+  GitHubPullRequest,
+  GitHubPullRequestCheck,
+  GitHubPullRequestDetails,
+  GitHubPullRequestDiff,
+  GitHubRepositorySummary,
+  ListGitHubRepositoriesRequest
 } from '../../src/shared/branchPilot'
 
 export interface GitHubCliTestRunnerOptions {
   ghInstalled?: boolean
   ghAuthenticated?: boolean
+  ghAuthLoginExitCode?: number
+  gcmLoginExitCode?: number
   remoteUrl?: string
   currentBranch?: string
   upstream?: string
@@ -23,6 +32,7 @@ export interface GitHubCliTestRunnerOptions {
   prListOutput?: string
   pullRequestDetails?: GitHubPullRequestDetails
   pullRequestChecks?: GitHubPullRequestCheck[]
+  orgMembers?: Record<string, CoAuthor[]>
   prDetailsOutput?: string
   prChecksOutput?: string
   prChecksExitCode?: number
@@ -157,8 +167,10 @@ export class GitHubCliTestRunner extends CommandRunner {
   ghPrDetailsArgs: string[] = []
   ghPrChecksArgs: string[] = []
   ghPrDiffArgs: string[] = []
+  ghAuthLoginArgs: string[] = []
   ghApiArgs: string[][] = []
   ghRepoListArgs: string[] = []
+  gcmLoginArgs: string[] = []
   gitFetchArgs: string[] = []
   gitSwitchArgs: string[] = []
   gitMergeArgs: string[] = []
@@ -168,11 +180,11 @@ export class GitHubCliTestRunner extends CommandRunner {
   }
 
   override async run(command: string, args: string[], options: CommandRunOptions = {}): Promise<CommandRunResult> {
-    if (command === '/usr/bin/which' && args[0] === 'gh') {
+    if (command === WHICH_EXECUTABLE && args[0] === 'gh') {
       return this.complete(command, args, this.options.ghInstalled === false ? 1 : 0, '/tmp/branchpilot-gh\n', 'gh not found', options)
     }
 
-    if (command === '/usr/bin/git') {
+    if (command === GIT_EXECUTABLE) {
       return this.git(command, args, options)
     }
 
@@ -183,6 +195,18 @@ export class GitHubCliTestRunner extends CommandRunner {
         this.options.ghAuthenticated === false ? 1 : 0,
         'Logged in to github.com account branchpilot-user (/Users/test/.config/gh/hosts.yml)\n',
         'You are not logged into any GitHub hosts.',
+        options
+      )
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'auth' && args[1] === 'login') {
+      this.ghAuthLoginArgs = args
+      return this.complete(
+        command,
+        args,
+        this.options.ghAuthLoginExitCode ?? 0,
+        this.options.ghAuthLoginExitCode === 1 ? '' : 'Logged in\n',
+        this.options.ghAuthLoginExitCode === 1 ? 'login canceled' : '',
         options
       )
     }
@@ -264,6 +288,16 @@ export class GitHubCliTestRunner extends CommandRunner {
       return this.complete(command, args, 0, `${JSON.stringify(orgs.map(toGhAccountJson))}\n`, '', options)
     }
 
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'api' && /^orgs\/[^/]+\/members/.test(args[1] ?? '')) {
+      this.ghApiArgs.push(args)
+      const org = args[1].split('/')[1]
+      const members = this.options.orgMembers?.[org] ?? [
+        makeCoAuthor({ name: 'Ada Lovelace', login: 'ada-lovelace', email: '1001+ada-lovelace@users.noreply.github.com' })
+      ]
+
+      return this.complete(command, args, 0, `${JSON.stringify(members.map(toGhCoAuthorJson))}\n`, '', options)
+    }
+
     if (command === '/tmp/branchpilot-gh' && args[0] === 'repo' && args[1] === 'list') {
       this.ghRepoListArgs = args
 
@@ -314,6 +348,18 @@ export class GitHubCliTestRunner extends CommandRunner {
   }
 
   private git(command: string, args: string[], options: CommandRunOptions): Promise<CommandRunResult> {
+    if (args.join(' ') === 'credential-manager github login') {
+      this.gcmLoginArgs = args
+      return Promise.resolve(this.complete(
+        command,
+        args,
+        this.options.gcmLoginExitCode ?? 0,
+        this.options.gcmLoginExitCode === 1 ? '' : 'Logged in\n',
+        this.options.gcmLoginExitCode === 1 ? 'login canceled' : '',
+        options
+      ))
+    }
+
     if (args.join(' ') === 'rev-parse --show-toplevel') {
       return Promise.resolve(this.complete(command, args, 0, '/repo\n', '', options))
     }
@@ -523,6 +569,33 @@ export function makeAccount(overrides: Partial<GitHubAccountSummary> = {}): GitH
     type: overrides.type ?? 'user',
     url: `https://github.com/${login}`,
     ...overrides
+  }
+}
+
+export function makeCoAuthor(overrides: Partial<CoAuthor> = {}): CoAuthor {
+  const login = overrides.login ?? 'branchpilot-user'
+
+  return {
+    name: overrides.name ?? login,
+    email: overrides.email ?? `1000+${login}@users.noreply.github.com`,
+    login,
+    avatarUrl: overrides.avatarUrl ?? `https://avatars.githubusercontent.com/${login}`,
+    profileUrl: overrides.profileUrl ?? `https://github.com/${login}`,
+    ...overrides
+  }
+}
+
+export function toGhCoAuthorJson(coAuthor: CoAuthor) {
+  const login = coAuthor.login ?? coAuthor.name
+  const id = Number(coAuthor.email.match(/^(\d+)\+/)?.[1] ?? 1000)
+
+  return {
+    login,
+    id,
+    name: coAuthor.name,
+    avatar_url: coAuthor.avatarUrl,
+    html_url: coAuthor.profileUrl ?? `https://github.com/${login}`,
+    type: 'User'
   }
 }
 

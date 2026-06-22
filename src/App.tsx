@@ -5,7 +5,7 @@ import type {
 import { CalendarDays } from 'lucide-react'
 import { AssistantPolicyPanel } from './components/AssistantPanels'
 import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
-import { LinkedinIcon } from './components/BrandIcons'
+import { BranchPilotMark, LinkedinIcon } from './components/BrandIcons'
 import { useEffect, useState } from 'react'
 import { AppShellBar } from './components/AppShellBar'
 import { ContributionHeatmap } from './components/ContributionHeatmap'
@@ -28,6 +28,7 @@ import { ConfigView } from './components/views/ConfigView'
 import { ChangesView } from './components/views/ChangesView'
 import { BranchesView } from './components/views/BranchesView'
 import { ProvidersView } from './components/views/ProvidersView'
+import { PublishRepositoryView } from './components/views/PublishRepositoryView'
 import './App.css'
 import { useAppController } from './hooks/useAppController'
 import { AppControllerProvider } from './hooks/AppControllerContext'
@@ -40,16 +41,32 @@ const assistantPolicyModes: AssistantPolicyMode[] = [
   'allow-local-commands',
   'allow-file-edits'
 ]
-const editorPreferences: EditorPreference[] = ['auto', 'vscode', 'cursor', 'webstorm', 'rider', 'sublime', 'custom']
+const editorPreferences: EditorPreference[] = ['vscode', 'auto', 'cursor', 'webstorm', 'rider', 'sublime', 'custom']
 
 function App() {
   const controller = useAppController()
   const {
-    snapshot, viewMode, setViewMode, allReposMode, busy, operationLabel, notice, setNotice, error, setError, selectedAssistant, setSelectedAssistant, confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue, answerConfirmation, answerTextPrompt, currentRepoPath, assistants, assistantsChecking, assistantPolicy, assistantPolicyLoading, checkAssistants, updateAssistantPolicy, newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription, branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter, newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef, tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage, editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating, branchComparison, branchComparisonLoading, canGenerateBranchDraft, branchDraftActionState, createBranchActionState, generateBranchDraft, createBranch, deleteBranch, renameBranch, setBranchUpstream, compareBranch, createTag, deleteTag, createWorktree, openWorktree, removeWorktree, startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription, history, historyLoading, historyFilter, setHistoryFilter, selectedCommitSha, setSelectedCommitSha, commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory, loadHistory, loadCommitFileDiff, providers, githubCliStatus, githubAccounts, githubAccountsLoading, githubRepositories, githubRepoOwner, setGithubRepoOwner, githubRepoQuery, setGithubRepoQuery, githubRepoVisibility, setGithubRepoVisibility, githubRepoLimit, setGithubRepoLimit, githubRepoLoading, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber, selectedPullRequestDetails, selectedPullRequestChecks, selectedPullRequestDiff, selectedPullRequestFilePath, setSelectedPullRequestFilePath, pullRequestDetailsLoading, prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch, createdPullRequest, canPublishBranch, canGeneratePullRequestText, selectedPullRequestDiffResult, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, dashboardRepositoryFilter, setDashboardRepositoryFilter, cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName, loadRepositoryDashboard, chooseRepository, openRepository, cloneRepository, dailyReview, dailyReviewDate, setDailyReviewDate, dailyReviewLoading, contributorStats, runDailyReview, copyDailyReviewMarkdown, counts, selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter, diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace, diff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef, filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch, selectedMergeBranch, setSelectedMergeBranch, startMergeOperation, continueMergeOperation, abortCurrentOperation, acceptConflictSide, reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport, canRunAssistantReview, runReviewReport, commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors, canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState, commitChanges, amendLastCommit, generateCommitText, canCreateStash, stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage, createStash, createQuickStash, applyStash, dropStash, canGenerateLinkedInProject, linkedinProject, linkedinSkillsText, setLinkedinSkillsText, linkedinLoading, generateLinkedInProject, updateLinkedInProject, openExternalLink, runSnapshotAction, runOperationAction, applyCommitOperation
+    snapshot, viewMode, setViewMode, allReposMode, busy, operationLabel, notice, setNotice, error, setError, selectedAssistant, setSelectedAssistant, confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue, answerConfirmation, answerTextPrompt, currentRepoPath, assistants, assistantsChecking, assistantPolicy, assistantPolicyLoading, checkAssistants, updateAssistantPolicy, newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription, branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter, newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef, tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage, editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating, branchComparison, branchComparisonLoading, canGenerateBranchDraft, branchDraftActionState, createBranchActionState, generateBranchDraft, createBranch, deleteBranch, renameBranch, setBranchUpstream, compareBranch, createTag, deleteTag, createWorktree, openWorktree, removeWorktree, startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription, history, historyLoading, historyFilter, setHistoryFilter, selectedCommitSha, setSelectedCommitSha, commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory, loadCommitFileDiff, providers, githubCliStatus, githubAccounts, githubAccountsLoading, githubRepositories, githubRepoOwner, setGithubRepoOwner, githubRepoQuery, setGithubRepoQuery, githubRepoVisibility, setGithubRepoVisibility, githubRepoLimit, githubRepoLoading, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber, selectedPullRequestDetails, selectedPullRequestChecks, selectedPullRequestDiff, selectedPullRequestFilePath, setSelectedPullRequestFilePath, pullRequestDetailsLoading, prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch, createdPullRequest, canPublishBranch, canGeneratePullRequestText, selectedPullRequestDiffResult, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, dashboardRepositoryFilter, setDashboardRepositoryFilter, cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName, loadRepositoryDashboard, chooseRepository, openRepository, cloneRepository, dailyReview, dailyReviewDate, setDailyReviewDate, dailyReviewLoading, contributorStats, runDailyReview, copyDailyReviewMarkdown, counts, selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter, diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace, diff, imagePreview, changesActionsMenuRef, filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch, selectedMergeBranch, setSelectedMergeBranch, startMergeOperation, continueMergeOperation, abortCurrentOperation, acceptConflictSide, reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport, canRunAssistantReview, runReviewReport, commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors, canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState, commitChanges, amendLastCommit, generateCommitText, canCreateStash, stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage, createStash, createQuickStash, applyStash, dropStash, canGenerateLinkedInProject, linkedinProject, linkedinSkillsText, setLinkedinSkillsText, linkedinLoading, generateLinkedInProject, updateLinkedInProject, openExternalLink, runSnapshotAction, runOperationAction, applySnapshot, applyCommitOperation
+  } = controller
+  const {
+    appVersion, connectGitHub, contributorWindow, setContributorWindow, discardSelectedLines,
+    linkedinHighlightsText, setLinkedinHighlightsText, linkedinTagsText, setLinkedinTagsText,
+    linkedinRole, setLinkedInRole, linkedinAudience, setLinkedInAudience,
+    linkedinProjectUrl, setLinkedInProjectUrl, linkedinCustomPrompt, setLinkedInCustomPrompt,
+    resetLinkedInPrompt, copyLinkedInMarkdown, copyLinkedInTags
   } = controller
 
   const [changesTool, setChangesTool] = useState<'review' | 'stash' | null>(null)
   const [showClone, setShowClone] = useState(false)
+  const [showPublishRepository, setShowPublishRepository] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
+
+  useEffect(() => {
+    if (!api?.onMenuAction) return
+    return api.onMenuAction((action) => {
+      if (action === 'show-about') setShowAbout(true)
+    })
+  }, [])
 
   // Populate the user's GitHub repositories when the Clone dialog opens.
   useEffect(() => {
@@ -67,7 +84,6 @@ function App() {
   // OR the active repository changes while Reports is open.
   useEffect(() => {
     if (viewMode === 'daily') void loadRepositoryDashboard()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, snapshot?.summary.rootPath])
 
   useEffect(() => {
@@ -77,7 +93,7 @@ function App() {
   return (
     <AppControllerProvider value={controller}>
     <main className="app-shell">
-      <AppShellBar onOpenClone={() => setShowClone(true)} />
+      <AppShellBar onOpenClone={() => setShowClone(true)} onOpenPublishRepository={() => setShowPublishRepository(true)} />
 
       <Toaster notice={notice} busy={busy} operationLabel={operationLabel} error={error} onDismissError={() => setError(null)} />
       <GlobalTooltip />
@@ -141,8 +157,6 @@ function App() {
                 closeChangesActionsMenu={closeChangesActionsMenu}
                 createQuickStash={createQuickStash}
                 canCreateStash={canCreateStash}
-                patchScope={patchScope}
-                setPatchScope={setPatchScope}
                 exportPatch={exportPatch}
                 applyPatch={applyPatch}
                 bulkStageToggleState={bulkStageToggleState}
@@ -182,6 +196,7 @@ function App() {
                 stageSelectedHunk={stageSelectedHunk}
                 unstageSelectedHunk={unstageSelectedHunk}
                 discardSelectedHunk={discardSelectedHunk}
+                discardSelectedLines={discardSelectedLines}
                 itemHeight={CHANGE_LIST_ITEM_HEIGHT}
                 />
                 {changesTool === 'stash' && (
@@ -201,7 +216,7 @@ function App() {
                   </ToolModal>
                 )}
                 {changesTool === 'review' && (
-                  <ToolModal title="Review" onClose={() => setChangesTool(null)}>
+                  <ToolModal title="Review" className="review-modal" onClose={() => setChangesTool(null)}>
                     <ReviewView
                       reviewReport={reviewReport}
                       snapshot={snapshot}
@@ -230,7 +245,6 @@ function App() {
                 history={history}
                 filteredHistory={filteredHistory}
                 historyLoading={historyLoading}
-                loadHistory={loadHistory}
                 busy={busy}
                 historyFilter={historyFilter}
                 setHistoryFilter={setHistoryFilter}
@@ -359,9 +373,11 @@ function App() {
                 generatePullRequestText={generatePullRequestText}
                 loadGitHubPullRequests={loadGitHubPullRequests}
                 refreshProvidersPanel={refreshProvidersPanel}
+                connectGitHub={connectGitHub}
                 selectPullRequest={selectPullRequest}
                 openExternalLink={openExternalLink}
                 runSnapshotAction={runSnapshotAction}
+                onOpenPublishRepository={() => setShowPublishRepository(true)}
                 renderGitHubRepositoryBrowser={renderGitHubRepositoryBrowser}
                 renderPullRequestDetailsPanel={renderPullRequestDetailsPanel}
               />
@@ -408,8 +424,11 @@ function App() {
                     dailyReviewLoading={dailyReviewLoading}
                     dailyReview={dailyReview}
                     contributorStats={contributorStats}
+                    contributorWindow={contributorWindow}
+                    setContributorWindow={setContributorWindow}
                     copyDailyReviewMarkdown={copyDailyReviewMarkdown}
                     allReposMode={allReposMode}
+                    openExternalLink={openExternalLink}
                   />
                   </>
                 )}
@@ -422,8 +441,23 @@ function App() {
                 canGenerateLinkedInProject={canGenerateLinkedInProject}
                 linkedinProject={linkedinProject}
                 updateLinkedInProject={updateLinkedInProject}
+                linkedinHighlightsText={linkedinHighlightsText}
+                setLinkedinHighlightsText={setLinkedinHighlightsText}
+                linkedinTagsText={linkedinTagsText}
+                setLinkedinTagsText={setLinkedinTagsText}
                 linkedinSkillsText={linkedinSkillsText}
                 setLinkedinSkillsText={setLinkedinSkillsText}
+                linkedinRole={linkedinRole}
+                setLinkedInRole={setLinkedInRole}
+                linkedinAudience={linkedinAudience}
+                setLinkedInAudience={setLinkedInAudience}
+                linkedinProjectUrl={linkedinProjectUrl}
+                setLinkedInProjectUrl={setLinkedInProjectUrl}
+                linkedinCustomPrompt={linkedinCustomPrompt}
+                setLinkedInCustomPrompt={setLinkedInCustomPrompt}
+                resetLinkedInPrompt={resetLinkedInPrompt}
+                copyLinkedInMarkdown={copyLinkedInMarkdown}
+                copyLinkedInTags={copyLinkedInTags}
                   />
                 )}
               </div>
@@ -473,6 +507,41 @@ function App() {
           </section>
         </ToolModal>
       )}
+      {showPublishRepository && (
+        <ToolModal title="Publish repository" className="publish-modal" onClose={() => setShowPublishRepository(false)}>
+          <PublishRepositoryView
+            api={api}
+            snapshot={snapshot}
+            selectedAssistant={selectedAssistant}
+            assistantPolicy={assistantPolicy}
+            setNotice={setNotice}
+            setError={setError}
+            onClose={() => setShowPublishRepository(false)}
+            onPublished={(nextSnapshot, message) => {
+              applySnapshot(nextSnapshot, message)
+              setViewMode('changes')
+            }}
+          />
+        </ToolModal>
+      )}
+      {showAbout && (
+        <ToolModal title="About BranchPilot" className="about-modal" onClose={() => setShowAbout(false)}>
+          <section className="about-panel">
+            <div className="about-brand">
+              <BranchPilotMark size={56} />
+              <div>
+                <h3>BranchPilot</h3>
+                <p>Version {appVersion}</p>
+              </div>
+            </div>
+            <p className="about-copy">A local-first Git desktop client for branches, diffs, reviews, and pull requests.</p>
+            <div className="about-meta">
+              <span>MIT License</span>
+              <span>Built by Serhii Ziborov</span>
+            </div>
+          </section>
+        </ToolModal>
+      )}
     </main>
     </AppControllerProvider>
   )
@@ -501,7 +570,7 @@ function App() {
         githubRepoOwner={githubRepoOwner} setGithubRepoOwner={setGithubRepoOwner}
         githubRepoQuery={githubRepoQuery} setGithubRepoQuery={setGithubRepoQuery}
         githubRepoVisibility={githubRepoVisibility} setGithubRepoVisibility={setGithubRepoVisibility}
-        githubRepoLimit={githubRepoLimit} setGithubRepoLimit={setGithubRepoLimit} busy={busy}
+        githubRepoLimit={githubRepoLimit} busy={busy}
         loadGitHubAccounts={loadGitHubAccounts} loadGitHubRepositories={loadGitHubRepositories}
         cloneGitHubRepository={cloneGitHubRepository} openExternalLink={openExternalLink}
       />

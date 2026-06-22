@@ -8,6 +8,10 @@ import {
   git, gitWithEnv, RecordingCommandRunner, tempRoots
 } from './support/repositoryServiceTestSupport'
 
+function readText(filePath: string): string {
+  return readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n')
+}
+
 describe('RepositoryService', () => {
   afterEach(cleanupTempRoots)
 
@@ -21,7 +25,7 @@ describe('RepositoryService', () => {
 
     const snapshot = await service.openRepository(repoPath)
 
-    expect(realpathSync(snapshot.summary.rootPath)).toBe(realpathSync(repoPath))
+    expect(realpathSync.native(snapshot.summary.rootPath)).toBe(realpathSync.native(repoPath))
     expect(snapshot.status.counts.staged).toBe(1)
     expect(snapshot.status.counts.untracked).toBe(1)
     expect(snapshot.status.changes.map((change) => change.path)).toContain('tracked.txt')
@@ -31,8 +35,8 @@ describe('RepositoryService', () => {
   it('pins recent repositories and keeps pinned entries first', async () => {
     const firstRepoPath = createTempRepository()
     const secondRepoPath = createTempRepository()
-    const firstRepoRoot = realpathSync(firstRepoPath)
-    const secondRepoRoot = realpathSync(secondRepoPath)
+    const firstRepoRoot = realpathSync.native(firstRepoPath)
+    const secondRepoRoot = realpathSync.native(secondRepoPath)
     const service = createService()
 
     await service.openRepository(firstRepoPath)
@@ -79,20 +83,25 @@ describe('RepositoryService', () => {
     const sourceRepoPath = createTempRepository()
     const targetParentPath = mkdtempSync(path.join(tmpdir(), 'branchpilot-clone-parent-'))
     tempRoots.push(targetParentPath)
-    const service = createService()
+    const runner = new RecordingCommandRunner()
+    const service = createService(runner)
+    const targetPath = path.join(targetParentPath, 'cloned-project')
 
     const snapshot = await service.cloneRepository({
       remoteUrl: sourceRepoPath,
       targetParentPath,
       targetName: 'cloned-project'
     })
-    const targetPath = path.join(targetParentPath, 'cloned-project')
+    const cloneCall = runner.calls.find((call) => call.args.includes('clone'))
 
-    expect(realpathSync(snapshot.summary.rootPath)).toBe(realpathSync(targetPath))
+    expect(realpathSync.native(snapshot.summary.rootPath)).toBe(realpathSync.native(targetPath))
+    expect(cloneCall?.args).toEqual(process.platform === 'win32'
+      ? ['-c', 'credential.helper=', '-c', 'credential.helper=manager', 'clone', '--', sourceRepoPath, targetPath]
+      : ['clone', '--', sourceRepoPath, targetPath])
     expect(snapshot.summary.currentBranch).toBe('main')
-    expect(readFileSync(path.join(targetPath, 'tracked.txt'), 'utf8')).toBe('initial\n')
+    expect(readText(path.join(targetPath, 'tracked.txt'))).toBe('initial\n')
     expect((await service.getRecentRepositories())[0]).toMatchObject({
-      path: realpathSync(targetPath),
+      path: realpathSync.native(targetPath),
       name: 'cloned-project'
     })
 
@@ -111,8 +120,8 @@ describe('RepositoryService', () => {
   it('builds a repository dashboard from recent repositories', async () => {
     const dirtyRepoPath = createTempRepository()
     const activeRepoPath = createTempRepository()
-    const dirtyRepoRoot = realpathSync(dirtyRepoPath)
-    const activeRepoRoot = realpathSync(activeRepoPath)
+    const dirtyRepoRoot = realpathSync.native(dirtyRepoPath)
+    const activeRepoRoot = realpathSync.native(activeRepoPath)
     const service = createService()
 
     git(dirtyRepoPath, ['switch', '--quiet', '-c', 'stale/topic'])
@@ -324,7 +333,7 @@ describe('RepositoryService', () => {
     })
 
     expect(snapshot.status.counts.changed).toBe(0)
-    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('initial\n')
+    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('initial\n')
     expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Revert "Change tracked file"')
   })
 
@@ -355,7 +364,7 @@ describe('RepositoryService', () => {
     })
 
     expect(snapshot.status.counts.changed).toBe(0)
-    expect(readFileSync(path.join(repoPath, 'picked.txt'), 'utf8')).toBe('picked\n')
+    expect(readText(path.join(repoPath, 'picked.txt'))).toBe('picked\n')
     expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Add picked file')
   })
 
@@ -424,6 +433,43 @@ describe('RepositoryService', () => {
     expect(git(repoPath, ['diff', '--cached', '--', 'tracked.txt'])).toBe('')
     expect(git(repoPath, ['diff', '--', 'tracked.txt'])).toContain('line 2 changed')
     expect(git(repoPath, ['diff', '--', 'tracked.txt'])).toContain('line 10 changed')
+  })
+
+  it('can unstage a selected-line patch without removing the rest of the file from the index', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), ['line 1', 'line 2', 'line 3', ''].join('\n'))
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Create tracked fixture'])
+
+    writeFileSync(path.join(repoPath, 'tracked.txt'), ['line 1', 'line 2 staged', 'line 3 staged', ''].join('\n'))
+    git(repoPath, ['add', 'tracked.txt'])
+
+    await service.staging.unstageHunk({
+      repoPath,
+      filePath: 'tracked.txt',
+      patch: [
+        'diff --git a/tracked.txt b/tracked.txt',
+        '--- a/tracked.txt',
+        '+++ b/tracked.txt',
+        '@@ -1,3 +1,3 @@',
+        ' line 1',
+        '-line 2',
+        '+line 2 staged',
+        ' line 3 staged',
+        ''
+      ].join('\n')
+    })
+
+    const cached = git(repoPath, ['diff', '--cached', '--', 'tracked.txt'])
+    const unstaged = git(repoPath, ['diff', '--', 'tracked.txt'])
+
+    expect(cached).not.toContain('line 2 staged')
+    expect(cached).toContain('line 3 staged')
+    expect(unstaged).toContain('line 2 staged')
+    expect(unstaged).not.toContain('+line 3 staged')
+    expect(unstaged).not.toContain('-line 3')
   })
 
   it('can ignore whitespace-only changes when previewing a diff', async () => {
@@ -536,7 +582,7 @@ describe('RepositoryService', () => {
       scope: 'working-tree'
     })
     expect(exported.bytes).toBeGreaterThan(0)
-    expect(readFileSync(patchPath, 'utf8')).toContain('+patched')
+    expect(readText(patchPath)).toContain('+patched')
 
     git(repoPath, ['restore', '--', 'tracked.txt'])
 
@@ -563,7 +609,7 @@ describe('RepositoryService', () => {
     })
 
     expect(snapshot.status.counts.changed).toBe(1)
-    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('initial\npatched\n')
+    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('initial\npatched\n')
   })
 
   it('creates, lists, applies, and drops stashes with untracked files', async () => {
@@ -588,8 +634,8 @@ describe('RepositoryService', () => {
 
     const applied = await service.stash.applyStash({ repoPath, stashRef: stashes[0].ref })
     expect(applied.status.counts.changed).toBe(2)
-    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('stashed tracked\n')
-    expect(readFileSync(path.join(repoPath, 'untracked.txt'), 'utf8')).toBe('stashed untracked\n')
+    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('stashed tracked\n')
+    expect(readText(path.join(repoPath, 'untracked.txt'))).toBe('stashed untracked\n')
 
     await expect(service.stash.dropStash({
       repoPath,

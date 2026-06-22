@@ -1,5 +1,5 @@
-import { dialog, ipcMain } from 'electron'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import type {
   ActivityLogActor, ActivityLogEventType, ActivityLogMetadata, ApiResult,
   AssistantActionKind, CreateWorktreeRequest, ExportPatchRequest, RepositorySnapshot
@@ -8,6 +8,9 @@ import { isBranchPilotIpcChannel, type BranchPilotIpcChannel } from '../../src/s
 import { toBranchPilotError } from '../lib/errors.js'
 import type { ActivityLogAppendInput, ActivityLogService } from '../lib/activityLogService.js'
 import type { AssistantPolicyService } from '../lib/assistantPolicyService.js'
+
+const require = createRequire(import.meta.url)
+const { dialog, ipcMain } = require('electron') as typeof import('electron')
 
 export interface ActivityDescriptor<Args extends unknown[], T> {
   type: ActivityLogEventType

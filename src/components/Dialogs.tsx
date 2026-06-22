@@ -124,52 +124,155 @@ export function SwitchBranchDialog({
 /** Modal for creating a new branch (GitHub-Desktop style: name + base branch). */
 export function CreateBranchDialog({
   baseBranch,
+  branches,
+  remoteBranches,
   value,
+  step,
+  baseRef,
+  changesMode,
+  hasChanges,
+  changeCount,
   busy,
   onChange,
+  onBaseRefChange,
+  onChangesModeChange,
+  onBack,
+  onNext,
   onCancel,
   onCreate
 }: {
   baseBranch: string | null
+  branches: { name: string }[]
+  remoteBranches: { name: string; remote?: string; branchName?: string }[]
   value: string
+  step: 'name' | 'options'
+  baseRef: string
+  changesMode: 'move' | 'leave'
+  hasChanges: boolean
+  changeCount: number
   busy: boolean
   onChange: (value: string) => void
+  onBaseRefChange: (value: string) => void
+  onChangesModeChange: (value: 'move' | 'leave') => void
+  onBack: () => void
+  onNext: () => void
   onCancel: () => void
   onCreate: () => void
 }) {
+  const branchName = value.trim()
+  const fallbackBase = baseBranch ?? 'HEAD'
+  const baseOptions = uniqueBranchBaseOptions([
+    { value: fallbackBase, label: fallbackBase, kind: 'Current' },
+    ...branches.map((branch) => ({ value: branch.name, label: branch.name, kind: 'Local' })),
+    ...remoteBranches
+      .filter((branch) => branch.name.includes('/'))
+      .map((branch) => ({
+        value: branch.name,
+        label: branch.branchName ? `${branch.name} (${branch.branchName})` : branch.name,
+        kind: 'Remote'
+      }))
+  ])
+  const selectedBase = baseRef || fallbackBase
+
   return (
     <div className="confirmation-backdrop" role="presentation">
       <section className="confirmation-dialog" role="dialog" aria-modal="true" aria-labelledby="create-branch-title">
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            if (value.trim()) onCreate()
+            if (step === 'name') {
+              if (branchName) onNext()
+            } else if (branchName) {
+              onCreate()
+            }
           }}
         >
-          <div>
-            <h2 id="create-branch-title">Create a branch</h2>
-            <p>Your new branch will be based on <strong>{baseBranch ?? 'HEAD'}</strong>.</p>
-            <input
-              className="text-prompt-input"
-              autoFocus
-              value={value}
-              placeholder="new-branch-name"
-              onChange={(event) => onChange(event.target.value)}
-              onFocus={(event) => event.target.select()}
-            />
-          </div>
+          {step === 'name' ? (
+            <div>
+              <h2 id="create-branch-title">Create a branch</h2>
+              <p>Name the branch first. Next you will choose the base branch and what to do with current files.</p>
+              <input
+                className="text-prompt-input"
+                autoFocus
+                value={value}
+                placeholder="new-branch-name"
+                onChange={(event) => onChange(event.target.value)}
+                onFocus={(event) => event.target.select()}
+              />
+            </div>
+          ) : (
+            <div>
+              <h2 id="create-branch-title">Create {branchName}</h2>
+              <p>Choose what this branch starts from and whether current file changes move with it.</p>
+
+              <label className="create-branch-field">
+                <span>Base branch</span>
+                <select value={selectedBase} onChange={(event) => onBaseRefChange(event.target.value)} autoFocus>
+                  {baseOptions.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label} - {option.kind}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {hasChanges ? (
+                <div className="switch-options" role="group" aria-label="Current file changes">
+                  <button
+                    type="button"
+                    className={changesMode === 'move' ? 'switch-option active' : 'switch-option'}
+                    onClick={() => onChangesModeChange('move')}
+                  >
+                    <strong>Move current changes to the new branch</strong>
+                    <span>Switch to {branchName} and keep {changeCount} changed file{changeCount === 1 ? '' : 's'} with it.</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={changesMode === 'leave' ? 'switch-option active' : 'switch-option'}
+                    onClick={() => onChangesModeChange('leave')}
+                  >
+                    <strong>Leave current changes here</strong>
+                    <span>Create {branchName} from {selectedBase}, but stay on {fallbackBase} so the files remain here.</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="create-branch-note">No changed files are waiting, so BranchPilot will switch to the new branch after creating it.</div>
+              )}
+            </div>
+          )}
           <div className="confirmation-actions">
+            {step === 'options' && (
+              <button type="button" className="secondary" onClick={onBack}>
+                Back
+              </button>
+            )}
             <button type="button" className="secondary" onClick={onCancel}>
               Cancel
             </button>
-            <button type="submit" disabled={busy || !value.trim()}>
-              Create branch
+            <button type="submit" disabled={busy || !branchName}>
+              {step === 'name' ? 'Next' : 'Create branch'}
             </button>
           </div>
         </form>
       </section>
     </div>
   )
+}
+
+function uniqueBranchBaseOptions(
+  options: { value: string; label: string; kind: string }[]
+): { value: string; label: string; kind: string }[] {
+  const seen = new Set<string>()
+  const uniqueOptions: { value: string; label: string; kind: string }[] = []
+
+  for (const option of options) {
+    const value = option.value.trim()
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    uniqueOptions.push({ ...option, value })
+  }
+
+  return uniqueOptions
 }
 
 /** Modal confirmation dialog (with optional danger styling). */

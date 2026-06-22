@@ -16,9 +16,13 @@ export function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string 
 /** Short readiness word for an assistant's detection state. */
 export function assistantStatusLabel(assistant: AssistantStatus): string {
   if (assistant.state === 'ready') return 'ready'
-  if (assistant.state === 'unavailable') return 'unavailable'
+  if (assistant.state === 'unavailable') return assistantIsSessionLimited(assistant) ? 'limited' : 'unavailable'
   if (assistant.state === 'missing') return 'not found'
   return assistant.detected ? 'detected' : 'not found'
+}
+
+export function assistantIsSessionLimited(assistant: AssistantStatus): boolean {
+  return /session limit|usage limit|rate limit|quota|resets?/i.test(assistant.message)
 }
 
 /** Whether the current policy permits an assistant action (open when unset). */
@@ -45,6 +49,7 @@ export function assistantActionLabel(action: AssistantActionKind): string {
   if (action === 'commit_message') return 'Commit text generation'
   if (action === 'linkedin_project') return 'LinkedIn project generation'
   if (action === 'pull_request_text') return 'PR text generation'
+  if (action === 'repository_starter') return 'Repository starter generation'
   return 'Assistant reviews'
 }
 

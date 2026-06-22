@@ -52,7 +52,7 @@ describe('ExternalEditorService', () => {
     expect(runner.calls()).toEqual([
       {
         command: 'code',
-        args: ['/repo/src/app.ts:27']
+        args: ['--goto', '/repo/src/app.ts:27']
       }
     ])
   })

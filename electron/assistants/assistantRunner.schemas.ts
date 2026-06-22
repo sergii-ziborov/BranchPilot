@@ -5,6 +5,7 @@ export const MAX_ASSISTANT_BRANCH_CONTEXT_BYTES = 100_000
 export const MAX_ASSISTANT_LINKEDIN_CONTEXT_BYTES = 100_000
 export const MAX_ASSISTANT_PR_DIFF_BYTES = 120_000
 export const MAX_ASSISTANT_REVIEW_DIFF_BYTES = 120_000
+export const MAX_ASSISTANT_STARTER_CONTEXT_BYTES = 100_000
 
 export const GENERATED_TEXT_SCHEMA: Record<string, unknown> = {
   type: 'object',
@@ -104,6 +105,17 @@ export const LINKEDIN_PROJECT_SCHEMA: Record<string, unknown> = {
     skills: { type: 'array', items: { type: 'string' } },
     urlSuggestion: { type: 'string' },
     markdown: { type: 'string', minLength: 1 }
+  }
+}
+
+export const REPOSITORY_STARTER_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['description', 'readme', 'gitignore'],
+  properties: {
+    description: { type: 'string', minLength: 1 },
+    readme: { type: 'string', minLength: 1 },
+    gitignore: { type: 'string' }
   }
 }
 

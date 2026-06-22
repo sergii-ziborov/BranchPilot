@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Bot, ExternalLink, GitPullRequest, RefreshCcw, UploadCloud } from 'lucide-react'
+import { Bot, ExternalLink, GitPullRequest, KeyRound, RefreshCcw, UploadCloud } from 'lucide-react'
 import type {
   ApiResult, AssistantPolicyStatus, BranchPilotApi, CreatedPullRequest,
   GitHubCliStatus, GitHubPullRequest, ProviderStatus, RepositorySnapshot
@@ -19,8 +19,8 @@ export function ProvidersView({
   createdPullRequest, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber,
   prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch,
   checkoutPullRequest, createPullRequest, generatePullRequestText, loadGitHubPullRequests,
-  refreshProvidersPanel, selectPullRequest, openExternalLink, runSnapshotAction,
-  renderGitHubRepositoryBrowser, renderPullRequestDetailsPanel
+  refreshProvidersPanel, connectGitHub, selectPullRequest, openExternalLink, runSnapshotAction,
+  onOpenPublishRepository, renderGitHubRepositoryBrowser, renderPullRequestDetailsPanel
 }: {
   onBack: () => void
   providers: ProviderStatus[]
@@ -48,9 +48,11 @@ export function ProvidersView({
   generatePullRequestText: () => void | Promise<void>
   loadGitHubPullRequests: () => void | Promise<void>
   refreshProvidersPanel: () => void | Promise<void>
+  connectGitHub: () => void | Promise<void>
   selectPullRequest: (pullRequest: GitHubPullRequest) => void
   openExternalLink: (url: string | undefined, label?: string) => void
   runSnapshotAction: (label: string, action: () => Promise<ApiResult<RepositorySnapshot>>) => boolean | void | Promise<boolean>
+  onOpenPublishRepository: () => void
   renderGitHubRepositoryBrowser: () => ReactNode
   renderPullRequestDetailsPanel: () => ReactNode
 }) {
@@ -64,6 +66,7 @@ export function ProvidersView({
     currentPullRequestExists: Boolean(currentPullRequest)
   })
   const browsePrState = getPullRequestBrowseState(snapshot, githubCliStatus)
+  const needsGitHubAuth = Boolean(githubCliStatus && !githubCliStatus.authenticated)
 
   return (
     <section className="single-panel">
@@ -72,7 +75,7 @@ export function ProvidersView({
           <BackToChanges onClick={onBack} />
           <div>
             <h2>Pull requests</h2>
-            <p>GitHub uses authenticated gh when available, with GitHub Desktop credentials as a PR creation fallback.</p>
+            <p>GitHub uses authenticated gh when available, with Git credentials as a PR creation fallback.</p>
           </div>
         </div>
         <button type="button" onClick={refreshProvidersPanel} disabled={busy}>
@@ -109,33 +112,57 @@ export function ProvidersView({
             <h3>GitHub pull request</h3>
             <p>{snapshot ? `${snapshot.summary.currentBranch} → ${prBaseBranch || 'main'}` : 'Open a repository to create pull requests.'}</p>
           </div>
-          <span className={`github-status status-${githubProvider?.state ?? 'planned'}`}>
-            {githubCliStatus ? githubStatusLabel(githubCliStatus) : 'GitHub CLI unknown'}
-          </span>
+          <div className="github-auth-actions">
+            <span className={`github-status status-${githubProvider?.state ?? 'planned'}`}>
+              {githubCliStatus ? githubStatusLabel(githubCliStatus) : 'GitHub auth unknown'}
+            </span>
+            {needsGitHubAuth && (
+              <button type="button" className="secondary" onClick={connectGitHub} disabled={busy}>
+                <KeyRound size={16} />
+                Connect GitHub
+              </button>
+            )}
+          </div>
         </div>
 
         {githubCliStatus?.state === 'unauthenticated' && (
-          <div className="command-hint">Run <code>gh auth login</code> or sign in with GitHub Desktop, then refresh this panel.</div>
-        )}
-
-        {githubCliStatus?.state === 'missing' && (
-          <div className="command-hint">Install GitHub CLI or sign in with GitHub Desktop to create pull requests from BranchPilot.</div>
-        )}
-
-        {githubCliStatus?.authProvider === 'git-credential' && (
-          <div className="command-hint">Using GitHub Desktop credential for PR creation, list, details, diff, and checkout. Run <code>gh auth login</code> to enable checks.</div>
-        )}
-
-        {snapshot && providerRemote.kind !== 'github' && (
-          <div className="command-hint">
-            {providerRemote.kind === 'none'
-              ? 'Add a GitHub remote before using GitHub pull request workflows.'
-              : `${providerRemote.label} remote detected. GitHub pull request workflows require a GitHub remote.`}
+          <div className="command-hint warning">
+            <span>Connect GitHub with GitHub CLI or Git Credential Manager, then BranchPilot can create and browse pull requests.</span>
+            <button type="button" onClick={connectGitHub} disabled={busy}>
+              <KeyRound size={16} />
+              Connect GitHub
+            </button>
           </div>
         )}
 
-        {snapshot && !snapshot.summary.upstream && (
-          <div className="command-hint">
+        {githubCliStatus?.state === 'missing' && (
+          <div className="command-hint warning">
+            <span>No GitHub API credential is available. Install GitHub CLI or use Git Credential Manager; GitHub Desktop is optional.</span>
+            <button type="button" onClick={connectGitHub} disabled={busy}>
+              <KeyRound size={16} />
+              Connect GitHub
+            </button>
+          </div>
+        )}
+
+        {snapshot && providerRemote.kind !== 'github' && (
+          <div className="command-hint warning">
+            <span>
+              {providerRemote.kind === 'none'
+                ? 'Create a GitHub remote before using pull request workflows.'
+                : `${providerRemote.label} remote detected. GitHub pull requests require a GitHub remote.`}
+            </span>
+            {providerRemote.kind === 'none' && (
+              <button type="button" onClick={onOpenPublishRepository} disabled={busy}>
+                <UploadCloud size={17} />
+                Publish repository
+              </button>
+            )}
+          </div>
+        )}
+
+        {snapshot && providerRemote.kind === 'github' && !snapshot.summary.upstream && (
+          <div className="command-hint warning">
             Publish the current branch before creating a pull request.
             {canPublishBranch && (
               <button type="button" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
@@ -252,7 +279,7 @@ export function ProvidersView({
           <div className="panel-heading compact-heading">
             <div>
               <h3>Pull requests</h3>
-              <p>{githubCliStatus?.authenticated ? `${pullRequests.length} recent pull request${pullRequests.length === 1 ? '' : 's'} from ${githubRepositoryBrowserSourceLabel(githubCliStatus)}.` : 'PR list requires GitHub CLI or GitHub Desktop auth.'}</p>
+              <p>{githubCliStatus?.authenticated ? `${pullRequests.length} recent pull request${pullRequests.length === 1 ? '' : 's'} from ${githubRepositoryBrowserSourceLabel(githubCliStatus)}.` : 'PR list requires connected GitHub auth.'}</p>
             </div>
             <button type="button" className="secondary" onClick={loadGitHubPullRequests} disabled={busy || !browsePrState.enabled}>
               <RefreshCcw size={17} />
@@ -263,7 +290,7 @@ export function ProvidersView({
           {pullRequestsLoading && pullRequests.length === 0 ? (
             <div className="quiet-box">Loading pull requests.</div>
           ) : !browsePrState.enabled ? (
-            <div className="quiet-box">Authenticate GitHub with gh or GitHub Desktop to browse pull requests in BranchPilot.</div>
+            <div className="quiet-box">{browsePrState.reasons.join(' ') || 'Pull request browsing is not available yet.'}</div>
           ) : pullRequests.length === 0 ? (
             <div className="quiet-box">No open pull requests found.</div>
           ) : (

@@ -20,7 +20,7 @@ const DEFAULT_SETTINGS: PersistedSettings = {
   pinnedRepositoryPaths: [],
   assistantPolicies: {},
   editorSettings: {
-    preference: 'auto'
+    preference: 'vscode'
   }
 }
 

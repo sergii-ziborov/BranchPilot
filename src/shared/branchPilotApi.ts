@@ -33,6 +33,7 @@ import type {
   CoAuthor,
   ContributionGraph,
   ContributorStat,
+  ContributorStatsRequest,
   RepositoryRhythm,
   DiffRequest,
   DiffResult,
@@ -49,6 +50,7 @@ import type {
   GeneratedBranchDraft,
   GeneratedCommitMessage,
   GeneratedLinkedInProject,
+  GeneratedRepositoryStarter,
   GeneratedPullRequestText,
   GitConfigSnapshot,
   GitHubCliStatus,
@@ -67,6 +69,7 @@ import type {
   PublishBranchRequest,
   PullRequestTextGenerationRequest,
   RecentRepository,
+  RepositoryStarterGenerationRequest,
   RemoteRemoveRequest,
   RemoteUpsertRequest,
   RemoveWorktreeRequest,
@@ -90,6 +93,11 @@ export interface CreatedPullRequest {
   title: string
   baseBranch: string
   headBranch: string
+}
+
+export interface ChromeThemeRequest {
+  backgroundColor: string
+  symbolColor: string
 }
 
 export interface GitHubPullRequest {
@@ -173,6 +181,46 @@ export interface GitHubAccountSummary {
   url: string
 }
 
+export interface GitHubCoAuthorSearchRequest {
+  repoPath?: string
+  query: string
+  limit?: number
+}
+
+export type GitHubRepositoryVisibility = 'public' | 'private'
+export type GitHubRemoteProtocol = 'https' | 'ssh'
+
+export interface CreateGitHubRepositoryRequest {
+  repoPath: string
+  owner: string
+  name: string
+  description: string
+  visibility: GitHubRepositoryVisibility
+  remoteName?: string
+  remoteProtocol?: GitHubRemoteProtocol
+  gitUserName?: string
+  gitUserEmail?: string
+  readme?: string
+  gitignore?: string
+  commitStarterFiles?: boolean
+  push?: boolean
+  confirmed: boolean
+}
+
+export interface CreatedGitHubRepository {
+  name: string
+  nameWithOwner: string
+  owner: string
+  url: string
+  sshUrl: string
+  remoteName: string
+  remoteUrl: string
+  defaultBranch: string
+  pushed: boolean
+  starterFilesWritten: string[]
+  snapshot: RepositorySnapshot
+}
+
 export interface PullRequestDetailsRequest {
   repoPath: string
   prNumber: number
@@ -202,6 +250,7 @@ export interface AssistantStatus {
 export interface BranchPilotApi {
   onMenuAction: (callback: (action: string) => void) => () => void
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => () => void
+  setChromeTheme: (request: ChromeThemeRequest) => Promise<void>
   getVersion: () => Promise<string>
   chooseAndOpenRepository: () => Promise<ApiResult<RepositorySnapshot | null>>
   cloneRepository: (request: CloneRepositoryRequest) => Promise<ApiResult<RepositorySnapshot | null>>
@@ -214,7 +263,7 @@ export interface BranchPilotApi {
   getImagePreview: (request: ImagePreviewRequest) => Promise<ApiResult<ImagePreview>>
   getContributionGraph: (repoPath?: string) => Promise<ApiResult<ContributionGraph>>
   getRepositoryRhythm: (repoPath?: string) => Promise<ApiResult<RepositoryRhythm>>
-  getContributorStats: (repoPath?: string) => Promise<ApiResult<ContributorStat[]>>
+  getContributorStats: (request?: string | ContributorStatsRequest) => Promise<ApiResult<ContributorStat[]>>
   getContributors: (repoPath: string) => Promise<ApiResult<CoAuthor[]>>
   getGitHubContributors: (repoPath: string) => Promise<ApiResult<CoAuthor[]>>
   getHistory: (repoPath: string) => Promise<ApiResult<CommitSummary[]>>
@@ -292,12 +341,16 @@ export interface BranchPilotApi {
   generateBranchDraft: (request: BranchDraftGenerationRequest) => Promise<ApiResult<GeneratedBranchDraft>>
   generateBranchDescription: (request: BranchDescriptionGenerationRequest) => Promise<ApiResult<GeneratedBranchDescription>>
   generateLinkedInProject: (request: LinkedInProjectGenerationRequest) => Promise<ApiResult<GeneratedLinkedInProject>>
+  generateRepositoryStarter: (request: RepositoryStarterGenerationRequest) => Promise<ApiResult<GeneratedRepositoryStarter>>
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
+  connectGitHub: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>
   createGitHubPullRequest: (request: CreatePullRequestRequest) => Promise<ApiResult<CreatedPullRequest>>
+  createGitHubRepository: (request: CreateGitHubRepositoryRequest) => Promise<ApiResult<CreatedGitHubRepository>>
   getCurrentBranchPullRequest: (repoPath: string) => Promise<ApiResult<GitHubPullRequest | null>>
   listGitHubPullRequests: (repoPath: string) => Promise<ApiResult<GitHubPullRequest[]>>
   listGitHubAccounts: () => Promise<ApiResult<GitHubAccountSummary[]>>
+  searchGitHubCoAuthors: (request: GitHubCoAuthorSearchRequest) => Promise<ApiResult<CoAuthor[]>>
   listGitHubRepositories: (request: ListGitHubRepositoriesRequest) => Promise<ApiResult<GitHubRepositorySummary[]>>
   getGitHubPullRequestDetails: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestDetails>>
   getGitHubPullRequestChecks: (request: PullRequestDetailsRequest) => Promise<ApiResult<GitHubPullRequestCheck[]>>

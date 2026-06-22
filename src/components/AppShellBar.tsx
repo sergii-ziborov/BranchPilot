@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
   AlignLeft, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Code2,
   DownloadCloud, FolderOpen, GitBranch, GitMerge, GitPullRequest,
-  Palette, Pencil, RefreshCcw, Settings, Star, Terminal, Trash2, X, Check
+  Palette, Pencil, RefreshCcw, Settings, Star, Terminal, Trash2, UploadCloud, X, Check
 } from 'lucide-react'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
@@ -32,6 +32,18 @@ function applyTheme(id: string) {
   else root.setAttribute('data-theme', id)
 }
 
+function syncChromeTheme() {
+  const api = window.branchPilot
+  if (!api?.setChromeTheme) return
+
+  requestAnimationFrame(() => {
+    const style = getComputedStyle(document.documentElement)
+    const backgroundColor = style.getPropertyValue('--app-grad-top').trim() || '#f8fafc'
+    const symbolColor = style.getPropertyValue('--text-strong').trim() || '#0f172a'
+    void api.setChromeTheme({ backgroundColor, symbolColor })
+  })
+}
+
 function useTheme(): [string, (id: string) => void] {
   const [theme, setTheme] = useState<string>(() => {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(THEME_KEY) : null
@@ -39,6 +51,7 @@ function useTheme(): [string, (id: string) => void] {
   })
   useEffect(() => {
     applyTheme(theme)
+    syncChromeTheme()
     try { localStorage.setItem(THEME_KEY, theme) } catch { /* ignore */ }
   }, [theme])
   return [theme, setTheme]
@@ -50,7 +63,13 @@ const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
 ]
 
 /** GitHub-Desktop-style top bar: repository + branch pickers, sync actions, and view tabs. */
-export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
+export function AppShellBar({
+  onOpenClone,
+  onOpenPublishRepository
+}: {
+  onOpenClone: () => void
+  onOpenPublishRepository: () => void
+}) {
   const {
     snapshot, busy, currentRepoPath, viewMode, setViewMode,
     recentRepositories, openRepository, chooseRepository,
@@ -69,20 +88,26 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
       ])
     )
   const branches = snapshot?.branches ?? []
+  const remoteBranches = snapshot?.remoteBranches ?? []
   const currentBranch = snapshot?.summary.currentBranch ?? null
   const headerRef = useRef<HTMLElement>(null)
   const [showCreateBranch, setShowCreateBranch] = useState(false)
   const [newBranchName, setNewBranchName] = useState('')
+  const [newBranchBaseRef, setNewBranchBaseRef] = useState('')
+  const [createBranchStep, setCreateBranchStep] = useState<'name' | 'options'>('name')
+  const [createBranchChangesMode, setCreateBranchChangesMode] = useState<'move' | 'leave'>('move')
   const [pendingSwitch, setPendingSwitch] = useState<string | null>(null)
   const [showMergeInto, setShowMergeInto] = useState(false)
   const [theme, setTheme] = useTheme()
   const [branchAction, setBranchAction] = useState<{ name: string; mode: 'rename' | 'describe' | 'delete' } | null>(null)
   const [branchActionValue, setBranchActionValue] = useState('')
+  const [branchMenuOpen, setBranchMenuOpen] = useState(false)
   const hasChanges = (snapshot?.status.counts.changed ?? 0) > 0
 
   const startBranchAction = (name: string, mode: 'rename' | 'describe' | 'delete', value: string) => {
     setBranchAction({ name, mode })
     setBranchActionValue(value)
+    setBranchMenuOpen(true)
   }
   const cancelBranchAction = () => { setBranchAction(null); setBranchActionValue('') }
   const confirmBranchAction = () => {
@@ -108,23 +133,44 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
 
   const openCreateBranch = () => {
     setNewBranchName('')
+    setNewBranchBaseRef(currentBranch ?? 'HEAD')
+    setCreateBranchStep('name')
+    setCreateBranchChangesMode('move')
     setShowCreateBranch(true)
+  }
+
+  const cancelCreateBranch = () => {
+    setShowCreateBranch(false)
+    setNewBranchName('')
+    setNewBranchBaseRef('')
+    setCreateBranchStep('name')
+    setCreateBranchChangesMode('move')
   }
 
   const submitCreateBranch = async () => {
     const branchName = newBranchName.trim()
     if (!branchName || !currentRepoPath) return
-    const created = await runSnapshotAction('Branch created.', () => api!.createBranch({ repoPath: currentRepoPath, branchName, description: '' }))
+    const created = await runSnapshotAction('Branch created.', () => api!.createBranch({
+      repoPath: currentRepoPath,
+      branchName,
+      baseRef: newBranchBaseRef.trim() || undefined,
+      checkout: !hasChanges || createBranchChangesMode === 'move',
+      description: ''
+    }))
     if (created) {
-      setShowCreateBranch(false)
-      setNewBranchName('')
+      cancelCreateBranch()
     }
   }
 
   useEffect(() => {
-    const closeAll = () => headerRef.current
-      ?.querySelectorAll<HTMLDetailsElement>('details.shell-menu[open]')
-      .forEach((d) => { d.open = false })
+    const closeAll = () => {
+      setBranchMenuOpen(false)
+      setBranchAction(null)
+      setBranchActionValue('')
+      headerRef.current
+        ?.querySelectorAll<HTMLDetailsElement>('details.shell-menu[open]')
+        .forEach((d) => { d.open = false })
+    }
     const onDocClick = (event: MouseEvent) => {
       const target = event.target
       if (!(target instanceof Element) || !target.closest('.shell-menu')) closeAll()
@@ -141,15 +187,36 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
   // When one menu opens, close any other open menu.
   const handleToggle = (event: { currentTarget: HTMLDetailsElement }) => {
     const opened = event.currentTarget
+    if (opened.classList.contains('shell-branch')) {
+      setBranchMenuOpen(opened.open)
+      if (!opened.open) {
+        setBranchAction(null)
+        setBranchActionValue('')
+      }
+    }
     if (!opened.open) return
     headerRef.current
       ?.querySelectorAll<HTMLDetailsElement>('details.shell-menu[open]')
-      .forEach((d) => { if (d !== opened) d.open = false })
+      .forEach((d) => {
+        if (d !== opened) {
+          if (d.classList.contains('shell-branch')) {
+            setBranchMenuOpen(false)
+          }
+          d.open = false
+        }
+      })
   }
 
   const closeMenu = (event: { currentTarget: HTMLElement }) => {
     const details = event.currentTarget.closest('details')
-    if (details) details.open = false
+    if (details) {
+      if (details.classList.contains('shell-branch')) {
+        setBranchMenuOpen(false)
+        setBranchAction(null)
+        setBranchActionValue('')
+      }
+      details.open = false
+    }
   }
 
   const switchBranch = (branchName: string) => {
@@ -246,7 +313,7 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
 
         {!allReposMode && (
         <>
-        <details className="shell-menu shell-branch" onToggle={handleToggle}>
+        <details className="shell-menu shell-branch" open={branchMenuOpen} onToggle={handleToggle}>
           <summary>
             <GitBranch size={17} className="shell-seg-icon" />
             <span className="shell-seg-stack">
@@ -280,8 +347,8 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
                           onKeyDown={(event) => { if (event.key === 'Escape') cancelBranchAction() }}
                           placeholder={branchAction?.mode === 'rename' ? 'New branch name' : 'Branch description'}
                         />
-                        <button type="submit" className="icon-button" title="Save" aria-label="Save"><Check size={14} /></button>
-                        <button type="button" className="icon-button" title="Cancel" aria-label="Cancel" onClick={cancelBranchAction}><X size={14} /></button>
+                        <button type="submit" className="icon-button" title="Save" aria-label="Save" onClick={(event) => event.stopPropagation()}><Check size={14} /></button>
+                        <button type="button" className="icon-button" title="Cancel" aria-label="Cancel" onClick={(event) => { event.stopPropagation(); cancelBranchAction() }}><X size={14} /></button>
                       </form>
                     )
                   }
@@ -289,8 +356,8 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
                     return (
                       <div key={branch.name} className="shell-branch-confirm">
                         <span>Delete <strong>{branch.name}</strong>?</span>
-                        <button type="button" className="icon-button danger" title="Confirm delete" aria-label="Confirm delete" onClick={confirmBranchAction}><Check size={14} /></button>
-                        <button type="button" className="icon-button" title="Cancel" aria-label="Cancel" onClick={cancelBranchAction}><X size={14} /></button>
+                        <button type="button" className="icon-button danger" title="Confirm delete" aria-label="Confirm delete" onClick={(event) => { event.stopPropagation(); confirmBranchAction() }}><Check size={14} /></button>
+                        <button type="button" className="icon-button" title="Cancel" aria-label="Cancel" onClick={(event) => { event.stopPropagation(); cancelBranchAction() }}><X size={14} /></button>
                       </div>
                     )
                   }
@@ -309,9 +376,9 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
                         </span>
                       </button>
                       <span className="shell-branch-actions">
-                        <button type="button" className="icon-button" title="Rename branch" aria-label="Rename branch" disabled={busy} onClick={() => startBranchAction(branch.name, 'rename', branch.name)}><Pencil size={13} /></button>
-                        <button type="button" className="icon-button" title="Edit description" aria-label="Edit description" disabled={busy} onClick={() => startBranchAction(branch.name, 'describe', branch.description ?? '')}><AlignLeft size={13} /></button>
-                        <button type="button" className="icon-button danger" title="Delete branch" aria-label="Delete branch" disabled={busy || branch.name === currentBranch} onClick={() => startBranchAction(branch.name, 'delete', '')}><Trash2 size={13} /></button>
+                        <button type="button" className="icon-button" title="Rename branch" aria-label="Rename branch" disabled={busy} onClick={(event) => { event.stopPropagation(); startBranchAction(branch.name, 'rename', branch.name) }}><Pencil size={13} /></button>
+                        <button type="button" className="icon-button" title="Edit description" aria-label="Edit description" disabled={busy} onClick={(event) => { event.stopPropagation(); startBranchAction(branch.name, 'describe', branch.description ?? '') }}><AlignLeft size={13} /></button>
+                        <button type="button" className="icon-button danger" title="Delete branch" aria-label="Delete branch" disabled={busy || branch.name === currentBranch} onClick={(event) => { event.stopPropagation(); startBranchAction(branch.name, 'delete', '') }}><Trash2 size={13} /></button>
                       </span>
                     </div>
                   )
@@ -331,12 +398,17 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
           const doFetch = () => { if (currentRepoPath) void runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath)) }
           const doPull = () => { if (currentRepoPath) void runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath)) }
           const doPush = () => { if (currentRepoPath) void runSnapshotAction('Push complete.', () => api!.push(currentRepoPath)) }
+          const doPublishRepository = () => { if (snapshot) onOpenPublishRepository() }
           // GitHub-Desktop priority: pull what's behind first, then push what's ahead, else fetch.
-          const primary = behind > 0
+          const remotePrimary = behind > 0
             ? { label: `Pull origin (${behind})`, Icon: DownloadCloud, run: doPull, disabled: !canPull || busy, hint: hasChanges ? 'Pull origin — uncommitted changes will be stashed first if needed' : 'Pull origin' }
             : ahead > 0
               ? { label: `Push origin (${ahead})`, Icon: ArrowUpFromLine, run: doPush, disabled: !canPush || busy, hint: 'Push origin' }
               : { label: 'Fetch origin', Icon: ArrowDownToLine, run: doFetch, disabled: !canFetch || busy, hint: hasRemote ? 'Fetch origin' : 'No remote configured' }
+          const primary = hasRemote
+            ? remotePrimary
+            : { label: 'Publish repository', Icon: UploadCloud, run: doPublishRepository, disabled: !snapshot || busy, hint: 'Create a GitHub repository and add origin' }
+
           return (
             <div className="shell-sync-split">
               <button className="shell-sync-primary" type="button" disabled={primary.disabled} title={primary.hint} onClick={primary.run}>
@@ -352,6 +424,12 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
               <details className="shell-menu shell-sync-menu" onToggle={handleToggle}>
                 <summary className="shell-sync-caret" title="More sync actions"><ChevronDown size={14} /></summary>
                 <div className="shell-dropdown shell-dropdown-right">
+                  {!hasRemote && (
+                    <button className="shell-dropdown-primary shell-dropdown-top" type="button" disabled={!snapshot || busy} onClick={(event) => { closeMenu(event); doPublishRepository() }}>
+                      <UploadCloud size={15} />
+                      Publish repository...
+                    </button>
+                  )}
                   <button className="shell-dropdown-primary shell-dropdown-top" type="button" disabled={!canFetch || busy} onClick={(event) => { closeMenu(event); doFetch() }}>
                     <ArrowDownToLine size={15} />
                     Fetch origin
@@ -444,10 +522,21 @@ export function AppShellBar({ onOpenClone }: { onOpenClone: () => void }) {
     {showCreateBranch && (
       <CreateBranchDialog
         baseBranch={currentBranch}
+        branches={branches}
+        remoteBranches={remoteBranches}
         value={newBranchName}
+        step={createBranchStep}
+        baseRef={newBranchBaseRef}
+        changesMode={createBranchChangesMode}
+        hasChanges={hasChanges}
+        changeCount={snapshot?.status.counts.changed ?? 0}
         busy={busy}
         onChange={setNewBranchName}
-        onCancel={() => { setShowCreateBranch(false); setNewBranchName('') }}
+        onBaseRefChange={setNewBranchBaseRef}
+        onChangesModeChange={setCreateBranchChangesMode}
+        onBack={() => setCreateBranchStep('name')}
+        onNext={() => setCreateBranchStep('options')}
+        onCancel={cancelCreateBranch}
         onCreate={submitCreateBranch}
       />
     )}

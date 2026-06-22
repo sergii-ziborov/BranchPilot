@@ -43,6 +43,13 @@ describe('assistantStatusLabel', () => {
     expect(assistantStatusLabel(makeStatus({ state: 'missing' }))).toBe('not found')
   })
 
+  it('labels assistant session limits as limited', () => {
+    expect(assistantStatusLabel(makeStatus({
+      state: 'unavailable',
+      message: "You've hit your session limit · resets 2:40pm"
+    }))).toBe('limited')
+  })
+
   it('uses detected flag for the detected state', () => {
     expect(assistantStatusLabel(makeStatus({ state: 'detected', detected: true }))).toBe('detected')
     expect(assistantStatusLabel(makeStatus({ state: 'detected', detected: false }))).toBe('not found')

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   checkoutGitHubPullRequest,
+  connectGitHubAuthentication,
   createGitHubPullRequest,
   getCurrentBranchPullRequest,
   getGitHubCliStatus,
@@ -9,7 +10,8 @@ import {
   getGitHubPullRequestDiff,
   listGitHubAccounts,
   listGitHubRepositories,
-  listGitHubPullRequests
+  listGitHubPullRequests,
+  searchGitHubCoAuthors
 } from '../electron/providers/githubCliService'
 import type {
 } from '../electron/providers/githubCliService'
@@ -26,6 +28,7 @@ import {
   makePullRequestDiff,
   makeRepository,
   makeAccount,
+  makeCoAuthor,
   jsonResponse
 } from './support/githubCliTestSupport'
 
@@ -72,7 +75,7 @@ describe('GitHub CLI bridge', () => {
     })
   })
 
-  it('detects GitHub Desktop credentials when gh is not authenticated', async () => {
+  it('detects Git Credential Manager credentials when gh is not authenticated', async () => {
     const credentialProvider = new FakeGitHubCredentialProvider()
     const apiClient = new FakeGitHubApiClient()
 
@@ -90,6 +93,47 @@ describe('GitHub CLI bridge', () => {
       authProvider: 'git-credential',
       username: 'desktop-user'
     })
+  })
+
+  it('connects GitHub through gh when GitHub CLI is installed', async () => {
+    const runner = new GitHubCliTestRunner({ ghAuthenticated: true })
+
+    await expect(connectGitHubAuthentication(
+      runner,
+      '/repo',
+      new FakeGitHubCredentialProvider(null),
+      new FakeGitHubApiClient()
+    )).resolves.toMatchObject({
+      authenticated: true,
+      authProvider: 'gh'
+    })
+
+    expect(runner.ghAuthLoginArgs).toEqual([
+      'auth',
+      'login',
+      '--hostname',
+      'github.com',
+      '--git-protocol',
+      'https',
+      '--web'
+    ])
+  })
+
+  it('connects GitHub through Git Credential Manager when GitHub CLI is missing', async () => {
+    const runner = new GitHubCliTestRunner({ ghInstalled: false })
+
+    await expect(connectGitHubAuthentication(
+      runner,
+      '/repo',
+      new FakeGitHubCredentialProvider(),
+      new FakeGitHubApiClient()
+    )).resolves.toMatchObject({
+      authenticated: true,
+      authProvider: 'git-credential',
+      username: 'desktop-user'
+    })
+
+    expect(runner.gcmLoginArgs).toEqual(['credential-manager', 'github', 'login'])
   })
 
   it('lists GitHub user and organization accounts through gh', async () => {
@@ -111,7 +155,7 @@ describe('GitHub CLI bridge', () => {
     ])
   })
 
-  it('lists GitHub accounts through GitHub Desktop credentials when gh is not authenticated', async () => {
+  it('lists GitHub accounts through Git Credential Manager credentials when gh is not authenticated', async () => {
     const apiClient = new FakeGitHubApiClient([], [
       makeAccount({ login: 'desktop-user', type: 'user' }),
       makeAccount({ login: 'desktop-org', type: 'organization' })
@@ -124,6 +168,51 @@ describe('GitHub CLI bridge', () => {
     )).resolves.toEqual([
       makeAccount({ login: 'desktop-user', type: 'user' }),
       makeAccount({ login: 'desktop-org', type: 'organization' })
+    ])
+  })
+
+  it('searches GitHub organization members for co-author suggestions through gh', async () => {
+    const runner = new GitHubCliTestRunner({
+      accounts: [
+        makeAccount({ login: 'branchpilot-user', type: 'user' }),
+        makeAccount({ login: 'branchpilot-org', label: 'BranchPilot Org', type: 'organization' })
+      ],
+      orgMembers: {
+        'branchpilot-org': [
+          makeCoAuthor({
+            name: 'Ada Lovelace',
+            login: 'ada-lovelace',
+            email: '1843+ada-lovelace@users.noreply.github.com'
+          }),
+          makeCoAuthor({
+            name: 'Grace Hopper',
+            login: 'grace-hopper',
+            email: '1906+grace-hopper@users.noreply.github.com'
+          })
+        ]
+      }
+    })
+
+    await expect(searchGitHubCoAuthors(
+      runner,
+      { query: 'ada', limit: 5 },
+      new FakeGitHubCredentialProvider(null)
+    )).resolves.toEqual([
+      {
+        name: 'Ada Lovelace',
+        email: '1843+ada-lovelace@users.noreply.github.com',
+        login: 'ada-lovelace',
+        avatarUrl: 'https://avatars.githubusercontent.com/ada-lovelace',
+        profileUrl: 'https://github.com/ada-lovelace',
+        source: 'organization',
+        organization: 'branchpilot-org'
+      }
+    ])
+
+    expect(runner.ghApiArgs).toContainEqual([
+      'api',
+      'orgs/branchpilot-org/members?per_page=100',
+      '--paginate'
     ])
   })
 
@@ -149,7 +238,7 @@ describe('GitHub CLI bridge', () => {
       owner: 'sergii-ziborov',
       query: 'pilot',
       visibility: 'private',
-      limit: 50
+      limit: 500
     })).resolves.toEqual([
       makeRepository({ name: 'BranchPilot', nameWithOwner: 'sergii-ziborov/BranchPilot', description: 'Desktop Git client' })
     ])
@@ -161,14 +250,14 @@ describe('GitHub CLI bridge', () => {
       '--json',
       'name,nameWithOwner,owner,description,visibility,isPrivate,isFork,isArchived,url,sshUrl,defaultBranchRef,updatedAt,pushedAt',
       '--limit',
-      '50',
+      '500',
       '--no-archived',
       '--visibility',
       'private'
     ])
   })
 
-  it('lists GitHub repositories through GitHub Desktop credentials when gh is not authenticated', async () => {
+  it('lists GitHub repositories through Git Credential Manager credentials when gh is not authenticated', async () => {
     const apiClient = new FakeGitHubApiClient([
       makeRepository({ name: 'BranchPilot', nameWithOwner: 'sergii-ziborov/BranchPilot', description: 'Desktop Git client' }),
       makeRepository({ name: 'private-tools', nameWithOwner: 'sergii-ziborov/private-tools', visibility: 'PRIVATE' }),
@@ -181,7 +270,7 @@ describe('GitHub CLI bridge', () => {
         owner: 'sergii-ziborov',
         query: 'pilot',
         visibility: 'private',
-        limit: 75
+        limit: 500
       },
       new FakeGitHubCredentialProvider(),
       apiClient
@@ -193,7 +282,7 @@ describe('GitHub CLI bridge', () => {
       owner: 'sergii-ziborov',
       query: 'pilot',
       visibility: 'private',
-      limit: 75
+      limit: 500
     })
   })
 
@@ -293,7 +382,7 @@ describe('GitHub CLI bridge', () => {
     }
   })
 
-  it('creates a pull request through GitHub API when GitHub Desktop credentials are available', async () => {
+  it('creates a pull request through GitHub API when Git Credential Manager credentials are available', async () => {
     const runner = new GitHubCliTestRunner({
       ghAuthenticated: false,
       remoteUrl: 'https://github.com/example/project.git',
@@ -360,7 +449,7 @@ describe('GitHub CLI bridge', () => {
     await expect(listGitHubPullRequests(runner, '/repo')).resolves.toEqual(pullRequests)
   })
 
-  it('lists current and open pull requests through GitHub Desktop credentials', async () => {
+  it('lists current and open pull requests through Git Credential Manager credentials', async () => {
     const currentPullRequest = makePullRequest({
       number: 7,
       title: 'Add PR workflow',
@@ -412,7 +501,7 @@ describe('GitHub CLI bridge', () => {
     expect(runner.ghPrCheckoutArgs).toEqual(['pr', 'checkout', '42'])
   })
 
-  it('checks out a pull request through system Git when using GitHub Desktop credentials', async () => {
+  it('checks out a pull request through system Git when using Git Credential Manager credentials', async () => {
     const runner = new GitHubCliTestRunner({ ghAuthenticated: false })
 
     await expect(checkoutGitHubPullRequest(
@@ -510,7 +599,7 @@ describe('GitHub CLI bridge', () => {
     expect(runner.ghPrDiffArgs).toEqual(['pr', 'diff', '7', '--patch'])
   })
 
-  it('reads pull request details through GitHub Desktop credentials', async () => {
+  it('reads pull request details through Git Credential Manager credentials', async () => {
     const details = makePullRequestDetails({
       number: 7,
       title: 'Add API details',
@@ -532,7 +621,7 @@ describe('GitHub CLI bridge', () => {
     )).resolves.toEqual(details)
   })
 
-  it('reads pull request diff through GitHub Desktop credentials', async () => {
+  it('reads pull request diff through Git Credential Manager credentials', async () => {
     const apiClient = new FakeGitHubApiClient(undefined, undefined, undefined, undefined, makePullRequestDiff())
 
     const diff = await getGitHubPullRequestDiff(

@@ -46,9 +46,9 @@ describe('githubStatusLabel', () => {
     expect(githubStatusLabel(makeStatus({ authProvider: 'gh', username: undefined }))).toBe('Authenticated')
   })
 
-  it('labels GitHub Desktop credential auth', () => {
-    expect(githubStatusLabel(makeStatus({ authProvider: 'git-credential', username: 'octo' }))).toBe('GitHub Desktop: octo')
-    expect(githubStatusLabel(makeStatus({ authProvider: 'git-credential', username: undefined }))).toBe('GitHub Desktop credential')
+  it('labels Git credential auth', () => {
+    expect(githubStatusLabel(makeStatus({ authProvider: 'git-credential', username: 'octo' }))).toBe('Git credential: octo')
+    expect(githubStatusLabel(makeStatus({ authProvider: 'git-credential', username: undefined }))).toBe('Git credential')
   })
 
   it('labels unauthenticated and missing states', () => {
@@ -62,8 +62,8 @@ describe('githubRepositoryBrowserSourceLabel', () => {
     expect(githubRepositoryBrowserSourceLabel(null)).toBe('GitHub')
   })
 
-  it('distinguishes GitHub Desktop from gh', () => {
-    expect(githubRepositoryBrowserSourceLabel(makeStatus({ authProvider: 'git-credential' }))).toBe('GitHub Desktop')
+  it('distinguishes Git credentials from gh', () => {
+    expect(githubRepositoryBrowserSourceLabel(makeStatus({ authProvider: 'git-credential' }))).toBe('Git credential')
     expect(githubRepositoryBrowserSourceLabel(makeStatus({ authProvider: 'gh' }))).toBe('gh')
   })
 })

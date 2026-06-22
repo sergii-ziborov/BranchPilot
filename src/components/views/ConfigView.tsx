@@ -1,14 +1,15 @@
-import { Bot, Code2, Database, FolderOpen, GitBranch, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
+import { Bot, Check, Code2, Database, FolderOpen, GitBranch, Loader2, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
 import { BranchPilotLogo } from '../BrandIcons'
 import { BackToChanges } from '../BackToChanges'
-import type { AssistantId, EditorPreference } from '../../shared/branchPilot'
+import type { AssistantId, AssistantStatus, EditorPreference } from '../../shared/branchPilot'
 import { useController } from '../../hooks/AppControllerContext'
 import { WorktreesTagsPanel } from '../WorktreesTagsPanel'
 import { gitDefaultBranchLabel, gitSigningLabel } from '../../lib/gitConfigLabels'
-import { editorPreferenceLabel } from '../../lib/editorLabels'
+import { editorPreferenceCommandHint, editorPreferenceLabel } from '../../lib/editorLabels'
 import { gitLfsFileLabel, submoduleStatusLabel } from '../../lib/gitEntityLabels'
 import { formatDate } from '../../lib/format'
 import { InfoRow } from '../primitives'
+import { assistantLabel, assistantStatusLabel } from '../../lib/assistantLabels'
 
 export function ConfigView({ onBack, editorPreferences }: {
   onBack: () => void
@@ -17,6 +18,7 @@ export function ConfigView({ onBack, editorPreferences }: {
   const api = window.branchPilot
   const {
     appVersion, selectedAssistant, setSelectedAssistant, loadGitConfig, busy,
+    assistants, assistantsChecking, checkAssistants,
     localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, saveLocalGitIdentity,
     gitConfig, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand,
     saveEditorSettings, editorSettings, editorSettingsLoading,
@@ -28,6 +30,10 @@ export function ConfigView({ onBack, editorPreferences }: {
     tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage,
     createTag, deleteTag
   } = useController()
+  const assistantOptions = (['auto', 'claude', 'codex'] as AssistantId[]).map((assistant) =>
+    assistantChoiceOption(assistant, assistants)
+  )
+
     return (
     <section className="single-panel">
       <div className="panel-heading">
@@ -65,20 +71,38 @@ export function ConfigView({ onBack, editorPreferences }: {
               <h3>AI assistant</h3>
               <p>Used for commit text, reviews, and drafts across BranchPilot.</p>
             </div>
+            <button className="secondary-button assistant-refresh-button" type="button" onClick={checkAssistants} disabled={assistantsChecking}>
+              {assistantsChecking ? <Loader2 className="spin" size={15} /> : <RefreshCcw size={15} />}
+              {assistantsChecking ? 'Checking' : 'Check'}
+            </button>
           </div>
-          <label htmlFor="assistant-select" className="config-assistant-label">
+          <div className="config-assistant-label">
             <Bot size={16} />
             Assistant
-          </label>
-          <select
-            id="assistant-select"
-            value={selectedAssistant}
-            onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
-          >
-            <option value="auto">Auto</option>
-            <option value="claude">Claude Code</option>
-            <option value="codex">Codex</option>
-          </select>
+          </div>
+          <div className="assistant-choice-grid" role="radiogroup" aria-label="AI assistant">
+            {assistantOptions.map((option) => {
+              const selected = selectedAssistant === option.id
+
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={`assistant-choice assistant-choice-${option.state} ${selected ? 'active' : ''}`.trim()}
+                  key={option.id}
+                  onClick={() => setSelectedAssistant(option.id)}
+                  title={option.message}
+                  type="button"
+                >
+                  <span className={`assistant-choice-dot state-${option.state}`} />
+                  <span className="assistant-choice-copy">
+                    <strong>{option.label}</strong>
+                    <span>{option.meta}</span>
+                  </span>
+                  {selected && <Check className="assistant-choice-check" size={16} />}
+                </button>
+              )
+            })}
+          </div>
         </section>
 
         <section className="config-card">
@@ -165,12 +189,14 @@ export function ConfigView({ onBack, editorPreferences }: {
           <label htmlFor="editor-custom-command">Custom command</label>
           <input
             id="editor-custom-command"
-            value={editorCustomCommand}
+            value={editorPreference === 'custom' ? editorCustomCommand : editorPreferenceCommandHint(editorPreference)}
             onChange={(event) => setEditorCustomCommand(event.target.value)}
-            placeholder="code --goto %TARGET_PATH%"
+            placeholder={editorPreferenceCommandHint(editorPreference) || 'code --goto %TARGET_PATH%'}
             disabled={editorPreference !== 'custom' || editorSettingsLoading || busy}
           />
-          <p className="muted-text">Use <code>%TARGET_PATH%</code> where BranchPilot should place the repository or file path.</p>
+          <p className="muted-text">
+            BranchPilot also checks standard install locations on Windows, macOS, and Linux. Use <code>%TARGET_PATH%</code> only for custom commands.
+          </p>
           <button
             type="button"
             onClick={saveEditorSettings}
@@ -182,6 +208,13 @@ export function ConfigView({ onBack, editorPreferences }: {
           {editorSettings?.updatedAt && (
             <p className="muted-text">Updated {formatDate(editorSettings.updatedAt)}</p>
           )}
+        </section>
+
+        <section className="config-card">
+          <h3>Terminal</h3>
+          <p className="muted-text">
+            BranchPilot opens Windows Terminal when available, then falls back to PowerShell. On macOS it opens Terminal.
+          </p>
         </section>
 
         <details className="config-collapsible">
@@ -373,4 +406,76 @@ export function ConfigView({ onBack, editorPreferences }: {
       </div>
     </section>
   )
+}
+
+type AssistantChoiceState = AssistantStatus['state'] | 'limited' | 'unknown'
+
+interface AssistantChoiceOption {
+  id: AssistantId
+  label: string
+  meta: string
+  message: string
+  state: AssistantChoiceState
+}
+
+function assistantChoiceOption(assistantId: AssistantId, assistants: AssistantStatus[]): AssistantChoiceOption {
+  if (assistantId === 'auto') {
+    return autoAssistantChoice(assistants)
+  }
+
+  const status = assistants.find((assistant) => assistant.id === assistantId)
+  const state = assistantChoiceState(status)
+
+  return {
+    id: assistantId,
+    label: assistantLabel(assistantId),
+    meta: status ? assistantChoiceMeta(status) : 'Not loaded',
+    message: status?.message ?? 'Run assistant detection to load this CLI status.',
+    state
+  }
+}
+
+function autoAssistantChoice(assistants: AssistantStatus[]): AssistantChoiceOption {
+  const preferred = assistants.find((assistant) => assistant.state === 'ready')
+    ?? assistants.find((assistant) => assistant.state === 'detected')
+    ?? assistants.find((assistant) => assistantStatusLabel(assistant) === 'limited')
+    ?? assistants.find((assistant) => assistant.state === 'unavailable')
+    ?? assistants.find((assistant) => assistant.state === 'missing')
+  const state = assistantChoiceState(preferred)
+
+  return {
+    id: 'auto',
+    label: 'Auto',
+    meta: preferred ? `Uses ${preferred.label}` : 'Not loaded',
+    message: preferred
+      ? `Auto will prefer ${preferred.label}. ${preferred.message}`
+      : 'Run assistant detection to choose the first available local assistant.',
+    state
+  }
+}
+
+function assistantChoiceState(status?: AssistantStatus): AssistantChoiceState {
+  if (!status) {
+    return 'unknown'
+  }
+
+  if (assistantStatusLabel(status) === 'limited') {
+    return 'limited'
+  }
+
+  return status.state
+}
+
+function assistantChoiceMeta(status: AssistantStatus): string {
+  const statusLabel = assistantStatusLabel(status)
+
+  if (statusLabel === 'limited') {
+    return 'Session limited'
+  }
+
+  if (statusLabel === 'not found') {
+    return 'Not found'
+  }
+
+  return statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)
 }

@@ -51,7 +51,7 @@ export function useProviders({
   const [githubRepoOwner, setGithubRepoOwner] = useState('')
   const [githubRepoQuery, setGithubRepoQuery] = useState('')
   const [githubRepoVisibility, setGithubRepoVisibility] = useState<'all' | 'public' | 'private' | 'internal'>('all')
-  const [githubRepoLimit, setGithubRepoLimit] = useState('30')
+  const [githubRepoLimit, setGithubRepoLimit] = useState('500')
   const [githubRepoLoading, setGithubRepoLoading] = useState(false)
   const [currentPullRequest, setCurrentPullRequest] = useState<GitHubPullRequest | null>(null)
   const [pullRequests, setPullRequests] = useState<GitHubPullRequest[]>([])
@@ -67,6 +67,7 @@ export function useProviders({
   const [prBaseBranch, setPrBaseBranch] = useState('')
   const [createdPullRequest, setCreatedPullRequest] = useState<CreatedPullRequest | null>(null)
   const pullRequestDetailsRequestIdRef = useRef(0)
+  const prComposerSourceRef = useRef<number | null>(null)
 
   const canPublishBranch = Boolean(snapshot && !snapshot.summary.isDetached && !snapshot.summary.upstream && snapshot.summary.remoteName)
   const canGeneratePullRequestText = assistantPolicyAllows(assistantPolicy, 'pull_request_text')
@@ -149,7 +150,11 @@ export function useProviders({
   }
 
   async function loadGitHubAccounts(statusOverride?: GitHubCliStatus | null) {
-    if (!api) return
+    await fetchGitHubAccounts(statusOverride)
+  }
+
+  async function fetchGitHubAccounts(statusOverride?: GitHubCliStatus | null, quiet = false): Promise<GitHubAccountSummary[]> {
+    if (!api) return []
 
     setGithubAccountsLoading(true)
     setError(null)
@@ -157,24 +162,32 @@ export function useProviders({
 
     if (!status?.authenticated) {
       setGithubAccounts([])
-      setNotice('Run gh auth login or sign in with GitHub Desktop before loading GitHub accounts.')
+      if (!quiet) {
+        setNotice('Connect GitHub before loading accounts.')
+      }
       setGithubAccountsLoading(false)
-      return
+      return []
     }
 
     const result = await api.listGitHubAccounts()
 
     if (result.ok) {
       setGithubAccounts(result.data)
-      setGithubRepoOwner((currentOwner) => currentOwner || result.data[0]?.login || '')
-      setNotice(`Loaded ${result.data.length} GitHub account${result.data.length === 1 ? '' : 's'}.`)
+      if (!quiet) {
+        setNotice(`Loaded ${result.data.length} GitHub account${result.data.length === 1 ? '' : 's'}.`)
+      }
+      setGithubAccountsLoading(false)
+      return result.data
     } else {
       setGithubAccounts([])
       setError(result.error.message)
-      setNotice(branchPilotErrorText(result.error))
+      if (!quiet) {
+        setNotice(branchPilotErrorText(result.error))
+      }
     }
 
     setGithubAccountsLoading(false)
+    return []
   }
 
   async function loadGitHubRepositories() {
@@ -186,21 +199,50 @@ export function useProviders({
 
     if (!status?.authenticated) {
       setGithubRepositories([])
-      setNotice('Run gh auth login or sign in with GitHub Desktop before browsing repositories.')
+      setNotice('Connect GitHub before browsing repositories.')
       setGithubRepoLoading(false)
       return
     }
 
-    const result = await api.listGitHubRepositories({
-      owner: githubRepoOwner.trim() || undefined,
+    const limit = Math.min(500, Math.max(1, Number.parseInt(githubRepoLimit, 10) || 500))
+    const owner = githubRepoOwner.trim() || undefined
+    const request = {
+      owner,
       query: githubRepoQuery.trim() || undefined,
       visibility: githubRepoVisibility,
-      limit: Math.min(100, Math.max(1, Number.parseInt(githubRepoLimit, 10) || 30))
-    })
+      limit
+    }
+    const accountsForAllOwners = owner
+      ? []
+      : githubAccounts.length > 0
+        ? githubAccounts
+        : await fetchGitHubAccounts(status, true)
+
+    const results = await Promise.all([
+      api.listGitHubRepositories(request),
+      ...(!owner && accountsForAllOwners.length > 0
+        ? accountsForAllOwners.map((account) => api.listGitHubRepositories({ ...request, owner: account.login }))
+        : [])
+    ])
+    const result = results[0]
 
     if (result.ok) {
-      setGithubRepositories(result.data)
-      setNotice(`Loaded ${result.data.length} GitHub repositor${result.data.length === 1 ? 'y' : 'ies'}.`)
+      const repositoriesByName = new Map<string, GitHubRepositorySummary>()
+
+      for (const currentResult of results) {
+        if (!currentResult.ok) continue
+
+        for (const repository of currentResult.data) {
+          repositoriesByName.set(repository.nameWithOwner.toLowerCase(), repository)
+        }
+      }
+
+      const repositories = Array.from(repositoriesByName.values())
+        .sort((left, right) => Date.parse(right.pushedAt || right.updatedAt) - Date.parse(left.pushedAt || left.updatedAt))
+        .slice(0, limit)
+
+      setGithubRepositories(repositories)
+      setNotice(`Loaded ${repositories.length} GitHub repositor${repositories.length === 1 ? 'y' : 'ies'}.`)
     } else {
       setGithubRepositories([])
       setError(result.error.message)
@@ -259,6 +301,24 @@ export function useProviders({
   async function refreshProviderStatusOnly() {
     void loadProviders()
     await loadGitHubCliStatus()
+  }
+
+  async function connectGitHub() {
+    if (!api) return
+
+    await runBusyOperation('Connecting GitHub...', async () => {
+      setError(null)
+      const result = await api.connectGitHub(currentRepoPath)
+
+      if (result.ok) {
+        setGithubCliStatus(result.data)
+        setNotice(result.data.username ? `GitHub connected as ${result.data.username}.` : 'GitHub connected.')
+        await refreshProvidersPanel()
+      } else {
+        setError(result.error.message)
+        setNotice(branchPilotErrorText(result.error))
+      }
+    })
   }
 
   async function loadPullRequestDetails(prNumber: number) {
@@ -400,9 +460,26 @@ export function useProviders({
     setPrTitle('')
     setPrDescription('')
     setPrBaseBranch('')
+    prComposerSourceRef.current = null
     setCreatedPullRequest(null)
      
   }, [snapshot?.summary.rootPath])
+
+  useEffect(() => {
+    if (!selectedPullRequestDetails) return
+    const sourceChanged = prComposerSourceRef.current !== selectedPullRequestDetails.number
+    prComposerSourceRef.current = selectedPullRequestDetails.number
+
+    setPrTitle((currentTitle) => (
+      sourceChanged || !currentTitle.trim() ? selectedPullRequestDetails.title : currentTitle
+    ))
+    setPrDescription((currentDescription) => (
+      sourceChanged || !currentDescription.trim() ? selectedPullRequestDetails.body : currentDescription
+    ))
+    setPrBaseBranch((currentBaseBranch) => (
+      sourceChanged || !currentBaseBranch.trim() ? selectedPullRequestDetails.baseBranch : currentBaseBranch
+    ))
+  }, [selectedPullRequestDetails])
 
   useEffect(() => {
     if (viewMode !== 'providers') return
@@ -438,7 +515,7 @@ export function useProviders({
     canPublishBranch, canGeneratePullRequestText,
     selectedPullRequestFile, selectedPullRequestDiffResult,
     loadProviders, loadGitHubCliStatus, loadGitHubPullRequests, loadGitHubAccounts, loadGitHubRepositories,
-    cloneGitHubRepository, refreshProvidersPanel, refreshProviderStatusOnly, loadPullRequestDetails,
+    cloneGitHubRepository, refreshProvidersPanel, refreshProviderStatusOnly, connectGitHub, loadPullRequestDetails,
     generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest
   }
 }

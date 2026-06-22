@@ -194,13 +194,13 @@ export function useChanges({
     )
   }
 
-  async function discardSelected() {
-    if (!api || !currentRepoPath || !selectedChange) return
-    const isUntracked = selectedChange.untracked
+  async function discardSelected(change = selectedChange) {
+    if (!api || !currentRepoPath || !change) return
+    const isUntracked = change.untracked
     const confirmed = await requestConfirmation(
       isUntracked
-        ? `Delete untracked file ${selectedChange.path}?`
-        : `Discard local changes in ${selectedChange.path}?`,
+        ? `Delete untracked file ${change.path}?`
+        : `Discard local changes in ${change.path}?`,
       {
         title: isUntracked ? 'Delete Untracked File' : 'Discard File Changes',
         confirmLabel: isUntracked ? 'Delete file' : 'Discard changes',
@@ -213,17 +213,32 @@ export function useChanges({
 
     await runSnapshotAction(
       isUntracked ? 'Untracked file deleted.' : 'File discarded.',
-      () => action({ repoPath: currentRepoPath, filePath: selectedChange.path, confirmed }),
+      () => action({ repoPath: currentRepoPath, filePath: change.path, confirmed }),
       isUntracked ? 'Deleting file...' : 'Discarding file changes...'
     )
   }
 
-  async function exportPatch() {
+  async function discardSelectedLines(patch: string) {
+    if (!api || !currentRepoPath || !selectedChange) return
+    const confirmed = await requestConfirmation(
+      `Discard selected lines in ${selectedChange.path}? This permanently reverts those lines in the working tree.`,
+      { title: 'Discard Selected Lines', confirmLabel: 'Discard selected', variant: 'danger' }
+    )
+    if (!confirmed) return
+
+    await runSnapshotAction(
+      'Selected lines discarded.',
+      () => api.discardHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch }),
+      'Discarding selected lines...'
+    )
+  }
+
+  async function exportPatch(scope = patchScope) {
     if (!api || !currentRepoPath) return
 
     await runApiAction('Exporting patch...', () => api.exportPatch({
       repoPath: currentRepoPath,
-      scope: patchScope
+      scope
     }), (data) => {
       setNotice(data ? `Patch exported: ${data.fileName}` : 'Patch export cancelled.')
     })
@@ -315,7 +330,7 @@ export function useChanges({
     diff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
     filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
     loadDiff, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,
-    stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch,
+    stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, discardSelectedLines, exportPatch, applyPatch,
     openSelectedFileInEditor, openSelectedFileLineInEditor
   }
 }

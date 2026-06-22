@@ -1,9 +1,17 @@
-import { CalendarDays, Copy, Loader2, Trophy } from 'lucide-react'
-import type { ContributorStat, DailyReviewReport, RepositorySnapshot } from '../../shared/branchPilot'
+import { CalendarDays, Copy, ExternalLink, Loader2, Trophy } from 'lucide-react'
+import type { ContributorStat, ContributorStatsWindow, DailyReviewReport, RepositorySnapshot } from '../../shared/branchPilot'
 import { formatDate } from '../../lib/format'
 import { PanelHeading } from '../PanelHeading'
 
 const RANK_MEDAL = ['🥇', '🥈', '🥉']
+
+const CONTRIBUTOR_WINDOWS: { id: ContributorStatsWindow; label: string }[] = [
+  { id: 'all', label: 'All time' },
+  { id: 'year', label: 'Year' },
+  { id: 'month', label: 'Month' },
+  { id: 'week', label: 'Week' },
+  { id: 'day', label: 'Day' }
+]
 
 function contributorInitials(name: string): string {
   return name
@@ -14,6 +22,10 @@ function contributorInitials(name: string): string {
     .join('') || '?'
 }
 
+function contributorNameKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 export function DailyView({
   dailyReviewDate,
   setDailyReviewDate,
@@ -22,8 +34,11 @@ export function DailyView({
   dailyReviewLoading,
   dailyReview,
   contributorStats,
+  contributorWindow,
+  setContributorWindow,
   copyDailyReviewMarkdown,
-  allReposMode
+  allReposMode,
+  openExternalLink
 }: {
   dailyReviewDate: string
   setDailyReviewDate: (value: string) => void
@@ -32,8 +47,11 @@ export function DailyView({
   dailyReviewLoading: boolean
   dailyReview: DailyReviewReport | null
   contributorStats: ContributorStat[]
+  contributorWindow: ContributorStatsWindow
+  setContributorWindow: (value: ContributorStatsWindow) => void
   copyDailyReviewMarkdown: () => void | Promise<void>
   allReposMode: boolean
+  openExternalLink: (url: string | undefined, label?: string) => void
 }) {
   const topCommits = contributorStats[0]?.commits ?? 0
   return (
@@ -63,26 +81,79 @@ export function DailyView({
           <div className="contributor-board-heading">
             <Trophy size={16} />
             <strong>Contributor ranking</strong>
+            <div className="contributor-filter" role="group" aria-label="Contributor ranking period">
+              {CONTRIBUTOR_WINDOWS.map((window) => (
+                <button
+                  type="button"
+                  key={window.id}
+                  className={contributorWindow === window.id ? 'active' : ''}
+                  onClick={() => setContributorWindow(window.id)}
+                >
+                  {window.label}
+                </button>
+              ))}
+            </div>
             <span>{contributorStats.length} committers</span>
           </div>
           <div className="contributor-list">
-            {contributorStats.map((contributor, index) => (
-              <article className={`contributor-row${index < 3 ? ' top' : ''}`} key={contributor.email}>
-                <span className="contributor-rank">{RANK_MEDAL[index] ?? index + 1}</span>
-                <span className="contributor-avatar" aria-hidden="true">{contributorInitials(contributor.name)}</span>
-                <div className="contributor-id">
-                  <strong>{contributor.name}</strong>
-                  <span>Last commit {formatDate(contributor.lastCommitAt)}</span>
-                </div>
-                <div className="contributor-meter">
-                  <div className="contributor-bar" style={{ width: `${topCommits > 0 ? Math.max(6, Math.round((contributor.commits / topCommits) * 100)) : 0}%` }} />
-                </div>
-                <div className="contributor-metrics">
-                  <strong>{contributor.commits}</strong>
-                  <span>{Math.round(contributor.share * 100)}%</span>
-                </div>
-              </article>
-            ))}
+            {contributorStats.map((contributor, index) => {
+              const aliasNames = [...new Set((contributor.aliases ?? [])
+                .map((alias) => alias.name)
+                .filter((name) => contributorNameKey(name) !== contributorNameKey(contributor.name)))]
+              const identityDetails = [
+                aliasNames.length > 0 ? `Also committed as ${aliasNames.slice(0, 2).join(', ')}${aliasNames.length > 2 ? '...' : ''}` : undefined
+              ].filter(Boolean)
+              const profileUrl = contributor.profileUrl ?? contributor.profileSearchUrl
+              const profileLabel = contributor.profileUrl ? 'Profile' : 'Find profile'
+
+              return (
+                <article className={`contributor-row${index < 3 ? ' top' : ''}`} key={contributor.email} title={`${contributor.name} <${contributor.email}>`}>
+                  <span className="contributor-rank">{RANK_MEDAL[index] ?? index + 1}</span>
+                  <span className="contributor-avatar" aria-hidden="true">
+                    {contributor.avatarUrl
+                      ? (
+                          <img
+                            src={contributor.avatarUrl}
+                            alt=""
+                            onError={(event) => {
+                              event.currentTarget.style.display = 'none'
+                            }}
+                          />
+                        )
+                      : null}
+                    <span>{contributorInitials(contributor.name)}</span>
+                  </span>
+                  <div className="contributor-id">
+                    <div className="contributor-title-row">
+                      <strong>{contributor.name}</strong>
+                      {profileUrl && (
+                        <button
+                          type="button"
+                          className="contributor-profile-link"
+                          title={contributor.profileUrl ? `Open @${contributor.login ?? contributor.name} on GitHub` : `Search GitHub users for ${contributor.name}`}
+                          onClick={() => openExternalLink(profileUrl, contributor.profileUrl ? 'GitHub profile' : 'GitHub profile search')}
+                        >
+                          <ExternalLink size={13} />
+                          {profileLabel}
+                        </button>
+                      )}
+                    </div>
+                    <span className="contributor-email">
+                      {contributor.login ? `@${contributor.login} · ${contributor.email}` : contributor.email}
+                    </span>
+                    {identityDetails.length > 0 && <span className="contributor-identity">{identityDetails.join(' | ')}</span>}
+                    <span>Last commit {formatDate(contributor.lastCommitAt)}</span>
+                  </div>
+                  <div className="contributor-meter">
+                    <div className="contributor-bar" style={{ width: `${topCommits > 0 ? Math.max(6, Math.round((contributor.commits / topCommits) * 100)) : 0}%` }} />
+                  </div>
+                  <div className="contributor-metrics">
+                    <strong>{contributor.commits}</strong>
+                    <span>{Math.round(contributor.share * 100)}%</span>
+                  </div>
+                </article>
+              )
+            })}
           </div>
         </section>
       )}

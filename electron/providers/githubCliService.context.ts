@@ -1,12 +1,13 @@
 import { CommandRunner } from '../lib/commandRunner.js'
 import { BranchPilotUserError } from '../lib/errors.js'
+import { GIT_EXECUTABLE, WHICH_EXECUTABLE, normalizeNativePath } from '../lib/platformExecutables.js'
 import { normalizeGitHubRepositoryPath, type GitHubRepositoryInfo } from './githubCliService.shared.js'
 
 /** Leaf context helpers: gh executable, repository root, remote + branch resolution. */
 
 export async function resolveGhExecutable(runner: CommandRunner): Promise<string | undefined> {
   try {
-    const result = await runner.run('/usr/bin/which', ['gh'], {
+    const result = await runner.run(WHICH_EXECUTABLE, ['gh'], {
       timeoutMs: 5_000
     })
 
@@ -17,12 +18,12 @@ export async function resolveGhExecutable(runner: CommandRunner): Promise<string
 }
 
 export async function resolveRepositoryRoot(runner: CommandRunner, repoPath: string): Promise<string> {
-  const result = await runner.run('/usr/bin/git', ['rev-parse', '--show-toplevel'], {
+  const result = await runner.run(GIT_EXECUTABLE, ['rev-parse', '--show-toplevel'], {
     cwd: repoPath,
     timeoutMs: 10_000
   })
 
-  return result.stdout.trim()
+  return normalizeNativePath(result.stdout.trim())
 }
 
 export async function getGitHubRemoteUrl(runner: CommandRunner, rootPath: string): Promise<string> {
@@ -30,7 +31,7 @@ export async function getGitHubRemoteUrl(runner: CommandRunner, rootPath: string
 }
 
 export async function getGitHubRemote(runner: CommandRunner, rootPath: string): Promise<GitHubRepositoryInfo & { remoteName: string }> {
-  const result = await runner.run('/usr/bin/git', ['remote', '-v'], {
+  const result = await runner.run(GIT_EXECUTABLE, ['remote', '-v'], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
     timeoutMs: 10_000
@@ -71,30 +72,30 @@ export async function checkoutGitHubPullRequestWithGit(
   const remote = await getGitHubRemote(runner, rootPath)
   const branchName = `branchpilot/pr-${prNumber}`
 
-  await runner.run('/usr/bin/git', ['fetch', remote.remoteName, `pull/${prNumber}/head`], {
+  await runner.run(GIT_EXECUTABLE, ['fetch', remote.remoteName, `pull/${prNumber}/head`], {
     cwd: rootPath,
     timeoutMs: 120_000
   })
 
-  const branchExists = await runner.run('/usr/bin/git', ['rev-parse', '--verify', `refs/heads/${branchName}`], {
+  const branchExists = await runner.run(GIT_EXECUTABLE, ['rev-parse', '--verify', `refs/heads/${branchName}`], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
     timeoutMs: 10_000
   })
 
   if (branchExists.exitCode === 0) {
-    await runner.run('/usr/bin/git', ['switch', branchName], {
+    await runner.run(GIT_EXECUTABLE, ['switch', branchName], {
       cwd: rootPath,
       timeoutMs: 30_000
     })
-    await runner.run('/usr/bin/git', ['merge', '--ff-only', 'FETCH_HEAD'], {
+    await runner.run(GIT_EXECUTABLE, ['merge', '--ff-only', 'FETCH_HEAD'], {
       cwd: rootPath,
       timeoutMs: 120_000
     })
     return
   }
 
-  await runner.run('/usr/bin/git', ['switch', '-c', branchName, 'FETCH_HEAD'], {
+  await runner.run(GIT_EXECUTABLE, ['switch', '-c', branchName, 'FETCH_HEAD'], {
     cwd: rootPath,
     timeoutMs: 30_000
   })
@@ -131,7 +132,7 @@ export function parseGitHubRemoteUrl(remoteUrl: string): Pick<GitHubRepositoryIn
 }
 
 export async function getCurrentBranch(runner: CommandRunner, rootPath: string): Promise<string> {
-  const result = await runner.run('/usr/bin/git', ['branch', '--show-current'], {
+  const result = await runner.run(GIT_EXECUTABLE, ['branch', '--show-current'], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
     timeoutMs: 10_000
@@ -146,7 +147,7 @@ export async function getCurrentBranch(runner: CommandRunner, rootPath: string):
 }
 
 export async function assertHasUpstream(runner: CommandRunner, rootPath: string): Promise<void> {
-  const upstream = await runner.run('/usr/bin/git', ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], {
+  const upstream = await runner.run(GIT_EXECUTABLE, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], {
     cwd: rootPath,
     allowedExitCodes: [0, 128],
     timeoutMs: 10_000
@@ -158,7 +159,7 @@ export async function assertHasUpstream(runner: CommandRunner, rootPath: string)
 }
 
 export async function resolveDefaultBaseBranch(runner: CommandRunner, rootPath: string): Promise<string> {
-  const originHead = await runner.run('/usr/bin/git', ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], {
+  const originHead = await runner.run(GIT_EXECUTABLE, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
     timeoutMs: 10_000

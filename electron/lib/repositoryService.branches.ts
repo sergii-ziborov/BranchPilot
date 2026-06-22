@@ -1,4 +1,5 @@
 import type {
+  BranchActionRequest,
   BranchComparison,
   BranchCompareRequest,
   CommitFileChange,
@@ -54,16 +55,32 @@ export class RepositoryBranchService {
     return this.kernel.getSnapshot(rootPath)
   }
 
-  async createBranch(repoPath: string, branchName: string, description?: string): Promise<RepositorySnapshot> {
-    const rootPath = await this.kernel.resolveRepositoryRoot(repoPath)
-    const normalizedName = normalizeBranchName(branchName)
-    await this.kernel.git(rootPath, ['switch', '-c', normalizedName])
+  async createBranch(request: BranchActionRequest): Promise<RepositorySnapshot>
+  async createBranch(repoPath: string, branchName: string, description?: string): Promise<RepositorySnapshot>
+  async createBranch(
+    requestOrRepoPath: BranchActionRequest | string,
+    branchName?: string,
+    description?: string
+  ): Promise<RepositorySnapshot> {
+    const request = typeof requestOrRepoPath === 'string'
+      ? { repoPath: requestOrRepoPath, branchName: branchName ?? '', description }
+      : requestOrRepoPath
+    const rootPath = await this.kernel.resolveRepositoryRoot(request.repoPath)
+    const normalizedName = normalizeBranchName(request.branchName)
+    const baseRef = request.baseRef ? normalizeGitRef(request.baseRef) : undefined
+    const checkout = request.checkout !== false
 
-    if (description?.trim()) {
+    if (checkout) {
+      await this.kernel.git(rootPath, ['switch', '-c', normalizedName, ...(baseRef ? [baseRef] : [])])
+    } else {
+      await this.kernel.git(rootPath, ['branch', normalizedName, ...(baseRef ? [baseRef] : [])])
+    }
+
+    if (request.description?.trim()) {
       await this.kernel.git(rootPath, [
         'config',
         `branch.${normalizedName}.description`,
-        normalizeConfigValue(description, 'Branch description')
+        normalizeConfigValue(request.description, 'Branch description')
       ])
     }
 

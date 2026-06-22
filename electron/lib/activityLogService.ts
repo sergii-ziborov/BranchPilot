@@ -13,6 +13,7 @@ import type {
 } from '../../src/shared/branchPilot.js'
 import { redact } from './commandRunner.js'
 import { BranchPilotUserError } from './errors.js'
+import { normalizeNativePath } from './platformExecutables.js'
 
 const ACTIVITY_LOG_VERSION = 1
 const RETENTION_LIMIT = 500
@@ -142,7 +143,7 @@ function normalizeRepoPath(repoPath: string): string {
     throw new BranchPilotUserError('invalid_repository_path', 'Repository path is required.')
   }
 
-  return normalized
+  return normalizeNativePath(normalized)
 }
 
 function normalizeLimit(limit: number | undefined): number {

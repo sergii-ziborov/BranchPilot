@@ -23,6 +23,7 @@ const ACTION_LABELS: Record<AssistantActionKind, string> = {
   commit_message: 'commit text generation',
   linkedin_project: 'LinkedIn project generation',
   pull_request_text: 'pull request text generation',
+  repository_starter: 'repository starter generation',
   review_report: 'review'
 }
 
@@ -87,10 +88,10 @@ export function allowedActionsForMode(mode: AssistantPolicyMode): AssistantActio
   }
 
   if (mode === 'review-only') {
-    return ['review_report']
+    return ['review_report', 'linkedin_project', 'repository_starter']
   }
 
-  return ['commit_message', 'pull_request_text', 'review_report', 'branch_draft', 'linkedin_project']
+  return ['commit_message', 'pull_request_text', 'review_report', 'branch_draft', 'linkedin_project', 'repository_starter']
 }
 
 function normalizePersistedPolicy(repoPath: string, settings?: AssistantPolicySettings): AssistantPolicySettings {
@@ -143,7 +144,7 @@ function assistantPolicyDetails(mode: AssistantPolicyMode): string {
   }
 
   if (mode === 'review-only') {
-    return 'Current policy allows assistant reviews only. Commit and pull request text generation are disabled.'
+    return 'Current policy allows assistant reviews, LinkedIn project drafts, and repository starter drafts. Commit and pull request text generation are disabled.'
   }
 
   return 'Current policy does not allow assistants to write files, run local commands, or auto-apply changes.'

@@ -1,5 +1,8 @@
-import { app, Menu, shell, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
+import { createRequire } from 'node:module'
+import type { BrowserWindow, Menu as ElectronMenu, MenuItemConstructorOptions } from 'electron'
 
+const require = createRequire(import.meta.url)
+const { app, Menu, shell } = require('electron') as typeof import('electron')
 const isMac = process.platform === 'darwin'
 
 function emit(window: BrowserWindow, action: string) {
@@ -7,13 +10,13 @@ function emit(window: BrowserWindow, action: string) {
 }
 
 /** GitHub-Desktop-style application menu. Custom items emit `menu:action` to the renderer. */
-export function buildApplicationMenu(window: BrowserWindow): Menu {
+export function buildApplicationMenu(window: BrowserWindow): ElectronMenu {
   const template: MenuItemConstructorOptions[] = [
     ...(isMac
       ? [{
           label: app.name,
           submenu: [
-            { role: 'about' as const },
+            { label: 'About BranchPilot', click: () => emit(window, 'show-about') },
             { type: 'separator' as const },
             { label: 'Settings…', accelerator: 'Cmd+,', click: () => emit(window, 'view-config') },
             { type: 'separator' as const },
@@ -83,7 +86,7 @@ export function buildApplicationMenu(window: BrowserWindow): Menu {
       role: 'help',
       submenu: [
         { label: 'BranchPilot on GitHub', click: () => void shell.openExternal('https://github.com') },
-        ...(!isMac ? [{ label: 'About BranchPilot', role: 'about' as const }] : [])
+        ...(!isMac ? [{ label: 'About BranchPilot', click: () => emit(window, 'show-about') }] : [])
       ]
     }
   ]

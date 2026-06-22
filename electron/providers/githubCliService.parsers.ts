@@ -411,10 +411,10 @@ export function normalizeRepositoryDefaultBranch(value: unknown): string {
 
 export function normalizeRepositoryListLimit(limit: number | undefined): number {
   if (typeof limit !== 'number' || !Number.isFinite(limit)) {
-    return 30
+    return 500
   }
 
-  return Math.min(100, Math.max(1, Math.trunc(limit)))
+  return Math.min(500, Math.max(1, Math.trunc(limit)))
 }
 
 export function normalizeOptionalGitHubOwner(owner: string | undefined): string | undefined {

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { CommandRunner } from '../electron/lib/commandRunner'
+import { GIT_EXECUTABLE } from '../electron/lib/platformExecutables'
 import { ProjectMemoryService, ProjectMemoryStore } from '../electron/lib/projectMemoryService'
 
 const tempRoots: string[] = []
@@ -171,7 +172,7 @@ function createTempDirectory(prefix: string) {
 }
 
 function git(cwd: string, args: string[]) {
-  return execFileSync('/usr/bin/git', args, {
+  return execFileSync(GIT_EXECUTABLE, args, {
     cwd,
     encoding: 'utf8'
   }).trim()

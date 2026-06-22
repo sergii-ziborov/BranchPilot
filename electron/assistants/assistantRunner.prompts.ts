@@ -135,23 +135,52 @@ export function buildLinkedInProjectPrompt(context: {
   currentBranch: string
   context: string
   truncated: boolean
+  customPrompt?: string
 }): string {
   return [
     'Generate a LinkedIn Project entry for the software repository below.',
-    'Use only the provided repository context. This is suggest-only content: do not claim production impact, employer ownership, users, revenue, awards, or metrics unless visible in the context.',
+    'Write for the LinkedIn Projects section, not a sales page, cover letter, or product launch post.',
+    'Use only the provided repository context. Do not claim production impact, employer ownership, users, revenue, awards, benchmarks, or metrics unless visible in the context.',
     'Return JSON only with this exact shape: {"projectName":"...","headline":"...","role":"...","startDate":"YYYY-MM or Month YYYY","endDate":"YYYY-MM, Month YYYY, Present, or In progress","description":"...","highlights":["..."],"tags":["..."],"skills":["..."],"urlSuggestion":"...","markdown":"..."}',
     'Rules:',
-    '- projectName should be LinkedIn-friendly and can improve the repository name without inventing a different product;',
-    '- headline should be a short one-line project title/subtitle;',
-    '- role should describe the contributor role, such as Creator, Full-stack developer, Desktop app developer, or Maintainer;',
+    '- projectName should be short and clean, usually the repository or product name only; do not add a dash/tagline unless the repository name is unclear;',
+    '- headline should be one compact subtitle, 6-12 words, focused on what the project is;',
+    '- role should describe the contributor role, such as Creator, Maintainer, Desktop app developer, Full-stack developer, or Open-source contributor;',
     '- startDate and endDate should use the provided commit date range when available;',
-    '- description should be first-person neutral or resume-style, 2-4 concise sentences;',
-    '- highlights should contain 3-5 concrete bullets about features, architecture, or workflow;',
-    '- tags should contain 5-12 hashtag-ready keywords without #;',
-    '- skills should contain 5-12 LinkedIn skills/technologies;',
-    '- markdown should combine the fields into a copyable LinkedIn-ready block;',
+    '- description should be neutral first-person or resume style, 2-3 concise sentences, no hype words;',
+    '- highlights should contain 3-5 concrete bullets about features, architecture, or workflow, each under 120 characters;',
+    '- tags should contain 5-10 hashtag-ready keywords without #, mostly product/domain terms;',
+    '- skills should contain 5-10 LinkedIn skills/technologies, only from visible code, files, README, or package metadata;',
+    '- markdown should combine the fields into a copyable LinkedIn-ready block with Project, Role, Dates, URL, Description, Highlights, Skills, and Tags;',
     '- do not mention that you are an AI assistant;',
     '- do not wrap the JSON in markdown fences.',
+    ...(context.customPrompt?.trim() ? ['', 'User generation preferences:', context.customPrompt.trim()] : []),
+    '',
+    `Repository: ${context.repositoryName}`,
+    `Current branch: ${context.currentBranch}`,
+    `Context truncated: ${context.truncated ? 'yes' : 'no'}`,
+    '',
+    context.context
+  ].join('\n')
+}
+
+export function buildRepositoryStarterPrompt(context: {
+  repositoryName: string
+  currentBranch: string
+  context: string
+  truncated: boolean
+}): string {
+  return [
+    'Generate GitHub repository starter content for publishing the local project below.',
+    'Use only the provided repository context. The output will be shown to the user before BranchPilot writes files.',
+    'Return JSON only with this exact shape: {"description":"...","readme":"...","gitignore":"..."}',
+    'Rules:',
+    '- description is required, one concise GitHub repository description sentence, 350 characters or less;',
+    '- readme is required Markdown for README.md with a clear title, short overview, features, setup, usage, and development notes when inferable;',
+    '- gitignore should contain practical ignore patterns for detected languages/tools only; do not include comments explaining every line;',
+    '- do not invent install commands, licenses, package managers, hosted URLs, secrets, metrics, or production claims not visible in context;',
+    '- do not wrap the JSON in markdown fences;',
+    '- do not mention that you are an AI assistant.',
     '',
     `Repository: ${context.repositoryName}`,
     `Current branch: ${context.currentBranch}`,

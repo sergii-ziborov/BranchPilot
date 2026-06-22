@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { expect } from 'vitest'
 import { CommandRunner, type CommandRunOptions, type CommandRunResult } from '../../electron/lib/commandRunner'
+import { GIT_EXECUTABLE } from '../../electron/lib/platformExecutables'
 import { RepositoryService } from '../../electron/lib/repositoryService'
 import { SettingsStore } from '../../electron/lib/settingsStore'
 
@@ -42,7 +43,7 @@ export function createConflictedRepository() {
   git(repoPath, ['add', 'conflict.txt'])
   git(repoPath, ['commit', '-m', 'Main change'])
 
-  const merge = spawnSync('/usr/bin/git', ['merge', 'feature'], {
+  const merge = spawnSync(GIT_EXECUTABLE, ['merge', 'feature'], {
     cwd: repoPath,
     encoding: 'utf8'
   })
@@ -132,14 +133,14 @@ export class RecordingCommandRunner extends CommandRunner {
 }
 
 export function git(cwd: string, args: string[]) {
-  return execFileSync('/usr/bin/git', args, {
+  return execFileSync(GIT_EXECUTABLE, args, {
     cwd,
     encoding: 'utf8'
   }).trim()
 }
 
 export function gitWithEnv(cwd: string, args: string[], env: Record<string, string>) {
-  return execFileSync('/usr/bin/git', args, {
+  return execFileSync(GIT_EXECUTABLE, args, {
     cwd,
     encoding: 'utf8',
     env: {

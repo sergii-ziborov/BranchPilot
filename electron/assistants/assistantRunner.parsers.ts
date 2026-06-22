@@ -1,5 +1,5 @@
 import type {
-  GeneratedLinkedInProject, ReviewFinding, ReviewSeverity
+  GeneratedLinkedInProject, GeneratedRepositoryStarter, ReviewFinding, ReviewSeverity
 } from '../../src/shared/branchPilot.js'
 import { BranchPilotUserError } from '../lib/errors.js'
 
@@ -106,6 +106,27 @@ export function parseLinkedInProject(output: string): Omit<GeneratedLinkedInProj
     skills,
     urlSuggestion,
     markdown
+  }
+}
+
+export function parseRepositoryStarter(output: string): Omit<GeneratedRepositoryStarter, 'assistant' | 'truncated'> {
+  const parsed = normalizeAssistantPayload(parseJsonLike(output))
+  const description = stringField(parsed, 'description')
+  const readme = stringField(parsed, 'readme')
+  const gitignore = stringField(parsed, 'gitignore', false)
+
+  if (!description || !readme) {
+    throw new BranchPilotUserError(
+      'assistant_parse_failed',
+      'Assistant did not return valid repository starter content.',
+      output.slice(0, 2_000)
+    )
+  }
+
+  return {
+    description: description.slice(0, 350),
+    readme,
+    gitignore
   }
 }
 

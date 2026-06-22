@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { Archive, ArrowDownToLine, Bot, Clock3, Code2, Columns2, Copy, GitCommitHorizontal, GitPullRequest, ListFilter, MinusSquare, Pencil, Pilcrow, PlusSquare, Rows3, Save, Search, ShieldCheck, Trash2, UploadCloud, Users, X } from 'lucide-react'
 import type {
   ApiResult, BranchPilotApi, CoAuthor, DiffHunk, DiffResult, ImagePreview,
@@ -14,13 +14,97 @@ import { changeLabel, statusToken } from '../../lib/fileChangeLabels'
 import { DiffPreview } from '../DiffView'
 import { BulkStageCheckbox, StageCheckbox } from '../StageCheckbox'
 
+const CHANGES_SPLIT_STORAGE_KEY = 'branchpilot:changes-pane-width'
+const DEFAULT_CHANGES_PANE_WIDTH = 430
+const MIN_CHANGES_PANE_WIDTH = 320
+const MAX_CHANGES_PANE_WIDTH = 760
+const MIN_DIFF_PANE_WIDTH = 520
+const CHANGES_SPLITTER_WIDTH = 10
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+function actionTooltip(actionLabel: string, blockedLabel: string, state: { enabled: boolean; reasons: string[] }, busy: boolean): string {
+  if (busy) return 'Another repository operation is running.'
+  if (state.enabled) return actionLabel
+  return `${blockedLabel}: ${state.reasons.join(' ')}`
+}
+
+function buildCoAuthorSuggestions(
+  repositoryContributors: CoAuthor[],
+  githubContributors: CoAuthor[],
+  selectedText: string,
+  query: string
+): CoAuthor[] {
+  const selected = selectedText.toLowerCase()
+  const suggestions = new Map<string, CoAuthor>()
+
+  for (const contributor of [...repositoryContributors, ...githubContributors]) {
+    if (selected.includes(contributor.email.toLowerCase())) continue
+
+    const login = contributor.login?.toLowerCase()
+    if (login && selected.includes(`+${login}@users.noreply.github.com`)) continue
+
+    if (query && ![
+      contributor.name,
+      contributor.email,
+      contributor.login ?? '',
+      contributor.organization ?? ''
+    ].some((value) => value.toLowerCase().includes(query))) {
+      continue
+    }
+
+    const key = contributor.email.toLowerCase()
+    if (!suggestions.has(key)) suggestions.set(key, contributor)
+  }
+
+  return [...suggestions.values()].slice(0, 10)
+}
+
+function coAuthorSourceLabel(contributor: CoAuthor): string {
+  if (contributor.organization) return `${contributor.organization} member`
+  if (contributor.source === 'github') return 'GitHub'
+  return 'Repository'
+}
+
+function coAuthorTitle(contributor: CoAuthor): string {
+  return [
+    contributor.login ? `@${contributor.login}` : '',
+    contributor.organization ? `from ${contributor.organization}` : coAuthorSourceLabel(contributor),
+    contributor.email
+  ].filter(Boolean).join(' - ')
+}
+
+function clampChangesPaneWidth(width: number, containerWidth?: number): number {
+  const maxForContainer = containerWidth && containerWidth > 0
+    ? Math.max(MIN_CHANGES_PANE_WIDTH, containerWidth - CHANGES_SPLITTER_WIDTH - MIN_DIFF_PANE_WIDTH)
+    : MAX_CHANGES_PANE_WIDTH
+
+  return Math.round(clamp(width, MIN_CHANGES_PANE_WIDTH, Math.min(MAX_CHANGES_PANE_WIDTH, maxForContainer)))
+}
+
+function readStoredChangesPaneWidth(): number {
+  try {
+    const rawWidth = window.localStorage.getItem(CHANGES_SPLIT_STORAGE_KEY)
+    if (rawWidth === null) return DEFAULT_CHANGES_PANE_WIDTH
+
+    const stored = Number(rawWidth)
+    if (Number.isFinite(stored)) return clampChangesPaneWidth(stored)
+  } catch {
+    /* ignore unavailable storage */
+  }
+
+  return DEFAULT_CHANGES_PANE_WIDTH
+}
+
 export function ChangesView({
   snapshot, counts, busy, itemHeight,
   changeFilter, setChangeFilter,
   filteredChanges, virtualChanges,
   changesActionsMenuRef, closeChangesActionsMenu,
   createQuickStash, canCreateStash,
-  patchScope, setPatchScope, exportPatch, applyPatch,
+  exportPatch, applyPatch,
   bulkStageToggleState, toggleBulkStage, toggleChangeStage,
   selectedFilePath, setSelectedFilePath, setDiffMode, setViewMode,
   commitTitle, setCommitTitle, commitDescription, setCommitDescription,
@@ -32,7 +116,7 @@ export function ChangesView({
   currentRepoPath, runSnapshotAction, api,
   selectedChange, selectedDiffStats, discardSelected,
   diffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
-  diff, imagePreview, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk
+  diff, imagePreview, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelectedLines
 }: {
   snapshot: RepositorySnapshot | null
   counts: RepositorySnapshot['status']['counts'] | undefined
@@ -46,9 +130,7 @@ export function ChangesView({
   closeChangesActionsMenu: () => void
   createQuickStash: () => void | Promise<void>
   canCreateStash: boolean
-  patchScope: PatchScope
-  setPatchScope: (scope: PatchScope) => void
-  exportPatch: () => void | Promise<void>
+  exportPatch: (scope?: PatchScope) => void | Promise<void>
   applyPatch: () => void | Promise<void>
   bulkStageToggleState: ReturnType<typeof getBulkStageToggleState>
   toggleBulkStage: () => void | Promise<void>
@@ -79,7 +161,7 @@ export function ChangesView({
   api: BranchPilotApi | undefined
   selectedChange: FileChange | null
   selectedDiffStats: { additions: number; deletions: number } | null
-  discardSelected: () => void | Promise<void>
+  discardSelected: (change?: FileChange | null) => void | Promise<void>
   diffMode: ChangeDiffMode
   diffDisplayMode: 'unified' | 'split'
   setDiffDisplayMode: (mode: 'unified' | 'split') => void
@@ -90,12 +172,17 @@ export function ChangesView({
   stageSelectedHunk: (hunk: DiffHunk) => void
   unstageSelectedHunk: (hunk: DiffHunk) => void
   discardSelectedHunk: (hunk: DiffHunk) => void
+  discardSelectedLines: (patch: string) => void
 }) {
     const totalChanges = snapshot?.status.changes.length ?? 0
   const { containerRef: changesContainerRef, onScroll: changesScroll, window: changesWindow, items: changesItems } = virtualChanges
+  const splitGridRef = useRef<HTMLElement | null>(null)
+  const [changesPaneWidth, setChangesPaneWidth] = useState(readStoredChangesPaneWidth)
   const [showCoAuthors, setShowCoAuthors] = useState(false)
   const coAuthorsVisible = showCoAuthors || commitCoAuthors.trim().length > 0
   const [contributors, setContributors] = useState<CoAuthor[]>([])
+  const [githubCoAuthors, setGithubCoAuthors] = useState<CoAuthor[]>([])
+  const [githubCoAuthorsLoading, setGithubCoAuthorsLoading] = useState(false)
   const [coAuthorFilter, setCoAuthorFilter] = useState('')
 
   useEffect(() => {
@@ -120,7 +207,7 @@ export function ChangesView({
           for (const contributor of result.data) {
             const key = contributor.email.toLowerCase()
             if (merged.has(key) || seenNames.has(contributor.name.toLowerCase())) continue
-            merged.set(key, contributor)
+            merged.set(key, { ...contributor, source: 'repository' })
           }
         }
       }
@@ -130,6 +217,37 @@ export function ChangesView({
     return () => { cancelled = true }
   }, [coAuthorsVisible, currentRepoPath, api])
 
+  useEffect(() => {
+    const query = coAuthorFilter.trim()
+
+    if (!coAuthorsVisible || !currentRepoPath || !api || query.length < 2) {
+      setGithubCoAuthors([])
+      setGithubCoAuthorsLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setGithubCoAuthorsLoading(true)
+
+    const timeout = window.setTimeout(() => {
+      void api.searchGitHubCoAuthors({ repoPath: currentRepoPath, query, limit: 12 })
+        .then((result) => {
+          if (!cancelled) setGithubCoAuthors(result.ok ? result.data : [])
+        })
+        .catch(() => {
+          if (!cancelled) setGithubCoAuthors([])
+        })
+        .finally(() => {
+          if (!cancelled) setGithubCoAuthorsLoading(false)
+        })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [api, coAuthorFilter, coAuthorsVisible, currentRepoPath])
+
   const addCoAuthor = (contributor: CoAuthor) => {
     if (commitCoAuthors.includes(contributor.email)) return
     const entry = `${contributor.name} <${contributor.email}>`
@@ -138,18 +256,26 @@ export function ChangesView({
   }
 
   const coAuthorQuery = coAuthorFilter.trim().toLowerCase()
-  const coAuthorSuggestions = contributors
-    .filter((contributor) => !commitCoAuthors.includes(contributor.email))
-    .filter((contributor) => !coAuthorQuery
-      || contributor.name.toLowerCase().includes(coAuthorQuery)
-      || contributor.email.toLowerCase().includes(coAuthorQuery))
-    .slice(0, 8)
+  const coAuthorSuggestions = buildCoAuthorSuggestions(
+    contributors,
+    githubCoAuthors,
+    commitCoAuthors,
+    coAuthorQuery
+  )
+  const commitTooltip = actionTooltip('Commit staged changes', 'Commit blocked', commitActionState, busy)
+  const amendTooltip = actionTooltip('Amend the previous commit with current staged changes', 'Amend blocked', amendCommitActionState, busy)
+  const commitAndPushTooltip = actionTooltip('Commit staged changes and push to the upstream branch', 'Commit & push blocked', commitAndPushActionState, busy)
 
   const notifyBlocked = (title: string, reasons: string[]) => {
     setNotice(reasons.length > 0 ? `${title}: ${reasons.join(' · ')}` : title)
   }
 
-  const [diffMenu, setDiffMenu] = useState<{ x: number; y: number } | null>(null)
+  const [diffMenu, setDiffMenu] = useState<{ x: number; y: number; change: FileChange | null } | null>(null)
+  const splitStyle = {
+    '--changes-pane-width': `${changesPaneWidth}px`,
+    '--changes-pane-min-width': `${MIN_CHANGES_PANE_WIDTH}px`,
+    '--diff-pane-min-width': `${MIN_DIFF_PANE_WIDTH}px`
+  } as CSSProperties
 
   useEffect(() => {
     if (!diffMenu) return
@@ -167,45 +293,145 @@ export function ChangesView({
     }
   }, [diffMenu])
 
+  useEffect(() => {
+    const clampToGrid = () => {
+      const grid = splitGridRef.current
+      if (!grid) return
+      setChangesPaneWidth((width) => clampChangesPaneWidth(width, grid.getBoundingClientRect().width))
+    }
+
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(clampToGrid)
+    })
+    window.addEventListener('resize', clampToGrid)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', clampToGrid)
+    }
+  }, [])
+
+  const persistChangesPaneWidth = (width: number) => {
+    try {
+      window.localStorage.setItem(CHANGES_SPLIT_STORAGE_KEY, String(width))
+    } catch {
+      /* ignore unavailable storage */
+    }
+  }
+
+  const resizeChangesPane = (clientX: number) => {
+    const grid = splitGridRef.current
+    if (!grid) return changesPaneWidth
+
+    const rect = grid.getBoundingClientRect()
+    const nextWidth = clampChangesPaneWidth(clientX - rect.left, rect.width)
+    setChangesPaneWidth(nextWidth)
+    return nextWidth
+  }
+
+  const nudgeChangesPane = (delta: number) => {
+    const grid = splitGridRef.current
+    const containerWidth = grid?.getBoundingClientRect().width
+    setChangesPaneWidth((width) => {
+      const nextWidth = clampChangesPaneWidth(width + delta, containerWidth)
+      persistChangesPaneWidth(nextWidth)
+      return nextWidth
+    })
+  }
+
+  const startChangesPaneResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+
+    event.preventDefault()
+    let latestWidth = resizeChangesPane(event.clientX)
+    document.body.classList.add('is-resizing-changes')
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      latestWidth = resizeChangesPane(moveEvent.clientX)
+    }
+
+    const stopResize = () => {
+      document.body.classList.remove('is-resizing-changes')
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', stopResize)
+      window.removeEventListener('pointercancel', stopResize)
+      persistChangesPaneWidth(latestWidth)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', stopResize)
+    window.addEventListener('pointercancel', stopResize)
+  }
+
+  const handleSplitKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      nudgeChangesPane(event.shiftKey ? -72 : -24)
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      nudgeChangesPane(event.shiftKey ? 72 : 24)
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      setChangesPaneWidth(MIN_CHANGES_PANE_WIDTH)
+      persistChangesPaneWidth(MIN_CHANGES_PANE_WIDTH)
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      const grid = splitGridRef.current
+      const nextWidth = clampChangesPaneWidth(MAX_CHANGES_PANE_WIDTH, grid?.getBoundingClientRect().width)
+      setChangesPaneWidth(nextWidth)
+      persistChangesPaneWidth(nextWidth)
+    }
+  }
+
   const stageSelectedFile = () => {
+    const change = diffMenu?.change ?? selectedChange
     setDiffMenu(null)
-    if (!selectedChange || !currentRepoPath) return
-    void runSnapshotAction('File staged.', () => api!.stageFile({ repoPath: currentRepoPath, filePath: selectedChange.path }))
+    if (!change || !currentRepoPath || !api) return
+    void runSnapshotAction('File staged.', () => api!.stageFile({ repoPath: currentRepoPath, filePath: change.path }))
   }
 
   const unstageSelectedFile = () => {
+    const change = diffMenu?.change ?? selectedChange
     setDiffMenu(null)
-    if (!selectedChange || !currentRepoPath) return
-    void runSnapshotAction('File unstaged.', () => api!.unstageFile({ repoPath: currentRepoPath, filePath: selectedChange.path }))
+    if (!change || !currentRepoPath || !api) return
+    void runSnapshotAction('File unstaged.', () => api!.unstageFile({ repoPath: currentRepoPath, filePath: change.path }))
   }
 
   const discardFromMenu = () => {
+    const change = diffMenu?.change ?? selectedChange
     setDiffMenu(null)
-    void discardSelected()
+    void discardSelected(change)
   }
 
   const openInEditorFromMenu = () => {
+    const change = diffMenu?.change ?? selectedChange
     setDiffMenu(null)
-    if (!selectedChange || !currentRepoPath || !api) return
-    void api.openInEditor({ targetPath: `${currentRepoPath}/${selectedChange.path}` })
+    if (!change || !currentRepoPath || !api) return
+    void api.openInEditor({ targetPath: `${currentRepoPath}/${change.path}` })
   }
 
   const copyPathFromMenu = () => {
+    const change = diffMenu?.change ?? selectedChange
     setDiffMenu(null)
-    if (!selectedChange || !currentRepoPath) return
-    void navigator.clipboard.writeText(`${currentRepoPath}/${selectedChange.path}`)
+    if (!change || !currentRepoPath) return
+    void navigator.clipboard.writeText(`${currentRepoPath}/${change.path}`)
   }
 
   const copyNameFromMenu = () => {
+    const change = diffMenu?.change ?? selectedChange
     setDiffMenu(null)
-    if (!selectedChange) return
-    void navigator.clipboard.writeText(selectedChange.path.split('/').pop() ?? selectedChange.path)
+    if (!change) return
+    void navigator.clipboard.writeText(change.path.split('/').pop() ?? change.path)
   }
 
   const noChanges = totalChanges === 0
+  const contextMenuChange = diffMenu?.change ?? selectedChange
+  const canStageSelectedFile = Boolean(selectedChange && (selectedChange.unstaged || selectedChange.untracked))
+  const canUnstageSelectedFile = Boolean(selectedChange?.staged)
+  const canDiscardSelectedFile = Boolean(selectedChange && (selectedChange.unstaged || selectedChange.untracked))
 
   return (
-    <section className="content-grid changes-workflow-grid">
+    <section className="content-grid changes-workflow-grid" ref={splitGridRef} style={splitStyle}>
       <div className="changes-panel changes-panel-compact">
         <ViewSwitch viewMode="changes" setViewMode={setViewMode} changedCount={counts?.changed ?? 0} />
         <div className="change-filter-bar change-filter-bar-compact">
@@ -226,29 +452,31 @@ export function ChangesView({
                 <Save size={15} />
                 Stash changes
               </button>
-              <label>
-                Patch scope
-                <select
-                  aria-label="Patch export scope"
-                  value={patchScope}
-                  onChange={(event) => setPatchScope(event.target.value as PatchScope)}
-                  disabled={busy}
+              <div className="changes-actions-section">
+                <span>Export patch</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeChangesActionsMenu()
+                    void exportPatch('working-tree')
+                  }}
+                  disabled={busy || !snapshot}
                 >
-                  <option value="working-tree">Working tree</option>
-                  <option value="staged">Staged</option>
-                </select>
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  closeChangesActionsMenu()
-                  void exportPatch()
-                }}
-                disabled={busy || !snapshot}
-              >
-                <Copy size={15} />
-                Export patch
-              </button>
+                  <Copy size={15} />
+                  Working tree
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeChangesActionsMenu()
+                    void exportPatch('staged')
+                  }}
+                  disabled={busy || !snapshot || !counts?.staged}
+                >
+                  <Copy size={15} />
+                  Staged changes
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -305,9 +533,7 @@ export function ChangesView({
                     className={selectedFilePath === change.path ? 'change-row selected' : 'change-row'}
                     onContextMenu={(event) => {
                       event.preventDefault()
-                      setSelectedFilePath(change.path)
-                      setDiffMode(getDefaultChangeDiffMode(change))
-                      setDiffMenu({ x: event.clientX, y: event.clientY })
+                      setDiffMenu({ x: event.clientX, y: event.clientY, change })
                     }}
                   >
                     <StageCheckbox
@@ -385,25 +611,29 @@ export function ChangesView({
                 className="coauthor-filter"
                 value={coAuthorFilter}
                 onChange={(event) => setCoAuthorFilter(event.target.value)}
-                placeholder="Add a co-author from contributors…"
-                aria-label="Search contributors"
+                placeholder="Search contributors and organization members..."
+                aria-label="Search contributors and GitHub organization members"
               />
-              {coAuthorSuggestions.length > 0 && (
+              {(coAuthorSuggestions.length > 0 || githubCoAuthorsLoading) && (
                 <div className="coauthor-suggestions">
                   {coAuthorSuggestions.map((contributor) => (
                     <button
                       type="button"
                       key={contributor.email}
                       className="coauthor-chip"
-                      title={contributor.login ? `@${contributor.login} · ${contributor.email}` : contributor.email}
+                      title={coAuthorTitle(contributor)}
                       onClick={() => addCoAuthor(contributor)}
                     >
                       {contributor.avatarUrl
                         ? <img className="coauthor-avatar" src={contributor.avatarUrl} alt="" />
                         : <Users size={13} />}
-                      <span>{contributor.name}</span>
+                      <span className="coauthor-chip-text">
+                        <strong>{contributor.name}</strong>
+                        <small>{coAuthorSourceLabel(contributor)}</small>
+                      </span>
                     </button>
                   ))}
+                  {githubCoAuthorsLoading && <span className="coauthor-searching">Searching GitHub...</span>}
                 </div>
               )}
             </div>
@@ -412,7 +642,7 @@ export function ChangesView({
             <button
               className={coAuthorsVisible ? 'icon-button active' : 'icon-button'}
               type="button"
-              title="Add co-authors"
+              title={coAuthorsVisible ? 'Hide co-authors' : 'Add co-authors'}
               aria-label="Add co-authors"
               aria-pressed={coAuthorsVisible}
               onClick={() => setShowCoAuthors((value) => !value)}
@@ -425,6 +655,7 @@ export function ChangesView({
             <button
               type="button"
               className={commitActionState.enabled ? undefined : 'blocked'}
+              title={commitTooltip}
               aria-disabled={busy || !commitActionState.enabled}
               onClick={() => {
                 if (busy) return
@@ -441,6 +672,7 @@ export function ChangesView({
             <button
               type="button"
               className={amendCommitActionState.enabled ? 'danger-button' : 'danger-button blocked'}
+              title={amendTooltip}
               aria-disabled={busy || !amendCommitActionState.enabled}
               onClick={() => {
                 if (busy) return
@@ -457,6 +689,7 @@ export function ChangesView({
             <button
               type="button"
               className={commitAndPushActionState.enabled ? 'secondary' : 'secondary blocked'}
+              title={commitAndPushTooltip}
               aria-disabled={busy || !commitAndPushActionState.enabled}
               onClick={async () => {
                 if (busy) return
@@ -478,11 +711,26 @@ export function ChangesView({
       </div>
 
       <div
+        className="changes-splitter"
+        role="separator"
+        aria-label="Resize changes and diff panes"
+        aria-orientation="vertical"
+        aria-valuemin={MIN_CHANGES_PANE_WIDTH}
+        aria-valuemax={MAX_CHANGES_PANE_WIDTH}
+        aria-valuenow={changesPaneWidth}
+        tabIndex={0}
+        onPointerDown={startChangesPaneResize}
+        onKeyDown={handleSplitKeyDown}
+      >
+        <span />
+      </div>
+
+      <div
         className="diff-panel"
         onContextMenu={(event) => {
           if (!selectedChange) return
           event.preventDefault()
-          setDiffMenu({ x: event.clientX, y: event.clientY })
+          setDiffMenu({ x: event.clientX, y: event.clientY, change: selectedChange })
         }}
       >
         {noChanges ? (
@@ -530,6 +778,38 @@ export function ChangesView({
             )}
           </div>
           <div className="panel-actions diff-controls">
+            {selectedChange && (
+              <div className="diff-file-actions" aria-label="Selected file actions">
+                <button
+                  type="button"
+                  title="Stage all changes in this file"
+                  onClick={stageSelectedFile}
+                  disabled={busy || !api || !currentRepoPath || !canStageSelectedFile}
+                >
+                  <PlusSquare size={15} />
+                  Stage
+                </button>
+                <button
+                  type="button"
+                  title="Exclude this file from the next commit"
+                  onClick={unstageSelectedFile}
+                  disabled={busy || !api || !currentRepoPath || !canUnstageSelectedFile}
+                >
+                  <MinusSquare size={15} />
+                  Unstage
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  title={canDiscardSelectedFile ? (selectedChange.untracked ? 'Delete this untracked file' : 'Discard unstaged changes in this file') : 'Unstage this file before discarding staged-only changes'}
+                  onClick={discardFromMenu}
+                  disabled={busy || !api || !currentRepoPath || !canDiscardSelectedFile}
+                >
+                  <Trash2 size={15} />
+                  {selectedChange.untracked ? 'Delete' : 'Discard'}
+                </button>
+              </div>
+            )}
             <button
               type="button"
               className={diffIgnoreWhitespace ? 'icon-button active' : 'icon-button'}
@@ -576,18 +856,23 @@ export function ChangesView({
             if (!currentRepoPath || !selectedChange || !api) return
             void runSnapshotAction('Selected lines staged.', () => api.stageHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch }))
           }}
+          onUnstageLines={(patch) => {
+            if (!currentRepoPath || !selectedChange || !api) return
+            void runSnapshotAction('Selected lines unstaged.', () => api.unstageHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch }))
+          }}
+          onDiscardLines={discardSelectedLines}
         />
         </>
         )}
 
-        {diffMenu && selectedChange && (
+        {diffMenu && contextMenuChange && (
           <div className="context-menu" role="menu" style={{ top: diffMenu.y, left: diffMenu.x }}>
             <button
               type="button"
               role="menuitem"
               title="Stage all changes in this file"
               onClick={stageSelectedFile}
-              disabled={busy || (!selectedChange.unstaged && !selectedChange.untracked)}
+              disabled={busy || (!contextMenuChange.unstaged && !contextMenuChange.untracked)}
             >
               <PlusSquare size={15} />
               Stage file
@@ -597,7 +882,7 @@ export function ChangesView({
               role="menuitem"
               title="Unstage this file"
               onClick={unstageSelectedFile}
-              disabled={busy || !selectedChange.staged}
+              disabled={busy || !contextMenuChange.staged}
             >
               <MinusSquare size={15} />
               Unstage file
@@ -606,12 +891,12 @@ export function ChangesView({
               type="button"
               role="menuitem"
               className="danger"
-              title={selectedChange.untracked ? 'Delete this untracked file' : 'Discard changes to this file'}
+              title={contextMenuChange.untracked ? 'Delete this untracked file' : 'Discard changes to this file'}
               onClick={discardFromMenu}
-              disabled={busy || (!selectedChange.unstaged && !selectedChange.untracked)}
+              disabled={busy || (!contextMenuChange.unstaged && !contextMenuChange.untracked)}
             >
               <Trash2 size={15} />
-              {selectedChange.untracked ? 'Delete file' : 'Discard changes'}
+              {contextMenuChange.untracked ? 'Delete file' : 'Discard changes'}
             </button>
             <div className="context-menu-separator" role="separator" />
             <button type="button" role="menuitem" title="Open this file in your editor" onClick={openInEditorFromMenu} disabled={busy || !api}>

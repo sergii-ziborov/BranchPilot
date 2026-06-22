@@ -114,16 +114,39 @@ export interface CoAuthor {
   email: string
   login?: string
   avatarUrl?: string
+  profileUrl?: string
+  source?: 'repository' | 'github' | 'organization'
+  organization?: string
 }
 
 export interface ContributorStat {
   name: string
   email: string
+  login?: string
+  avatarUrl?: string
+  profileUrl?: string
+  profileSearchUrl?: string
   commits: number
   /** Share of total commits in the repository, 0..1. */
   share: number
   /** ISO date of this author's most recent commit. */
   lastCommitAt: string
+  /** Other author spellings that used this same email. */
+  aliases?: ContributorIdentity[]
+}
+
+export interface ContributorIdentity {
+  name: string
+  email: string
+  commits: number
+  lastCommitAt: string
+}
+
+export type ContributorStatsWindow = 'all' | 'year' | 'month' | 'week' | 'day'
+
+export interface ContributorStatsRequest {
+  repoPath?: string
+  window?: ContributorStatsWindow
 }
 
 export interface ContributionDay {
@@ -327,6 +350,13 @@ export interface LinkedInProjectGenerationRequest {
   role?: string
   audience?: string
   projectUrl?: string
+  customPrompt?: string
+}
+
+export interface RepositoryStarterGenerationRequest {
+  repoPath: string
+  assistant: AssistantId
+  repositoryName?: string
 }
 
 export interface GeneratedLinkedInProject {
@@ -341,6 +371,14 @@ export interface GeneratedLinkedInProject {
   skills: string[]
   urlSuggestion: string
   markdown: string
+  assistant: InstalledAssistantId
+  truncated: boolean
+}
+
+export interface GeneratedRepositoryStarter {
+  description: string
+  readme: string
+  gitignore: string
   assistant: InstalledAssistantId
   truncated: boolean
 }
@@ -389,7 +427,9 @@ export interface PublishBranchRequest {
 export interface BranchActionRequest {
   repoPath: string
   branchName: string
+  baseRef?: string
   description?: string
+  checkout?: boolean
   stashChanges?: boolean
 }
 

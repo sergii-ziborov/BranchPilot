@@ -4,7 +4,11 @@ import { CommandRunner } from '../electron/lib/commandRunner'
 describe('CommandRunner', () => {
   it('passes shell metacharacters as literal argv values', async () => {
     const runner = new CommandRunner()
-    const result = await runner.run('/bin/echo', ['safe; echo injected'])
+    const result = await runner.run(process.execPath, [
+      '-e',
+      'process.stdout.write(process.argv[1])',
+      'safe; echo injected'
+    ])
 
     expect(result.stdout.trim()).toBe('safe; echo injected')
   })

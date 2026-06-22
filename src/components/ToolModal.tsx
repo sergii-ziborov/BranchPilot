@@ -5,16 +5,18 @@ import { X } from 'lucide-react'
 export function ToolModal({
   title,
   onClose,
+  className,
   children
 }: {
   title: string
   onClose: () => void
+  className?: string
   children: ReactNode
 }) {
   return (
     <div className="tool-modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="tool-modal"
+        className={className ? `tool-modal ${className}` : 'tool-modal'}
         role="dialog"
         aria-modal="true"
         aria-label={title}

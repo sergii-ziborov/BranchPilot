@@ -4,6 +4,7 @@ import type {
   CommitMessageGenerationRequest,
   LinkedInProjectGenerationRequest,
   PullRequestTextGenerationRequest,
+  RepositoryStarterGenerationRequest,
   ReviewReportRequest
 } from '../../../src/shared/branchPilot.js'
 import {
@@ -13,6 +14,7 @@ import {
   generateCommitMessage,
   generateLinkedInProject,
   generatePullRequestText,
+  generateRepositoryStarter,
   generateReviewReport,
   listAssistantStatuses
 } from '../../assistants/assistantRunner.js'
@@ -106,6 +108,23 @@ export function registerAssistantHandlers(
     })
   }, (request: PullRequestTextGenerationRequest) =>
     generatePullRequestText(commandRunner, request)
+  )
+  handleAssistantAction('assistants:generateRepositoryStarter', 'repository_starter', {
+    type: 'assistant_repository_starter_generated',
+    actor: 'assistant',
+    title: 'Assistant repository starter generated',
+    repoPath: requestRepoPath,
+    metadata: ([request], generated) => ({
+      requested_assistant: request.assistant,
+      assistant: generated?.assistant ?? 'unknown',
+      repository_name: request.repositoryName ?? '',
+      description_length: generated?.description.length ?? 0,
+      readme_length: generated?.readme.length ?? 0,
+      gitignore_length: generated?.gitignore.length ?? 0,
+      truncated: generated?.truncated ?? false
+    })
+  }, (request: RepositoryStarterGenerationRequest) =>
+    generateRepositoryStarter(commandRunner, request)
   )
   handleAssistantAction('assistants:generateReviewReport', 'review_report', {
     type: 'assistant_review_generated',

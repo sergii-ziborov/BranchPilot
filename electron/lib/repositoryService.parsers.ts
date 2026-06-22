@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { BranchPilotUserError } from './errors.js'
+import { normalizeNativePath } from './platformExecutables.js'
 import type {
   CommitFileChange,
   CommitSummary,
@@ -333,7 +334,7 @@ export function parseWorktreeList(output: string, rootPath: string): WorktreeSum
   const entries: WorktreeSummary[] = []
   const records = output.split('\0')
   let current: Partial<WorktreeSummary> | null = null
-  const normalizedRootPath = path.resolve(rootPath)
+  const normalizedRootPath = path.resolve(normalizeNativePath(rootPath))
 
   for (const record of records) {
     if (!record) {
@@ -352,7 +353,7 @@ export function parseWorktreeList(output: string, rootPath: string): WorktreeSum
         entries.push(finalizeWorktreeSummary(current, normalizedRootPath))
       }
       current = {
-        path: value,
+        path: normalizeNativePath(value),
         detached: false,
         bare: false,
         locked: false,
@@ -392,14 +393,14 @@ export function parseWorktreeList(output: string, rootPath: string): WorktreeSum
 
 export function finalizeWorktreeSummary(worktree: Partial<WorktreeSummary>, normalizedRootPath: string): WorktreeSummary {
   return {
-    path: worktree.path ?? '',
+    path: normalizeNativePath(worktree.path ?? ''),
     branch: worktree.branch,
     head: worktree.head,
     detached: Boolean(worktree.detached),
     bare: Boolean(worktree.bare),
     locked: Boolean(worktree.locked),
     prunable: Boolean(worktree.prunable),
-    current: path.resolve(worktree.path ?? '') === normalizedRootPath,
+    current: path.resolve(normalizeNativePath(worktree.path ?? '')) === normalizedRootPath,
     reason: worktree.reason
   }
 }

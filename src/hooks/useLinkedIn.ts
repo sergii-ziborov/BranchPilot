@@ -1,7 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AssistantId, AssistantPolicyStatus, BranchPilotApi, GeneratedLinkedInProject } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import { assistantLabel, assistantPolicyBlockedLabel } from '../lib/assistantLabels'
+
+const LINKEDIN_DRAFT_VERSION = 1
+export const DEFAULT_LINKEDIN_CUSTOM_PROMPT = [
+  'Prefer a calm, concrete LinkedIn Projects entry over a marketing pitch.',
+  'Keep the project name short. Do not append a tagline to the project name.',
+  'Use first person only when it reads naturally; otherwise use concise resume style.',
+  'Prioritize visible architecture, workflow, and implementation details over vague impact claims.',
+  'Keep the description easy to paste into LinkedIn without extra editing.'
+].join('\n')
+
+interface PersistedLinkedInDraft {
+  version: number
+  project: GeneratedLinkedInProject | null
+  highlightsText: string
+  tagsText: string
+  skillsText: string
+  role: string
+  audience: string
+  projectUrl: string
+  customPrompt: string
+}
 
 /**
  * Owns LinkedIn project draft state and its generate/edit/copy handlers.
@@ -38,7 +59,72 @@ export function useLinkedIn({
   const [linkedinRole, setLinkedInRole] = useState('')
   const [linkedinAudience, setLinkedInAudience] = useState('LinkedIn project section')
   const [linkedinProjectUrl, setLinkedInProjectUrl] = useState('')
+  const [linkedinCustomPrompt, setLinkedInCustomPrompt] = useState(DEFAULT_LINKEDIN_CUSTOM_PROMPT)
   const [linkedinLoading, setLinkedInLoading] = useState(false)
+  const hydratedRepoRef = useRef<string | undefined>(undefined)
+  const skipNextPersistRef = useRef(false)
+
+  useEffect(() => {
+    skipNextPersistRef.current = true
+
+    if (!currentRepoPath) {
+      hydratedRepoRef.current = undefined
+      restoreLinkedInDraft(null, {
+        setLinkedInProject,
+        setLinkedinHighlightsText,
+        setLinkedinTagsText,
+        setLinkedinSkillsText,
+        setLinkedInRole,
+        setLinkedInAudience,
+        setLinkedInProjectUrl,
+        setLinkedInCustomPrompt
+      })
+      return
+    }
+
+    restoreLinkedInDraft(readLinkedInDraft(currentRepoPath), {
+      setLinkedInProject,
+      setLinkedinHighlightsText,
+      setLinkedinTagsText,
+      setLinkedinSkillsText,
+      setLinkedInRole,
+      setLinkedInAudience,
+      setLinkedInProjectUrl,
+      setLinkedInCustomPrompt
+    })
+    hydratedRepoRef.current = currentRepoPath
+  }, [currentRepoPath])
+
+  useEffect(() => {
+    if (!currentRepoPath || hydratedRepoRef.current !== currentRepoPath) return
+
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false
+      return
+    }
+
+    writeLinkedInDraft(currentRepoPath, {
+      version: LINKEDIN_DRAFT_VERSION,
+      project: linkedinProject,
+      highlightsText: linkedinHighlightsText,
+      tagsText: linkedinTagsText,
+      skillsText: linkedinSkillsText,
+      role: linkedinRole,
+      audience: linkedinAudience,
+      projectUrl: linkedinProjectUrl,
+      customPrompt: linkedinCustomPrompt
+    })
+  }, [
+    currentRepoPath,
+    linkedinProject,
+    linkedinHighlightsText,
+    linkedinTagsText,
+    linkedinSkillsText,
+    linkedinRole,
+    linkedinAudience,
+    linkedinProjectUrl,
+    linkedinCustomPrompt
+  ])
 
   async function generateLinkedInProject() {
     if (!api || !currentRepoPath) return
@@ -57,16 +143,18 @@ export function useLinkedIn({
         assistant: selectedAssistant,
         role: linkedinRole,
         audience: linkedinAudience,
-        projectUrl: linkedinProjectUrl
+        projectUrl: linkedinProjectUrl,
+        customPrompt: linkedinCustomPrompt
       })
 
       if (result.ok) {
-        setLinkedInProject(result.data)
-        setLinkedinHighlightsText(result.data.highlights.join('\n'))
-        setLinkedinTagsText(result.data.tags.join(', '))
-        setLinkedinSkillsText(result.data.skills.join(', '))
-        setNotice(`LinkedIn project generated with ${assistantLabel(result.data.assistant)}.`)
-        if (result.data.truncated) {
+        const project = { ...result.data, markdown: formatLinkedInMarkdown(result.data) }
+        setLinkedInProject(project)
+        setLinkedinHighlightsText(project.highlights.join('\n'))
+        setLinkedinTagsText(project.tags.join(', '))
+        setLinkedinSkillsText(project.skills.join(', '))
+        setNotice(`LinkedIn project generated with ${assistantLabel(project.assistant)}.`)
+        if (project.truncated) {
           setError('LinkedIn context was truncated for assistant limits.')
         }
         void loadProjectMemory()
@@ -82,7 +170,18 @@ export function useLinkedIn({
   }
 
   function updateLinkedInProject(update: Partial<GeneratedLinkedInProject>) {
-    setLinkedInProject((current) => current ? { ...current, ...update } : current)
+    setLinkedInProject((current) => {
+      if (!current) return current
+      const next = { ...current, ...update }
+      if (!('markdown' in update)) {
+        next.markdown = formatLinkedInMarkdown(next)
+      }
+      return next
+    })
+  }
+
+  function resetLinkedInPrompt() {
+    setLinkedInCustomPrompt(DEFAULT_LINKEDIN_CUSTOM_PROMPT)
   }
 
   async function copyLinkedInMarkdown() {
@@ -106,7 +205,103 @@ export function useLinkedIn({
     linkedinRole, setLinkedInRole,
     linkedinAudience, setLinkedInAudience,
     linkedinProjectUrl, setLinkedInProjectUrl,
+    linkedinCustomPrompt, setLinkedInCustomPrompt, resetLinkedInPrompt,
     linkedinLoading,
     generateLinkedInProject, updateLinkedInProject, copyLinkedInMarkdown, copyLinkedInTags
   }
+}
+
+function storageKey(repoPath: string): string {
+  return `branchpilot:linkedin-draft:${repoPath}`
+}
+
+function readLinkedInDraft(repoPath: string): PersistedLinkedInDraft | null {
+  try {
+    const raw = localStorage.getItem(storageKey(repoPath))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<PersistedLinkedInDraft>
+    return {
+      version: LINKEDIN_DRAFT_VERSION,
+      project: isLinkedInProject(parsed.project) ? parsed.project : null,
+      highlightsText: typeof parsed.highlightsText === 'string' ? parsed.highlightsText : '',
+      tagsText: typeof parsed.tagsText === 'string' ? parsed.tagsText : '',
+      skillsText: typeof parsed.skillsText === 'string' ? parsed.skillsText : '',
+      role: typeof parsed.role === 'string' ? parsed.role : '',
+      audience: typeof parsed.audience === 'string' ? parsed.audience : 'LinkedIn project section',
+      projectUrl: typeof parsed.projectUrl === 'string' ? parsed.projectUrl : '',
+      customPrompt: typeof parsed.customPrompt === 'string' && parsed.customPrompt.trim()
+        ? parsed.customPrompt
+        : DEFAULT_LINKEDIN_CUSTOM_PROMPT
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeLinkedInDraft(repoPath: string, draft: PersistedLinkedInDraft) {
+  try {
+    localStorage.setItem(storageKey(repoPath), JSON.stringify(draft))
+  } catch {
+    // Ignore storage failures; generation and editing should still work.
+  }
+}
+
+function restoreLinkedInDraft(
+  draft: PersistedLinkedInDraft | null,
+  setters: {
+    setLinkedInProject: (project: GeneratedLinkedInProject | null) => void
+    setLinkedinHighlightsText: (value: string) => void
+    setLinkedinTagsText: (value: string) => void
+    setLinkedinSkillsText: (value: string) => void
+    setLinkedInRole: (value: string) => void
+    setLinkedInAudience: (value: string) => void
+    setLinkedInProjectUrl: (value: string) => void
+    setLinkedInCustomPrompt: (value: string) => void
+  }
+) {
+  setters.setLinkedInProject(draft?.project ?? null)
+  setters.setLinkedinHighlightsText(draft?.highlightsText ?? draft?.project?.highlights.join('\n') ?? '')
+  setters.setLinkedinTagsText(draft?.tagsText ?? draft?.project?.tags.join(', ') ?? '')
+  setters.setLinkedinSkillsText(draft?.skillsText ?? draft?.project?.skills.join(', ') ?? '')
+  setters.setLinkedInRole(draft?.role ?? '')
+  setters.setLinkedInAudience(draft?.audience ?? 'LinkedIn project section')
+  setters.setLinkedInProjectUrl(draft?.projectUrl ?? '')
+  setters.setLinkedInCustomPrompt(draft?.customPrompt ?? DEFAULT_LINKEDIN_CUSTOM_PROMPT)
+}
+
+function isLinkedInProject(value: unknown): value is GeneratedLinkedInProject {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<GeneratedLinkedInProject>
+  return typeof candidate.projectName === 'string' &&
+    typeof candidate.headline === 'string' &&
+    typeof candidate.role === 'string' &&
+    typeof candidate.startDate === 'string' &&
+    typeof candidate.endDate === 'string' &&
+    typeof candidate.description === 'string' &&
+    Array.isArray(candidate.highlights) &&
+    Array.isArray(candidate.tags) &&
+    Array.isArray(candidate.skills) &&
+    typeof candidate.urlSuggestion === 'string' &&
+    typeof candidate.markdown === 'string' &&
+    typeof candidate.assistant === 'string' &&
+    typeof candidate.truncated === 'boolean'
+}
+
+function formatLinkedInMarkdown(project: Omit<GeneratedLinkedInProject, 'markdown'> | GeneratedLinkedInProject): string {
+  return [
+    `Project: ${project.projectName}`,
+    project.headline,
+    '',
+    `Role: ${project.role}`,
+    `Dates: ${project.startDate} - ${project.endDate}`,
+    project.urlSuggestion ? `URL: ${project.urlSuggestion}` : '',
+    '',
+    project.description,
+    '',
+    project.highlights.length > 0 ? 'Highlights:' : '',
+    ...project.highlights.map((highlight) => `- ${highlight}`),
+    '',
+    project.skills.length > 0 ? `Skills: ${project.skills.join(', ')}` : '',
+    project.tags.length > 0 ? `Tags: ${project.tags.map((tag) => `#${tag.replace(/^#/, '')}`).join(' ')}` : ''
+  ].filter((line) => line !== '').join('\n')
 }

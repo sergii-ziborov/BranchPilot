@@ -23,14 +23,14 @@
   grid-template-columns: 48px 22px minmax(0, 1fr);
   min-height: 24px;
   align-items: center;
-  border-right: 1px solid rgba(148, 163, 184, 0.16);
-  color: #d1d5db;
+  border-right: 1px solid var(--diff-border);
+  color: var(--diff-text);
   font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre;
 }
 
 .split-diff-cell.line-empty {
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--diff-empty-bg);
 }
 
 .diff-line {
@@ -38,7 +38,7 @@
   grid-template-columns: 48px 48px 22px minmax(0, 1fr);
   min-height: 24px;
   align-items: start;
-  color: #d1d5db;
+  color: var(--diff-text);
   font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre;
 }
@@ -47,7 +47,7 @@
 .diff-line .line-marker,
 .split-diff-cell .line-number,
 .split-diff-cell .line-marker {
-  color: #94a3b8;
+  color: var(--diff-muted);
   text-align: right;
   user-select: none;
 }
@@ -64,8 +64,8 @@
 }
 
 .line-number-button:hover {
-  color: #dbeafe;
-  background: rgba(37, 99, 235, 0.2);
+  color: var(--diff-hunk-text);
+  background: var(--sel-bg);
 }
 
 .line-number-button:focus-visible {
@@ -96,32 +96,32 @@
 
 .diff-line.line-add,
 .split-diff-cell.line-add {
-  color: #bbf7d0;
-  background: rgba(22, 101, 52, 0.24);
+  color: var(--diff-add-text);
+  background: var(--diff-add-bg);
 }
 
 .diff-line.line-remove,
 .split-diff-cell.line-remove {
-  color: #fecaca;
-  background: rgba(153, 27, 27, 0.24);
+  color: var(--diff-remove-text);
+  background: var(--diff-remove-bg);
 }
 
 .diff-line.line-meta,
 .split-diff-cell.line-meta {
-  color: #94a3b8;
+  color: var(--diff-muted);
 }
 
 /* Word-level intra-line diff: the exact added/removed text within a changed line. */
 .line-content .word-add {
   border-radius: 3px;
-  background: rgba(46, 160, 67, 0.45);
-  box-shadow: 0 0 0 1px rgba(46, 160, 67, 0.25);
+  background: var(--diff-word-add-bg);
+  box-shadow: 0 0 0 1px var(--diff-word-add-border);
 }
 
 .line-content .word-del {
   border-radius: 3px;
-  background: rgba(248, 81, 73, 0.4);
-  box-shadow: 0 0 0 1px rgba(248, 81, 73, 0.25);
+  background: var(--diff-word-del-bg);
+  box-shadow: 0 0 0 1px var(--diff-word-del-border);
 }
 
 /* GitHub-Desktop-style line selection: click a +/- line to select it for staging;
@@ -135,19 +135,19 @@
 }
 
 .diff-line.line-selected {
-  box-shadow: inset 3px 0 0 #58a6ff;
+  box-shadow: inset 3px 0 0 var(--diff-selected-accent);
 }
 
 .diff-line.line-selected .line-number {
-  color: #58a6ff;
+  color: var(--diff-selected-accent);
 }
 
 .diff-line.line-add.line-selected {
-  background: rgba(46, 160, 67, 0.42);
+  background: var(--diff-word-add-bg);
 }
 
 .diff-line.line-remove.line-selected {
-  background: rgba(248, 81, 73, 0.4);
+  background: var(--diff-word-del-bg);
 }
 
 .diff-selection-bar {
@@ -159,9 +159,9 @@
   justify-content: space-between;
   gap: 12px;
   padding: 8px 12px;
-  border-top: 1px solid rgba(148, 163, 184, 0.25);
-  background: #0d1117;
-  color: #e6edf3;
+  border-top: 1px solid var(--diff-border);
+  background: var(--diff-selection-bg);
+  color: var(--diff-selection-text);
   font-size: 13px;
 }
 
@@ -185,7 +185,7 @@
   padding: 0 12px;
   border: 1px solid var(--accent);
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--accent-contrast);
   background: var(--accent);
   font-weight: 600;
   cursor: pointer;
@@ -195,6 +195,17 @@
   border-color: rgba(148, 163, 184, 0.4);
   color: #c9d1d9;
   background: transparent;
+}
+
+.diff-selection-actions button.danger {
+  border-color: rgba(248, 81, 73, 0.6);
+  color: #ffd7d7;
+  background: rgba(248, 81, 73, 0.18);
+}
+
+.diff-selection-actions button.danger:hover:not(:disabled) {
+  color: #ffffff;
+  background: #da3633;
 }
 
 .quiet-box {
@@ -596,7 +607,7 @@
 }
 
 .branch-composer-actions button:last-child {
-  color: #ffffff;
+  color: var(--accent-contrast);
   border-color: var(--accent);
   background: var(--accent);
 }
@@ -831,7 +842,7 @@
   padding: 0 12px;
   border: 1px solid var(--accent);
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--accent-contrast);
   background: var(--accent);
 }
 
@@ -936,7 +947,7 @@
   padding: 0 12px;
   border: 1px solid var(--accent);
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--accent-contrast);
   background: var(--accent);
 }
 

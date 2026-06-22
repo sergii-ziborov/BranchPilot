@@ -9,6 +9,7 @@ import type {
   RepositorySnapshot
 } from '../../src/shared/branchPilot.js'
 import { BranchPilotUserError } from './errors.js'
+import { normalizeNativePath } from './platformExecutables.js'
 import type { ActivityLogService } from './activityLogService.js'
 import type { RepositoryService } from './repositoryService.js'
 
@@ -263,7 +264,7 @@ function normalizeRepoPath(repoPath: string): string {
     throw new BranchPilotUserError('invalid_repository_path', 'Repository path is required.')
   }
 
-  return normalized
+  return normalizeNativePath(normalized)
 }
 
 function normalizeDateKey(date: string | undefined): string {

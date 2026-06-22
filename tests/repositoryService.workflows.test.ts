@@ -9,6 +9,10 @@ import {
   git, tempRoots
 } from './support/repositoryServiceTestSupport'
 
+function readText(filePath: string): string {
+  return readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n')
+}
+
 describe('RepositoryService', () => {
   afterEach(cleanupTempRoots)
 
@@ -28,7 +32,7 @@ describe('RepositoryService', () => {
     expect(snapshot.submodules).toHaveLength(1)
     expect(snapshot.submodules[0]).toMatchObject({
       path: 'libs/child',
-      absolutePath: path.join(realpathSync(repoPath), 'libs/child'),
+      absolutePath: path.join(realpathSync.native(repoPath), 'libs/child'),
       url: childRepoPath,
       status: 'initialized'
     })
@@ -60,7 +64,7 @@ describe('RepositoryService', () => {
       path: 'libs/child',
       status: 'initialized'
     })
-    expect(readFileSync(path.join(repoPath, 'libs/child/child.txt'), 'utf8')).toBe('child\n')
+    expect(readText(path.join(repoPath, 'libs/child/child.txt'))).toBe('child\n')
   })
 
   it('detects Git LFS patterns and reports missing git-lfs before pulling', async () => {
@@ -123,11 +127,11 @@ describe('RepositoryService', () => {
 
     const ours = await service.merge.acceptOurs({ repoPath: oursRepo, filePath: 'conflict.txt' })
     expect(ours.status.counts.conflicted).toBe(0)
-    expect(readFileSync(path.join(oursRepo, 'conflict.txt'), 'utf8')).toBe('main\n')
+    expect(readText(path.join(oursRepo, 'conflict.txt'))).toBe('main\n')
 
     const theirs = await service.merge.acceptTheirs({ repoPath: theirsRepo, filePath: 'conflict.txt' })
     expect(theirs.status.counts.conflicted).toBe(0)
-    expect(readFileSync(path.join(theirsRepo, 'conflict.txt'), 'utf8')).toBe('feature\n')
+    expect(readText(path.join(theirsRepo, 'conflict.txt'))).toBe('feature\n')
   })
 
   it('merges a clean local branch into the current branch', async () => {
@@ -147,7 +151,7 @@ describe('RepositoryService', () => {
 
     expect(merged.status.merge.operation).toBe('none')
     expect(merged.status.counts.changed).toBe(0)
-    expect(readFileSync(path.join(repoPath, 'feature.txt'), 'utf8')).toBe('feature\n')
+    expect(readText(path.join(repoPath, 'feature.txt'))).toBe('feature\n')
   })
 
   it('returns a refreshed snapshot when merge creates conflicts', async () => {
@@ -186,8 +190,8 @@ describe('RepositoryService', () => {
     expect(rebased.status.merge.operation).toBe('none')
     expect(rebased.status.counts.changed).toBe(0)
     expect(rebased.summary.currentBranch).toBe('feature/clean-rebase')
-    expect(readFileSync(path.join(repoPath, 'feature.txt'), 'utf8')).toBe('feature\n')
-    expect(readFileSync(path.join(repoPath, 'main.txt'), 'utf8')).toBe('main\n')
+    expect(readText(path.join(repoPath, 'feature.txt'))).toBe('feature\n')
+    expect(readText(path.join(repoPath, 'main.txt'))).toBe('main\n')
     expect(git(repoPath, ['log', '--max-count=2', '--pretty=%s']).split('\n')).toEqual([
       'Feature clean rebase',
       'Main rebase base'
@@ -242,7 +246,7 @@ describe('RepositoryService', () => {
     expect(continued.status.merge.operation).toBe('none')
     expect(continued.status.counts.changed).toBe(0)
     expect(continued.summary.currentBranch).toBe('feature/rebase-conflict')
-    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('resolved\n')
+    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('resolved\n')
   })
 
   it('blocks invalid merge starts and continue without active operations', async () => {
@@ -360,7 +364,7 @@ describe('RepositoryService', () => {
     const pulled = await service.pull(repoPath)
 
     expect(pulled.summary.behind).toBe(0)
-    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('remote\n')
+    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('remote\n')
   })
 
   it('reports a clean user-facing error when pull cannot fast-forward', async () => {
@@ -419,6 +423,32 @@ describe('RepositoryService', () => {
 
     const deleted = await service.branches.deleteBranch(repoPath, 'feature/renamed', false, true)
     expect(deleted.branches.map((branch) => branch.name)).not.toContain('feature/renamed')
+  })
+
+  it('creates a branch from a selected base without moving current file changes', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    git(repoPath, ['switch', '-c', 'base/clean'])
+    writeFileSync(path.join(repoPath, 'base.txt'), 'base\n')
+    git(repoPath, ['add', 'base.txt'])
+    git(repoPath, ['commit', '-m', 'Add base file'])
+    const baseSha = git(repoPath, ['rev-parse', 'base/clean'])
+
+    git(repoPath, ['switch', 'main'])
+    writeFileSync(path.join(repoPath, 'tracked.txt'), 'local edits stay here\n')
+
+    const created = await service.branches.createBranch({
+      repoPath,
+      branchName: 'feature/from-base',
+      baseRef: 'base/clean',
+      checkout: false
+    })
+
+    expect(created.summary.currentBranch).toBe('main')
+    expect(created.branches.map((branch) => branch.name)).toContain('feature/from-base')
+    expect(git(repoPath, ['rev-parse', 'feature/from-base'])).toBe(baseSha)
+    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('local edits stay here\n')
   })
 
   it('lists fetched remote branches separately from local branches', async () => {
@@ -561,7 +591,7 @@ describe('RepositoryService', () => {
     const initialWorktrees = await service.worktreeTag.listWorktrees(repoPath)
     expect(initialWorktrees).toHaveLength(1)
     expect(initialWorktrees[0]).toMatchObject({
-      path: realpathSync(repoPath),
+      path: realpathSync.native(repoPath),
       branch: 'main',
       current: true
     })
@@ -583,13 +613,13 @@ describe('RepositoryService', () => {
     })
 
     expect(created.worktrees).toHaveLength(2)
-    const createdWorktree = created.worktrees.find((worktree) => realpathSync(worktree.path) === realpathSync(targetPath))
+    const createdWorktree = created.worktrees.find((worktree) => realpathSync.native(worktree.path) === realpathSync.native(targetPath))
     expect(createdWorktree).toMatchObject({
       branch: 'experiment/worktree',
       current: false
     })
     expect(git(targetPath, ['branch', '--show-current'])).toBe('experiment/worktree')
-    expect(readFileSync(path.join(targetPath, 'tracked.txt'), 'utf8')).toBe('initial\n')
+    expect(readText(path.join(targetPath, 'tracked.txt'))).toBe('initial\n')
 
     await expect(service.worktreeTag.removeWorktree({
       repoPath,

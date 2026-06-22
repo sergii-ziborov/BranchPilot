@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { ActivityLogService } from '../electron/lib/activityLogService'
 import { CommandRunner } from '../electron/lib/commandRunner'
 import { DailyReviewService } from '../electron/lib/dailyReviewService'
+import { GIT_EXECUTABLE } from '../electron/lib/platformExecutables'
 import { RepositoryService } from '../electron/lib/repositoryService'
 import { SettingsStore } from '../electron/lib/settingsStore'
 
@@ -144,7 +145,7 @@ function localDateKey(value: Date): string {
 }
 
 function git(cwd: string, args: string[]) {
-  return execFileSync('/usr/bin/git', args, {
+  return execFileSync(GIT_EXECUTABLE, args, {
     cwd,
     encoding: 'utf8'
   }).trim()

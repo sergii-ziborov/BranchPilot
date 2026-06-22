@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import type { AssistantPolicyMode, AssistantPolicyStatus, AssistantStatus, BranchPilotApi } from '../shared/branchPilot'
+import type { AssistantId, AssistantPolicyMode, AssistantPolicyStatus, AssistantStatus, BranchPilotApi } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
-import { assistantPolicyModeLabel } from '../lib/assistantLabels'
+import { assistantLabel, assistantPolicyModeLabel } from '../lib/assistantLabels'
 import type { ViewMode } from '../lib/viewMode'
 
 /** Owns assistant detection state and the per-repository assistant policy. */
@@ -9,6 +9,8 @@ export function useAssistants({
   api,
   currentRepoPath,
   viewMode,
+  selectedAssistant,
+  setSelectedAssistant,
   setNotice,
   setError,
   loadProjectMemory
@@ -16,6 +18,8 @@ export function useAssistants({
   api: BranchPilotApi | undefined
   currentRepoPath: string | undefined
   viewMode: ViewMode
+  selectedAssistant: AssistantId
+  setSelectedAssistant: (assistant: AssistantId) => void
   setNotice: (message: string) => void
   setError: (message: string | null) => void
   loadProjectMemory: (repoPath?: string) => void | Promise<void>
@@ -40,7 +44,15 @@ export function useAssistants({
     if (result.ok) {
       setAssistants(result.data)
       const ready = result.data.filter((assistant) => assistant.state === 'ready').length
-      setNotice(`${ready} of ${result.data.length} assistant CLIs are ready.`)
+      const fallback = readyAssistantFallback(result.data, selectedAssistant)
+
+      if (fallback) {
+        setSelectedAssistant(fallback.id)
+        const previous = selectedAssistant === 'auto' ? 'Auto' : assistantLabel(selectedAssistant)
+        setNotice(`${fallback.label} is ready. Switched from ${previous}.`)
+      } else {
+        setNotice(`${ready} of ${result.data.length} assistant CLIs are ready.`)
+      }
     } else {
       setError(result.error.message)
       setNotice(branchPilotErrorText(result.error))
@@ -98,4 +110,18 @@ export function useAssistants({
     loadAssistantPolicy,
     updateAssistantPolicy
   }
+}
+
+function readyAssistantFallback(assistants: AssistantStatus[], selectedAssistant: AssistantId): AssistantStatus | undefined {
+  if (selectedAssistant === 'auto') {
+    return undefined
+  }
+
+  const selected = assistants.find((assistant) => assistant.id === selectedAssistant)
+
+  if (selected?.state === 'ready') {
+    return undefined
+  }
+
+  return assistants.find((assistant) => assistant.state === 'ready')
 }

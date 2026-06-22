@@ -1,6 +1,6 @@
-import { app, BrowserWindow, Menu, shell } from 'electron'
 import { buildApplicationMenu } from './appMenu.js'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { AssistantPolicyService } from './lib/assistantPolicyService.js'
 import { ActivityLogService } from './lib/activityLogService.js'
@@ -15,6 +15,8 @@ import { SettingsStore } from './lib/settingsStore.js'
 import { createIpcHelpers } from './ipc/ipcHelpers.js'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers.js'
 
+const require = createRequire(import.meta.url)
+const { app, BrowserWindow, Menu, shell } = require('electron') as typeof import('electron')
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 
@@ -68,7 +70,15 @@ function createMainWindow() {
     minHeight: 680,
     title: 'BranchPilot',
     backgroundColor: '#f6f7f9',
-    titleBarStyle: 'hiddenInset',
+    autoHideMenuBar: process.platform !== 'darwin',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    titleBarOverlay: process.platform === 'darwin'
+      ? undefined
+      : {
+          color: '#f8fafc',
+          symbolColor: '#0f172a',
+          height: 32
+        },
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -108,6 +118,9 @@ function createMainWindow() {
   window.webContents.on('dom-ready', sendFullScreen)
 
   Menu.setApplicationMenu(buildApplicationMenu(window))
+  if (process.platform !== 'darwin') {
+    window.setMenuBarVisibility(false)
+  }
 }
 
 app.whenReady().then(() => {

@@ -5,10 +5,15 @@ import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { CommandRunner } from '../electron/lib/commandRunner'
 import { toBranchPilotError } from '../electron/lib/errors'
+import { GIT_EXECUTABLE } from '../electron/lib/platformExecutables'
 import { RepositoryService } from '../electron/lib/repositoryService'
 import { SettingsStore } from '../electron/lib/settingsStore'
 
 const tempRoots: string[] = []
+
+function readText(filePath: string): string {
+  return readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n')
+}
 
 describe('local repository workflows', () => {
   afterEach(() => {
@@ -66,7 +71,7 @@ describe('local repository workflows', () => {
       expect(toBranchPilotError(error).code).toBe('git_dirty_worktree')
     }
     expect(git(repoPath, ['branch', '--show-current'])).toBe('main')
-    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('dirty main content\n')
+    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('dirty main content\n')
   })
 
   it('drives a merge conflict workflow through accept theirs and continue', async () => {
@@ -95,7 +100,7 @@ describe('local repository workflows', () => {
 
     const resolved = await service.merge.acceptTheirs({ repoPath, filePath: 'tracked.txt' })
     expect(resolved.status.counts.conflicted).toBe(0)
-    expect(readFileSync(path.join(repoPath, 'tracked.txt'), 'utf8')).toBe('feature conflict content\n')
+    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('feature conflict content\n')
 
     const continued = await service.merge.continueMergeOperation(repoPath)
     expect(continued.status.merge.operation).toBe('none')
@@ -129,7 +134,7 @@ function createRepository() {
 }
 
 function git(cwd: string, args: string[]) {
-  return execFileSync('/usr/bin/git', args, {
+  return execFileSync(GIT_EXECUTABLE, args, {
     cwd,
     encoding: 'utf8'
   }).trim()

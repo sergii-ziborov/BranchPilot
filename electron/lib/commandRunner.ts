@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process'
+import { readdirSync } from 'node:fs'
+import { gitArgsWithCredentialManager, isGitExecutable } from './platformExecutables.js'
 
 export interface CommandRunOptions {
   cwd?: string
@@ -22,17 +24,42 @@ export interface CommandRunResult {
 
 const DEFAULT_TIMEOUT_MS = 30_000
 const SAFE_ENV_KEYS = [
+  'ALLUSERSPROFILE',
+  'APPDATA',
+  'ComSpec',
+  'CommonProgramFiles',
+  'CommonProgramFiles(x86)',
+  'CommonProgramW6432',
   'HOME',
+  'HOMEDRIVE',
+  'HOMEPATH',
+  'LOCALAPPDATA',
   'PATH',
+  'PATHEXT',
+  'Path',
+  'ProgramData',
+  'ProgramFiles',
+  'ProgramFiles(x86)',
+  'ProgramW6432',
   'SHELL',
+  'SystemDrive',
+  'SystemRoot',
   'TMPDIR',
+  'TEMP',
+  'TMP',
   'USER',
+  'USERDOMAIN',
+  'USERNAME',
+  'USERPROFILE',
+  'WINDIR',
   'LANG',
   'LC_ALL',
   'SSH_AUTH_SOCK',
   'GIT_ASKPASS',
   'SSH_ASKPASS',
   'DISPLAY',
+  'NVM_HOME',
+  'NVM_SYMLINK',
   'XPC_SERVICE_NAME'
 ]
 
@@ -53,9 +80,10 @@ export class CommandRunner {
     const allowedExitCodes = options.allowedExitCodes ?? [0]
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
     const maxOutputBytes = normalizeMaxOutputBytes(options.maxOutputBytes)
+    const spawnArgs = isGitExecutable(command) ? gitArgsWithCredentialManager(args) : args
 
     const result = await new Promise<CommandRunResult>((resolve, reject) => {
-      const child = spawn(command, args, {
+      const child = spawn(command, spawnArgs, {
         cwd: options.cwd,
         env: buildSafeEnv(),
         shell: false,
@@ -101,7 +129,7 @@ export class CommandRunner {
         clearTimeout(timeout)
         const safeResult: CommandRunResult = {
           command,
-          args,
+          args: spawnArgs,
           cwd: options.cwd,
           exitCode: exitCode ?? 1,
           stdout: redact(stdout),
@@ -136,12 +164,91 @@ function buildSafeEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {}
 
   for (const key of SAFE_ENV_KEYS) {
-    if (process.env[key]) {
-      env[key] = process.env[key]
+    const value = getEnvValue(key)
+
+    if (value) {
+      env[key] = value
     }
   }
 
+  if (process.platform === 'win32') {
+    const pathValue = buildWindowsPath(env.PATH ?? env.Path)
+
+    env.PATH = pathValue
+    env.Path = pathValue
+  }
+
   return env
+}
+
+function getEnvValue(key: string): string | undefined {
+  if (process.env[key]) {
+    return process.env[key]
+  }
+
+  const foundKey = Object.keys(process.env).find((candidate) => candidate.toLowerCase() === key.toLowerCase())
+
+  return foundKey ? process.env[foundKey] : undefined
+}
+
+function buildWindowsPath(currentPath?: string): string {
+  const separator = ';'
+  const parts = (currentPath ?? '').split(separator).filter(Boolean)
+  const appData = getEnvValue('APPDATA')
+  const nvmHome = getEnvValue('NVM_HOME')
+  const nvmSymlink = getEnvValue('NVM_SYMLINK')
+  const userProfile = getEnvValue('USERPROFILE')
+  const additions = [
+    appData ? `${appData}\\npm` : undefined,
+    userProfile ? `${userProfile}\\scoop\\shims` : undefined,
+    userProfile ? `${userProfile}\\scoop\\apps\\yarn\\current\\global\\node_modules\\.bin` : undefined,
+    nvmHome ? `${nvmHome}\\nodejs\\nodejs` : undefined,
+    nvmSymlink,
+    userProfile ? `${userProfile}\\.vscode\\extensions` : undefined,
+    ...findWindowsCodexPathAdditions(userProfile)
+  ].filter((part): part is string => Boolean(part))
+
+  for (const addition of additions) {
+    if (!parts.some((part) => part.toLowerCase() === addition.toLowerCase())) {
+      parts.push(addition)
+    }
+  }
+
+  return parts.join(separator)
+}
+
+function findWindowsCodexPathAdditions(userProfile?: string): string[] {
+  if (!userProfile) {
+    return []
+  }
+
+  const roots = [
+    `${userProfile}\\.vscode\\extensions`,
+    `${userProfile}\\.vscode-insiders\\extensions`,
+    `${userProfile}\\.cursor\\extensions`
+  ]
+  const paths: string[] = []
+
+  for (const root of roots) {
+    let entries: string[]
+
+    try {
+      entries = readdirSync(root)
+    } catch {
+      continue
+    }
+
+    for (const entry of entries.sort().reverse()) {
+      if (!/^openai\.chatgpt-/i.test(entry)) {
+        continue
+      }
+
+      paths.push(`${root}\\${entry}\\bin\\windows-x86_64`)
+      paths.push(`${root}\\${entry}\\bin\\windows-arm64`)
+    }
+  }
+
+  return paths
 }
 
 function normalizeMaxOutputBytes(value?: number): number | undefined {

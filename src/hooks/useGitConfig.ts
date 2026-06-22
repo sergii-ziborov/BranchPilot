@@ -29,7 +29,7 @@ export function useGitConfig({
 }) {
   const [gitConfig, setGitConfig] = useState<GitConfigSnapshot | null>(null)
   const [editorSettings, setEditorSettings] = useState<EditorSettings | null>(null)
-  const [editorPreference, setEditorPreference] = useState<EditorPreference>('auto')
+  const [editorPreference, setEditorPreference] = useState<EditorPreference>('vscode')
   const [editorCustomCommand, setEditorCustomCommand] = useState('')
   const [editorSettingsLoading, setEditorSettingsLoading] = useState(false)
   const [localUserName, setLocalUserName] = useState('')
@@ -61,7 +61,7 @@ export function useGitConfig({
     setError(null)
     const result = await api.setEditorSettings({
       preference: editorPreference,
-      customCommand: editorCustomCommand.trim()
+      customCommand: editorPreference === 'custom' ? editorCustomCommand.trim() : undefined
     })
 
     if (result.ok) {

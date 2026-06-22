@@ -13,6 +13,7 @@ import type {
   RemoteSummary
 } from '../../src/shared/branchPilot.js'
 import { CommandRunner } from './commandRunner.js'
+import { GIT_EXECUTABLE, normalizeNativePath } from './platformExecutables.js'
 
 const MEMORY_VERSION = 1
 const MAX_INDEXED_FILE_BYTES = 500_000
@@ -116,7 +117,7 @@ export class ProjectMemoryService {
 
   private async resolveRepositoryRoot(repoPath: string): Promise<string> {
     const result = await this.git(repoPath, ['rev-parse', '--show-toplevel'])
-    return result.stdout.trim()
+    return normalizeNativePath(result.stdout.trim())
   }
 
   private async getRepository(rootPath: string): Promise<ProjectMemoryRepository> {
@@ -199,7 +200,7 @@ export class ProjectMemoryService {
     args: string[],
     options: { allowedExitCodes?: number[] } = {}
   ) {
-    return this.runner.run('/usr/bin/git', args, {
+    return this.runner.run(GIT_EXECUTABLE, args, {
       cwd,
       allowedExitCodes: options.allowedExitCodes
     })

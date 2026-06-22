@@ -5,6 +5,7 @@ import type {
 } from '../../src/shared/branchPilot.js'
 import { CommandRunner } from '../lib/commandRunner.js'
 import { BranchPilotUserError } from '../lib/errors.js'
+import { GIT_EXECUTABLE, normalizeNativePath } from '../lib/platformExecutables.js'
 import {
   MAX_ASSISTANT_REVIEW_DIFF_BYTES
 } from './assistantRunner.schemas.js'
@@ -16,12 +17,12 @@ import {
 } from './assistantRunner.parsers.js'
 
 export async function resolveRepositoryRoot(runner: CommandRunner, repoPath: string): Promise<string> {
-  const result = await runner.run('/usr/bin/git', ['rev-parse', '--show-toplevel'], {
+  const result = await runner.run(GIT_EXECUTABLE, ['rev-parse', '--show-toplevel'], {
     cwd: repoPath,
     timeoutMs: 10_000
   })
 
-  return result.stdout.trim()
+  return normalizeNativePath(result.stdout.trim())
 }
 
 export async function readOptionalFile(filePath: string, maxBytes: number): Promise<string> {
@@ -46,7 +47,7 @@ export async function readFirstExistingFile(rootPath: string, candidates: string
 }
 
 export async function getCurrentBranch(runner: CommandRunner, rootPath: string): Promise<string> {
-  const result = await runner.run('/usr/bin/git', ['branch', '--show-current'], {
+  const result = await runner.run(GIT_EXECUTABLE, ['branch', '--show-current'], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
     timeoutMs: 10_000
@@ -61,7 +62,7 @@ export async function getCurrentBranch(runner: CommandRunner, rootPath: string):
 }
 
 export async function getBranchLabel(runner: CommandRunner, rootPath: string): Promise<string> {
-  const result = await runner.run('/usr/bin/git', ['branch', '--show-current'], {
+  const result = await runner.run(GIT_EXECUTABLE, ['branch', '--show-current'], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
     timeoutMs: 10_000
@@ -83,11 +84,11 @@ export async function buildReviewContext(
   truncated: boolean
 }> {
   const branch = await getBranchLabel(runner, rootPath)
-  const status = await runner.run('/usr/bin/git', ['status', '--short'], {
+  const status = await runner.run(GIT_EXECUTABLE, ['status', '--short'], {
     cwd: rootPath,
     timeoutMs: 10_000
   })
-  const recentCommits = await runner.run('/usr/bin/git', [
+  const recentCommits = await runner.run(GIT_EXECUTABLE, [
     'log',
     '--max-count=5',
     '--pretty=format:%h%x00%s%x00%an'
@@ -98,7 +99,7 @@ export async function buildReviewContext(
   })
 
   if (scope === 'staged') {
-    const diff = await runner.run('/usr/bin/git', ['diff', '--cached', '--no-ext-diff'], {
+    const diff = await runner.run(GIT_EXECUTABLE, ['diff', '--cached', '--no-ext-diff'], {
       cwd: rootPath,
       allowedExitCodes: [0, 1],
       timeoutMs: 30_000
@@ -115,7 +116,7 @@ export async function buildReviewContext(
   }
 
   if (scope === 'unstaged') {
-    const diff = await runner.run('/usr/bin/git', ['diff', '--no-ext-diff'], {
+    const diff = await runner.run(GIT_EXECUTABLE, ['diff', '--no-ext-diff'], {
       cwd: rootPath,
       allowedExitCodes: [0, 1],
       timeoutMs: 30_000
@@ -132,7 +133,7 @@ export async function buildReviewContext(
   }
 
   const base = await resolveDefaultBaseRef(runner, rootPath)
-  const commits = await runner.run('/usr/bin/git', [
+  const commits = await runner.run(GIT_EXECUTABLE, [
     'log',
     '--max-count=50',
     '--pretty=format:%h%x00%s%x00%an',
@@ -142,7 +143,7 @@ export async function buildReviewContext(
     allowedExitCodes: [0, 128],
     timeoutMs: 30_000
   })
-  const diff = await runner.run('/usr/bin/git', ['diff', '--no-ext-diff', `${base.baseRef}...HEAD`], {
+  const diff = await runner.run(GIT_EXECUTABLE, ['diff', '--no-ext-diff', `${base.baseRef}...HEAD`], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
     timeoutMs: 30_000
@@ -163,7 +164,7 @@ export async function resolveDefaultBaseRef(
   runner: CommandRunner,
   rootPath: string
 ): Promise<{ baseBranch: string; baseRef: string }> {
-  const originHead = await runner.run('/usr/bin/git', ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], {
+  const originHead = await runner.run(GIT_EXECUTABLE, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
     timeoutMs: 10_000
@@ -206,7 +207,7 @@ export async function resolveBaseRef(
 }
 
 export async function refExists(runner: CommandRunner, rootPath: string, ref: string): Promise<boolean> {
-  const result = await runner.run('/usr/bin/git', ['rev-parse', '--verify', '--quiet', ref], {
+  const result = await runner.run(GIT_EXECUTABLE, ['rev-parse', '--verify', '--quiet', ref], {
     cwd: rootPath,
     allowedExitCodes: [0, 1],
     timeoutMs: 10_000

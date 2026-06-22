@@ -9,6 +9,7 @@ import {
   type CommandRunResult,
   CommandRunner
 } from '../electron/lib/commandRunner'
+import { GIT_EXECUTABLE, WHICH_EXECUTABLE } from '../electron/lib/platformExecutables'
 import {
   checkAssistantStatuses,
   generateBranchDescription,
@@ -130,7 +131,7 @@ describe('assistant commit message generation', () => {
       command: '/tmp/branchpilot-claude'
     })
     expect(runner.assistantInvocations[0].args).toContain('--print')
-    expect(runner.assistantInvocations[0].args).toContain('--tools')
+    expect(runner.assistantInvocations[0].args).toEqual(expect.arrayContaining(['--tools', '""']))
     expect(runner.assistantInvocations[0].cwd).not.toBe(repoPath)
   })
 
@@ -389,7 +390,8 @@ describe('assistant commit message generation', () => {
       repoPath,
       assistant: 'auto',
       role: 'Creator',
-      audience: 'LinkedIn project section'
+      audience: 'LinkedIn project section',
+      customPrompt: 'Avoid product launch tone.'
     })
 
     expect(result).toMatchObject({
@@ -404,6 +406,7 @@ describe('assistant commit message generation', () => {
       truncated: false
     })
     expect(runner.assistantPrompt).toContain('LinkedIn Project entry')
+    expect(runner.assistantPrompt).toContain('Avoid product launch tone.')
     expect(runner.assistantPrompt).toContain('Add project metadata')
     expect(runner.assistantPrompt).toContain('BranchPilot README context')
     expect(runner.assistantPrompt).toContain('electron')
@@ -597,7 +600,7 @@ class AssistantTestRunner extends CommandRunner {
   }
 
   override async run(command: string, args: string[], options: CommandRunOptions = {}): Promise<CommandRunResult> {
-    if (command === '/usr/bin/which') {
+    if (command === WHICH_EXECUTABLE) {
       const executable = args[0] as 'claude' | 'codex'
 
       if (this.options.available.includes(executable)) {
@@ -667,7 +670,7 @@ function reviewOutput(summary: string) {
 }
 
 function git(cwd: string, args: string[]) {
-  return execFileSync('/usr/bin/git', args, {
+  return execFileSync(GIT_EXECUTABLE, args, {
     cwd,
     encoding: 'utf8'
   }).trim()

@@ -1,9 +1,13 @@
 import type { CommandRunResult } from './commandRunner.js'
+import { createHash } from 'node:crypto'
 import type {
   CoAuthor,
   ContributionDay,
   ContributionGraph,
+  ContributorIdentity,
   ContributorStat,
+  ContributorStatsRequest,
+  ContributorStatsWindow,
   RecentRepository,
   RepositoryRhythm
 } from '../../src/shared/branchPilot.js'
@@ -59,15 +63,19 @@ export class RepositoryActivityAnalytics {
    * `repoPath` it covers that repository; without one it aggregates across the
    * recent repositories (the "All repositories" report scope).
    */
-  async getContributorStats(repoPath?: string): Promise<ContributorStat[]> {
-    const repoPaths = repoPath
-      ? [await this.kernel.resolveRepositoryRoot(repoPath)]
+  async getContributorStats(request?: string | ContributorStatsRequest): Promise<ContributorStat[]> {
+    const normalizedRequest = normalizeContributorStatsRequest(request)
+    const repoPaths = normalizedRequest.repoPath
+      ? [await this.kernel.resolveRepositoryRoot(normalizedRequest.repoPath)]
       : (await this.kernel.getRecentRepositories()).slice(0, 12).map((repo) => repo.path)
+    const sinceArg = contributorStatsSinceArg(normalizedRequest.window)
 
     const logs = await Promise.all(
       repoPaths.map(async (candidate) => {
         try {
-          const result = await this.kernel.git(candidate, ['log', '--format=%an\t%ae\t%ad', '--date=short', '-n', '8000'], {
+          const args = ['log', '--format=%an\t%ae\t%ad', '--date=short', '-n', '8000']
+          if (sinceArg) args.push(sinceArg)
+          const result = await this.kernel.git(candidate, args, {
             allowedExitCodes: [0, 128, 129]
           })
           return result.exitCode === 0 ? result.stdout : ''
@@ -78,6 +86,7 @@ export class RepositoryActivityAnalytics {
     )
 
     const byEmail = new Map<string, ContributorStat>()
+    const aliasesByEmail = new Map<string, Map<string, ContributorIdentity>>()
     let total = 0
 
     for (const stdout of logs) {
@@ -91,20 +100,38 @@ export class RepositoryActivityAnalytics {
         total += 1
         const key = email.toLowerCase()
         const existing = byEmail.get(key)
+        const aliases = aliasesByEmail.get(key) ?? new Map<string, ContributorIdentity>()
+        const aliasKey = name.toLowerCase()
+        const alias = aliases.get(aliasKey)
+
+        if (alias) {
+          alias.commits += 1
+          if (date > alias.lastCommitAt) alias.lastCommitAt = date
+        } else {
+          aliases.set(aliasKey, { name, email, commits: 1, lastCommitAt: date })
+        }
+        aliasesByEmail.set(key, aliases)
+
         if (existing) {
           existing.commits += 1
           if (date > existing.lastCommitAt) {
             existing.lastCommitAt = date
             existing.name = name
+            Object.assign(existing, contributorProfileFields(name, email))
           }
         } else {
-          byEmail.set(key, { name, email, commits: 1, share: 0, lastCommitAt: date })
+          byEmail.set(key, { ...contributorProfileFields(name, email), name, email, commits: 1, share: 0, lastCommitAt: date })
         }
       }
     }
 
     return [...byEmail.values()]
-      .map((stat) => ({ ...stat, share: total > 0 ? stat.commits / total : 0 }))
+      .map((stat) => ({
+        ...stat,
+        share: total > 0 ? stat.commits / total : 0,
+        aliases: [...(aliasesByEmail.get(stat.email.toLowerCase())?.values() ?? [])]
+          .sort((first, second) => second.commits - first.commits || second.lastCommitAt.localeCompare(first.lastCommitAt))
+      }))
       .sort((first, second) => second.commits - first.commits)
       .slice(0, 50)
   }
@@ -176,4 +203,62 @@ export class RepositoryActivityAnalytics {
 
     return computeRhythm(logs, new Date(), windowDays)
   }
+}
+
+function normalizeContributorStatsRequest(request?: string | ContributorStatsRequest): { repoPath?: string; window: ContributorStatsWindow } {
+  if (typeof request === 'string') {
+    return {
+      repoPath: request,
+      window: 'all'
+    }
+  }
+
+  return {
+    ...(request?.repoPath ? { repoPath: request.repoPath } : {}),
+    window: normalizeContributorStatsWindow(request?.window)
+  }
+}
+
+function normalizeContributorStatsWindow(window?: ContributorStatsWindow): ContributorStatsWindow {
+  return window === 'year' || window === 'month' || window === 'week' || window === 'day'
+    ? window
+    : 'all'
+}
+
+function contributorStatsSinceArg(window: ContributorStatsWindow): string | undefined {
+  if (window === 'year') return '--since=1 year ago'
+  if (window === 'month') return '--since=1 month ago'
+  if (window === 'week') return '--since=1 week ago'
+  if (window === 'day') return '--since=1 day ago'
+  return undefined
+}
+
+function contributorProfileFields(name: string, email: string): Pick<ContributorStat, 'login' | 'avatarUrl' | 'profileUrl' | 'profileSearchUrl'> {
+  const login = inferGitHubLogin(email)
+  const normalizedEmail = email.trim().toLowerCase()
+
+  return {
+    ...(login
+      ? {
+          login,
+          avatarUrl: `https://github.com/${encodeURIComponent(login)}.png?size=96`,
+          profileUrl: `https://github.com/${encodeURIComponent(login)}`
+        }
+      : {
+          avatarUrl: `https://www.gravatar.com/avatar/${md5(normalizedEmail)}?s=96&d=identicon`
+        }),
+    profileSearchUrl: `https://github.com/search?q=${encodeURIComponent(`${name} ${email}`)}&type=users`
+  }
+}
+
+function inferGitHubLogin(email: string): string | undefined {
+  const normalizedEmail = email.trim().toLowerCase()
+  const noreplyMatch = normalizedEmail.match(/^(?:\d+\+)?([a-z0-9-]+)@users\.noreply\.github\.com$/)
+  if (noreplyMatch?.[1]) return noreplyMatch[1]
+
+  return undefined
+}
+
+function md5(value: string): string {
+  return createHash('md5').update(value).digest('hex')
 }

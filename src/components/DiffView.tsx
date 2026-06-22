@@ -184,6 +184,7 @@ function UnifiedDiffLines({
             className={`diff-line line-${line.type}${canSelect ? ' selectable' : ''}${isSelected ? ' line-selected' : ''}`}
             key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}
             onMouseDown={canSelect ? (event) => {
+              if (event.button !== 0) return
               // Avoid hijacking the line-number "open in editor" button.
               if ((event.target as HTMLElement).closest('.line-number-button')) return
               event.preventDefault()
@@ -246,6 +247,49 @@ function buildStagePatch(files: DiffFile[], selected: Set<string>): string {
   return out
 }
 
+/** Build a patch that can be reverse-applied to the index to exclude selected staged lines. */
+function buildUnstagePatch(files: DiffFile[], selected: Set<string>): string {
+  let out = ''
+  files.forEach((file, fi) => {
+    const hunkPatches: string[] = []
+    file.hunks.forEach((hunk, hi) => {
+      const body: string[] = []
+      let oldCount = 0
+      let newCount = 0
+      let hasSelected = false
+      hunk.lines.forEach((line, li) => {
+        const sel = selected.has(`${fi}:${hi}:${li}`)
+        if (line.type === 'context') {
+          body.push(` ${line.content}`)
+          oldCount += 1
+          newCount += 1
+        } else if (line.type === 'add') {
+          if (sel) {
+            body.push(`+${line.content}`)
+            newCount += 1
+            hasSelected = true
+          } else {
+            body.push(` ${line.content}`)
+            oldCount += 1
+            newCount += 1
+          }
+        } else if (line.type === 'remove' && sel) {
+          body.push(`-${line.content}`)
+          oldCount += 1
+          hasSelected = true
+        }
+      })
+      if (!hasSelected) return
+      hunkPatches.push(`@@ -${hunk.oldStart},${oldCount} +${hunk.newStart},${newCount} @@\n${body.join('\n')}`)
+    })
+    if (hunkPatches.length === 0) return
+    const a = file.oldPath ?? file.newPath
+    const b = file.newPath
+    out += `diff --git a/${a} b/${b}\n--- a/${a}\n+++ b/${b}\n${hunkPatches.join('\n')}\n`
+  })
+  return out
+}
+
 export function DiffPreview({
   diff,
   imagePreview = null,
@@ -256,6 +300,8 @@ export function DiffPreview({
   onUnstageHunk,
   onDiscardHunk,
   onStageLines,
+  onUnstageLines,
+  onDiscardLines,
   onOpenLine
 }: {
   diff: DiffResult | null
@@ -267,6 +313,8 @@ export function DiffPreview({
   onUnstageHunk?: (hunk: DiffHunk) => void
   onDiscardHunk?: (hunk: DiffHunk) => void
   onStageLines?: (patch: string) => void
+  onUnstageLines?: (patch: string) => void
+  onDiscardLines?: (patch: string) => void
   onOpenLine?: (line?: number) => void
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -302,6 +350,22 @@ export function DiffPreview({
     if (!diff || selected.size === 0 || !onStageLines) return
     const patch = buildStagePatch(diff.files, selected)
     if (patch.trim()) onStageLines(patch)
+    setSelected(new Set())
+    anchorRef.current = null
+  }
+
+  const discardSelected = () => {
+    if (!diff || selected.size === 0 || !onDiscardLines) return
+    const patch = buildStagePatch(diff.files, selected)
+    if (patch.trim()) onDiscardLines(patch)
+    setSelected(new Set())
+    anchorRef.current = null
+  }
+
+  const unstageSelected = () => {
+    if (!diff || selected.size === 0 || !onUnstageLines) return
+    const patch = buildUnstagePatch(diff.files, selected)
+    if (patch.trim()) onUnstageLines(patch)
     setSelected(new Set())
     anchorRef.current = null
   }
@@ -405,6 +469,18 @@ export function DiffPreview({
               <button type="button" onClick={stageSelected} disabled={busy}>
                 <Plus size={15} />
                 Stage selected
+              </button>
+            )}
+            {mode === 'unstaged' && onDiscardLines && (
+              <button type="button" className="danger" onClick={discardSelected} disabled={busy}>
+                <Trash2 size={15} />
+                Discard selected
+              </button>
+            )}
+            {mode === 'staged' && onUnstageLines && (
+              <button type="button" onClick={unstageSelected} disabled={busy} title="Exclude selected lines from the commit">
+                <X size={15} />
+                Unstage selected
               </button>
             )}
             <button type="button" className="secondary" onClick={() => { setSelected(new Set()); anchorRef.current = null }}>

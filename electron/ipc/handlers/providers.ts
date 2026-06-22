@@ -1,13 +1,16 @@
 import type {
   CheckoutPullRequestRequest,
+  CreateGitHubRepositoryRequest,
   CreatePullRequestRequest,
   EditorOpenRequest,
   EditorSettingsUpdate,
+  GitHubCoAuthorSearchRequest,
   ListGitHubRepositoriesRequest,
   PullRequestDetailsRequest
 } from '../../../src/shared/branchPilot.js'
 import {
   checkoutGitHubPullRequest,
+  connectGitHubAuthentication,
   createGitHubPullRequest,
   getCurrentBranchPullRequest,
   getGitHubCliStatus,
@@ -17,7 +20,9 @@ import {
   listGitHubAccounts,
   listGitHubContributors,
   listGitHubPullRequests,
-  listGitHubRepositories
+  listGitHubRepositories,
+  publishLocalGitHubRepository,
+  searchGitHubCoAuthors
 } from '../../providers/githubCliService.js'
 import { listProviderStatuses } from '../../providers/providerAdapter.js'
 import { withProjectMemoryRefresh } from '../ipcTypes.js'
@@ -40,6 +45,7 @@ export function registerProviderHandlers(
 
   handle('providers:list', () => listProviderStatuses(commandRunner))
   handle('providers:githubCliStatus', (repoPath?: string) => getGitHubCliStatus(commandRunner, repoPath))
+  handle('providers:connectGitHub', (repoPath?: string) => connectGitHubAuthentication(commandRunner, repoPath))
   handleLogged('providers:createGitHubPullRequest', {
     type: 'github_pr_created',
     actor: 'provider',
@@ -67,9 +73,35 @@ export function registerProviderHandlers(
   handle('providers:githubContributors', (repoPath: string) =>
     listGitHubContributors(commandRunner, repoPath)
   )
+  handle('providers:searchGitHubCoAuthors', (request: GitHubCoAuthorSearchRequest) =>
+    searchGitHubCoAuthors(commandRunner, request)
+  )
   handle('providers:listGitHubRepositories', (request: ListGitHubRepositoriesRequest) =>
     listGitHubRepositories(commandRunner, request)
   )
+  handleLogged('providers:createGitHubRepository', {
+    type: 'github_repository_created',
+    actor: 'provider',
+    title: 'GitHub repository created',
+    repoPath: requestRepoPath,
+    metadata: ([request], result) => ({
+      owner: request.owner,
+      repository: request.name,
+      visibility: request.visibility,
+      remote_name: result?.remoteName ?? request.remoteName ?? 'origin',
+      pushed: result?.pushed ?? false,
+      url: result?.url ?? '',
+      starter_files: result?.starterFilesWritten.join(',') ?? ''
+    })
+  }, async (request: CreateGitHubRepositoryRequest) => {
+    const result = await publishLocalGitHubRepository(commandRunner, request)
+    const snapshot = await repositoryService.getSnapshot(result.rootPath)
+
+    return {
+      ...result,
+      snapshot
+    }
+  })
   handleLogged('providers:getGitHubPullRequestDetails', {
     type: 'github_pr_details_loaded',
     actor: 'provider',

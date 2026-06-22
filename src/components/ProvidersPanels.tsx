@@ -1,4 +1,5 @@
-import { ArrowDownToLine, ExternalLink, Loader2, RefreshCcw } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowDownToLine, ExternalLink, ListFilter, Loader2, RefreshCcw, Search, UsersRound } from 'lucide-react'
 import type {
   DiffResult, GitHubAccountSummary, GitHubCliStatus, GitHubPullRequestCheck,
   GitHubPullRequestDetails, GitHubPullRequestDiff, GitHubRepositorySummary
@@ -8,10 +9,16 @@ import {
 } from '../lib/githubLabels'
 import { fileStatusToken } from '../lib/fileChangeLabels'
 import { formatDate } from '../lib/format'
+import {
+  filterVisibleGitHubRepositories,
+  type GitHubRepositoryOwnerScopeFilter,
+  type GitHubRepositoryVisibilityFilter
+} from '../lib/githubRepositoryFilters'
 import { InfoRow } from './primitives'
 import { DiffPreview } from './DiffView'
 
-type RepoVisibility = 'all' | 'public' | 'private' | 'internal'
+type RepoVisibility = GitHubRepositoryVisibilityFilter
+type RepoOwnerScope = GitHubRepositoryOwnerScopeFilter
 
 /** Authenticated GitHub repository browser with clone actions. */
 export function GitHubRepositoryBrowser({
@@ -27,7 +34,6 @@ export function GitHubRepositoryBrowser({
   githubRepoVisibility,
   setGithubRepoVisibility,
   githubRepoLimit,
-  setGithubRepoLimit,
   busy,
   loadGitHubAccounts,
   loadGitHubRepositories,
@@ -46,7 +52,6 @@ export function GitHubRepositoryBrowser({
   githubRepoVisibility: RepoVisibility
   setGithubRepoVisibility: (value: RepoVisibility) => void
   githubRepoLimit: string
-  setGithubRepoLimit: (value: string) => void
   busy: boolean
   loadGitHubAccounts: () => void | Promise<void>
   loadGitHubRepositories: () => void | Promise<void>
@@ -54,28 +59,50 @@ export function GitHubRepositoryBrowser({
   openExternalLink: (url: string | undefined, label?: string) => void
 }) {
   const repoBrowserReady = Boolean(githubCliStatus?.authenticated)
+  const [ownerScope, setOwnerScope] = useState<RepoOwnerScope>('all')
+  const ownerTypeByLogin = useMemo(() => Object.fromEntries(
+    githubAccounts.map((account) => [account.login.toLowerCase(), account.type])
+  ), [githubAccounts])
+  const currentOwnerAccount = githubAccounts.find((account) => account.login.toLowerCase() === githubRepoOwner.trim().toLowerCase())
+  const effectiveOwner = ownerScope === 'all' || currentOwnerAccount?.type === ownerScope ? githubRepoOwner : ''
+  const ownerOptions = useMemo(() => (
+    ownerScope === 'all' ? githubAccounts : githubAccounts.filter((account) => account.type === ownerScope)
+  ), [githubAccounts, ownerScope])
+  const filteredRepositories = useMemo(() => filterVisibleGitHubRepositories(githubRepositories, {
+    owner: effectiveOwner,
+    ownerScope,
+    ownerTypeByLogin,
+    query: githubRepoQuery,
+    visibility: githubRepoVisibility,
+    limit: githubRepoLimit
+  }), [effectiveOwner, githubRepositories, githubRepoLimit, githubRepoQuery, githubRepoVisibility, ownerScope, ownerTypeByLogin])
+  const repositoryCountLabel = githubRepositories.length === filteredRepositories.length
+    ? `${githubRepositories.length} repositories loaded`
+    : `${filteredRepositories.length} of ${githubRepositories.length} repositories shown`
+  const activeFilterCount = [
+    effectiveOwner.trim(),
+    ownerScope !== 'all' ? ownerScope : '',
+    githubRepoVisibility !== 'all' ? githubRepoVisibility : ''
+  ].filter(Boolean).length
+  const showInternalVisibility = githubRepoVisibility === 'internal' || githubRepositories.some((repository) => repository.visibility.toLowerCase() === 'internal')
+  const updateOwnerScope = (nextScope: RepoOwnerScope) => {
+    setOwnerScope(nextScope)
+    if (nextScope !== 'all' && currentOwnerAccount && currentOwnerAccount.type !== nextScope) {
+      setGithubRepoOwner('')
+    }
+  }
 
   return (
     <section className="github-repo-browser">
       <div className="panel-heading compact-heading">
         <div>
           <h3>GitHub repositories</h3>
-          <p>{repoBrowserReady ? `${githubRepositories.length} repositories loaded from ${githubRepositoryBrowserSourceLabel(githubCliStatus)} · ${githubAccounts.length} accounts available.` : 'Repository list requires GitHub CLI or GitHub Desktop auth.'}</p>
-        </div>
-        <div className="pr-actions">
-          <button type="button" className="secondary" onClick={() => void loadGitHubAccounts()} disabled={busy || githubAccountsLoading}>
-            {githubAccountsLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
-            Load accounts
-          </button>
-          <button type="button" className="secondary" onClick={loadGitHubRepositories} disabled={busy || githubRepoLoading}>
-            {githubRepoLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
-            Load repositories
-          </button>
+          <p>{repoBrowserReady ? `${repositoryCountLabel} from ${githubRepositoryBrowserSourceLabel(githubCliStatus)} · ${githubAccounts.length} accounts available.` : 'Repository list requires connected GitHub auth.'}</p>
         </div>
       </div>
 
       {!repoBrowserReady && (
-        <div className="command-hint">Run <code>gh auth login</code> or sign in with GitHub Desktop, then load repositories.</div>
+        <div className="command-hint">Connect GitHub with GitHub CLI or Git Credential Manager, then load repositories.</div>
       )}
 
       <form
@@ -85,67 +112,98 @@ export function GitHubRepositoryBrowser({
           void loadGitHubRepositories()
         }}
       >
-        <label>
-          <span>Owner/org</span>
-          <input
-            list="github-account-options"
-            value={githubRepoOwner}
-            onChange={(event) => setGithubRepoOwner(event.target.value)}
-            placeholder={githubCliStatus?.username ?? 'default account'}
-            disabled={busy || githubRepoLoading}
-          />
-          <datalist id="github-account-options">
-            {githubAccounts.map((account) => (
-              <option key={account.login} value={account.login}>
-                {githubAccountOptionLabel(account)}
-              </option>
-            ))}
-          </datalist>
-        </label>
-        <label>
-          <span>Search</span>
+        <label className="github-repo-search">
+          <Search size={16} aria-hidden="true" />
           <input
             value={githubRepoQuery}
             onChange={(event) => setGithubRepoQuery(event.target.value)}
-            placeholder="name or description"
+            onInput={(event) => setGithubRepoQuery(event.currentTarget.value)}
+            placeholder="Search repositories by name, owner, or description"
+            aria-label="Search GitHub repositories"
+            autoComplete="off"
             disabled={busy || githubRepoLoading}
           />
         </label>
-        <label>
-          <span>Visibility</span>
-          <select
-            value={githubRepoVisibility}
-            onChange={(event) => setGithubRepoVisibility(event.target.value as RepoVisibility)}
-            disabled={busy || githubRepoLoading}
+        <details className="github-repo-filter-menu">
+          <summary title="Filter repositories" aria-label="Filter repositories">
+            <ListFilter size={16} />
+            <span>Filters</span>
+            {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
+          </summary>
+          <div className="github-repo-filter-panel">
+            <label>
+              <span className="github-filter-label">Owner/org</span>
+              <select
+                value={effectiveOwner}
+                onChange={(event) => setGithubRepoOwner(event.target.value)}
+                disabled={busy || githubRepoLoading}
+              >
+                <option value="">All owners and organizations</option>
+                {ownerOptions.map((account) => (
+                  <option key={account.login} value={account.login}>
+                    {githubAccountOptionLabel(account)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="github-filter-group">
+              <span className="github-filter-label">Account type</span>
+              <div className="github-filter-segment">
+                <button type="button" className={ownerScope === 'all' ? 'active' : ''} onClick={() => updateOwnerScope('all')}>All</button>
+                <button type="button" className={ownerScope === 'user' ? 'active' : ''} onClick={() => updateOwnerScope('user')}>User</button>
+                <button type="button" className={ownerScope === 'organization' ? 'active' : ''} onClick={() => updateOwnerScope('organization')}>Organization</button>
+              </div>
+            </div>
+
+            <div className="github-filter-group">
+              <span className="github-filter-label">Visibility</span>
+              <div className={showInternalVisibility ? 'github-filter-segment four' : 'github-filter-segment'}>
+                <button type="button" className={githubRepoVisibility === 'all' ? 'active' : ''} onClick={() => setGithubRepoVisibility('all')}>All</button>
+                <button type="button" className={githubRepoVisibility === 'private' ? 'active' : ''} onClick={() => setGithubRepoVisibility('private')}>Private</button>
+                <button type="button" className={githubRepoVisibility === 'public' ? 'active' : ''} onClick={() => setGithubRepoVisibility('public')}>Public</button>
+                {showInternalVisibility && (
+                  <button type="button" className={githubRepoVisibility === 'internal' ? 'active' : ''} onClick={() => setGithubRepoVisibility('internal')}>Internal</button>
+                )}
+              </div>
+            </div>
+          </div>
+        </details>
+        <div className="github-repo-refresh-actions">
+          <button
+            type="button"
+            className="icon-button github-refresh-button"
+            onClick={() => void loadGitHubAccounts()}
+            disabled={busy || githubAccountsLoading}
+            title="Reload GitHub accounts and organizations"
+            aria-label="Reload GitHub accounts and organizations"
           >
-            <option value="all">All</option>
-            <option value="private">Private</option>
-            <option value="public">Public</option>
-            <option value="internal">Internal</option>
-          </select>
-        </label>
-        <label>
-          <span>Limit</span>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={githubRepoLimit}
-            onChange={(event) => setGithubRepoLimit(event.target.value)}
+            {githubAccountsLoading ? <Loader2 className="spin" size={17} /> : <UsersRound size={17} />}
+          </button>
+          <button
+            type="button"
+            className="icon-button github-refresh-button"
+            onClick={loadGitHubRepositories}
             disabled={busy || githubRepoLoading}
-          />
-        </label>
+            title="Reload repository list"
+            aria-label="Reload repository list"
+          >
+            {githubRepoLoading ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
+          </button>
+        </div>
       </form>
 
       {!repoBrowserReady ? (
-        <div className="quiet-box">BranchPilot can browse repositories through authenticated GitHub CLI or an available GitHub Desktop credential.</div>
+        <div className="quiet-box">BranchPilot can browse repositories through authenticated GitHub CLI or an available Git credential.</div>
       ) : githubRepoLoading ? (
         <div className="quiet-box">Loading GitHub repositories.</div>
       ) : githubRepositories.length === 0 ? (
         <div className="quiet-box">No repositories loaded yet.</div>
+      ) : filteredRepositories.length === 0 ? (
+        <div className="quiet-box">No repositories match the current filters.</div>
       ) : (
         <div className="github-repo-list">
-          {githubRepositories.map((repository) => (
+          {filteredRepositories.map((repository) => (
             <article className="github-repo-row" key={repository.nameWithOwner}>
               <div>
                 <strong>{repository.nameWithOwner}</strong>
@@ -216,7 +274,7 @@ export function PullRequestDetailsPanel({
           <h3>{details ? `#${details.number} ${details.title}` : 'Pull request details'}</h3>
           <p>
             {details
-              ? `${details.baseBranch} ← ${details.headBranch} · ${details.state}${details.draft ? ' · draft' : ''}`
+              ? `${details.baseBranch} â† ${details.headBranch} Â· ${details.state}${details.draft ? ' Â· draft' : ''}`
               : selectedPullRequestNumber
                 ? `Loading PR #${selectedPullRequestNumber}`
                 : 'Select a pull request to inspect details, checks, and diff.'}

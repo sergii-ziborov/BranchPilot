@@ -208,7 +208,7 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request]) => ({ branch: request.branchName })
   }, async (request: BranchActionRequest) =>
-    withProjectMemoryRefresh(await repositoryService.branches.createBranch(request.repoPath, request.branchName, request.description))
+    withProjectMemoryRefresh(await repositoryService.branches.createBranch(request))
   )
   handleLogged('git:renameBranch', {
     type: 'branch_renamed',

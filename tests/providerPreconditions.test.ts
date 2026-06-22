@@ -3,7 +3,7 @@ import { getCreatePullRequestState, getPullRequestBrowseState } from '../src/sha
 import type { GitHubCliStatus, RepositorySnapshot } from '../src/shared/branchPilot'
 
 describe('provider preconditions', () => {
-  it('allows pull request creation through GitHub Desktop credentials', () => {
+  it('allows pull request creation through Git Credential Manager credentials', () => {
     expect(getCreatePullRequestState({
       snapshot: makeSnapshot(),
       githubStatus: makeGitHubStatus({ authProvider: 'git-credential' }),
@@ -30,13 +30,13 @@ describe('provider preconditions', () => {
         'Switch from detached HEAD to a branch.',
         'Publish the current branch.',
         'Add a pull request title.',
-        'Authenticate GitHub with gh or GitHub Desktop.',
+        'Connect GitHub with GitHub CLI or Git Credential Manager.',
         'Current branch already has a pull request.'
       ]
     })
   })
 
-  it('allows pull request browsing through gh or GitHub Desktop credentials', () => {
+  it('allows pull request browsing through gh or Git Credential Manager credentials', () => {
     expect(getPullRequestBrowseState(
       makeSnapshot(),
       makeGitHubStatus({ authProvider: 'git-credential' })
@@ -58,7 +58,7 @@ describe('provider preconditions', () => {
       makeGitHubStatus({ authProvider: 'none', authenticated: false })
     )).toEqual({
       enabled: false,
-      reasons: ['Authenticate GitHub with gh or GitHub Desktop to browse pull requests.']
+      reasons: ['Connect GitHub with GitHub CLI or Git Credential Manager to browse pull requests.']
     })
   })
 
@@ -96,10 +96,7 @@ describe('provider preconditions', () => {
       currentPullRequestExists: false
     })).toMatchObject({
       enabled: false,
-      reasons: expect.arrayContaining([
-        'Publish the current branch.',
-        'Add a GitHub remote.'
-      ])
+      reasons: ['Add a GitHub remote.']
     })
   })
 })
