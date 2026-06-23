@@ -9,7 +9,6 @@ import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
 import { BranchPilotMark, LinkedinIcon } from './components/BrandIcons'
 import { useEffect, useState } from 'react'
 import { AppShellBar } from './components/AppShellBar'
-import { ContributionHeatmap } from './components/ContributionHeatmap'
 import { BackToChanges } from './components/BackToChanges'
 import { ToolModal } from './components/ToolModal'
 import { Toaster } from './components/Toaster'
@@ -454,18 +453,13 @@ function App() {
                 )}
                 </div>
                 {viewMode === 'daily' && (
-                  <>
-                  {contributionGraph && (
-                    <div className="dashboard-heatmap-card reports-heatmap">
-                      <ContributionHeatmap graph={contributionGraph} />
-                    </div>
-                  )}
                   <DailyView
                     dailyReviewDate={dailyReviewDate}
                     setDailyReviewDate={setDailyReviewDate}
                     runDailyReview={runDailyReview}
                     dailyReviewLoading={dailyReviewLoading}
                     dailyReview={dailyReview}
+                    contributionGraph={contributionGraph}
                     contributorStats={contributorStats}
                     githubAccounts={githubAccounts}
                     contributorWindow={contributorWindow}
@@ -477,7 +471,6 @@ function App() {
                     currentRepoPath={currentRepoPath}
                     openExternalLink={openExternalLink}
                   />
-                  </>
                 )}
                 {viewMode === 'linkedin' && (
                   <LinkedInView

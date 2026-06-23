@@ -1,7 +1,8 @@
 import { CalendarDays, Check, Copy, ExternalLink, Layers3, Loader2, Search, Trophy } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { ContributorStat, ContributorStatsWindow, DailyReviewReport, GitHubAccountSummary, RecentRepository, RepositorySnapshot } from '../../shared/branchPilot'
+import type { ContributionDay, ContributionGraph, ContributorStat, ContributorStatsWindow, DailyReviewReport, GitHubAccountSummary, RecentRepository, RepositorySnapshot } from '../../shared/branchPilot'
 import { formatDate } from '../../lib/format'
+import { ContributionHeatmap } from '../ContributionHeatmap'
 import { PanelHeading } from '../PanelHeading'
 
 const RANK_MEDAL = ['🥇', '🥈', '🥉']
@@ -46,6 +47,17 @@ function effectiveReportRepoPaths({
   if (selectedReportRepoPaths.length > 0) return selectedReportRepoPaths
   if (allReposMode) return recentRepositories.map((repo) => repo.path)
   return currentRepoPath ? [currentRepoPath] : []
+}
+
+function formatDailyDateLabel(date: string): string {
+  const [year, month, day] = date.split('-')
+  if (!year || !month || !day) return date || 'Select a day'
+  return `${day}/${month}/${year}`
+}
+
+function findContributionDay(graph: ContributionGraph | null, date: string): ContributionDay | null {
+  if (!graph || !date) return null
+  return graph.days.find((day) => day.date.slice(0, 10) === date) ?? null
 }
 
 export function ReportScopeMenu({
@@ -154,6 +166,7 @@ export function DailyView({
   runDailyReview,
   dailyReviewLoading,
   dailyReview,
+  contributionGraph,
   contributorStats,
   githubAccounts,
   contributorWindow,
@@ -170,6 +183,7 @@ export function DailyView({
   runDailyReview: () => void | Promise<void>
   dailyReviewLoading: boolean
   dailyReview: DailyReviewReport | null
+  contributionGraph: ContributionGraph | null
   contributorStats: ContributorStat[]
   githubAccounts: GitHubAccountSummary[]
   contributorWindow: ContributorStatsWindow
@@ -183,6 +197,17 @@ export function DailyView({
 }) {
   const topCommits = contributorStats[0]?.commits ?? 0
   const effectiveScopePaths = effectiveReportRepoPaths({ selectedReportRepoPaths, allReposMode, recentRepositories, currentRepoPath })
+  const selectedContributionDay = findContributionDay(contributionGraph, dailyReviewDate)
+  const scopeLabel = selectedReportRepoPaths.length > 0
+    ? `${selectedReportRepoPaths.length} selected repositories`
+    : allReposMode
+      ? `${recentRepositories.length || 'All'} recent repositories`
+      : 'Current repository'
+
+  function selectDailyDate(date: string) {
+    setDailyReviewDate(date)
+    setContributorWindow('day')
+  }
 
   return (
     <section className="single-panel daily-panel">
@@ -190,23 +215,49 @@ export function DailyView({
         title={allReposMode ? 'Reports' : 'Daily Review'}
         description={allReposMode ? 'Commit activity across all repositories.' : 'Repository work summary for the selected day.'}
         compact
-      >
-        <div className="daily-controls">
-          <input
-            aria-label="Daily review date"
-            type="date"
-            value={dailyReviewDate}
-            onChange={(event) => setDailyReviewDate(event.target.value)}
-          />
-          <button type="button" onClick={runDailyReview} disabled={effectiveScopePaths.length === 0 || dailyReviewLoading}>
-            {dailyReviewLoading ? <Loader2 className="spin" size={17} /> : <CalendarDays size={17} />}
-            Run daily review
-          </button>
-        </div>
-      </PanelHeading>
+      />
 
-      {contributorStats.length > 0 && (
-        <section className="contributor-board">
+      <div className="daily-workboard">
+        <div className="daily-selector-grid">
+          <section className="daily-heatmap-panel">
+            <div className="daily-card-heading">
+              <div>
+                <CalendarDays size={16} />
+                <strong>Activity heatmap</strong>
+              </div>
+              <span>{scopeLabel}</span>
+            </div>
+            <ContributionHeatmap
+              graph={contributionGraph}
+              selectedDate={dailyReviewDate}
+              onSelectDate={selectDailyDate}
+            />
+          </section>
+
+          <aside className="daily-day-panel">
+            <div>
+              <span>Selected day</span>
+              <strong>{formatDailyDateLabel(dailyReviewDate)}</strong>
+              <small>
+                {selectedContributionDay
+                  ? `${selectedContributionDay.count} commit${selectedContributionDay.count === 1 ? '' : 's'} on this day`
+                  : 'No heatmap activity for this day'}
+              </small>
+            </div>
+            <label>
+              <span>Pick manually</span>
+              <input
+                aria-label="Daily review date"
+                type="date"
+                value={dailyReviewDate}
+                onChange={(event) => selectDailyDate(event.target.value)}
+              />
+            </label>
+          </aside>
+        </div>
+
+        <div className="daily-insight-grid">
+          <section className="contributor-board daily-ranking-card">
           <div className="contributor-board-heading">
             <Trophy size={16} />
             <strong>Contributor ranking</strong>
@@ -224,8 +275,9 @@ export function DailyView({
             </div>
             <span>{contributorStats.length} committers</span>
           </div>
-          <div className="contributor-list">
-            {contributorStats.map((contributor, index) => {
+          {contributorStats.length > 0 ? (
+            <div className="contributor-list">
+              {contributorStats.map((contributor, index) => {
               const emails = contributor.emails?.length ? contributor.emails : [contributor.email]
               const profile = resolveContributorProfile(contributor, githubAccounts)
               const avatarUrl = profile.avatarUrl ?? contributor.avatarUrl
@@ -287,71 +339,87 @@ export function DailyView({
                   </div>
                 </article>
               )
-            })}
-          </div>
-        </section>
-      )}
+              })}
+            </div>
+          ) : (
+            <div className="quiet-box">No contributor activity found for this scope.</div>
+          )}
+          </section>
 
-      {!dailyReview ? (
-        <div className="review-empty">
-          <CalendarDays size={24} />
-          <strong>{dailyReviewLoading ? 'Generating daily review' : 'No daily review yet'}</strong>
-          <span>{effectiveScopePaths.length > 0 ? 'Run a review to summarize commits, current worktree state, sync state, and BranchPilot activity.' : 'Open or select repositories before generating a daily review.'}</span>
+          <section className="daily-review-card">
+            <div className="daily-review-card-heading">
+              <div>
+                <CalendarDays size={16} />
+                <strong>Daily review</strong>
+                <span>{formatDailyDateLabel(dailyReviewDate)}</span>
+              </div>
+              <button type="button" onClick={runDailyReview} disabled={effectiveScopePaths.length === 0 || dailyReviewLoading}>
+                {dailyReviewLoading ? <Loader2 className="spin" size={17} /> : <CalendarDays size={17} />}
+                Run daily review
+              </button>
+            </div>
+
+            {!dailyReview ? (
+              <div className="review-empty">
+                <CalendarDays size={24} />
+                <strong>{dailyReviewLoading ? 'Generating daily review' : 'No daily review yet'}</strong>
+                <span>{effectiveScopePaths.length > 0 ? 'Run a review to summarize commits, current worktree state, sync state, and BranchPilot activity.' : 'Open or select repositories before generating a daily review.'}</span>
+              </div>
+            ) : (
+              <div className="daily-workspace">
+                <section className="daily-section-list">
+                  {dailyReview.sections.map((section) => (
+                    <article className="daily-section" key={section.id}>
+                      <div className="daily-section-heading">
+                        <strong>{section.title}</strong>
+                        <span>{section.items.length}</span>
+                      </div>
+                      <ul>
+                        {section.items.map((item, index) => (
+                          <li key={`${section.id}-${index}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </article>
+                  ))}
+                </section>
+
+                <aside className="daily-export">
+                  <section className="daily-section">
+                    <div className="daily-section-heading">
+                      <strong>Action items</strong>
+                      <span>{dailyReview.actionItems.length}</span>
+                    </div>
+                    {dailyReview.actionItems.length === 0 ? (
+                      <div className="quiet-box">No immediate local actions detected.</div>
+                    ) : (
+                      <div className="daily-action-list">
+                        {dailyReview.actionItems.map((item, index) => (
+                          <article className={`daily-action priority-${item.priority}`} key={`${item.priority}-${item.title}-${index}`}>
+                            <span>{item.priority}</span>
+                            <strong>{item.title}</strong>
+                            <p>{item.details}</p>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="daily-section">
+                    <div className="daily-section-heading">
+                      <strong>Markdown</strong>
+                      <button type="button" onClick={copyDailyReviewMarkdown}>
+                        <Copy size={15} />
+                        Copy
+                      </button>
+                    </div>
+                    <pre className="daily-markdown-preview"><code>{dailyReview.markdown}</code></pre>
+                  </section>
+                </aside>
+              </div>
+            )}
+          </section>
         </div>
-      ) : (
-        <>
-          <div className="daily-workspace">
-            <section className="daily-section-list">
-              {dailyReview.sections.map((section) => (
-                <article className="daily-section" key={section.id}>
-                  <div className="daily-section-heading">
-                    <strong>{section.title}</strong>
-                    <span>{section.items.length}</span>
-                  </div>
-                  <ul>
-                    {section.items.map((item, index) => (
-                      <li key={`${section.id}-${index}`}>{item}</li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-            </section>
-
-            <aside className="daily-export">
-              <section className="daily-section">
-                <div className="daily-section-heading">
-                  <strong>Action items</strong>
-                  <span>{dailyReview.actionItems.length}</span>
-                </div>
-                {dailyReview.actionItems.length === 0 ? (
-                  <div className="quiet-box">No immediate local actions detected.</div>
-                ) : (
-                  <div className="daily-action-list">
-                    {dailyReview.actionItems.map((item, index) => (
-                      <article className={`daily-action priority-${item.priority}`} key={`${item.priority}-${item.title}-${index}`}>
-                        <span>{item.priority}</span>
-                        <strong>{item.title}</strong>
-                        <p>{item.details}</p>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section className="daily-section">
-                <div className="daily-section-heading">
-                  <strong>Markdown</strong>
-                  <button type="button" onClick={copyDailyReviewMarkdown}>
-                    <Copy size={15} />
-                    Copy
-                  </button>
-                </div>
-                <pre className="daily-markdown-preview"><code>{dailyReview.markdown}</code></pre>
-              </section>
-            </aside>
-          </div>
-        </>
-      )}
+      </div>
     </section>
   )
 }

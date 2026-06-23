@@ -1172,6 +1172,135 @@
   min-height: 36px;
 }
 
+.daily-workboard {
+  display: grid;
+  gap: 12px;
+}
+
+.daily-selector-grid,
+.daily-insight-grid {
+  display: grid;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.daily-selector-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+}
+
+.daily-insight-grid {
+  grid-template-columns: minmax(420px, 0.95fr) minmax(0, 1.15fr);
+}
+
+.daily-heatmap-panel,
+.daily-day-panel,
+.daily-review-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.daily-heatmap-panel {
+  overflow: hidden;
+}
+
+.daily-card-heading,
+.daily-review-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-strong);
+}
+
+.daily-card-heading > div,
+.daily-review-card-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.daily-card-heading span,
+.daily-review-card-heading span,
+.daily-day-panel span,
+.daily-day-panel small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.daily-day-panel {
+  align-content: space-between;
+}
+
+.daily-day-panel > div,
+.daily-day-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.daily-day-panel strong {
+  color: var(--text-strong);
+  font-size: 22px;
+}
+
+.daily-day-panel input {
+  width: 100%;
+  max-width: none;
+  min-height: 36px;
+}
+
+.daily-review-card-heading button {
+  min-height: 36px;
+}
+
+.daily-ranking-card {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.daily-review-card {
+  min-width: 0;
+}
+
+.daily-review-card > .review-empty {
+  min-height: 210px;
+  margin: 0;
+}
+
+.daily-review-card .daily-workspace {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+}
+
+.heatmap-interactive .heatmap-grid {
+  padding: 2px 2px 8px;
+}
+
+.heatmap-cell-button {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  cursor: pointer;
+}
+
+.heatmap-cell-button:hover {
+  transform: scale(1.18);
+}
+
+.heatmap-cell.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.heatmap-cell-button.selected {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
 .reports-scope-controls {
   display: flex;
   justify-content: flex-end;
@@ -1742,6 +1871,8 @@ button.secondary:hover:not(:disabled) {
   .lfs-columns,
   .completed-work-row,
   .activity-row,
+  .daily-selector-grid,
+  .daily-insight-grid,
   .daily-workspace,
   .review-controls,
   .assistant-policy-actions,
@@ -2291,7 +2422,7 @@ html[data-theme='cyberpunk'] .diff-empty {
     var(--diff-bg);
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled) {
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled) {
   position: relative;
   overflow: hidden;
   border-color: color-mix(in srgb, var(--accent) 46%, rgba(0, 0, 0, 0.75));
@@ -2306,7 +2437,7 @@ html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-but
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled)::before {
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled)::before {
   content: '';
   position: absolute;
   inset: 2px 8px auto 8px;
@@ -2316,7 +2447,7 @@ html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-but
   opacity: 0.62;
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled)::after {
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled)::after {
   content: '';
   position: absolute;
   right: 5px;
@@ -2328,7 +2459,7 @@ html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-but
   box-shadow: -5px -4px 0 rgba(255, 190, 26, 0.28);
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled):hover {
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover {
   border-color: var(--accent);
   color: #fff8c9;
   background:
@@ -2340,7 +2471,7 @@ html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-but
     0 0 18px rgba(255, 190, 26, 0.14);
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled):active {
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):active {
   transform: translateY(1px);
   background:
     linear-gradient(90deg, rgba(255, 190, 26, 0.16), transparent 30%),
@@ -2419,8 +2550,8 @@ html[data-theme='cyberpunk'] .github-repo-search input {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled):hover,
-html[data-theme='cyberpunk'] button:not(.line-select-control):not(.line-number-button):not(:disabled):hover,
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
+html[data-theme='cyberpunk'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
 html[data-theme='deus-ex'] .shell-dropdown-item:hover,
 html[data-theme='cyberpunk'] .shell-dropdown-item:hover,
 html[data-theme='deus-ex'] .shell-dropdown-primary:hover,
@@ -2433,7 +2564,7 @@ html[data-theme='cyberpunk'] .history-row:hover {
   background: var(--theme-hover-bg);
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled):hover {
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover {
   border-color: var(--accent);
   color: #fff8c9;
   background:
