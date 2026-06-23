@@ -97,17 +97,18 @@ export function DailyView({
           </div>
           <div className="contributor-list">
             {contributorStats.map((contributor, index) => {
+              const emails = contributor.emails?.length ? contributor.emails : [contributor.email]
               const aliasNames = [...new Set((contributor.aliases ?? [])
                 .map((alias) => alias.name)
                 .filter((name) => contributorNameKey(name) !== contributorNameKey(contributor.name)))]
               const identityDetails = [
-                aliasNames.length > 0 ? `Also committed as ${aliasNames.slice(0, 2).join(', ')}${aliasNames.length > 2 ? '...' : ''}` : undefined
+                aliasNames.length > 0 ? `Also committed as ${aliasNames.slice(0, 2).join(', ')}${aliasNames.length > 2 ? '...' : ''}` : undefined,
+                emails.length > 1 ? `${emails.length} commit emails` : undefined
               ].filter(Boolean)
-              const profileUrl = contributor.profileUrl ?? contributor.profileSearchUrl
-              const profileLabel = contributor.profileUrl ? 'Profile' : 'Find profile'
+              const displayedEmails = `${emails.slice(0, 2).join(' - ')}${emails.length > 2 ? ` - +${emails.length - 2}` : ''}`
 
               return (
-                <article className={`contributor-row${index < 3 ? ' top' : ''}`} key={contributor.email} title={`${contributor.name} <${contributor.email}>`}>
+                <article className={`contributor-row${index < 3 ? ' top' : ''}`} key={`${contributor.name}-${emails.join('|')}`} title={`${contributor.name} <${emails.join(', ')}>`}>
                   <span className="contributor-rank">{RANK_MEDAL[index] ?? index + 1}</span>
                   <span className="contributor-avatar" aria-hidden="true">
                     {contributor.avatarUrl
@@ -126,20 +127,20 @@ export function DailyView({
                   <div className="contributor-id">
                     <div className="contributor-title-row">
                       <strong>{contributor.name}</strong>
-                      {profileUrl && (
+                      {contributor.profileUrl && (
                         <button
                           type="button"
                           className="contributor-profile-link"
-                          title={contributor.profileUrl ? `Open @${contributor.login ?? contributor.name} on GitHub` : `Search GitHub users for ${contributor.name}`}
-                          onClick={() => openExternalLink(profileUrl, contributor.profileUrl ? 'GitHub profile' : 'GitHub profile search')}
+                          title={`Open @${contributor.login ?? contributor.name} on GitHub`}
+                          onClick={() => openExternalLink(contributor.profileUrl, 'GitHub profile')}
                         >
                           <ExternalLink size={13} />
-                          {profileLabel}
+                          Profile
                         </button>
                       )}
                     </div>
                     <span className="contributor-email">
-                      {contributor.login ? `@${contributor.login} · ${contributor.email}` : contributor.email}
+                      {contributor.login ? `@${contributor.login} - ${displayedEmails}` : displayedEmails}
                     </span>
                     {identityDetails.length > 0 && <span className="contributor-identity">{identityDetails.join(' | ')}</span>}
                     <span>Last commit {formatDate(contributor.lastCommitAt)}</span>

@@ -22,6 +22,30 @@ describe('RepositoryActivityAnalytics', () => {
     expect(stats[0]?.aliases?.map((alias) => alias.name)).toEqual(['Sergii Ziborov', 'Serhii Ziborov'])
   })
 
+  it('groups the same contributor across multiple commit emails', async () => {
+    const kernel = new FakeActivityKernel([
+      'Sergii Ziborov\tsergii.ziborov@gmail.com\t2026-06-22',
+      'Sergii Ziborov\tsergii@edgehawk.io\t2026-06-21',
+      'Andrey Motoshkov\tandrey@example.com\t2026-06-20'
+    ].join('\n'))
+    const analytics = new RepositoryActivityAnalytics(kernel)
+
+    const stats = await analytics.getContributorStats({ repoPath: '/repo', window: 'all' })
+
+    expect(stats).toHaveLength(2)
+    expect(stats[0]).toMatchObject({
+      name: 'Sergii Ziborov',
+      email: 'sergii.ziborov@gmail.com',
+      emails: ['sergii.ziborov@gmail.com', 'sergii@edgehawk.io'],
+      commits: 2,
+      share: 2 / 3
+    })
+    expect(stats[0]?.aliases?.map((alias) => alias.email)).toEqual([
+      'sergii.ziborov@gmail.com',
+      'sergii@edgehawk.io'
+    ])
+  })
+
   it('adds contributor profile, avatar, and search metadata', async () => {
     const kernel = new FakeActivityKernel([
       'octocat\t123+octocat@users.noreply.github.com\t2026-06-22',

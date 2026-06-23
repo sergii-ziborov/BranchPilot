@@ -122,6 +122,8 @@ export interface CoAuthor {
 export interface ContributorStat {
   name: string
   email: string
+  /** All commit author emails associated with this contributor identity. */
+  emails?: string[]
   login?: string
   avatarUrl?: string
   profileUrl?: string
@@ -131,7 +133,7 @@ export interface ContributorStat {
   share: number
   /** ISO date of this author's most recent commit. */
   lastCommitAt: string
-  /** Other author spellings that used this same email. */
+  /** Other author spellings/emails that resolve to this contributor identity. */
   aliases?: ContributorIdentity[]
 }
 

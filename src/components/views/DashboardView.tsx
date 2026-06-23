@@ -164,14 +164,18 @@ export function DashboardView({
                 <span className="dash-count tone-info">{contributorStats.length}</span>
               </div>
               <div className="rhythm-leaderboard">
-                {contributorStats.slice(0, 8).map((person, index) => (
-                  <div className="leader-row" key={person.email}>
-                    <span className="leader-rank">{index + 1}</span>
-                    <span className="leader-name" title={person.email}>{person.name}</span>
-                    <span className="leader-bar"><span style={{ width: `${Math.max(3, person.share * 100)}%` }} /></span>
-                    <span className="leader-commits">{person.commits}</span>
-                  </div>
-                ))}
+                {contributorStats.slice(0, 8).map((person, index) => {
+                  const emails = person.emails?.length ? person.emails : [person.email]
+
+                  return (
+                    <div className="leader-row" key={`${person.name}-${emails.join('|')}`}>
+                      <span className="leader-rank">{index + 1}</span>
+                      <span className="leader-name" title={emails.join(', ')}>{person.name}</span>
+                      <span className="leader-bar"><span style={{ width: `${Math.max(3, person.share * 100)}%` }} /></span>
+                      <span className="leader-commits">{person.commits}</span>
+                    </div>
+                  )
+                })}
               </div>
             </section>
           )}

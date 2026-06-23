@@ -13,6 +13,12 @@ import type {
 } from '../../src/shared/branchPilot.js'
 import { computeRhythm, rhythmLogArgs } from './rhythmAnalytics.js'
 
+interface ContributorAccumulator {
+  stat: ContributorStat
+  aliases: Map<string, ContributorIdentity>
+  emails: Set<string>
+}
+
 /**
  * Narrow slice of the repository "kernel" that activity analytics needs. Injected
  * (composition) instead of inherited, so this reporting code is decoupled from the
@@ -85,8 +91,9 @@ export class RepositoryActivityAnalytics {
       })
     )
 
-    const byEmail = new Map<string, ContributorStat>()
-    const aliasesByEmail = new Map<string, Map<string, ContributorIdentity>>()
+    const contributors = new Map<string, ContributorAccumulator>()
+    const emailToContributorKey = new Map<string, string>()
+    const nameToContributorKey = new Map<string, string>()
     let total = 0
 
     for (const stdout of logs) {
@@ -98,38 +105,50 @@ export class RepositoryActivityAnalytics {
         const date = parts[2].trim()
         if (!name || !email) continue
         total += 1
-        const key = email.toLowerCase()
-        const existing = byEmail.get(key)
-        const aliases = aliasesByEmail.get(key) ?? new Map<string, ContributorIdentity>()
-        const aliasKey = name.toLowerCase()
-        const alias = aliases.get(aliasKey)
+        const emailKey = email.toLowerCase()
+        const nameKey = contributorNameKey(name)
+        const emailContributorKey = emailToContributorKey.get(emailKey)
+        const nameContributorKey = nameToContributorKey.get(nameKey)
+        const contributorKey = emailContributorKey && nameContributorKey && emailContributorKey !== nameContributorKey
+          ? mergeContributorGroups(contributors, emailToContributorKey, nameToContributorKey, emailContributorKey, nameContributorKey)
+          : emailContributorKey ?? nameContributorKey ?? `person:${nameKey || emailKey}`
+        const contributor = contributors.get(contributorKey) ?? createContributorAccumulator(name, email, date)
+        const aliasKey = `${nameKey}\t${emailKey}`
+        const alias = contributor.aliases.get(aliasKey)
 
         if (alias) {
           alias.commits += 1
           if (date > alias.lastCommitAt) alias.lastCommitAt = date
         } else {
-          aliases.set(aliasKey, { name, email, commits: 1, lastCommitAt: date })
+          contributor.aliases.set(aliasKey, { name, email, commits: 1, lastCommitAt: date })
         }
-        aliasesByEmail.set(key, aliases)
 
-        if (existing) {
-          existing.commits += 1
-          if (date > existing.lastCommitAt) {
-            existing.lastCommitAt = date
-            existing.name = name
-            Object.assign(existing, contributorProfileFields(name, email))
-          }
-        } else {
-          byEmail.set(key, { ...contributorProfileFields(name, email), name, email, commits: 1, share: 0, lastCommitAt: date })
+        contributor.stat.commits += 1
+        contributor.emails.add(email)
+        emailToContributorKey.set(emailKey, contributorKey)
+        nameToContributorKey.set(nameKey, contributorKey)
+
+        const profileFields = contributorProfileFields(name, email)
+        if (profileFields.profileUrl || !contributor.stat.profileUrl) {
+          Object.assign(contributor.stat, profileFields)
         }
+
+        if (date > contributor.stat.lastCommitAt) {
+          contributor.stat.lastCommitAt = date
+          contributor.stat.name = name
+          contributor.stat.email = email
+        }
+
+        contributors.set(contributorKey, contributor)
       }
     }
 
-    return [...byEmail.values()]
-      .map((stat) => ({
-        ...stat,
-        share: total > 0 ? stat.commits / total : 0,
-        aliases: [...(aliasesByEmail.get(stat.email.toLowerCase())?.values() ?? [])]
+    return [...contributors.values()]
+      .map((contributor) => ({
+        ...contributor.stat,
+        emails: [...contributor.emails],
+        share: total > 0 ? contributor.stat.commits / total : 0,
+        aliases: [...contributor.aliases.values()]
           .sort((first, second) => second.commits - first.commits || second.lastCommitAt.localeCompare(first.lastCommitAt))
       }))
       .sort((first, second) => second.commits - first.commits)
@@ -205,6 +224,67 @@ export class RepositoryActivityAnalytics {
   }
 }
 
+function createContributorAccumulator(name: string, email: string, date: string): ContributorAccumulator {
+  return {
+    stat: {
+      ...contributorProfileFields(name, email),
+      name,
+      email,
+      emails: [email],
+      commits: 0,
+      share: 0,
+      lastCommitAt: date
+    },
+    aliases: new Map(),
+    emails: new Set([email])
+  }
+}
+
+function mergeContributorGroups(
+  contributors: Map<string, ContributorAccumulator>,
+  emailToContributorKey: Map<string, string>,
+  nameToContributorKey: Map<string, string>,
+  targetKey: string,
+  sourceKey: string
+): string {
+  const target = contributors.get(targetKey)
+  const source = contributors.get(sourceKey)
+
+  if (!target || !source) {
+    return target ? targetKey : sourceKey
+  }
+
+  target.stat.commits += source.stat.commits
+  if (source.stat.lastCommitAt > target.stat.lastCommitAt) {
+    target.stat.name = source.stat.name
+    target.stat.email = source.stat.email
+    target.stat.lastCommitAt = source.stat.lastCommitAt
+  }
+
+  if (source.stat.profileUrl && !target.stat.profileUrl) {
+    target.stat.login = source.stat.login
+    target.stat.profileUrl = source.stat.profileUrl
+    target.stat.avatarUrl = source.stat.avatarUrl
+  }
+
+  for (const [aliasKey, alias] of source.aliases) {
+    target.aliases.set(aliasKey, alias)
+  }
+
+  for (const email of source.emails) {
+    target.emails.add(email)
+    emailToContributorKey.set(email.toLowerCase(), targetKey)
+  }
+
+  for (const alias of source.aliases.values()) {
+    nameToContributorKey.set(contributorNameKey(alias.name), targetKey)
+  }
+
+  contributors.delete(sourceKey)
+  contributors.set(targetKey, target)
+  return targetKey
+}
+
 function normalizeContributorStatsRequest(request?: string | ContributorStatsRequest): { repoPath?: string; window: ContributorStatsWindow } {
   if (typeof request === 'string') {
     return {
@@ -231,6 +311,10 @@ function contributorStatsSinceArg(window: ContributorStatsWindow): string | unde
   if (window === 'week') return '--since=1 week ago'
   if (window === 'day') return '--since=1 day ago'
   return undefined
+}
+
+function contributorNameKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function contributorProfileFields(name: string, email: string): Pick<ContributorStat, 'login' | 'avatarUrl' | 'profileUrl' | 'profileSearchUrl'> {
