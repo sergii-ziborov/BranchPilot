@@ -309,15 +309,6 @@ function buildUnstagePatch(files: DiffFile[], selected: Set<string>): string {
   return out
 }
 
-function hunkHasHiddenContextBefore(file: DiffFile, index: number): boolean {
-  if (index > 0) return true
-
-  const hunk = file.hunks[index]
-  if (!hunk) return false
-
-  return hunk.oldStart > 1 || hunk.newStart > 1
-}
-
 function hunkHasHiddenContextAfter(file: DiffFile, index: number): boolean {
   return index < file.hunks.length - 1
 }
@@ -596,6 +587,7 @@ export function DiffPreview({
   }
 
   const canSelectLines = displayMode === 'unified'
+  const canLoadMoreContext = Boolean(onLoadContext || onExpandContext)
 
   return (
     <div className="structured-diff">
@@ -609,8 +601,8 @@ export function DiffPreview({
             const lang = langFromPath(file.newPath)
             const contextKey = hunkContextKey(file, hunk)
             const contextEntry = extraContext[contextKey]
-            const canExpandBefore = !expanded && canExpandContext(file, hunk, index, contextEntry, 'up')
-            const canExpandAfter = !expanded && canExpandContext(file, hunk, index, contextEntry, 'down')
+            const canExpandBefore = canLoadMoreContext && !expanded && canExpandContext(file, hunk, index, contextEntry, 'up')
+            const canExpandAfter = canLoadMoreContext && !expanded && canExpandContext(file, hunk, index, contextEntry, 'down')
 
             return (
               <article className="diff-hunk" key={`${hunk.header}-${index}`}>
@@ -687,6 +679,12 @@ export function DiffPreview({
               <button type="button" onClick={unstageSelected} disabled={busy} title="Exclude selected lines from the commit">
                 <X size={15} />
                 Unstage selected
+              </button>
+            )}
+            {mode === 'staged' && onDiscardLines && (
+              <button type="button" className="danger" onClick={discardSelected} disabled={busy} title="Unstage and permanently discard selected lines">
+                <Trash2 size={15} />
+                Discard selected
               </button>
             )}
             <button type="button" className="secondary" onClick={() => { setSelected(new Set()); anchorRef.current = null }}>

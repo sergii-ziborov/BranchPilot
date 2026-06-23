@@ -89,9 +89,25 @@ function filterOwnCoAuthorSuggestions(
     ...accounts.filter((account) => account.type === 'user').map((account) => account.login)
   ].map(identityKey).filter(Boolean))
 
+  for (const identity of identities) {
+    const noreplyLogin = gitHubNoreplyLogin(identity.email)
+    if (noreplyLogin) ownLogins.add(noreplyLogin)
+  }
+
+  for (const account of accounts) {
+    if (account.type !== 'user') continue
+    for (const email of account.emails ?? []) {
+      const noreplyLogin = gitHubNoreplyLogin(email)
+      if (noreplyLogin) ownLogins.add(noreplyLogin)
+    }
+  }
+
   return suggestions.filter((contributor) => {
     const email = identityKey(contributor.email)
     if (email && ownEmails.has(email)) return false
+
+    const noreplyLogin = gitHubNoreplyLogin(contributor.email)
+    if (noreplyLogin && ownLogins.has(noreplyLogin)) return false
 
     const name = identityKey(contributor.name)
     if (name && ownNames.has(name)) return false
@@ -211,22 +227,18 @@ function buildCommitIdentityOptions(
   const knownNames = new Set<string>()
   const knownEmails = new Set<string>()
   const knownLogins = new Set<string>()
-  const isKnownGitHubNoreplyEmail = (email: string | undefined): boolean => {
-    const login = gitHubNoreplyLogin(email)
-    return Boolean(login && knownLogins.has(login))
-  }
   const addIdentity = (name: string | undefined, email: string | undefined, meta: string, account?: GitHubAccountSummary) => {
     const normalizedEmail = email?.trim()
     if (!normalizedEmail) return
 
     const key = identityKey(normalizedEmail)
-    const historyAliasOnly = meta === 'Repository history email' && isKnownGitHubNoreplyEmail(normalizedEmail)
     knownEmails.add(key)
 
     const normalizedName = name?.trim() || account?.label || account?.login || normalizedEmail
     knownNames.add(identityKey(normalizedName))
     if (account?.login) knownLogins.add(identityKey(account.login))
-    if (historyAliasOnly) return
+
+    if (meta === 'Repository history email') return
 
     if (identities.has(key)) return
 
@@ -752,6 +764,15 @@ export function ChangesView({
     setDiffMenu(null)
     if (!change) return
     void navigator.clipboard.writeText(change.path.split('/').pop() ?? change.path)
+  }
+
+  const loadDiffContext = async (request: { filePath: string; staged: boolean; lineStart: number; maxLines: number }) => {
+    if (!api || !currentRepoPath) return null
+    const result = await api.getDiffContext({ repoPath: currentRepoPath, ...request })
+    if (result.ok) return result.data
+
+    setNotice(`Could not load more context: ${result.error.message}`)
+    return null
   }
 
   const noChanges = totalChanges === 0
@@ -1280,6 +1301,7 @@ export function ChangesView({
             void runSnapshotAction('Selected lines unstaged.', () => api.unstageHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch }))
           }}
           onDiscardLines={discardSelectedLines}
+          onLoadContext={loadDiffContext}
           onExpandContext={() => setDiffExpanded(true)}
         />
         </>

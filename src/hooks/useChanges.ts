@@ -19,7 +19,7 @@ type ChangeSearchMode = 'path' | 'content' | 'all'
 
 const CHANGE_CONTENT_SEARCH_LIMIT = 120
 const DEFAULT_DIFF_CONTEXT_LINES = 3
-const EXPANDED_DIFF_CONTEXT_LINES = 40
+const EXPANDED_DIFF_CONTEXT_LINES = 20
 
 function changeSearchText(change: FileChange): string {
   return [change.path, change.originalPath, change.status, changeLabel(change)]
@@ -251,15 +251,25 @@ export function useChanges({
 
   async function discardSelectedLines(patch: string) {
     if (!api || !currentRepoPath || !selectedChange) return
+    const stagedSelection = diffMode === 'staged'
     const confirmed = await requestConfirmation(
-      `Discard selected lines in ${selectedChange.path}? This permanently reverts those lines in the working tree.`,
+      stagedSelection
+        ? `Unstage and discard selected lines in ${selectedChange.path}? This permanently removes them from the commit and working tree.`
+        : `Discard selected lines in ${selectedChange.path}? This permanently reverts those lines in the working tree.`,
       { title: 'Discard Selected Lines', confirmLabel: 'Discard selected', variant: 'danger' }
     )
     if (!confirmed) return
 
     await runSnapshotAction(
       'Selected lines discarded.',
-      () => api.discardHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch }),
+      async () => {
+        if (stagedSelection) {
+          const unstaged = await api.unstageHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch })
+          if (!unstaged.ok) return unstaged
+        }
+
+        return api.discardHunk({ repoPath: currentRepoPath, filePath: selectedChange.path, patch })
+      },
       'Discarding selected lines...'
     )
   }

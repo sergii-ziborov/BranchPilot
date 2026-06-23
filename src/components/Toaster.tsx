@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Check, FileWarning, Loader2, X } from 'lucide-react'
+import { AlertTriangle, Check, FileWarning, Loader2, X } from 'lucide-react'
 
 const NOTICE_TTL_MS = 4000
+
+function noticeTone(message: string): 'info' | 'warning' {
+  const normalized = message.toLowerCase()
+  return /\b(blocked|failed|failure|not available|could not|cancelled|canceled)\b/.test(normalized)
+    ? 'warning'
+    : 'info'
+}
 
 /** Transient bottom-right toasts: success notices auto-dismiss; busy + errors persist. */
 export function Toaster({
@@ -31,15 +38,20 @@ export function Toaster({
       {busy && (
         <div className="toast toast-busy">
           <Loader2 className="spin" size={17} />
-          <span>{operationLabel ?? 'Working…'}</span>
+          <span>{operationLabel ?? 'Working...'}</span>
         </div>
       )}
-      {!busy && visibleNotice && (
-        <div className="toast toast-info">
-          <Check size={17} />
-          <span>{visibleNotice}</span>
-        </div>
-      )}
+      {!busy && visibleNotice && (() => {
+        const tone = noticeTone(visibleNotice)
+        const Icon = tone === 'warning' ? AlertTriangle : Check
+
+        return (
+          <div className={`toast toast-${tone}`}>
+            <Icon size={17} />
+            <span>{visibleNotice}</span>
+          </div>
+        )
+      })()}
       {error && (
         <div className="toast toast-error" role="alert">
           <FileWarning size={17} />

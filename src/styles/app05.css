@@ -2291,6 +2291,107 @@ html[data-theme='cyberpunk'] .diff-empty {
     var(--diff-bg);
 }
 
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled) {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--accent) 46%, rgba(0, 0, 0, 0.75));
+  color: var(--text-strong);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 28%),
+    linear-gradient(180deg, rgba(255, 218, 92, 0.10), rgba(14, 15, 8, 0.72));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 226, 112, 0.08),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(255, 190, 26, 0.08);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled)::before {
+  content: '';
+  position: absolute;
+  inset: 2px 8px auto 8px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 226, 112, 0.58), transparent);
+  opacity: 0.62;
+}
+
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled)::after {
+  content: '';
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  width: 10px;
+  height: 1px;
+  pointer-events: none;
+  background: rgba(255, 190, 26, 0.64);
+  box-shadow: -5px -4px 0 rgba(255, 190, 26, 0.28);
+}
+
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled):hover {
+  border-color: var(--accent);
+  color: #fff8c9;
+  background:
+    linear-gradient(90deg, rgba(255, 190, 26, 0.22), transparent 34%),
+    linear-gradient(180deg, rgba(255, 213, 64, 0.18), rgba(26, 23, 10, 0.74));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 226, 112, 0.18),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.50),
+    0 0 18px rgba(255, 190, 26, 0.14);
+}
+
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled):active {
+  transform: translateY(1px);
+  background:
+    linear-gradient(90deg, rgba(255, 190, 26, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(10, 10, 5, 0.82), rgba(255, 190, 26, 0.14));
+  box-shadow:
+    inset 0 2px 0 rgba(0, 0, 0, 0.55),
+    0 0 10px rgba(255, 190, 26, 0.10);
+}
+
+html[data-theme='deus-ex'] button.secondary:not(:disabled),
+html[data-theme='deus-ex'] .secondary-button:not(:disabled),
+html[data-theme='deus-ex'] .icon-button:not(:disabled),
+html[data-theme='deus-ex'] .shell-tool:not(:disabled),
+html[data-theme='deus-ex'] .shell-theme > summary,
+html[data-theme='deus-ex'] .config-email-options button:not(:disabled),
+html[data-theme='deus-ex'] .assistant-choice:not(:disabled) {
+  color: var(--text);
+  background:
+    linear-gradient(90deg, rgba(255, 190, 26, 0.08), transparent 34%),
+    rgba(10, 12, 6, 0.74);
+}
+
+html[data-theme='deus-ex'] .clone-panel button:not(:disabled),
+html[data-theme='deus-ex'] .config-identity-actions > button:first-child:not(:disabled),
+html[data-theme='deus-ex'] .commit-actions button:not(.icon-button):not(.secondary):not(:disabled),
+html[data-theme='deus-ex'] .pr-actions button:not(.secondary):not(:disabled),
+html[data-theme='deus-ex'] .publish-modal-footer button:not(.secondary):not(:disabled),
+html[data-theme='deus-ex'] .linkedin-heading-actions button:not(.icon-button):not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 82%, #5b3600);
+  color: var(--accent-contrast);
+  background:
+    linear-gradient(90deg, #ffe270 0 2px, transparent 2px 7px, rgba(255, 226, 112, 0.34) 7px 8px, transparent 8px),
+    linear-gradient(180deg, #ffd33b, #e39a10 58%, #a85d06);
+  text-shadow: 0 1px 0 rgba(255, 242, 184, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 246, 174, 0.55),
+    inset 0 -2px 0 rgba(55, 28, 0, 0.44),
+    0 0 18px rgba(255, 190, 26, 0.16);
+}
+
+html[data-theme='deus-ex'] .clone-panel button:not(:disabled):hover,
+html[data-theme='deus-ex'] .config-identity-actions > button:first-child:not(:disabled):hover,
+html[data-theme='deus-ex'] .commit-actions button:not(.icon-button):not(.secondary):not(:disabled):hover,
+html[data-theme='deus-ex'] .pr-actions button:not(.secondary):not(:disabled):hover,
+html[data-theme='deus-ex'] .publish-modal-footer button:not(.secondary):not(:disabled):hover,
+html[data-theme='deus-ex'] .linkedin-heading-actions button:not(.icon-button):not(:disabled):hover {
+  background:
+    linear-gradient(90deg, #fff2a3 0 2px, transparent 2px 7px, rgba(255, 242, 163, 0.42) 7px 8px, transparent 8px),
+    linear-gradient(180deg, #ffe064, #f0ad18 58%, #bd6a06);
+}
+
 html[data-theme='deus-ex'] button:not(:disabled),
 html[data-theme='cyberpunk'] button:not(:disabled),
 html[data-theme='deus-ex'] input,
@@ -2330,6 +2431,18 @@ html[data-theme='deus-ex'] .history-row:hover,
 html[data-theme='cyberpunk'] .history-row:hover {
   border-color: var(--accent);
   background: var(--theme-hover-bg);
+}
+
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(:disabled):hover {
+  border-color: var(--accent);
+  color: #fff8c9;
+  background:
+    linear-gradient(90deg, rgba(255, 190, 26, 0.22), transparent 34%),
+    linear-gradient(180deg, rgba(255, 213, 64, 0.18), rgba(26, 23, 10, 0.74));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 226, 112, 0.18),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.50),
+    0 0 18px rgba(255, 190, 26, 0.14);
 }
 
 html[data-theme='deus-ex'] .change-row.selected,
