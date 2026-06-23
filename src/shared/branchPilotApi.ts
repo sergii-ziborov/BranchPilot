@@ -35,6 +35,8 @@ import type {
   ContributorStat,
   ContributorStatsRequest,
   RepositoryRhythm,
+  DiffContextRequest,
+  DiffContextResult,
   DiffRequest,
   DiffResult,
   ImagePreview,
@@ -42,6 +44,8 @@ import type {
   EditorOpenRequest,
   EditorSettings,
   EditorSettingsUpdate,
+  TerminalSettings,
+  TerminalSettingsUpdate,
   ExportPatchRequest,
   ExportedPatch,
   FileActionRequest,
@@ -76,6 +80,7 @@ import type {
   RenameBranchRequest,
   RepositoryDashboardSnapshot,
   RepositoryPinRequest,
+  RepositoryScopeRequest,
   RepositorySnapshot,
   ReviewReport,
   ReviewReportRequest,
@@ -179,6 +184,7 @@ export interface GitHubAccountSummary {
   label: string
   type: 'user' | 'organization'
   url: string
+  emails?: string[]
 }
 
 export interface GitHubCoAuthorSearchRequest {
@@ -260,8 +266,9 @@ export interface BranchPilotApi {
   getRepositoryDashboard: (repoPath?: string) => Promise<ApiResult<RepositoryDashboardSnapshot>>
   refreshRepository: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   getDiff: (request: DiffRequest) => Promise<ApiResult<DiffResult>>
+  getDiffContext: (request: DiffContextRequest) => Promise<ApiResult<DiffContextResult>>
   getImagePreview: (request: ImagePreviewRequest) => Promise<ApiResult<ImagePreview>>
-  getContributionGraph: (repoPath?: string) => Promise<ApiResult<ContributionGraph>>
+  getContributionGraph: (request?: string | RepositoryScopeRequest) => Promise<ApiResult<ContributionGraph>>
   getRepositoryRhythm: (repoPath?: string) => Promise<ApiResult<RepositoryRhythm>>
   getContributorStats: (request?: string | ContributorStatsRequest) => Promise<ApiResult<ContributorStat[]>>
   getContributors: (repoPath: string) => Promise<ApiResult<CoAuthor[]>>
@@ -278,6 +285,8 @@ export interface BranchPilotApi {
   setAssistantPolicy: (update: AssistantPolicyUpdate) => Promise<ApiResult<AssistantPolicyStatus>>
   getEditorSettings: () => Promise<ApiResult<EditorSettings>>
   setEditorSettings: (update: EditorSettingsUpdate) => Promise<ApiResult<EditorSettings>>
+  getTerminalSettings: () => Promise<ApiResult<TerminalSettings>>
+  setTerminalSettings: (update: TerminalSettingsUpdate) => Promise<ApiResult<TerminalSettings>>
   getActivityLog: (query: ActivityLogQuery) => Promise<ApiResult<ActivityLogSnapshot>>
   clearActivityLog: (repoPath: string, confirmed: boolean) => Promise<ApiResult<ActivityLogSnapshot>>
   generateDailyReview: (request: DailyReviewRequest) => Promise<ApiResult<DailyReviewReport>>
@@ -334,6 +343,7 @@ export interface BranchPilotApi {
   abortMergeOperation: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   openInEditor: (request: EditorOpenRequest) => Promise<ApiResult<GitOperationResult>>
   openTerminal: (targetPath: string) => Promise<ApiResult<GitOperationResult>>
+  showItemInFolder: (targetPath: string) => Promise<ApiResult<GitOperationResult>>
   listProviders: () => Promise<ApiResult<ProviderStatus[]>>
   listAssistants: () => Promise<ApiResult<AssistantStatus[]>>
   checkAssistants: () => Promise<ApiResult<AssistantStatus[]>>

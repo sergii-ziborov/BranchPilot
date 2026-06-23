@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { CheckSquare, FileImage, FileText, Plus, Trash2, X } from 'lucide-react'
-import type { DiffFile, DiffHunk, DiffLine, DiffResult, ImagePreview } from '../shared/branchPilot'
+import { CheckSquare, ChevronDown, ChevronUp, FileImage, FileText, Plus, Trash2, X } from 'lucide-react'
+import type { DiffContextResult, DiffFile, DiffHunk, DiffLine, DiffResult, ImagePreview } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import { buildSplitDiffRows } from '../shared/diffView'
 import { highlight, langFromPath } from '../lib/highlight'
@@ -34,6 +34,20 @@ function buildUnifiedWordDiff(lines: DiffLine[], lang: string): Map<number, Reac
 
 type DiffMode = ChangeDiffMode
 type DiffDisplayMode = 'unified' | 'split'
+type DiffContextDirection = 'up' | 'down'
+
+interface DiffContextLoadRequest {
+  filePath: string
+  staged: boolean
+  lineStart: number
+  maxLines: number
+}
+
+interface ExtraContextEntry {
+  above: DiffLine[]
+  below: DiffLine[]
+  totalLines?: number
+}
 
 function lineClass(line: string): string {
   if (line.startsWith('+') && !line.startsWith('+++')) return 'marker-add'
@@ -183,14 +197,19 @@ function UnifiedDiffLines({
           <code
             className={`diff-line line-${line.type}${canSelect ? ' selectable' : ''}${isSelected ? ' line-selected' : ''}`}
             key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}
-            onMouseDown={canSelect ? (event) => {
-              if (event.button !== 0) return
-              // Avoid hijacking the line-number "open in editor" button.
-              if ((event.target as HTMLElement).closest('.line-number-button')) return
-              event.preventDefault()
-              onLineSelect!(key, event.shiftKey)
-            } : undefined}
           >
+            {canSelect ? (
+              <button
+                type="button"
+                className={isSelected ? 'line-select-control selected' : 'line-select-control'}
+                title={isSelected ? 'Deselect this line' : 'Select this line for staging'}
+                aria-label={isSelected ? 'Deselect this line' : 'Select this line for staging'}
+                aria-pressed={isSelected}
+                onClick={(event) => onLineSelect!(key, event.shiftKey)}
+              />
+            ) : (
+              <span className="line-select-spacer" />
+            )}
             <DiffLineNumber lineNumber={line.oldLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
             <DiffLineNumber lineNumber={line.newLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
             <span className="line-marker">{diffLinePrefix(line)}</span>
@@ -290,11 +309,115 @@ function buildUnstagePatch(files: DiffFile[], selected: Set<string>): string {
   return out
 }
 
+function hunkHasHiddenContextBefore(file: DiffFile, index: number): boolean {
+  if (index > 0) return true
+
+  const hunk = file.hunks[index]
+  if (!hunk) return false
+
+  return hunk.oldStart > 1 || hunk.newStart > 1
+}
+
+function hunkHasHiddenContextAfter(file: DiffFile, index: number): boolean {
+  return index < file.hunks.length - 1
+}
+
+function contextLineNumber(line: DiffLine): number | undefined {
+  return line.newLineNumber ?? line.oldLineNumber
+}
+
+function firstContextLineNumber(lines: DiffLine[]): number | undefined {
+  for (const line of lines) {
+    const lineNumber = contextLineNumber(line)
+    if (lineNumber) return lineNumber
+  }
+
+  return undefined
+}
+
+function lastContextLineNumber(lines: DiffLine[]): number | undefined {
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const lineNumber = contextLineNumber(lines[index])
+    if (lineNumber) return lineNumber
+  }
+
+  return undefined
+}
+
+function hunkContextKey(file: DiffFile, hunk: DiffHunk): string {
+  return `${file.newPath}:${hunk.oldStart}:${hunk.newStart}:${hunk.header}`
+}
+
+function mergeContextLines(existing: DiffLine[], incoming: DiffLine[], direction: DiffContextDirection): DiffLine[] {
+  const byLine = new Map<number, DiffLine>()
+  const ordered = direction === 'up' ? [...incoming, ...existing] : [...existing, ...incoming]
+
+  for (const line of ordered) {
+    const lineNumber = contextLineNumber(line)
+    if (!lineNumber || byLine.has(lineNumber)) continue
+    byLine.set(lineNumber, line)
+  }
+
+  return [...byLine.values()].sort((a, b) => (contextLineNumber(a) ?? 0) - (contextLineNumber(b) ?? 0))
+}
+
+function contextBoundaryBefore(file: DiffFile, hunkIndex: number): number {
+  const previous = file.hunks[hunkIndex - 1]
+  const previousLast = previous ? lastContextLineNumber(previous.lines) : undefined
+  return previousLast ? previousLast + 1 : 1
+}
+
+function contextBoundaryAfter(file: DiffFile, hunkIndex: number, totalLines?: number): number | undefined {
+  const next = file.hunks[hunkIndex + 1]
+  const nextFirst = next ? firstContextLineNumber(next.lines) : undefined
+  if (nextFirst) return nextFirst - 1
+  return totalLines
+}
+
+function canExpandContext(
+  file: DiffFile,
+  hunk: DiffHunk,
+  hunkIndex: number,
+  entry: ExtraContextEntry | undefined,
+  direction: DiffContextDirection
+): boolean {
+  if (direction === 'up') {
+    const firstVisible = firstContextLineNumber(entry?.above.length ? entry.above : hunk.lines)
+    return Boolean(firstVisible && firstVisible > contextBoundaryBefore(file, hunkIndex))
+  }
+
+  const lastVisible = lastContextLineNumber(entry?.below.length ? entry.below : hunk.lines)
+  const upperBoundary = contextBoundaryAfter(file, hunkIndex, entry?.totalLines)
+  if (upperBoundary === undefined) return hunkHasHiddenContextAfter(file, hunkIndex)
+
+  return Boolean(lastVisible && lastVisible < upperBoundary)
+}
+
+function DiffContextExpander({
+  direction,
+  onExpandContext
+}: {
+  direction: DiffContextDirection
+  onExpandContext?: () => void
+}) {
+  if (!onExpandContext) return null
+
+  const label = direction === 'up' ? 'Show more lines above' : 'Show more lines below'
+
+  return (
+    <button type="button" className="diff-context-expander" onClick={onExpandContext} title={label} aria-label={label}>
+      {direction === 'up' ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      <span>{label}</span>
+    </button>
+  )
+}
+
 export function DiffPreview({
   diff,
   imagePreview = null,
   mode,
   displayMode = 'unified',
+  expanded = false,
   busy = false,
   onStageHunk,
   onUnstageHunk,
@@ -302,12 +425,15 @@ export function DiffPreview({
   onStageLines,
   onUnstageLines,
   onDiscardLines,
-  onOpenLine
+  onOpenLine,
+  onLoadContext,
+  onExpandContext
 }: {
   diff: DiffResult | null
   imagePreview?: ImagePreview | null
   mode?: DiffMode
   displayMode?: DiffDisplayMode
+  expanded?: boolean
   busy?: boolean
   onStageHunk?: (hunk: DiffHunk) => void
   onUnstageHunk?: (hunk: DiffHunk) => void
@@ -316,14 +442,18 @@ export function DiffPreview({
   onUnstageLines?: (patch: string) => void
   onDiscardLines?: (patch: string) => void
   onOpenLine?: (line?: number) => void
+  onLoadContext?: (request: DiffContextLoadRequest) => Promise<DiffContextResult | null>
+  onExpandContext?: () => void
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [extraContext, setExtraContext] = useState<Record<string, ExtraContextEntry>>({})
   const anchorRef = useRef<string | null>(null)
   // Selection is per-file; clear it when the viewed file (or staged side) changes.
   useEffect(() => {
     setSelected(new Set())
+    setExtraContext({})
     anchorRef.current = null
-  }, [diff?.filePath, diff?.staged])
+  }, [diff?.filePath, diff?.staged, diff?.text])
 
   const selectLine = (key: string, shift: boolean) => {
     setSelected((prev) => {
@@ -368,6 +498,58 @@ export function DiffPreview({
     if (patch.trim()) onUnstageLines(patch)
     setSelected(new Set())
     anchorRef.current = null
+  }
+
+  const loadAdditionalContext = async (
+    file: DiffFile,
+    hunk: DiffHunk,
+    hunkIndex: number,
+    direction: DiffContextDirection
+  ) => {
+    if (!diff || !onLoadContext) {
+      if (onExpandContext) onExpandContext()
+      return
+    }
+
+    const key = hunkContextKey(file, hunk)
+    const entry = extraContext[key]
+    const firstVisible = firstContextLineNumber(entry?.above.length ? entry.above : hunk.lines)
+    const lastVisible = lastContextLineNumber(entry?.below.length ? entry.below : hunk.lines)
+    let lineStart = 1
+    let maxLines = 0
+
+    if (direction === 'up' && firstVisible) {
+      const lowerBoundary = contextBoundaryBefore(file, hunkIndex)
+      lineStart = Math.max(lowerBoundary, firstVisible - 20)
+      maxLines = firstVisible - lineStart
+    } else if (direction === 'down' && lastVisible) {
+      const upperBoundary = contextBoundaryAfter(file, hunkIndex, entry?.totalLines)
+      const cappedEnd = upperBoundary ? Math.min(upperBoundary, lastVisible + 20) : lastVisible + 20
+      lineStart = lastVisible + 1
+      maxLines = cappedEnd - lastVisible
+    }
+
+    if (maxLines <= 0) return
+
+    const result = await onLoadContext({
+      filePath: file.newPath,
+      staged: diff.staged,
+      lineStart,
+      maxLines: Math.min(20, maxLines)
+    })
+
+    if (!result || result.lines.length === 0) return
+
+    setExtraContext((current) => {
+      const currentEntry = current[key] ?? { above: [], below: [] }
+      const nextEntry: ExtraContextEntry = {
+        above: direction === 'up' ? mergeContextLines(currentEntry.above, result.lines, direction) : currentEntry.above,
+        below: direction === 'down' ? mergeContextLines(currentEntry.below, result.lines, direction) : currentEntry.below,
+        totalLines: result.totalLines
+      }
+
+      return { ...current, [key]: nextEntry }
+    })
   }
 
   if (!diff) {
@@ -423,41 +605,65 @@ export function DiffPreview({
             <strong>{file.newPath}</strong>
             {file.oldPath && file.oldPath !== file.newPath && <span>from {file.oldPath}</span>}
           </div>
-          {file.hunks.map((hunk, index) => (
-            <article className="diff-hunk" key={`${hunk.header}-${index}`}>
-              <div className="diff-hunk-heading">
-                <code>{hunk.header}</code>
-                <div className="diff-hunk-actions">
-                  {mode === 'unstaged' && onStageHunk && (
-                    <button type="button" className="hunk-icon-btn" title="Stage hunk" aria-label="Stage hunk" onClick={() => onStageHunk(hunk)} disabled={busy}>
-                      <Plus size={15} />
-                    </button>
-                  )}
-                  {mode === 'unstaged' && onDiscardHunk && (
-                    <button type="button" className="hunk-icon-btn danger" title="Discard hunk" aria-label="Discard hunk" onClick={() => onDiscardHunk(hunk)} disabled={busy}>
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                  {mode === 'staged' && onUnstageHunk && (
-                    <button type="button" className="hunk-icon-btn" title="Unstage hunk" aria-label="Unstage hunk" onClick={() => onUnstageHunk(hunk)} disabled={busy}>
-                      <X size={15} />
-                    </button>
-                  )}
+          {file.hunks.map((hunk, index) => {
+            const lang = langFromPath(file.newPath)
+            const contextKey = hunkContextKey(file, hunk)
+            const contextEntry = extraContext[contextKey]
+            const canExpandBefore = !expanded && canExpandContext(file, hunk, index, contextEntry, 'up')
+            const canExpandAfter = !expanded && canExpandContext(file, hunk, index, contextEntry, 'down')
+
+            return (
+              <article className="diff-hunk" key={`${hunk.header}-${index}`}>
+                {canExpandBefore && (
+                  <DiffContextExpander direction="up" onExpandContext={() => { void loadAdditionalContext(file, hunk, index, 'up') }} />
+                )}
+                <div className="diff-hunk-heading">
+                  <code>{hunk.header}</code>
+                  <div className="diff-hunk-actions">
+                    {mode === 'unstaged' && onStageHunk && (
+                      <button type="button" className="hunk-icon-btn" title="Stage hunk" aria-label="Stage hunk" onClick={() => onStageHunk(hunk)} disabled={busy}>
+                        <Plus size={15} />
+                      </button>
+                    )}
+                    {mode === 'unstaged' && onDiscardHunk && (
+                      <button type="button" className="hunk-icon-btn danger" title="Discard hunk" aria-label="Discard hunk" onClick={() => onDiscardHunk(hunk)} disabled={busy}>
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                    {mode === 'staged' && onUnstageHunk && (
+                      <button type="button" className="hunk-icon-btn" title="Unstage hunk" aria-label="Unstage hunk" onClick={() => onUnstageHunk(hunk)} disabled={busy}>
+                        <X size={15} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {displayMode === 'split'
-                ? <SplitDiffLines lines={hunk.lines} lang={langFromPath(file.newPath)} onOpenLine={onOpenLine} />
-                : <UnifiedDiffLines
-                    lines={hunk.lines}
-                    lang={langFromPath(file.newPath)}
-                    onOpenLine={onOpenLine}
-                    keyPrefix={`${fileIndex}:${index}`}
-                    selectable={canSelectLines}
-                    selected={selected}
-                    onLineSelect={selectLine}
-                  />}
-            </article>
-          ))}
+                {contextEntry?.above.length ? (
+                  displayMode === 'split'
+                    ? <SplitDiffLines lines={contextEntry.above} lang={lang} onOpenLine={onOpenLine} />
+                    : <UnifiedDiffLines lines={contextEntry.above} lang={lang} onOpenLine={onOpenLine} />
+                ) : null}
+                {displayMode === 'split'
+                  ? <SplitDiffLines lines={hunk.lines} lang={lang} onOpenLine={onOpenLine} />
+                  : <UnifiedDiffLines
+                      lines={hunk.lines}
+                      lang={lang}
+                      onOpenLine={onOpenLine}
+                      keyPrefix={`${fileIndex}:${index}`}
+                      selectable={canSelectLines}
+                      selected={selected}
+                      onLineSelect={selectLine}
+                    />}
+                {contextEntry?.below.length ? (
+                  displayMode === 'split'
+                    ? <SplitDiffLines lines={contextEntry.below} lang={lang} onOpenLine={onOpenLine} />
+                    : <UnifiedDiffLines lines={contextEntry.below} lang={lang} onOpenLine={onOpenLine} />
+                ) : null}
+                {canExpandAfter && (
+                  <DiffContextExpander direction="down" onExpandContext={() => { void loadAdditionalContext(file, hunk, index, 'down') }} />
+                )}
+              </article>
+            )
+          })}
         </section>
       ))}
 

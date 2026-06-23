@@ -75,6 +75,14 @@ export interface DiffRequest {
   contextLines?: number
 }
 
+export interface DiffContextRequest {
+  repoPath: string
+  filePath: string
+  staged: boolean
+  lineStart: number
+  maxLines: number
+}
+
 export type DiffLineType = 'context' | 'add' | 'remove' | 'meta'
 
 export interface DiffLine {
@@ -109,13 +117,24 @@ export interface DiffResult {
   files: DiffFile[]
 }
 
+export interface DiffContextResult {
+  filePath: string
+  staged: boolean
+  lineStart: number
+  lineEnd: number
+  totalLines: number
+  lines: DiffLine[]
+  hasMoreBefore: boolean
+  hasMoreAfter: boolean
+}
+
 export interface CoAuthor {
   name: string
   email: string
   login?: string
   avatarUrl?: string
   profileUrl?: string
-  source?: 'repository' | 'github' | 'organization'
+  source?: 'repository' | 'github' | 'organization' | 'identity'
   organization?: string
 }
 
@@ -127,7 +146,6 @@ export interface ContributorStat {
   login?: string
   avatarUrl?: string
   profileUrl?: string
-  profileSearchUrl?: string
   commits: number
   /** Share of total commits in the repository, 0..1. */
   share: number
@@ -146,8 +164,14 @@ export interface ContributorIdentity {
 
 export type ContributorStatsWindow = 'all' | 'year' | 'month' | 'week' | 'day'
 
+export interface RepositoryScopeRequest {
+  repoPath?: string
+  repoPaths?: string[]
+}
+
 export interface ContributorStatsRequest {
   repoPath?: string
+  repoPaths?: string[]
   window?: ContributorStatsWindow
 }
 
@@ -289,8 +313,15 @@ export interface MergeBranchRequest {
   branchName: string
 }
 
-export type AssistantId = 'auto' | 'claude' | 'codex'
-export type InstalledAssistantId = Exclude<AssistantId, 'auto'>
+export type InstalledAssistantId = 'claude' | 'codex'
+export type AssistantModelId =
+  | 'claude:opus'
+  | 'claude:sonnet'
+  | 'claude:haiku'
+  | 'codex:gpt-5'
+  | 'codex:gpt-5-codex'
+  | 'codex:gpt-5-mini'
+export type AssistantId = 'auto' | InstalledAssistantId | AssistantModelId
 
 export interface CommitMessageGenerationRequest {
   repoPath: string
@@ -506,6 +537,31 @@ export interface EditorSettings {
 
 export interface EditorSettingsUpdate {
   preference: EditorPreference
+  customCommand?: string
+}
+
+export type TerminalPreference =
+  | 'auto'
+  | 'windows-terminal'
+  | 'powershell'
+  | 'cmd'
+  | 'git-bash'
+  | 'terminal'
+  | 'iterm'
+  | 'gnome-terminal'
+  | 'konsole'
+  | 'alacritty'
+  | 'wezterm'
+  | 'custom'
+
+export interface TerminalSettings {
+  preference: TerminalPreference
+  customCommand?: string
+  updatedAt?: string
+}
+
+export interface TerminalSettingsUpdate {
+  preference: TerminalPreference
   customCommand?: string
 }
 

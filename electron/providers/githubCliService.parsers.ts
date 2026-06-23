@@ -69,6 +69,15 @@ export function parseGitHubAccountList(
   return parsed.map((value) => normalizeGitHubAccount(value, fallbackType))
 }
 
+export function parseGitHubEmailList(output: string): string[] {
+  if (!output.trim()) {
+    return []
+  }
+
+  const parsed = parseGitHubJson(output, 'github_email_parse_failed', 'GitHub CLI did not return a valid email list.')
+  return normalizeGitHubEmailList(parsed)
+}
+
 export function parseGitHubPullRequestChecks(output: string): GitHubPullRequestCheck[] {
   if (!output.trim()) {
     return []
@@ -167,12 +176,69 @@ export function normalizeGitHubAccount(
     ? 'organization'
     : fallbackType
 
-  return {
+  const emails = normalizeGitHubEmailList(record.emails)
+  const account: GitHubAccountSummary = {
     login,
     label: optionalString(record.name) ?? optionalString(record.description) ?? login,
     type,
     url: optionalString(record.html_url) ?? optionalString(record.url) ?? `https://github.com/${login}`
   }
+
+  if (emails.length > 0) {
+    account.emails = emails
+  }
+
+  return account
+}
+
+export function normalizeGitHubEmailList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const records = value
+    .map((item) => normalizeGitHubEmailRecord(item))
+    .filter((item): item is { email: string; primary: boolean; verified: boolean } => Boolean(item))
+    .sort((left, right) => {
+      if (left.primary !== right.primary) return left.primary ? -1 : 1
+      if (left.verified !== right.verified) return left.verified ? -1 : 1
+      return left.email.localeCompare(right.email)
+    })
+
+  return uniqueStrings(records.map((record) => record.email))
+}
+
+function normalizeGitHubEmailRecord(value: unknown): { email: string; primary: boolean; verified: boolean } | undefined {
+  if (!value || typeof value !== 'object') {
+    if (typeof value === 'string') {
+      const email = normalizeGitHubEmail(value)
+      return email ? { email, primary: false, verified: true } : undefined
+    }
+
+    return undefined
+  }
+
+  const record = value as Record<string, unknown>
+  const email = normalizeGitHubEmail(record.email)
+
+  if (!email) {
+    return undefined
+  }
+
+  return {
+    email,
+    primary: Boolean(record.primary),
+    verified: record.verified !== false
+  }
+}
+
+function normalizeGitHubEmail(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const email = value.trim()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : undefined
 }
 
 export function normalizeGitHubRepository(value: unknown): GitHubRepositorySummary {
@@ -464,6 +530,13 @@ export function uniqueGitHubAccounts(accounts: GitHubAccountSummary[]): GitHubAc
     if (!seen.has(key)) {
       unique.push(account)
       seen.add(key)
+    } else {
+      const existing = unique.find((candidate) => candidate.login.toLowerCase() === key)
+      const emails = uniqueStrings([...(existing?.emails ?? []), ...(account.emails ?? [])])
+
+      if (existing && emails.length > 0) {
+        existing.emails = emails
+      }
     }
   }
 
@@ -488,6 +561,10 @@ export function normalizeNonNegativeNumber(value: unknown): number {
 
 export function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))]
 }
 
 export function splitUnifiedDiffByFile(text: string): string[] {

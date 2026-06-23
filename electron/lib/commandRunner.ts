@@ -81,13 +81,16 @@ export class CommandRunner {
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
     const maxOutputBytes = normalizeMaxOutputBytes(options.maxOutputBytes)
     const spawnArgs = isGitExecutable(command) ? gitArgsWithCredentialManager(args) : args
+    const safeEnv = buildSafeEnv()
+    const spawnRequest = buildSpawnRequest(command, spawnArgs, safeEnv)
 
     const result = await new Promise<CommandRunResult>((resolve, reject) => {
-      const child = spawn(command, spawnArgs, {
+      const child = spawn(spawnRequest.command, spawnRequest.args, {
         cwd: options.cwd,
-        env: buildSafeEnv(),
+        env: safeEnv,
         shell: false,
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsVerbatimArguments: spawnRequest.windowsVerbatimArguments
       })
 
       let stdout = ''
@@ -160,6 +163,34 @@ export class CommandRunner {
   }
 }
 
+function buildSpawnRequest(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv
+): { command: string; args: string[]; windowsVerbatimArguments?: boolean } {
+  if (process.platform !== 'win32' || !isWindowsBatchCommand(command)) {
+    return { command, args }
+  }
+
+  return {
+    command: env.ComSpec ?? env.comspec ?? 'cmd.exe',
+    args: ['/d', '/s', '/c', buildWindowsBatchCommandLine(command, args)],
+    windowsVerbatimArguments: true
+  }
+}
+
+function isWindowsBatchCommand(command: string): boolean {
+  return /\.(?:cmd|bat)$/i.test(command)
+}
+
+function buildWindowsBatchCommandLine(command: string, args: string[]): string {
+  return ['call', quoteWindowsCmdArgument(command), ...args.map(quoteWindowsCmdArgument)].join(' ')
+}
+
+function quoteWindowsCmdArgument(value: string): string {
+  return `"${value.replaceAll('%', '%%').replaceAll('"', '""')}"`
+}
+
 function buildSafeEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {}
 
@@ -177,6 +208,8 @@ function buildSafeEnv(): NodeJS.ProcessEnv {
     env.PATH = pathValue
     env.Path = pathValue
   }
+
+  delete env.ELECTRON_RUN_AS_NODE
 
   return env
 }

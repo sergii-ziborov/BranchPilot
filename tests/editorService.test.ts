@@ -64,7 +64,7 @@ describe('ExternalEditorService', () => {
         args: ['C:\\repo']
       },
       {
-        command: 'C:\\Users\\Ada\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe',
+        command: 'C:\\Users\\Ada\\AppData\\Local\\Programs\\Microsoft VS Code\\bin\\code.cmd',
         args: ['C:\\repo']
       }
     ])
@@ -175,6 +175,43 @@ describe('ExternalEditorService', () => {
     })).rejects.toMatchObject({
       code: 'editor_custom_command_missing'
     })
+  })
+
+  it('uses an explicit terminal preference', async () => {
+    const runner = new FakeRunner()
+    const service = new ExternalEditorService(runner as unknown as CommandRunner, {
+      platform: 'win32'
+    })
+
+    const result = await service.openTerminal('C:\\repo', {
+      preference: 'windows-terminal'
+    })
+
+    expect(result.message).toBe('Opened Windows Terminal')
+    expect(runner.calls()).toEqual([
+      {
+        command: 'wt.exe',
+        args: ['-d', 'C:\\repo']
+      }
+    ])
+  })
+
+  it('uses a custom terminal command with target placeholder', async () => {
+    const runner = new FakeRunner()
+    const service = new ExternalEditorService(runner as unknown as CommandRunner)
+
+    const result = await service.openTerminal('/repo with spaces', {
+      preference: 'custom',
+      customCommand: 'my-terminal --cwd %TARGET_PATH%'
+    })
+
+    expect(result.message).toBe('Opened with custom terminal command')
+    expect(runner.calls()).toEqual([
+      {
+        command: 'my-terminal',
+        args: ['--cwd', '/repo with spaces']
+      }
+    ])
   })
 })
 

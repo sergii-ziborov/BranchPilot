@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs'
 import path from 'node:path'
-import type { EditorPreference, EditorSettings, GitOperationResult } from '../../src/shared/branchPilot.js'
+import type { EditorPreference, EditorSettings, GitOperationResult, TerminalPreference, TerminalSettings } from '../../src/shared/branchPilot.js'
 import { CommandRunner } from './commandRunner.js'
 import { BranchPilotUserError } from './errors.js'
 
@@ -8,11 +8,21 @@ const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   preference: 'vscode'
 }
 
+const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
+  preference: 'auto'
+}
+
 interface EditorPreset {
   preference: Exclude<EditorPreference, 'auto' | 'custom'>
   label: string
   cli: string
   macAppName: string
+}
+
+interface TerminalCommand {
+  command: string
+  args: string[]
+  label: string
 }
 
 interface ExternalEditorServiceOptions {
@@ -105,47 +115,25 @@ export class ExternalEditorService {
     )
   }
 
-  async openTerminal(targetPath: string): Promise<GitOperationResult> {
-    if (process.platform === 'win32') {
-      if (await this.tryCommand('wt.exe', ['-d', targetPath])) {
-        return { message: 'Opened Windows Terminal' }
-      }
+  async openTerminal(targetPath: string, settings: TerminalSettings = DEFAULT_TERMINAL_SETTINGS): Promise<GitOperationResult> {
+    if (settings.preference === 'custom') {
+      return this.openTerminalWithCustomCommand(targetPath, settings.customCommand)
+    }
 
-      if (await this.tryCommand('cmd.exe', [
-        '/d',
-        '/c',
-        'start',
-        '',
-        'powershell.exe',
-        '-NoExit',
-        '-Command',
-        `Set-Location -LiteralPath ${quotePowerShellString(targetPath)}`
-      ])) {
-        return { message: 'Opened PowerShell' }
-      }
-    } else if (process.platform === 'darwin') {
-      if (await this.tryCommand('/usr/bin/open', ['-a', 'Terminal', targetPath])) {
-        return { message: 'Opened Terminal' }
-      }
-    } else {
-      const linuxCommands: Array<{ command: string; args: string[]; label: string }> = [
-        { command: 'x-terminal-emulator', args: ['--working-directory', targetPath], label: 'terminal' },
-        { command: 'gnome-terminal', args: [`--working-directory=${targetPath}`], label: 'GNOME Terminal' },
-        { command: 'konsole', args: ['--workdir', targetPath], label: 'Konsole' }
-      ]
+    const candidates = buildTerminalCommands(settings.preference, targetPath, this.platform(), this.env())
 
-      for (const candidate of linuxCommands) {
-        if (await this.tryCommand(candidate.command, candidate.args)) {
-          return { message: `Opened ${candidate.label}` }
-        }
+    for (const candidate of candidates) {
+      if (await this.tryCommand(candidate.command, candidate.args)) {
+        return { message: `Opened ${candidate.label}` }
       }
     }
 
     throw new BranchPilotUserError(
       'terminal_open_failed',
-      process.platform === 'win32'
-        ? 'Could not open Windows Terminal or PowerShell.'
-        : 'Could not open a terminal at this path.'
+      terminalFailureMessage(settings.preference),
+      settings.preference === 'auto'
+        ? 'Tried the standard terminal apps for this platform.'
+        : undefined
     )
   }
 
@@ -259,6 +247,151 @@ export class ExternalEditorService {
 
     return { message: 'Opened with custom editor command' }
   }
+
+  private async openTerminalWithCustomCommand(
+    targetPath: string,
+    commandTemplate: string | undefined
+  ): Promise<GitOperationResult> {
+    const parsed = parseCommandTemplate(commandTemplate)
+
+    if (!parsed) {
+      throw new BranchPilotUserError(
+        'terminal_custom_command_missing',
+        'Custom terminal command is empty. Configure a command with %TARGET_PATH% or switch back to Auto.'
+      )
+    }
+
+    const args = parsed.args.map((arg) => arg.replaceAll('%TARGET_PATH%', targetPath))
+
+    if (!commandTemplate?.includes('%TARGET_PATH%')) {
+      args.push(targetPath)
+    }
+
+    try {
+      await this.runner.run(parsed.command, args, { timeoutMs: 10_000 })
+    } catch (error) {
+      throw new BranchPilotUserError(
+        'terminal_open_failed',
+        'Could not open the configured custom terminal command.',
+        error instanceof Error ? error.message : undefined
+      )
+    }
+
+    return { message: 'Opened with custom terminal command' }
+  }
+}
+
+function buildTerminalCommands(
+  preference: TerminalPreference,
+  targetPath: string,
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv
+): TerminalCommand[] {
+  if (preference === 'auto') {
+    if (platform === 'win32') {
+      return [
+        ...buildTerminalCommands('windows-terminal', targetPath, platform, env),
+        ...buildTerminalCommands('powershell', targetPath, platform, env),
+        ...buildTerminalCommands('git-bash', targetPath, platform, env),
+        ...buildTerminalCommands('cmd', targetPath, platform, env)
+      ]
+    }
+
+    if (platform === 'darwin') {
+      return [
+        ...buildTerminalCommands('terminal', targetPath, platform, env),
+        ...buildTerminalCommands('iterm', targetPath, platform, env)
+      ]
+    }
+
+    return [
+      ...buildTerminalCommands('gnome-terminal', targetPath, platform, env),
+      ...buildTerminalCommands('konsole', targetPath, platform, env),
+      ...buildTerminalCommands('alacritty', targetPath, platform, env),
+      ...buildTerminalCommands('wezterm', targetPath, platform, env)
+    ]
+  }
+
+  if (preference === 'windows-terminal') {
+    return platform === 'win32' ? [
+      { command: 'wt.exe', args: ['-d', targetPath], label: 'Windows Terminal' }
+    ] : []
+  }
+
+  if (preference === 'powershell') {
+    return platform === 'win32' ? [
+      {
+        command: 'cmd.exe',
+        args: ['/d', '/c', 'start', '', 'powershell.exe', '-NoExit', '-Command', `Set-Location -LiteralPath ${quotePowerShellString(targetPath)}`],
+        label: 'PowerShell'
+      },
+      {
+        command: 'cmd.exe',
+        args: ['/d', '/c', 'start', '', 'pwsh.exe', '-NoExit', '-Command', `Set-Location -LiteralPath ${quotePowerShellString(targetPath)}`],
+        label: 'PowerShell'
+      }
+    ] : []
+  }
+
+  if (preference === 'cmd') {
+    return platform === 'win32' ? [
+      {
+        command: 'cmd.exe',
+        args: ['/d', '/c', 'start', '', 'cmd.exe', '/k', `cd /d ${quoteWindowsCmdString(targetPath)}`],
+        label: 'Command Prompt'
+      }
+    ] : []
+  }
+
+  if (preference === 'git-bash') {
+    return platform === 'win32'
+      ? getWindowsGitBashCommands(env).map((command) => ({
+        command,
+        args: [`--cd=${targetPath}`],
+        label: 'Git Bash'
+      }))
+      : []
+  }
+
+  if (preference === 'terminal') {
+    return platform === 'darwin' ? [
+      { command: '/usr/bin/open', args: ['-a', 'Terminal', targetPath], label: 'Terminal' }
+    ] : []
+  }
+
+  if (preference === 'iterm') {
+    return platform === 'darwin' ? [
+      { command: '/usr/bin/open', args: ['-a', 'iTerm', targetPath], label: 'iTerm2' },
+      { command: '/usr/bin/open', args: ['-a', 'iTerm2', targetPath], label: 'iTerm2' }
+    ] : []
+  }
+
+  if (preference === 'gnome-terminal') {
+    return platform === 'linux' ? [
+      { command: 'x-terminal-emulator', args: ['--working-directory', targetPath], label: 'terminal' },
+      { command: 'gnome-terminal', args: [`--working-directory=${targetPath}`], label: 'GNOME Terminal' }
+    ] : []
+  }
+
+  if (preference === 'konsole') {
+    return platform === 'linux' ? [
+      { command: 'konsole', args: ['--workdir', targetPath], label: 'Konsole' }
+    ] : []
+  }
+
+  if (preference === 'alacritty') {
+    return platform === 'linux' || platform === 'win32' || platform === 'darwin'
+      ? [{ command: 'alacritty', args: ['--working-directory', targetPath], label: 'Alacritty' }]
+      : []
+  }
+
+  if (preference === 'wezterm') {
+    return platform === 'linux' || platform === 'win32' || platform === 'darwin'
+      ? [{ command: 'wezterm', args: ['start', '--cwd', targetPath], label: 'WezTerm' }]
+      : []
+  }
+
+  return []
 }
 
 function buildEditorArgs(
@@ -313,6 +446,9 @@ function getWindowsEditorCommands(
 
   if (preference === 'vscode') {
     return uniqueCommands([
+      localAppData && winJoin(localAppData, 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd'),
+      localAppData && winJoin(localAppData, 'Programs', 'Microsoft VS Code Insiders', 'bin', 'code-insiders.cmd'),
+      localAppData && winJoin(localAppData, 'Programs', 'VSCodium', 'bin', 'codium.cmd'),
       localAppData && winJoin(localAppData, 'Programs', 'Microsoft VS Code', 'Code.exe'),
       localAppData && winJoin(localAppData, 'Programs', 'Microsoft VS Code Insiders', 'Code - Insiders.exe'),
       localAppData && winJoin(localAppData, 'Programs', 'VSCodium', 'VSCodium.exe'),
@@ -333,6 +469,7 @@ function getWindowsEditorCommands(
 
   if (preference === 'cursor') {
     return uniqueCommands([
+      localAppData && winJoin(localAppData, 'Programs', 'Cursor', 'resources', 'app', 'bin', 'cursor.cmd'),
       localAppData && winJoin(localAppData, 'Programs', 'Cursor', 'Cursor.exe'),
       localAppData && winJoin(localAppData, 'Microsoft', 'WindowsApps', 'cursor.exe'),
       userProfile && winJoin(userProfile, 'scoop', 'apps', 'cursor', 'current', 'Cursor.exe'),
@@ -432,6 +569,23 @@ function getLinuxEditorCommands(preference: Exclude<EditorPreference, 'auto' | '
   return uniqueCommands(linuxBinRoots.map((root) => posixJoin(root, commandName)), 'linux')
 }
 
+function getWindowsGitBashCommands(env: NodeJS.ProcessEnv): string[] {
+  const localAppData = envValue(env, 'LOCALAPPDATA')
+  const userProfile = envValue(env, 'USERPROFILE')
+  const programRoots = uniqueCommands([
+    envValue(env, 'ProgramFiles'),
+    envValue(env, 'ProgramW6432'),
+    envValue(env, 'ProgramFiles(x86)')
+  ], 'win32')
+
+  return uniqueCommands([
+    'git-bash.exe',
+    localAppData && winJoin(localAppData, 'Programs', 'Git', 'git-bash.exe'),
+    userProfile && winJoin(userProfile, 'scoop', 'apps', 'git', 'current', 'git-bash.exe'),
+    ...programRoots.map((root) => winJoin(root, 'Git', 'git-bash.exe'))
+  ], 'win32')
+}
+
 function findWindowsJetBrainsBins(programRoots: string[], productNames: string[], executableName: string): string[] {
   const commands: string[] = []
 
@@ -506,6 +660,21 @@ function editorFailureMessage(preference: EditorPreference): string {
   return preset ? `Could not open ${preset.label}.` : 'Could not open the configured editor.'
 }
 
+function terminalFailureMessage(preference: TerminalPreference): string {
+  if (preference === 'auto') return 'Could not open any supported terminal.'
+  if (preference === 'windows-terminal') return 'Could not open Windows Terminal.'
+  if (preference === 'powershell') return 'Could not open PowerShell.'
+  if (preference === 'cmd') return 'Could not open Command Prompt.'
+  if (preference === 'git-bash') return 'Could not open Git Bash.'
+  if (preference === 'terminal') return 'Could not open Terminal.'
+  if (preference === 'iterm') return 'Could not open iTerm2.'
+  if (preference === 'gnome-terminal') return 'Could not open GNOME Terminal.'
+  if (preference === 'konsole') return 'Could not open Konsole.'
+  if (preference === 'alacritty') return 'Could not open Alacritty.'
+  if (preference === 'wezterm') return 'Could not open WezTerm.'
+  return 'Could not open the configured terminal.'
+}
+
 function parseCommandTemplate(commandTemplate: string | undefined): { command: string; args: string[] } | null {
   const tokens = splitCommandTemplate(commandTemplate?.trim() ?? '')
   const [command, ...args] = tokens
@@ -569,4 +738,8 @@ function splitCommandTemplate(value: string): string[] {
 
 function quotePowerShellString(value: string): string {
   return `'${value.replaceAll('\'', '\'\'')}'`
+}
+
+function quoteWindowsCmdString(value: string): string {
+  return `"${value.replaceAll('%', '%%').replaceAll('"', '""')}"`
 }

@@ -105,6 +105,26 @@ export function useCommit({
 
   async function generateCommitText() {
     if (!api || !currentRepoPath) return
+    if (!snapshot) {
+      setNotice('Open a repository before generating commit text.')
+      return
+    }
+
+    if (snapshot.status.merge.operation !== 'none') {
+      setNotice('Finish or abort the current merge operation before generating commit text.')
+      return
+    }
+
+    if (snapshot.status.counts.conflicted > 0) {
+      setNotice('Resolve conflicted files before generating commit text.')
+      return
+    }
+
+    if (snapshot.status.counts.staged === 0) {
+      setNotice('Stage at least one change before generating commit text.')
+      return
+    }
+
     if (!canGenerateCommitText) {
       setNotice(assistantPolicyBlockedLabel('commit_message', assistantPolicy))
       return

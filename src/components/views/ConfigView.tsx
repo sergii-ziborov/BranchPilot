@@ -1,27 +1,36 @@
 import { Bot, Check, Code2, Database, FolderOpen, GitBranch, Loader2, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
 import { BranchPilotLogo } from '../BrandIcons'
 import { BackToChanges } from '../BackToChanges'
-import type { AssistantId, AssistantStatus, EditorPreference } from '../../shared/branchPilot'
+import type { AssistantId, AssistantStatus, EditorPreference, TerminalPreference } from '../../shared/branchPilot'
 import { useController } from '../../hooks/AppControllerContext'
 import { WorktreesTagsPanel } from '../WorktreesTagsPanel'
 import { gitDefaultBranchLabel, gitSigningLabel } from '../../lib/gitConfigLabels'
-import { editorPreferenceCommandHint, editorPreferenceLabel } from '../../lib/editorLabels'
+import {
+  editorPreferenceCommandHint,
+  editorPreferenceLabel,
+  terminalPreferenceCommandHint,
+  terminalPreferenceLabel
+} from '../../lib/editorLabels'
 import { gitLfsFileLabel, submoduleStatusLabel } from '../../lib/gitEntityLabels'
 import { formatDate } from '../../lib/format'
 import { InfoRow } from '../primitives'
-import { assistantLabel, assistantStatusLabel } from '../../lib/assistantLabels'
+import { assistantBaseId, assistantLabel, assistantStatusLabel } from '../../lib/assistantLabels'
 
-export function ConfigView({ onBack, editorPreferences }: {
+export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
   onBack: () => void
   editorPreferences: EditorPreference[]
+  terminalPreferences: TerminalPreference[]
 }) {
   const api = window.branchPilot
   const {
     appVersion, selectedAssistant, setSelectedAssistant, loadGitConfig, busy,
     assistants, assistantsChecking, checkAssistants,
+    githubAccounts, githubAccountsLoading, githubCliStatus, loadGitHubAccounts,
     localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, saveLocalGitIdentity,
     gitConfig, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand,
     saveEditorSettings, editorSettings, editorSettingsLoading,
+    terminalPreference, setTerminalPreference, terminalCustomCommand, setTerminalCustomCommand,
+    saveTerminalSettings, terminalSettings,
     remoteName, setRemoteName, remoteUrl, setRemoteUrl, saveRemote, editingRemoteName,
     cancelRemoteEdit, startRemoteEdit, removeRemote, snapshot,
     updateSubmodule, openSubmodule, runOperationAction, pullGitLfs,
@@ -33,6 +42,14 @@ export function ConfigView({ onBack, editorPreferences }: {
   const assistantOptions = (['auto', 'claude', 'codex'] as AssistantId[]).map((assistant) =>
     assistantChoiceOption(assistant, assistants)
   )
+  const selectedAssistantBase = assistantBaseId(selectedAssistant)
+  const knownGitIdentityEmails = uniqueStrings([
+    ...githubAccounts.filter((account) => account.type === 'user').flatMap((account) => account.emails ?? []),
+    gitConfig?.localUserEmail ?? '',
+    gitConfig?.effectiveUserEmail ?? '',
+    gitConfig?.globalUserEmail ?? ''
+  ])
+  const hasGitHubEmailOptions = githubAccounts.some((account) => (account.emails ?? []).length > 0)
 
     return (
     <section className="single-panel">
@@ -82,7 +99,7 @@ export function ConfigView({ onBack, editorPreferences }: {
           </div>
           <div className="assistant-choice-grid" role="radiogroup" aria-label="AI assistant">
             {assistantOptions.map((option) => {
-              const selected = selectedAssistant === option.id
+              const selected = selectedAssistant === option.id || (option.id !== 'auto' && selectedAssistantBase === option.id)
 
               return (
                 <button
@@ -126,6 +143,34 @@ export function ConfigView({ onBack, editorPreferences }: {
             placeholder="Repository user.name"
           />
           <label htmlFor="local-user-email">Email</label>
+          {knownGitIdentityEmails.length > 0 && (
+            <div className="config-email-options" aria-label="Known commit author emails">
+              {knownGitIdentityEmails.map((email) => (
+                <button
+                  type="button"
+                  key={email}
+                  className={sameEmail(localUserEmail, email) ? 'active' : 'secondary-button'}
+                  onClick={() => setLocalUserEmail(email)}
+                  disabled={busy}
+                  title={`Use ${email} for commits in this repository`}
+                >
+                  {email}
+                </button>
+              ))}
+            </div>
+          )}
+          {githubCliStatus?.authenticated && !hasGitHubEmailOptions && (
+            <button
+              type="button"
+              className="secondary-button config-email-load"
+              onClick={() => void loadGitHubAccounts()}
+              disabled={busy || githubAccountsLoading}
+              title="Load email addresses from your authenticated GitHub account"
+            >
+              {githubAccountsLoading ? <Loader2 className="spin" size={15} /> : null}
+              {githubAccountsLoading ? 'Loading GitHub emails' : 'Load GitHub emails'}
+            </button>
+          )}
           <input
             id="local-user-email"
             list="known-emails"
@@ -134,9 +179,7 @@ export function ConfigView({ onBack, editorPreferences }: {
             placeholder="Repository user.email"
           />
           <datalist id="known-emails">
-            {[gitConfig?.effectiveUserEmail, gitConfig?.globalUserEmail]
-              .filter((email): email is string => Boolean(email))
-              .filter((email, index, all) => all.indexOf(email) === index)
+            {knownGitIdentityEmails
               .map((email) => (
                 <option key={email} value={email} />
               ))}
@@ -212,9 +255,41 @@ export function ConfigView({ onBack, editorPreferences }: {
 
         <section className="config-card">
           <h3>Terminal</h3>
+          <label htmlFor="terminal-preference">Default terminal</label>
+          <select
+            id="terminal-preference"
+            value={terminalPreference}
+            onChange={(event) => setTerminalPreference(event.target.value as TerminalPreference)}
+            disabled={editorSettingsLoading || busy}
+          >
+            {terminalPreferences.map((preference) => (
+              <option value={preference} key={preference}>
+                {terminalPreferenceLabel(preference)}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="terminal-custom-command">Custom command</label>
+          <input
+            id="terminal-custom-command"
+            value={terminalPreference === 'custom' ? terminalCustomCommand : terminalPreferenceCommandHint(terminalPreference)}
+            onChange={(event) => setTerminalCustomCommand(event.target.value)}
+            placeholder={terminalPreferenceCommandHint(terminalPreference) || 'wt.exe -d %TARGET_PATH%'}
+            disabled={terminalPreference !== 'custom' || editorSettingsLoading || busy}
+          />
           <p className="muted-text">
-            BranchPilot opens Windows Terminal when available, then falls back to PowerShell. On macOS it opens Terminal.
+            BranchPilot opens the selected terminal in the repository or file folder. Use <code>%TARGET_PATH%</code> only for custom commands.
           </p>
+          <button
+            type="button"
+            onClick={saveTerminalSettings}
+            disabled={editorSettingsLoading || busy || (terminalPreference === 'custom' && !terminalCustomCommand.trim())}
+          >
+            <Save size={17} />
+            Save terminal settings
+          </button>
+          {terminalSettings?.updatedAt && (
+            <p className="muted-text">Updated {formatDate(terminalSettings.updatedAt)}</p>
+          )}
         </section>
 
         <details className="config-collapsible">
@@ -478,4 +553,25 @@ function assistantChoiceMeta(status: AssistantStatus): string {
   }
 
   return statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>()
+  const unique: string[] = []
+
+  for (const value of values) {
+    const trimmed = value.trim()
+    const key = trimmed.toLowerCase()
+
+    if (trimmed && !seen.has(key)) {
+      seen.add(key)
+      unique.push(trimmed)
+    }
+  }
+
+  return unique
+}
+
+function sameEmail(left: string, right: string): boolean {
+  return left.trim().toLowerCase() === right.trim().toLowerCase()
 }

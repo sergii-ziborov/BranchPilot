@@ -1,16 +1,60 @@
 import type {
   AssistantActionKind,
   AssistantId,
+  AssistantModelId,
   AssistantPolicyMode,
   AssistantPolicyStatus,
+  InstalledAssistantId,
   AssistantStatus
 } from '../shared/branchPilot'
 
 export type AssistantReadinessState = AssistantStatus['state'] | 'unknown'
 
-/** Display name for a concrete assistant (Claude Code / Codex). */
-export function assistantLabel(assistant: Exclude<AssistantId, 'auto'>): string {
-  return assistant === 'claude' ? 'Claude Code' : 'Codex'
+export const CLAUDE_MODEL_OPTIONS: Array<{ id: AssistantId; label: string; model?: string; description: string }> = [
+  { id: 'claude', label: 'Default', description: 'Claude Code default model' },
+  { id: 'claude:opus', label: 'Opus', model: 'opus', description: 'Deep reasoning' },
+  { id: 'claude:sonnet', label: 'Sonnet', model: 'sonnet', description: 'Balanced coding' },
+  { id: 'claude:haiku', label: 'Haiku', model: 'haiku', description: 'Fast small edits' }
+]
+
+export const CODEX_MODEL_OPTIONS: Array<{ id: AssistantId; label: string; model?: string; description: string }> = [
+  { id: 'codex', label: 'Default', description: 'Codex CLI default model' },
+  { id: 'codex:gpt-5', label: 'GPT-5', model: 'gpt-5', description: 'General reasoning' },
+  { id: 'codex:gpt-5-codex', label: 'GPT-5 Codex', model: 'gpt-5-codex', description: 'Coding-focused' },
+  { id: 'codex:gpt-5-mini', label: 'GPT-5 Mini', model: 'gpt-5-mini', description: 'Fast drafts' }
+]
+
+/** Concrete assistant provider for a model-specific selection. */
+export function assistantBaseId(assistant: AssistantId): InstalledAssistantId | 'auto' {
+  if (assistant.startsWith('claude')) return 'claude'
+  if (assistant.startsWith('codex')) return 'codex'
+  return 'auto'
+}
+
+/** CLI model value for model-specific selections. */
+export function assistantModelCliValue(assistant: AssistantId): string | undefined {
+  return [...CLAUDE_MODEL_OPTIONS, ...CODEX_MODEL_OPTIONS].find((option) => option.id === assistant)?.model
+}
+
+/** Display name for a concrete assistant provider (Claude Code / Codex). */
+export function assistantLabel(assistant: InstalledAssistantId | AssistantModelId): string {
+  return assistantBaseId(assistant) === 'claude' ? 'Claude Code' : 'Codex'
+}
+
+export function assistantModelLabel(assistant: AssistantId): string {
+  if (assistant === 'auto') return 'Auto'
+
+  return [...CLAUDE_MODEL_OPTIONS, ...CODEX_MODEL_OPTIONS].find((option) => option.id === assistant)?.label ?? 'Default'
+}
+
+export function assistantSelectionLabel(assistant: AssistantId): string {
+  if (assistant === 'auto') return 'Auto'
+
+  const model = assistantModelLabel(assistant)
+
+  return model === 'Default'
+    ? assistantLabel(assistant)
+    : `${assistantLabel(assistant)} - ${model}`
 }
 
 /** Short readiness word for an assistant's detection state. */
@@ -67,19 +111,23 @@ export function assistantReadinessSummary(
   }
 
   if (selectedAssistant !== 'auto') {
-    const assistant = assistants.find((candidate) => candidate.id === selectedAssistant)
+    const baseAssistant = assistantBaseId(selectedAssistant)
+    const assistant = assistants.find((candidate) => candidate.id === baseAssistant)
+    const model = assistantModelLabel(selectedAssistant)
 
     if (!assistant) {
       return {
         state: 'missing',
-        title: `${assistantLabel(selectedAssistant)} is not configured`,
+        title: `${assistantSelectionLabel(selectedAssistant)} is not configured`,
         message: 'Select Auto or install the requested assistant CLI.'
       }
     }
 
+    const title = model === 'Default' ? assistant.label : `${assistant.label} / ${model}`
+
     return {
       state: assistant.state,
-      title: `${assistant.label}: ${assistantStatusLabel(assistant)}`,
+      title: `${title}: ${assistantStatusLabel(assistant)}`,
       message: assistant.message
     }
   }

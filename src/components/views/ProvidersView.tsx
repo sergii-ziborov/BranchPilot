@@ -69,7 +69,7 @@ export function ProvidersView({
   const needsGitHubAuth = Boolean(githubCliStatus && !githubCliStatus.authenticated)
 
   return (
-    <section className="single-panel">
+    <section className="single-panel providers-page">
       <div className="panel-heading">
         <div className="panel-heading-main">
           <BackToChanges onClick={onBack} />
@@ -83,30 +83,41 @@ export function ProvidersView({
           Refresh
         </button>
       </div>
-      <details className="pr-collapse">
-        <summary>Connection &amp; repository</summary>
-        <div className="assistant-grid">
-          {providers.map((provider) => (
-            <div className="provider-card" key={provider.id}>
-              <GitPullRequest size={20} />
-              <strong>{provider.label}</strong>
-              <span>{providerStateLabel(provider.state)}</span>
+
+      <div className="providers-pr-layout">
+        <aside className="providers-connection-column">
+          <section className="providers-connection-panel">
+            <div className="panel-heading compact-heading">
+              <div>
+                <h3>Connection &amp; repository</h3>
+                <p>Provider status, current remote, and authenticated GitHub repositories.</p>
+              </div>
             </div>
-          ))}
-        </div>
 
-        <ProviderRemoteCard
-          remote={providerRemote}
-          remoteName={snapshot?.summary.remoteName}
-          remoteUrl={snapshot?.summary.remoteUrl}
-          hasRepository={Boolean(snapshot)}
-        />
+            <div className="assistant-grid provider-status-grid">
+              {providers.map((provider) => (
+                <div className="provider-card" key={provider.id}>
+                  <GitPullRequest size={20} />
+                  <strong>{provider.label}</strong>
+                  <span>{providerStateLabel(provider.state)}</span>
+                </div>
+              ))}
+            </div>
 
-        {renderGitHubRepositoryBrowser()}
-      </details>
+            <ProviderRemoteCard
+              remote={providerRemote}
+              remoteName={snapshot?.summary.remoteName}
+              remoteUrl={snapshot?.summary.remoteUrl}
+              hasRepository={Boolean(snapshot)}
+            />
 
-      {showGitHubPullRequestPanel ? (
-        <section className="pr-panel">
+            {renderGitHubRepositoryBrowser()}
+          </section>
+        </aside>
+
+        <div className="providers-workflow-column">
+          {showGitHubPullRequestPanel ? (
+            <section className="pr-panel">
         <div className="panel-heading">
           <div>
             <h3>GitHub pull request</h3>
@@ -197,6 +208,8 @@ export function ProvidersView({
           </article>
         )}
 
+        <div className="pr-workspace">
+          <div className="pr-primary-column">
         <section className="branch-composer pr-composer">
           <div className="branch-composer-heading">
             <div>
@@ -275,6 +288,9 @@ export function ProvidersView({
           </div>
         )}
 
+          </div>
+
+          <div className="pr-secondary-column">
         <section className="pr-list-panel">
           <div className="panel-heading compact-heading">
             <div>
@@ -368,10 +384,14 @@ export function ProvidersView({
         </section>
 
         {renderPullRequestDetailsPanel()}
+          </div>
+        </div>
         </section>
       ) : (
         <PlannedProviderWorkflowPanel remote={providerRemote} />
       )}
+        </div>
+      </div>
     </section>
   )
 }

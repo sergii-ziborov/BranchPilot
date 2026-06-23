@@ -21,6 +21,8 @@ const THEMES: { id: string; label: string; dot: string }[] = [
   { id: 'nord', label: 'Nord', dot: '#88c0d0' },
   { id: 'night-owl', label: 'Night Owl', dot: '#82aaff' },
   { id: 'tokyo-night', label: 'Tokyo Night', dot: '#7aa2f7' },
+  { id: 'deus-ex', label: 'Deus Ex', dot: '#f2c94c' },
+  { id: 'cyberpunk', label: 'Cyberpunk', dot: '#fcee0a' },
   { id: 'solarized-light', label: 'Solarized Light', dot: '#268bd2' }
 ]
 

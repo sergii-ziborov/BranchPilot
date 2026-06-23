@@ -49,6 +49,10 @@
   --syntax-comment: #6e7781;
   --syntax-number: #0550ae;
   --syntax-type: #953800;
+  --syntax-function: #8250df;
+  --syntax-variable: #24292f;
+  --syntax-operator: #cf222e;
+  --syntax-punctuation: #57606a;
 
   font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   letter-spacing: 0;
@@ -189,6 +193,52 @@
   --app-grad-top: #2a2e42;
 }
 
+:root[data-theme='deus-ex'] {
+  --text: #d7c48b;
+  --text-strong: #fff4bd;
+  --muted: #8c805d;
+  --surface: #090b07;
+  --border: rgba(196, 151, 38, 0.34);
+  --sidebar: #070905;
+  --sidebar-text: #f3d989;
+  --sidebar-muted: #8c805d;
+  --panel: rgba(18, 20, 12, 0.82);
+  --panel-2: rgba(34, 34, 18, 0.70);
+  --accent: #ffbe1a;
+  --accent-strong: #f18b16;
+  --accent-soft: #30d7ff;
+  --accent-contrast: #100d05;
+  --shell-bar: rgba(11, 13, 8, 0.82);
+  --app-grad-top: #17180c;
+  --sel-bg: rgba(255, 190, 26, 0.13);
+  --sel-border: #ffbe1a;
+  --scrollbar-thumb: rgba(255, 190, 26, 0.34);
+  --scrollbar-thumb-hover: rgba(255, 190, 26, 0.58);
+}
+
+:root[data-theme='cyberpunk'] {
+  --text: #ffd9de;
+  --text-strong: #fff9e7;
+  --muted: #a15d68;
+  --surface: #08040b;
+  --border: rgba(255, 48, 73, 0.35);
+  --sidebar: #050207;
+  --sidebar-text: #ffe8ef;
+  --sidebar-muted: #a15d68;
+  --panel: rgba(19, 6, 13, 0.84);
+  --panel-2: rgba(33, 9, 19, 0.72);
+  --accent: #ffd400;
+  --accent-strong: #ff3049;
+  --accent-soft: #00eaff;
+  --accent-contrast: #100408;
+  --shell-bar: rgba(10, 4, 8, 0.84);
+  --app-grad-top: #15060c;
+  --sel-bg: rgba(255, 48, 73, 0.16);
+  --sel-border: #ffd400;
+  --scrollbar-thumb: rgba(255, 48, 73, 0.38);
+  --scrollbar-thumb-hover: rgba(0, 234, 255, 0.60);
+}
+
 :root[data-theme='solarized-light'] {
   --text: #586e75;
   --text-strong: #073642;
@@ -215,7 +265,9 @@
 :root[data-theme='monokai'],
 :root[data-theme='nord'],
 :root[data-theme='night-owl'],
-:root[data-theme='tokyo-night'] {
+:root[data-theme='tokyo-night'],
+:root[data-theme='deus-ex'],
+:root[data-theme='cyberpunk'] {
   --sel-bg: rgba(255, 255, 255, 0.10);
   --sel-border: var(--accent);
   --scrollbar-thumb: rgba(148, 163, 184, 0.38);
@@ -246,6 +298,10 @@
   --syntax-comment: #8b949e;
   --syntax-number: #79c0ff;
   --syntax-type: #ffa657;
+  --syntax-function: #d2a8ff;
+  --syntax-variable: #e6edf3;
+  --syntax-operator: #ff7b72;
+  --syntax-punctuation: #8b949e;
 }
 
 :root[data-theme='one-dark-pro'] {
@@ -254,6 +310,10 @@
   --syntax-comment: #7f848e;
   --syntax-number: #d19a66;
   --syntax-type: #e5c07b;
+  --syntax-function: #61afef;
+  --syntax-variable: #e06c75;
+  --syntax-operator: #56b6c2;
+  --syntax-punctuation: #abb2bf;
 }
 
 :root[data-theme='dracula'] {
@@ -265,6 +325,10 @@
   --syntax-comment: #6272a4;
   --syntax-number: #bd93f9;
   --syntax-type: #8be9fd;
+  --syntax-function: #50fa7b;
+  --syntax-variable: #f8f8f2;
+  --syntax-operator: #ff79c6;
+  --syntax-punctuation: #f8f8f2;
 }
 
 :root[data-theme='monokai'] {
@@ -278,6 +342,10 @@
   --syntax-comment: #a59f85;
   --syntax-number: #ae81ff;
   --syntax-type: #a6e22e;
+  --syntax-function: #66d9ef;
+  --syntax-variable: #f8f8f2;
+  --syntax-operator: #f92672;
+  --syntax-punctuation: #f8f8f2;
 }
 
 :root[data-theme='nord'] {
@@ -289,6 +357,10 @@
   --syntax-comment: #7b88a1;
   --syntax-number: #b48ead;
   --syntax-type: #8fbcbb;
+  --syntax-function: #88c0d0;
+  --syntax-variable: #d8dee9;
+  --syntax-operator: #81a1c1;
+  --syntax-punctuation: #c8d0df;
 }
 
 :root[data-theme='night-owl'] {
@@ -300,6 +372,10 @@
   --syntax-comment: #637777;
   --syntax-number: #f78c6c;
   --syntax-type: #82aaff;
+  --syntax-function: #82aaff;
+  --syntax-variable: #d6deeb;
+  --syntax-operator: #c792ea;
+  --syntax-punctuation: #7fdbca;
 }
 
 :root[data-theme='tokyo-night'] {
@@ -311,6 +387,68 @@
   --syntax-comment: #565f89;
   --syntax-number: #ff9e64;
   --syntax-type: #7dcfff;
+  --syntax-function: #7aa2f7;
+  --syntax-variable: #c0caf5;
+  --syntax-operator: #bb9af7;
+  --syntax-punctuation: #89ddff;
+}
+
+:root[data-theme='deus-ex'] {
+  --diff-bg: #090c08;
+  --diff-text: #f3d989;
+  --diff-muted: #9d8f62;
+  --diff-border: rgba(255, 190, 26, 0.28);
+  --diff-file-bg: rgba(9, 11, 7, 0.94);
+  --diff-file-text: #fff4bd;
+  --diff-hunk-bg: rgba(255, 190, 26, 0.12);
+  --diff-hunk-text: #ffbe1a;
+  --diff-button-bg: rgba(17, 19, 11, 0.72);
+  --diff-add-text: #cfff83;
+  --diff-add-bg: rgba(90, 125, 38, 0.26);
+  --diff-remove-text: #ffb074;
+  --diff-remove-bg: rgba(155, 58, 22, 0.25);
+  --diff-empty-bg: rgba(19, 21, 12, 0.66);
+  --diff-selected-accent: #ffbe1a;
+  --diff-selection-bg: #101207;
+  --diff-selection-text: #fff4bd;
+  --syntax-keyword: #ffbf3c;
+  --syntax-string: #b8f36c;
+  --syntax-comment: #8c805d;
+  --syntax-number: #ff8b18;
+  --syntax-type: #30d7ff;
+  --syntax-function: #ffd86b;
+  --syntax-variable: #fff4bd;
+  --syntax-operator: #ffbe1a;
+  --syntax-punctuation: #c49726;
+}
+
+:root[data-theme='cyberpunk'] {
+  --diff-bg: #08040b;
+  --diff-text: #ffe1e8;
+  --diff-muted: #b26069;
+  --diff-border: rgba(255, 48, 73, 0.26);
+  --diff-file-bg: rgba(13, 4, 9, 0.96);
+  --diff-file-text: #fff9e7;
+  --diff-hunk-bg: rgba(255, 48, 73, 0.14);
+  --diff-hunk-text: #00eaff;
+  --diff-button-bg: rgba(16, 4, 10, 0.76);
+  --diff-add-text: #9effd6;
+  --diff-add-bg: rgba(0, 255, 159, 0.18);
+  --diff-remove-text: #ffb0bc;
+  --diff-remove-bg: rgba(255, 48, 73, 0.23);
+  --diff-empty-bg: rgba(16, 4, 10, 0.68);
+  --diff-selected-accent: #ffd400;
+  --diff-selection-bg: #11050b;
+  --diff-selection-text: #fff9e7;
+  --syntax-keyword: #ff3049;
+  --syntax-string: #ffd400;
+  --syntax-comment: #9d5965;
+  --syntax-number: #00eaff;
+  --syntax-type: #00ff9f;
+  --syntax-function: #ffd400;
+  --syntax-variable: #fff9e7;
+  --syntax-operator: #ff3049;
+  --syntax-punctuation: #00eaff;
 }
 
 :root[data-theme='solarized-light'] {
@@ -333,6 +471,10 @@
   --syntax-comment: #93a1a1;
   --syntax-number: #d33682;
   --syntax-type: #b58900;
+  --syntax-function: #268bd2;
+  --syntax-variable: #073642;
+  --syntax-operator: #859900;
+  --syntax-punctuation: #657b83;
 }
 
 html,

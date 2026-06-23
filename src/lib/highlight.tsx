@@ -15,6 +15,10 @@ const KEYWORDS = new Set([
   'boolean', 'int', 'float', 'bool', 'char', 'unsigned', 'long', 'short', 'double',
 ])
 
+const TYPE_KEYWORDS = new Set([
+  'boolean', 'bool', 'char', 'double', 'float', 'int', 'long', 'number', 'short', 'string', 'unsigned', 'void'
+])
+
 function commentRe(lang: string): string {
   if (/^(py|rb|sh|bash|zsh|ya?ml|toml|ini|cfg|conf|dockerfile)$/.test(lang)) return '#[^\\n]*'
   if (lang === 'sql') return '--[^\\n]*'
@@ -33,7 +37,9 @@ function tokenRe(lang: string): RegExp {
     `(${comment}|\\/\\*.*?\\*\\/)` + // comments
       `|(\`(?:\\\\.|[^\`\\\\])*\`|"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*')` + // strings
       `|(\\b\\d[\\d_.xXa-fA-F]*\\b)` + // numbers
-      `|([A-Za-z_$][A-Za-z0-9_$]*)`, // identifiers
+      `|([A-Za-z_$][A-Za-z0-9_$]*)` + // identifiers
+      `|([+\\-*/%=!<>|&^~?:]+)` + // operators
+      `|([{}()[\\],.;])`, // punctuation
     'g',
   )
   cache.set(lang, re)
@@ -53,15 +59,21 @@ export function highlight(code: string, lang = ''): ReactNode {
   let m: RegExpExecArray | null
   while ((m = re.exec(code)) !== null) {
     if (m.index > last) out.push(code.slice(last, m.index))
-    const [full, comment, str, num, ident] = m
+    const [full, comment, str, num, ident, operator, punctuation] = m
     let cls = ''
     if (comment) cls = 'tok-comment'
     else if (str) cls = 'tok-string'
     else if (num) cls = 'tok-number'
     else if (ident) {
-      if (KEYWORDS.has(ident)) cls = 'tok-keyword'
+      const rest = code.slice(re.lastIndex).trimStart()
+      if (TYPE_KEYWORDS.has(ident)) cls = 'tok-type'
+      else if (KEYWORDS.has(ident)) cls = 'tok-keyword'
+      else if (rest.startsWith('(')) cls = 'tok-function'
       else if (/^[A-Z]/.test(ident)) cls = 'tok-type'
+      else cls = 'tok-variable'
     }
+    else if (operator) cls = 'tok-operator'
+    else if (punctuation) cls = 'tok-punctuation'
     out.push(cls ? <span key={key++} className={cls}>{full}</span> : full)
     last = m.index + full.length
   }

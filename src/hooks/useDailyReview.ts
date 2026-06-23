@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { BranchPilotApi, ContributorStat, ContributorStatsWindow, DailyReviewReport } from '../shared/branchPilot'
+import type { BranchPilotApi, ContributorStat, ContributorStatsRequest, ContributorStatsWindow, DailyReviewReport, RepositoryScopeRequest } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import { formatDateInputValue } from '../lib/format'
 
@@ -10,12 +10,14 @@ import { formatDateInputValue } from '../lib/format'
 export function useDailyReview({
   api,
   currentRepoPath,
+  reportRepoPaths,
   setNotice,
   setError,
   copyToClipboard
 }: {
   api: BranchPilotApi | undefined
   currentRepoPath: string | undefined
+  reportRepoPaths: string[]
   setNotice: (message: string) => void
   setError: (message: string | null) => void
   copyToClipboard: (text: string, successMessage: string) => Promise<void>
@@ -24,25 +26,27 @@ export function useDailyReview({
   const [dailyReviewDate, setDailyReviewDate] = useState(() => formatDateInputValue(new Date()))
   const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
   const [contributorStats, setContributorStats] = useState<ContributorStat[]>([])
-  const [contributorWindow, setContributorWindow] = useState<ContributorStatsWindow>('all')
+  const [contributorWindow, setContributorWindow] = useState<ContributorStatsWindow>('day')
 
-  async function loadContributorStats(repoPath: string | undefined = currentRepoPath) {
+  async function loadContributorStats(scope: string | RepositoryScopeRequest | undefined = currentRepoPath) {
     if (!api || typeof api.getContributorStats !== 'function') return
-    const result = await api.getContributorStats({
-      ...(repoPath ? { repoPath } : {}),
-      window: contributorWindow
-    }).catch(() => null)
+    const request: ContributorStatsRequest = typeof scope === 'string'
+      ? { repoPath: scope, window: contributorWindow }
+      : { ...(scope ?? {}), window: contributorWindow }
+    const result = await api.getContributorStats(request).catch(() => null)
     setContributorStats(result?.ok ? result.data : [])
   }
 
   async function runDailyReview() {
-    if (!api || !currentRepoPath) return
+    const repoPaths = normalizeReportRepoPaths(reportRepoPaths.length > 0 ? reportRepoPaths : currentRepoPath ? [currentRepoPath] : [])
+    if (!api || repoPaths.length === 0) return
     setDailyReviewLoading(true)
     setError(null)
 
     try {
       const result = await api.generateDailyReview({
-        repoPath: currentRepoPath,
+        repoPath: repoPaths[0],
+        ...(repoPaths.length > 1 ? { repoPaths } : {}),
         date: dailyReviewDate || undefined
       })
 
@@ -77,4 +81,20 @@ export function useDailyReview({
     runDailyReview,
     copyDailyReviewMarkdown
   }
+}
+
+function normalizeReportRepoPaths(paths: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const path of paths) {
+    const trimmed = path.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(trimmed)
+  }
+
+  return normalized
 }

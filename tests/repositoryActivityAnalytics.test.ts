@@ -46,7 +46,7 @@ describe('RepositoryActivityAnalytics', () => {
     ])
   })
 
-  it('adds contributor profile, avatar, and search metadata', async () => {
+  it('adds contributor profile only when GitHub identity is known', async () => {
     const kernel = new FakeActivityKernel([
       'octocat\t123+octocat@users.noreply.github.com\t2026-06-22',
       'Sergii Ziborov\tsergii@example.com\t2026-06-21'
@@ -62,7 +62,6 @@ describe('RepositoryActivityAnalytics', () => {
     })
     expect(stats[1]?.avatarUrl).toMatch(/^https:\/\/www\.gravatar\.com\/avatar\/.+\?s=96&d=identicon$/)
     expect(stats[1]?.profileUrl).toBeUndefined()
-    expect(stats[1]?.profileSearchUrl).toContain('github.com/search')
   })
 })
 

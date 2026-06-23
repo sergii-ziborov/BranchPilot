@@ -5,6 +5,9 @@ import type {
   EditorPreference,
   EditorSettings,
   EditorSettingsUpdate,
+  TerminalPreference,
+  TerminalSettings,
+  TerminalSettingsUpdate,
   RecentRepository
 } from '../../src/shared/branchPilot.js'
 
@@ -13,6 +16,7 @@ interface PersistedSettings {
   pinnedRepositoryPaths: string[]
   assistantPolicies: Record<string, AssistantPolicySettings>
   editorSettings: EditorSettings
+  terminalSettings: TerminalSettings
 }
 
 const DEFAULT_SETTINGS: PersistedSettings = {
@@ -21,6 +25,9 @@ const DEFAULT_SETTINGS: PersistedSettings = {
   assistantPolicies: {},
   editorSettings: {
     preference: 'vscode'
+  },
+  terminalSettings: {
+    preference: 'auto'
   }
 }
 
@@ -111,6 +118,24 @@ export class SettingsStore {
     return settings
   }
 
+  async getTerminalSettings(): Promise<TerminalSettings> {
+    return (await this.read()).terminalSettings
+  }
+
+  async setTerminalSettings(update: TerminalSettingsUpdate): Promise<TerminalSettings> {
+    const persisted = await this.read()
+    const settings: TerminalSettings = {
+      preference: normalizeTerminalPreference(update.preference),
+      customCommand: normalizeOptionalString(update.customCommand),
+      updatedAt: new Date().toISOString()
+    }
+
+    persisted.terminalSettings = settings
+    await this.write(persisted)
+
+    return settings
+  }
+
   private async read(): Promise<PersistedSettings> {
     try {
       const raw = await fs.readFile(this.filePath, 'utf8')
@@ -123,14 +148,16 @@ export class SettingsStore {
         recentRepositories: normalizeRecentRepositories(parsed.recentRepositories, pinnedRepositoryPaths),
         pinnedRepositoryPaths,
         assistantPolicies: isAssistantPolicyRecord(parsed.assistantPolicies) ? parsed.assistantPolicies : {},
-        editorSettings: normalizeEditorSettings(parsed.editorSettings)
+        editorSettings: normalizeEditorSettings(parsed.editorSettings),
+        terminalSettings: normalizeTerminalSettings(parsed.terminalSettings)
       }
     } catch {
       return {
         recentRepositories: [...DEFAULT_SETTINGS.recentRepositories],
         pinnedRepositoryPaths: [...DEFAULT_SETTINGS.pinnedRepositoryPaths],
         assistantPolicies: { ...DEFAULT_SETTINGS.assistantPolicies },
-        editorSettings: { ...DEFAULT_SETTINGS.editorSettings }
+        editorSettings: { ...DEFAULT_SETTINGS.editorSettings },
+        terminalSettings: { ...DEFAULT_SETTINGS.terminalSettings }
       }
     }
   }
@@ -214,6 +241,39 @@ function isEditorPreference(value: unknown): value is EditorPreference {
     value === 'webstorm' ||
     value === 'rider' ||
     value === 'sublime' ||
+    value === 'custom'
+}
+
+function normalizeTerminalSettings(value: unknown): TerminalSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...DEFAULT_SETTINGS.terminalSettings }
+  }
+
+  const candidate = value as Partial<TerminalSettings>
+
+  return {
+    preference: normalizeTerminalPreference(candidate.preference),
+    customCommand: normalizeOptionalString(candidate.customCommand),
+    updatedAt: normalizeOptionalString(candidate.updatedAt)
+  }
+}
+
+function normalizeTerminalPreference(value: unknown): TerminalPreference {
+  return isTerminalPreference(value) ? value : DEFAULT_SETTINGS.terminalSettings.preference
+}
+
+function isTerminalPreference(value: unknown): value is TerminalPreference {
+  return value === 'auto' ||
+    value === 'windows-terminal' ||
+    value === 'powershell' ||
+    value === 'cmd' ||
+    value === 'git-bash' ||
+    value === 'terminal' ||
+    value === 'iterm' ||
+    value === 'gnome-terminal' ||
+    value === 'konsole' ||
+    value === 'alacritty' ||
+    value === 'wezterm' ||
     value === 'custom'
 }
 

@@ -32,6 +32,7 @@ export interface GitHubCliTestRunnerOptions {
   prListOutput?: string
   pullRequestDetails?: GitHubPullRequestDetails
   pullRequestChecks?: GitHubPullRequestCheck[]
+  userEmails?: string[]
   orgMembers?: Record<string, CoAuthor[]>
   prDetailsOutput?: string
   prChecksOutput?: string
@@ -286,6 +287,18 @@ export class GitHubCliTestRunner extends CommandRunner {
       ]
       const orgs = accounts.filter((account) => account.type === 'organization')
       return this.complete(command, args, 0, `${JSON.stringify(orgs.map(toGhAccountJson))}\n`, '', options)
+    }
+
+    if (command === '/tmp/branchpilot-gh' && args[0] === 'api' && args[1] === 'user/emails') {
+      this.ghApiArgs.push(args)
+      const accounts = this.options.accounts ?? [
+        makeAccount({ login: 'branchpilot-user', type: 'user' }),
+        makeAccount({ login: 'branchpilot-org', type: 'organization' })
+      ]
+      const user = accounts.find((account) => account.type === 'user')
+      const emails = this.options.userEmails ?? user?.emails ?? []
+
+      return this.complete(command, args, 0, `${JSON.stringify(emails.map(toGhEmailJson))}\n`, '', options)
     }
 
     if (command === '/tmp/branchpilot-gh' && args[0] === 'api' && /^orgs\/[^/]+\/members/.test(args[1] ?? '')) {
@@ -618,6 +631,15 @@ export function toGhAccountJson(account: GitHubAccountSummary) {
     description: account.label,
     type: account.type === 'organization' ? 'Organization' : 'User',
     html_url: account.url
+  }
+}
+
+export function toGhEmailJson(email: string, index: number) {
+  return {
+    email,
+    primary: index === 0,
+    verified: true,
+    visibility: index === 0 ? 'public' : null
   }
 }
 

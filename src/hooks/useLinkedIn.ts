@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AssistantId, AssistantPolicyStatus, BranchPilotApi, GeneratedLinkedInProject } from '../shared/branchPilot'
+import type { AssistantId, AssistantPolicyStatus, BranchPilotApi, GeneratedLinkedInProject, InstalledAssistantId } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import { assistantLabel, assistantPolicyBlockedLabel } from '../lib/assistantLabels'
 
@@ -149,10 +149,25 @@ export function useLinkedIn({
 
       if (result.ok) {
         const project = { ...result.data, markdown: formatLinkedInMarkdown(result.data) }
+        const highlightsText = project.highlights.join('\n')
+        const tagsText = project.tags.join(', ')
+        const skillsText = project.skills.join(', ')
+
+        writeLinkedInDraft(currentRepoPath, {
+          version: LINKEDIN_DRAFT_VERSION,
+          project,
+          highlightsText,
+          tagsText,
+          skillsText,
+          role: linkedinRole,
+          audience: linkedinAudience,
+          projectUrl: linkedinProjectUrl,
+          customPrompt: linkedinCustomPrompt
+        })
         setLinkedInProject(project)
-        setLinkedinHighlightsText(project.highlights.join('\n'))
-        setLinkedinTagsText(project.tags.join(', '))
-        setLinkedinSkillsText(project.skills.join(', '))
+        setLinkedinHighlightsText(highlightsText)
+        setLinkedinTagsText(tagsText)
+        setLinkedinSkillsText(skillsText)
         setNotice(`LinkedIn project generated with ${assistantLabel(project.assistant)}.`)
         if (project.truncated) {
           setError('LinkedIn context was truncated for assistant limits.')
@@ -212,17 +227,27 @@ export function useLinkedIn({
 }
 
 function storageKey(repoPath: string): string {
+  return `branchpilot:linkedin-draft:${normalizeRepoPathForStorage(repoPath)}`
+}
+
+function legacyStorageKey(repoPath: string): string {
   return `branchpilot:linkedin-draft:${repoPath}`
+}
+
+function normalizeRepoPathForStorage(repoPath: string): string {
+  const normalized = repoPath.trim().replace(/\\/g, '/').replace(/\/+$/g, '')
+  return /^[A-Za-z]:\//.test(normalized) ? normalized.toLowerCase() : normalized
 }
 
 function readLinkedInDraft(repoPath: string): PersistedLinkedInDraft | null {
   try {
-    const raw = localStorage.getItem(storageKey(repoPath))
+    const raw = localStorage.getItem(storageKey(repoPath)) ?? localStorage.getItem(legacyStorageKey(repoPath))
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<PersistedLinkedInDraft>
+    const project = coerceLinkedInProject(parsed.project)
     return {
       version: LINKEDIN_DRAFT_VERSION,
-      project: isLinkedInProject(parsed.project) ? parsed.project : null,
+      project,
       highlightsText: typeof parsed.highlightsText === 'string' ? parsed.highlightsText : '',
       tagsText: typeof parsed.tagsText === 'string' ? parsed.tagsText : '',
       skillsText: typeof parsed.skillsText === 'string' ? parsed.skillsText : '',
@@ -241,6 +266,9 @@ function readLinkedInDraft(repoPath: string): PersistedLinkedInDraft | null {
 function writeLinkedInDraft(repoPath: string, draft: PersistedLinkedInDraft) {
   try {
     localStorage.setItem(storageKey(repoPath), JSON.stringify(draft))
+    if (legacyStorageKey(repoPath) !== storageKey(repoPath)) {
+      localStorage.removeItem(legacyStorageKey(repoPath))
+    }
   } catch {
     // Ignore storage failures; generation and editing should still work.
   }
@@ -269,22 +297,43 @@ function restoreLinkedInDraft(
   setters.setLinkedInCustomPrompt(draft?.customPrompt ?? DEFAULT_LINKEDIN_CUSTOM_PROMPT)
 }
 
-function isLinkedInProject(value: unknown): value is GeneratedLinkedInProject {
-  if (!value || typeof value !== 'object') return false
+function coerceLinkedInProject(value: unknown): GeneratedLinkedInProject | null {
+  if (!value || typeof value !== 'object') return null
   const candidate = value as Partial<GeneratedLinkedInProject>
-  return typeof candidate.projectName === 'string' &&
-    typeof candidate.headline === 'string' &&
-    typeof candidate.role === 'string' &&
-    typeof candidate.startDate === 'string' &&
-    typeof candidate.endDate === 'string' &&
-    typeof candidate.description === 'string' &&
-    Array.isArray(candidate.highlights) &&
-    Array.isArray(candidate.tags) &&
-    Array.isArray(candidate.skills) &&
-    typeof candidate.urlSuggestion === 'string' &&
-    typeof candidate.markdown === 'string' &&
-    typeof candidate.assistant === 'string' &&
-    typeof candidate.truncated === 'boolean'
+  const projectName = typeof candidate.projectName === 'string' ? candidate.projectName : ''
+  const description = typeof candidate.description === 'string' ? candidate.description : ''
+  if (!projectName && !description) return null
+
+  const project: GeneratedLinkedInProject = {
+    projectName,
+    headline: typeof candidate.headline === 'string' ? candidate.headline : '',
+    role: typeof candidate.role === 'string' ? candidate.role : '',
+    startDate: typeof candidate.startDate === 'string' ? candidate.startDate : '',
+    endDate: typeof candidate.endDate === 'string' ? candidate.endDate : '',
+    description,
+    highlights: sanitizeList(candidate.highlights),
+    tags: sanitizeList(candidate.tags),
+    skills: sanitizeList(candidate.skills),
+    urlSuggestion: typeof candidate.urlSuggestion === 'string' ? candidate.urlSuggestion : '',
+    markdown: typeof candidate.markdown === 'string' ? candidate.markdown : '',
+    assistant: coerceInstalledAssistant(candidate.assistant),
+    truncated: typeof candidate.truncated === 'boolean' ? candidate.truncated : false
+  }
+
+  return {
+    ...project,
+    markdown: project.markdown || formatLinkedInMarkdown(project)
+  }
+}
+
+function sanitizeList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map((item) => typeof item === 'string' ? item.trim() : '').filter(Boolean)
+    : []
+}
+
+function coerceInstalledAssistant(value: unknown): InstalledAssistantId {
+  return value === 'claude' || value === 'codex' ? value : 'codex'
 }
 
 function formatLinkedInMarkdown(project: Omit<GeneratedLinkedInProject, 'markdown'> | GeneratedLinkedInProject): string {

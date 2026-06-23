@@ -9,7 +9,7 @@ import type {
   GitHubDesktopCredential, GitHubApiClient, GitHubApiPullRequest
 } from './githubCliService.js'
 import {
-  buildGitHubPullRequestDiffFromApiFiles, filterGitHubRepositories, normalizeGitHubAccount, normalizeGitHubPullRequest, normalizeGitHubPullRequestDetails, normalizeGitHubRepository, normalizeRepositoryListLimit, uniqueGitHubAccounts
+  buildGitHubPullRequestDiffFromApiFiles, filterGitHubRepositories, normalizeGitHubAccount, normalizeGitHubEmailList, normalizeGitHubPullRequest, normalizeGitHubPullRequestDetails, normalizeGitHubRepository, normalizeRepositoryListLimit, uniqueGitHubAccounts
 } from './githubCliService.parsers.js'
 
 /** GitHub HTTP API client + credential helpers. */
@@ -122,17 +122,21 @@ export async function getGitHubApiViewer(credential: GitHubDesktopCredential): P
 }
 
 export async function listGitHubApiAccounts(credential: GitHubDesktopCredential): Promise<GitHubAccountSummary[]> {
-  const [viewerResponse, orgsResponse] = await Promise.all([
+  const [viewerResponse, orgsResponse, emailsResponse] = await Promise.all([
     fetch('https://api.github.com/user', {
       headers: githubApiHeaders(credential)
     }),
     fetch('https://api.github.com/user/orgs?per_page=100', {
       headers: githubApiHeaders(credential)
-    })
+    }),
+    fetch('https://api.github.com/user/emails?per_page=100', {
+      headers: githubApiHeaders(credential)
+    }).catch(() => undefined)
   ])
-  const [viewerBody, orgsBody] = await Promise.all([
+  const [viewerBody, orgsBody, emailsBody] = await Promise.all([
     readGitHubApiJson(viewerResponse),
-    readGitHubApiJson(orgsResponse)
+    readGitHubApiJson(orgsResponse),
+    emailsResponse ? readGitHubApiJson(emailsResponse) : Promise.resolve([])
   ])
 
   if (!viewerResponse.ok) {
@@ -155,8 +159,15 @@ export async function listGitHubApiAccounts(credential: GitHubDesktopCredential)
     throw new BranchPilotUserError('github_account_parse_failed', 'GitHub API did not return an organization list.')
   }
 
+  const viewer = normalizeGitHubAccount(viewerBody, 'user')
+  const emails = emailsResponse?.ok ? normalizeGitHubEmailList(emailsBody) : []
+
+  if (emails.length > 0) {
+    viewer.emails = emails
+  }
+
   return uniqueGitHubAccounts([
-    normalizeGitHubAccount(viewerBody, 'user'),
+    viewer,
     ...orgsBody.map((value) => normalizeGitHubAccount(value, 'organization'))
   ])
 }

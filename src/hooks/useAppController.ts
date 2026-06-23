@@ -29,6 +29,32 @@ import { useRepositoryManagement } from './useRepositoryManagement'
 
 const api = window.branchPilot
 
+function readStoredReportRepoPaths(): string[] {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const parsed = JSON.parse(localStorage.getItem('bp-report-repo-paths') ?? '[]')
+    return Array.isArray(parsed) ? normalizeReportRepoPaths(parsed.filter((value): value is string => typeof value === 'string')) : []
+  } catch {
+    return []
+  }
+}
+
+function normalizeReportRepoPaths(paths: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const path of paths) {
+    const trimmed = path.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(trimmed)
+  }
+
+  return normalized
+}
+
 export function useAppController() {
   const [appVersion, setAppVersion] = useState('0.0.0')
   const [snapshot, setSnapshot] = useState<RepositorySnapshot | null>(null)
@@ -38,6 +64,7 @@ export function useAppController() {
     return saved ?? 'changes'
   })
   const [allReposMode, setAllReposMode] = useState(false)
+  const [selectedReportRepoPaths, setSelectedReportRepoPathsState] = useState<string[]>(readStoredReportRepoPaths)
   const [busy, setBusy] = useState(false)
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
   const [notice, setNotice] = useState('Open a repository to begin.')
@@ -67,6 +94,10 @@ export function useAppController() {
   useEffect(() => {
     try { localStorage.setItem('bp-view', viewMode) } catch { /* ignore */ }
   }, [viewMode])
+
+  useEffect(() => {
+    try { localStorage.setItem('bp-report-repo-paths', JSON.stringify(selectedReportRepoPaths)) } catch { /* ignore */ }
+  }, [selectedReportRepoPaths.join('\n')])
 
   useEffect(() => {
     if (!api) {
@@ -101,13 +132,6 @@ export function useAppController() {
 
   useEffect(() => {
     setDailyReview(null)
-    setLinkedInProject(null)
-    setLinkedinHighlightsText('')
-    setLinkedinTagsText('')
-    setLinkedinSkillsText('')
-    setLinkedInRole('')
-    setLinkedInAudience('LinkedIn project section')
-    setLinkedInProjectUrl('')
     setNewWorktreeBranchName('')
     setStashMessage('')
     cancelRemoteEdit()
@@ -153,7 +177,8 @@ export function useAppController() {
     startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription
   } = useBranches({ api, currentRepoPath, snapshot, selectedAssistant, assistantPolicy, setNotice, setError, runApiAction, runSnapshotAction, runBusyOperation, applySnapshot, requestConfirmation, requestTextInput, setViewMode })
   const {
-    history, historyLoading, historyFilter, setHistoryFilter, selectedCommitSha, setSelectedCommitSha,
+    history, historyLoading, historyFilter, setHistoryFilter, historySearchMode, setHistorySearchMode, historyFileIndexing,
+    selectedCommitSha, setSelectedCommitSha,
     commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory,
     loadHistory, loadCommitFileDiff
   } = useHistory({ api, currentRepoPath, snapshot, viewMode, setError })
@@ -178,10 +203,31 @@ export function useAppController() {
     chooseRepository, openRepository, cloneRepository, refreshRepository,
     openRepoInEditor, openRepositoryTerminal
   } = useRepositoryManagement({
-    api, currentRepoPath, allReposMode, viewMode, setViewMode, snapshot,
+    api, currentRepoPath, allReposMode, viewMode, reportRepoPaths: selectedReportRepoPaths, setViewMode, snapshot,
     runBusyOperation, applySnapshot, applySnapshotResult,
     setNotice, setError, refreshProviderStatusOnly
   })
+  const recentRepositoryPathsKey = recentRepositories.map((repo) => repo.path).join('\n')
+  const effectiveReportRepoPaths = selectedReportRepoPaths.length > 0
+    ? selectedReportRepoPaths
+    : allReposMode
+      ? recentRepositories.map((repo) => repo.path)
+      : currentRepoPath
+        ? [currentRepoPath]
+        : []
+
+  useEffect(() => {
+    const available = new Set([
+      ...recentRepositories.map((repo) => repo.path.toLowerCase()),
+      ...(currentRepoPath ? [currentRepoPath.toLowerCase()] : [])
+    ])
+    if (available.size === 0) return
+
+    const next = selectedReportRepoPaths.filter((repoPath) => available.has(repoPath.toLowerCase()))
+    if (next.length !== selectedReportRepoPaths.length) {
+      setSelectedReportRepoPathsState(next)
+    }
+  }, [recentRepositoryPathsKey, currentRepoPath])
 
   useEffect(() => {
     if (!projectMemory) {
@@ -204,16 +250,17 @@ export function useAppController() {
 
 
   useEffect(() => {
-    if (!snapshot || viewMode !== 'config') return
+    if (!snapshot) return
     void loadGitConfig()
-  }, [snapshot?.summary.rootPath, viewMode])
+  }, [snapshot?.summary.rootPath])
 
 
 
 
   const {
     gitConfig, editorSettings, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand,
-    editorSettingsLoading, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail,
+    editorSettingsLoading, terminalSettings, terminalPreference, setTerminalPreference, terminalCustomCommand, setTerminalCustomCommand,
+    saveTerminalSettings, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail,
     remoteName, setRemoteName, remoteUrl, setRemoteUrl, editingRemoteName,
     loadEditorSettings, saveEditorSettings, loadGitConfig, saveLocalGitIdentity,
     startRemoteEdit, cancelRemoteEdit, saveRemote, removeRemote
@@ -222,15 +269,26 @@ export function useAppController() {
     dailyReview, setDailyReview, dailyReviewDate, setDailyReviewDate,
     dailyReviewLoading, contributorStats, contributorWindow, setContributorWindow,
     loadContributorStats, runDailyReview, copyDailyReviewMarkdown
-  } = useDailyReview({ api, currentRepoPath, setNotice, setError, copyToClipboard })
+  } = useDailyReview({ api, currentRepoPath, reportRepoPaths: effectiveReportRepoPaths, setNotice, setError, copyToClipboard })
 
   // Refresh the contributor leaderboard when the Reports views are open (the
   // Dashboard leaderboard + the daily review both consume it). In All-repositories
   // mode it aggregates across every recent repository.
   useEffect(() => {
     if (viewMode !== 'daily' && viewMode !== 'dashboard') return
-    void loadContributorStats(allReposMode ? undefined : currentRepoPath)
-  }, [snapshot?.summary.rootPath, viewMode, allReposMode, contributorWindow])
+    const scope = selectedReportRepoPaths.length > 0
+      ? { repoPaths: selectedReportRepoPaths }
+      : allReposMode
+        ? undefined
+        : currentRepoPath
+    void loadContributorStats(scope)
+  }, [snapshot?.summary.rootPath, viewMode, allReposMode, contributorWindow, selectedReportRepoPaths.join('\n'), recentRepositoryPathsKey])
+
+  useEffect(() => {
+    if (viewMode !== 'daily' && viewMode !== 'dashboard') return
+    if (!githubCliStatus?.authenticated || githubAccounts.length > 0 || githubAccountsLoading) return
+    void loadGitHubAccounts(githubCliStatus, true)
+  }, [viewMode, githubCliStatus?.authenticated, githubAccounts.length, githubAccountsLoading])
 
   // "All repositories" report scope: keep only the cross-repo / portfolio views.
   function enableAllReposMode() {
@@ -240,9 +298,14 @@ export function useAppController() {
     }
   }
 
+  function updateReportRepoPaths(paths: string[]) {
+    setSelectedReportRepoPathsState(normalizeReportRepoPaths(paths))
+  }
+
   const counts = snapshot?.status.counts
   const {
     selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter,
+    changeSearchMode, setChangeSearchMode, changeContentIndexing,
     diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
     diffExpanded, setDiffExpanded,
     diff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef,
@@ -549,8 +612,10 @@ export function useAppController() {
 
   return {
     discardSelectedLines,
+    selectedReportRepoPaths,
+    updateReportRepoPaths,
     contributorWindow,
     setContributorWindow,
-    appVersion, setAppVersion, snapshot, setSnapshot, viewMode, setViewMode, allReposMode, setAllReposMode, enableAllReposMode, busy, setBusy, operationLabel, setOperationLabel, notice, setNotice, error, setError, selectedAssistant, setSelectedAssistant, confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue, requestConfirmation, answerConfirmation, requestTextInput, answerTextPrompt, currentRepoPath, projectMemory, projectMemoryMcpConfig, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId, selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading, selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports, filteredActivityEntries, completedWorkItems, loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage, clearActivityLog, assistants, assistantsChecking, assistantPolicy, setAssistantPolicy, assistantPolicyLoading, loadAssistants, checkAssistants, loadAssistantPolicy, updateAssistantPolicy, newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription, branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter, newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef, tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage, editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating, branchComparison, setBranchComparison, branchComparisonLoading, canGenerateBranchDraft, branchDraftActionState, createBranchActionState, branchComposerSummary, generateBranchDraft, createBranch, deleteBranch, renameBranch, setBranchUpstream, compareBranch, createTag, deleteTag, createWorktree, openWorktree, removeWorktree, startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription, history, historyLoading, historyFilter, setHistoryFilter, selectedCommitSha, setSelectedCommitSha, commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory, loadHistory, loadCommitFileDiff, providers, githubCliStatus, githubAccounts, githubAccountsLoading, githubRepositories, githubRepoOwner, setGithubRepoOwner, githubRepoQuery, setGithubRepoQuery, githubRepoVisibility, setGithubRepoVisibility, githubRepoLimit, setGithubRepoLimit, githubRepoLoading, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber, selectedPullRequestDetails, selectedPullRequestChecks, selectedPullRequestDiff, selectedPullRequestFilePath, setSelectedPullRequestFilePath, pullRequestDetailsLoading, prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch, createdPullRequest, canPublishBranch, canGeneratePullRequestText, selectedPullRequestDiffResult, loadProviders, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, refreshProviderStatusOnly, connectGitHub, generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest, recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter, filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, dashboardRepositoryFilter, setDashboardRepositoryFilter, cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName, loadRecentRepositories, loadRepositoryDashboard, toggleRepositoryPinned, chooseRepository, openRepository, cloneRepository, refreshRepository, openRepoInEditor, openRepositoryTerminal, gitConfig, editorSettings, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand, editorSettingsLoading, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, remoteName, setRemoteName, remoteUrl, setRemoteUrl, editingRemoteName, loadEditorSettings, saveEditorSettings, loadGitConfig, saveLocalGitIdentity, startRemoteEdit, cancelRemoteEdit, saveRemote, removeRemote, dailyReview, setDailyReview, dailyReviewDate, setDailyReviewDate, dailyReviewLoading, contributorStats, runDailyReview, copyDailyReviewMarkdown, counts, selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter, diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace, diffExpanded, setDiffExpanded, diff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef, filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch, openSelectedFileInEditor, openSelectedFileLineInEditor, selectedMergeBranch, setSelectedMergeBranch, startMergeOperation, continueMergeOperation, abortCurrentOperation, acceptConflictSide, reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport, preCommitReviewModes, preCommitReports, preCommitRunningMode, canRunAssistantReview, preCommitFindings, preCommitFindingsBySeverity, resetPreCommitReview, runReviewReport, runPreCommitReview, togglePreCommitReviewMode, openPreCommitReviewDetails, commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors, canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState, commitChanges, amendLastCommit, generateCommitText, mergeState, canCreateStash, stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage, createStash, createQuickStash, applyStash, dropStash, hasRemote, hasUpstream, canFetch, canPull, canPush, canGenerateLinkedInProject, linkedinProject, setLinkedInProject, linkedinHighlightsText, setLinkedinHighlightsText, linkedinTagsText, setLinkedinTagsText, linkedinSkillsText, setLinkedinSkillsText, linkedinRole, setLinkedInRole, linkedinAudience, setLinkedInAudience, linkedinProjectUrl, setLinkedInProjectUrl, linkedinCustomPrompt, setLinkedInCustomPrompt, resetLinkedInPrompt, linkedinLoading, generateLinkedInProject, updateLinkedInProject, copyLinkedInMarkdown, copyLinkedInTags, copyToClipboard, openExternalLink, runBusyOperation, runApiAction, runSnapshotAction, runOperationAction, applySnapshotResult, applySnapshot, applyCommitOperation, updateSubmodule, openSubmodule, pullGitLfs
+    appVersion, setAppVersion, snapshot, setSnapshot, viewMode, setViewMode, allReposMode, setAllReposMode, enableAllReposMode, busy, setBusy, operationLabel, setOperationLabel, notice, setNotice, error, setError, selectedAssistant, setSelectedAssistant, confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue, requestConfirmation, answerConfirmation, requestTextInput, answerTextPrompt, currentRepoPath, projectMemory, projectMemoryMcpConfig, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId, selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading, selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports, filteredActivityEntries, completedWorkItems, loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage, clearActivityLog, assistants, assistantsChecking, assistantPolicy, setAssistantPolicy, assistantPolicyLoading, loadAssistants, checkAssistants, loadAssistantPolicy, updateAssistantPolicy, newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription, branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter, newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef, tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage, editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating, branchComparison, setBranchComparison, branchComparisonLoading, canGenerateBranchDraft, branchDraftActionState, createBranchActionState, branchComposerSummary, generateBranchDraft, createBranch, deleteBranch, renameBranch, setBranchUpstream, compareBranch, createTag, deleteTag, createWorktree, openWorktree, removeWorktree, startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription, history, historyLoading, historyFilter, setHistoryFilter, historySearchMode, setHistorySearchMode, historyFileIndexing, selectedCommitSha, setSelectedCommitSha, commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory, loadHistory, loadCommitFileDiff, providers, githubCliStatus, githubAccounts, githubAccountsLoading, githubRepositories, githubRepoOwner, setGithubRepoOwner, githubRepoQuery, setGithubRepoQuery, githubRepoVisibility, setGithubRepoVisibility, githubRepoLimit, setGithubRepoLimit, githubRepoLoading, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber, selectedPullRequestDetails, selectedPullRequestChecks, selectedPullRequestDiff, selectedPullRequestFilePath, setSelectedPullRequestFilePath, pullRequestDetailsLoading, prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch, createdPullRequest, canPublishBranch, canGeneratePullRequestText, selectedPullRequestDiffResult, loadProviders, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, refreshProviderStatusOnly, connectGitHub, generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest, recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter, filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, dashboardRepositoryFilter, setDashboardRepositoryFilter, cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName, loadRecentRepositories, loadRepositoryDashboard, toggleRepositoryPinned, chooseRepository, openRepository, cloneRepository, refreshRepository, openRepoInEditor, openRepositoryTerminal, gitConfig, editorSettings, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand, editorSettingsLoading, terminalSettings, terminalPreference, setTerminalPreference, terminalCustomCommand, setTerminalCustomCommand, saveTerminalSettings, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, remoteName, setRemoteName, remoteUrl, setRemoteUrl, editingRemoteName, loadEditorSettings, saveEditorSettings, loadGitConfig, saveLocalGitIdentity, startRemoteEdit, cancelRemoteEdit, saveRemote, removeRemote, dailyReview, setDailyReview, dailyReviewDate, setDailyReviewDate, dailyReviewLoading, contributorStats, runDailyReview, copyDailyReviewMarkdown, counts, selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter, changeSearchMode, setChangeSearchMode, changeContentIndexing, diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace, diffExpanded, setDiffExpanded, diff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef, filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch, openSelectedFileInEditor, openSelectedFileLineInEditor, selectedMergeBranch, setSelectedMergeBranch, startMergeOperation, continueMergeOperation, abortCurrentOperation, acceptConflictSide, reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport, preCommitReviewModes, preCommitReports, preCommitRunningMode, canRunAssistantReview, preCommitFindings, preCommitFindingsBySeverity, resetPreCommitReview, runReviewReport, runPreCommitReview, togglePreCommitReviewMode, openPreCommitReviewDetails, commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors, canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState, commitChanges, amendLastCommit, generateCommitText, mergeState, canCreateStash, stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage, createStash, createQuickStash, applyStash, dropStash, hasRemote, hasUpstream, canFetch, canPull, canPush, canGenerateLinkedInProject, linkedinProject, setLinkedInProject, linkedinHighlightsText, setLinkedinHighlightsText, linkedinTagsText, setLinkedinTagsText, linkedinSkillsText, setLinkedinSkillsText, linkedinRole, setLinkedInRole, linkedinAudience, setLinkedInAudience, linkedinProjectUrl, setLinkedInProjectUrl, linkedinCustomPrompt, setLinkedInCustomPrompt, resetLinkedInPrompt, linkedinLoading, generateLinkedInProject, updateLinkedInProject, copyLinkedInMarkdown, copyLinkedInTags, copyToClipboard, openExternalLink, runBusyOperation, runApiAction, runSnapshotAction, runOperationAction, applySnapshotResult, applySnapshot, applyCommitOperation, updateSubmodule, openSubmodule, pullGitLfs
   }
 }

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -30,6 +30,22 @@ describe('RepositoryService', () => {
     expect(snapshot.status.counts.untracked).toBe(1)
     expect(snapshot.status.changes.map((change) => change.path)).toContain('tracked.txt')
     expect(snapshot.status.changes.map((change) => change.path)).toContain('new.txt')
+  })
+
+  it('drops staged new files that were deleted outside BranchPilot before refresh', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    const addedPath = path.join(repoPath, 'added-then-deleted.txt')
+    writeFileSync(addedPath, 'temporary\n')
+    git(repoPath, ['add', 'added-then-deleted.txt'])
+    unlinkSync(addedPath)
+
+    const snapshot = await service.openRepository(repoPath)
+
+    expect(snapshot.status.changes.map((change) => change.path)).not.toContain('added-then-deleted.txt')
+    expect(snapshot.status.counts.changed).toBe(0)
+    expect(git(repoPath, ['status', '--porcelain'])).toBe('')
   })
 
   it('pins recent repositories and keeps pinned entries first', async () => {

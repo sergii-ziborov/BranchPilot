@@ -8,6 +8,8 @@ export interface AssistantRunner {
 
 export interface ResolvedAssistantRunner extends AssistantRunner {
   executablePath: string
+  model?: string
+  modelLabel?: string
 }
 
 export const ASSISTANT_RUNNERS: AssistantRunner[] = [

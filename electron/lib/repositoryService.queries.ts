@@ -1,11 +1,15 @@
+import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import type {
   CommitDetails,
   CommitDetailsRequest,
   CommitFileDiffRequest,
   CommitSummary,
+  DiffContextRequest,
+  DiffContextResult,
   DiffRequest,
   DiffResult,
+  FileChange,
   RecentRepository,
   RepositorySnapshot,
   RepositoryStatus,
@@ -16,7 +20,9 @@ import { parseGitStatus } from './gitStatusParser.js'
 import {
   normalizeCommitSha,
   normalizeRelativePath,
-  parseCommitSummary
+  parseCommitSummary,
+  pathExists,
+  resolveRepositoryPath
 } from './repositoryService.helpers.js'
 import {
   MAX_DIFF_BYTES,
@@ -79,8 +85,13 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     summary: RepositorySummary
     status: RepositoryStatus
   }> {
-    const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
-    const parsedStatus = parseGitStatus(statusOutput.stdout)
+    let statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
+    let parsedStatus = parseGitStatus(statusOutput.stdout)
+
+    if (await this.pruneMissingStagedAdds(rootPath, parsedStatus.changes)) {
+      statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
+      parsedStatus = parseGitStatus(statusOutput.stdout)
+    }
     const gitUserName = options.includeGitIdentity ? this.getConfig(rootPath, 'user.name') : Promise.resolve(undefined)
     const gitUserEmail = options.includeGitIdentity ? this.getConfig(rootPath, 'user.email') : Promise.resolve(undefined)
     const [remote, resolvedUserName, resolvedUserEmail, merge] = await Promise.all([
@@ -114,6 +125,24 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
         merge
       }
     }
+  }
+
+  private async pruneMissingStagedAdds(rootPath: string, changes: FileChange[]): Promise<boolean> {
+    const missingStagedAdds: string[] = []
+
+    for (const change of changes) {
+      if (change.stagedStatus !== 'A' || change.unstagedStatus !== 'D') continue
+
+      const relativePath = normalizeRelativePath(change.path)
+      if (!await pathExists(path.join(rootPath, relativePath))) {
+        missingStagedAdds.push(relativePath)
+      }
+    }
+
+    if (missingStagedAdds.length === 0) return false
+
+    await this.git(rootPath, ['restore', '--staged', '--', ...missingStagedAdds])
+    return true
   }
 
   async getDiff(request: DiffRequest): Promise<DiffResult> {
@@ -154,6 +183,81 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       tooLarge,
       files: binary || tooLarge ? [] : parseUnifiedDiff(text)
     }
+  }
+
+  async getDiffContext(request: DiffContextRequest): Promise<DiffContextResult> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const relativePath = normalizeRelativePath(request.filePath)
+    const maxLines = Math.max(0, Math.min(20, Math.trunc(Number(request.maxLines) || 0)))
+    const requestedStart = Math.max(1, Math.trunc(Number(request.lineStart) || 1))
+
+    if (maxLines === 0) {
+      return {
+        filePath: relativePath,
+        staged: request.staged,
+        lineStart: requestedStart,
+        lineEnd: requestedStart - 1,
+        totalLines: 0,
+        lines: [],
+        hasMoreBefore: requestedStart > 1,
+        hasMoreAfter: false
+      }
+    }
+
+    const text = await this.readDiffContextText(rootPath, relativePath, request.staged)
+    const lines = splitTextLines(text)
+    const totalLines = lines.length
+    const lineStart = Math.min(requestedStart, Math.max(totalLines, 1))
+    const lineEnd = Math.min(totalLines, lineStart + maxLines - 1)
+    const contextLines = lineStart <= lineEnd
+      ? lines.slice(lineStart - 1, lineEnd).map((content, index) => {
+        const lineNumber = lineStart + index
+        return {
+          type: 'context' as const,
+          content,
+          oldLineNumber: lineNumber,
+          newLineNumber: lineNumber
+        }
+      })
+      : []
+
+    return {
+      filePath: relativePath,
+      staged: request.staged,
+      lineStart,
+      lineEnd,
+      totalLines,
+      lines: contextLines,
+      hasMoreBefore: lineStart > 1,
+      hasMoreAfter: lineEnd < totalLines
+    }
+  }
+
+  private async readDiffContextText(rootPath: string, relativePath: string, staged: boolean): Promise<string> {
+    const tryIndex = async () => this.readGitText(rootPath, `:${relativePath}`)
+    const tryHead = async () => this.readGitText(rootPath, `HEAD:${relativePath}`)
+    const tryWorkingTree = async () => fs.readFile(resolveRepositoryPath(rootPath, relativePath), 'utf8')
+
+    if (staged) {
+      return tryIndex().catch(() => tryHead())
+    }
+
+    return tryWorkingTree()
+      .catch(() => tryIndex())
+      .catch(() => tryHead())
+  }
+
+  private async readGitText(rootPath: string, ref: string): Promise<string> {
+    const result = await this.git(rootPath, ['show', ref], {
+      allowedExitCodes: [0, 128],
+      maxOutputBytes: MAX_DIFF_OUTPUT_BYTES
+    })
+
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr.trim() || `Git object not found: ${ref}`)
+    }
+
+    return result.stdout
   }
 
   async getHistory(repoPath: string): Promise<CommitSummary[]> {
@@ -227,4 +331,12 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
 
 
 
+}
+
+function splitTextLines(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n')
+  const trimmed = normalized.endsWith('\n') ? normalized.slice(0, -1) : normalized
+  if (!trimmed) return []
+
+  return trimmed.split('\n')
 }

@@ -1,11 +1,28 @@
-import type { ReactNode } from 'react'
-import { Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Check, ChevronDown, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import type {
-  AssistantId, AssistantPolicyStatus, AssistantStatus,
+  AssistantId, AssistantPolicyStatus, AssistantStatus, InstalledAssistantId,
   ReviewMode, ReviewReport, ReviewScope, ReviewSeverity, RepositorySnapshot
 } from '../../shared/branchPilot'
 import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from '../../lib/reviewLabels'
-import { assistantLabel, assistantPolicyBlockedLabel, assistantStatusLabel } from '../../lib/assistantLabels'
+import {
+  assistantBaseId,
+  assistantLabel,
+  assistantModelLabel,
+  assistantPolicyBlockedLabel,
+  assistantStatusLabel,
+  CLAUDE_MODEL_OPTIONS,
+  CODEX_MODEL_OPTIONS
+} from '../../lib/assistantLabels'
+
+const REVIEW_ASSISTANT_GROUPS: Array<{
+  id: InstalledAssistantId
+  label: string
+  options: Array<{ id: AssistantId; label: string; description: string }>
+}> = [
+  { id: 'claude', label: 'Claude Code', options: CLAUDE_MODEL_OPTIONS },
+  { id: 'codex', label: 'Codex', options: CODEX_MODEL_OPTIONS }
+]
 
 export function ReviewView({
   reviewReport,
@@ -44,12 +61,44 @@ export function ReviewView({
 }) {
   const findings = reviewReport?.findings ?? []
   const findingsBySeverity = groupFindingsBySeverity(findings)
-  const assistantStatuses = new Map(assistants.map((assistant) => [assistant.id, assistant]))
+  const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
+  const assistantMenuRef = useRef<HTMLDivElement | null>(null)
+  const assistantStatuses = new Map<InstalledAssistantId, AssistantStatus>(assistants.map((assistant) => [assistant.id, assistant]))
   const readyAssistant = assistants.find((assistant) => assistant.state === 'ready')
-  const selectedAssistantStatus = selectedAssistant === 'auto'
+  const selectedAssistantBaseId = assistantBaseId(selectedAssistant)
+  const selectedAssistantStatus = selectedAssistantBaseId === 'auto'
     ? readyAssistant ?? assistants.find((assistant) => assistant.state === 'detected') ?? assistants[0]
-    : assistantStatuses.get(selectedAssistant)
+    : assistantStatuses.get(selectedAssistantBaseId)
   const assistantSelectState = assistantVisualState(selectedAssistantStatus)
+  const selectedAssistantCopy = selectedAssistantDescription(selectedAssistant, readyAssistant, assistants)
+
+  useEffect(() => {
+    if (!assistantMenuOpen) {
+      return undefined
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (assistantMenuRef.current?.contains(event.target as Node)) {
+        return
+      }
+
+      setAssistantMenuOpen(false)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAssistantMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [assistantMenuOpen])
 
   return (
     <section className="single-panel review-panel">
@@ -106,23 +155,66 @@ export function ReviewView({
             <div className="control-group control-group-assistant">
               <label htmlFor="review-assistant">Assistant</label>
               <div className="assistant-select-row">
-                <select
-                  id="review-assistant"
-                  className={`assistant-select assistant-select-${assistantSelectState}`}
-                  value={selectedAssistant}
-                  onChange={(event) => setSelectedAssistant(event.target.value as AssistantId)}
-                >
-                  <option value="auto">{autoAssistantLabel(readyAssistant, assistants)}</option>
-                  {(['claude', 'codex'] as Array<Exclude<AssistantId, 'auto'>>).map((assistantId) => {
-                    const status = assistantStatuses.get(assistantId)
+                <div className="assistant-model-menu" ref={assistantMenuRef}>
+                  <button
+                    id="review-assistant"
+                    aria-expanded={assistantMenuOpen}
+                    aria-haspopup="listbox"
+                    className={`assistant-select assistant-model-trigger assistant-select-${assistantSelectState}`}
+                    type="button"
+                    onClick={() => setAssistantMenuOpen((open) => !open)}
+                  >
+                    <span className="assistant-model-trigger-copy">
+                      <strong>{selectedAssistantCopy.title}</strong>
+                      <span>{selectedAssistantCopy.meta}</span>
+                    </span>
+                    <ChevronDown size={16} />
+                  </button>
+                  {assistantMenuOpen && (
+                    <div className="assistant-model-popover" role="listbox" aria-label="Assistant and model">
+                      <AssistantModelOption
+                        title="Auto"
+                        meta={autoAssistantLabel(readyAssistant, assistants)}
+                        selected={selectedAssistant === 'auto'}
+                        state={assistantSelectState}
+                        onSelect={() => {
+                          setSelectedAssistant('auto')
+                          setAssistantMenuOpen(false)
+                        }}
+                      />
+                      {REVIEW_ASSISTANT_GROUPS.map((group) => {
+                        const status = assistantStatuses.get(group.id)
+                        const state = assistantVisualState(status)
 
-                    return (
-                      <option className={`assistant-option assistant-option-${assistantVisualState(status)}`} key={assistantId} value={assistantId}>
-                        {concreteAssistantLabel(assistantId, status)}
-                      </option>
-                    )
-                  })}
-                </select>
+                        return (
+                          <section className="assistant-model-group" key={group.id}>
+                            <div className="assistant-model-group-heading">
+                              <span>{group.label}</span>
+                              <small className={`assistant-model-status state-${state}`}>
+                                {status ? assistantStatusLabel(status) : 'not loaded'}
+                              </small>
+                            </div>
+                            <div className="assistant-model-options">
+                              {group.options.map((option) => (
+                                <AssistantModelOption
+                                  title={option.label}
+                                  meta={option.description}
+                                  key={option.id}
+                                  selected={selectedAssistant === option.id}
+                                  state={state}
+                                  onSelect={() => {
+                                    setSelectedAssistant(option.id)
+                                    setAssistantMenuOpen(false)
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </section>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
                 <button
                   className="assistant-check-button"
                   type="button"
@@ -197,22 +289,67 @@ export function ReviewView({
   )
 }
 
+function AssistantModelOption({
+  title,
+  meta,
+  selected,
+  state,
+  onSelect
+}: {
+  title: string
+  meta: string
+  selected: boolean
+  state: string
+  onSelect: () => void
+}) {
+  return (
+    <button
+      aria-selected={selected}
+      className={`assistant-model-option state-${state} ${selected ? 'active' : ''}`.trim()}
+      role="option"
+      type="button"
+      onClick={onSelect}
+    >
+      <span className={`assistant-model-dot state-${state}`} />
+      <span className="assistant-model-copy">
+        <strong>{title}</strong>
+        <span>{meta}</span>
+      </span>
+      {selected && <Check size={15} />}
+    </button>
+  )
+}
+
 function autoAssistantLabel(readyAssistant: AssistantStatus | undefined, assistants: AssistantStatus[]): string {
   if (readyAssistant) {
-    return `Auto - ${readyAssistant.label} ready`
+    return `Uses ${readyAssistant.label} when ready`
   }
 
   if (assistants.some((assistant) => assistant.state === 'detected')) {
-    return 'Auto - check access'
+    return 'Check access before running'
   }
 
-  return 'Auto'
+  return 'First available assistant'
 }
 
-function concreteAssistantLabel(assistantId: Exclude<AssistantId, 'auto'>, status?: AssistantStatus): string {
-  return status
-    ? `${assistantLabel(assistantId)} - ${assistantStatusLabel(status)}`
-    : `${assistantLabel(assistantId)} - not found`
+function selectedAssistantDescription(
+  assistant: AssistantId,
+  readyAssistant: AssistantStatus | undefined,
+  assistants: AssistantStatus[]
+): { title: string; meta: string } {
+  if (assistant === 'auto') {
+    return {
+      title: 'Auto',
+      meta: autoAssistantLabel(readyAssistant, assistants)
+    }
+  }
+
+  const model = assistantModelLabel(assistant)
+
+  return {
+    title: assistantLabel(assistant),
+    meta: model === 'Default' ? 'Default model' : model
+  }
 }
 
 function assistantVisualState(status?: AssistantStatus): string {

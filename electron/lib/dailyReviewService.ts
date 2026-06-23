@@ -23,9 +23,15 @@ export class DailyReviewService {
   ) {}
 
   async generateDailyReview(request: DailyReviewRequest): Promise<DailyReviewReport> {
-    const repoPath = normalizeRepoPath(request.repoPath)
+    const repoPaths = normalizeRepoPaths(request.repoPaths?.length ? request.repoPaths : [request.repoPath])
+    const repoPath = repoPaths[0]
     const date = normalizeDateKey(request.date)
     const generatedAt = new Date().toISOString()
+
+    if (repoPaths.length > 1) {
+      return this.generateMultiRepositoryDailyReview(repoPaths, date, generatedAt)
+    }
+
     const snapshot = await this.repositoryService.getSnapshot(repoPath)
     const commits = (await this.repositoryService.getHistory(snapshot.summary.rootPath))
       .filter((commit) => toLocalDateKey(commit.authoredAt) === date)
@@ -62,6 +68,59 @@ export class DailyReviewService {
       markdown: formatMarkdown(reportBase)
     }
   }
+
+  private async generateMultiRepositoryDailyReview(repoPaths: string[], date: string, generatedAt: string): Promise<DailyReviewReport> {
+    const bundles = await Promise.all(repoPaths.map(async (repoPath) => {
+      const snapshot = await this.repositoryService.getSnapshot(repoPath)
+      const commits = (await this.repositoryService.getHistory(snapshot.summary.rootPath))
+        .filter((commit) => toLocalDateKey(commit.authoredAt) === date)
+      const activities = (await this.activityLogService.getActivityLog({
+        repoPath: snapshot.summary.rootPath,
+        limit: ACTIVITY_LIMIT
+      })).entries.filter((entry) => toLocalDateKey(entry.createdAt) === date)
+      const actionItems = buildActionItems(snapshot).map((item) => ({
+        ...item,
+        title: `${snapshot.summary.name}: ${item.title}`
+      }))
+
+      return { snapshot, commits, activities, actionItems }
+    }))
+
+    const actionItems = bundles.flatMap((bundle) => bundle.actionItems)
+    const sections = buildMultiRepositorySections(bundles, actionItems, generatedAt)
+    const reportBase = {
+      repoPath: bundles[0]?.snapshot.summary.rootPath ?? repoPaths[0],
+      repositoryName: `${bundles.length} repositories`,
+      branch: 'Multiple branches',
+      date,
+      generatedAt,
+      stats: {
+        commits: bundles.reduce((sum, bundle) => sum + bundle.commits.length, 0),
+        activities: bundles.reduce((sum, bundle) => sum + bundle.activities.length, 0),
+        changed: bundles.reduce((sum, bundle) => sum + bundle.snapshot.status.counts.changed, 0),
+        staged: bundles.reduce((sum, bundle) => sum + bundle.snapshot.status.counts.staged, 0),
+        unstaged: bundles.reduce((sum, bundle) => sum + bundle.snapshot.status.counts.unstaged, 0),
+        untracked: bundles.reduce((sum, bundle) => sum + bundle.snapshot.status.counts.untracked, 0),
+        conflicted: bundles.reduce((sum, bundle) => sum + bundle.snapshot.status.counts.conflicted, 0),
+        ahead: bundles.reduce((sum, bundle) => sum + bundle.snapshot.summary.ahead, 0),
+        behind: bundles.reduce((sum, bundle) => sum + bundle.snapshot.summary.behind, 0)
+      },
+      sections,
+      actionItems
+    }
+
+    return {
+      ...reportBase,
+      markdown: formatMarkdown(reportBase)
+    }
+  }
+}
+
+type DailyReviewBundle = {
+  snapshot: RepositorySnapshot
+  commits: CommitSummary[]
+  activities: ActivityLogEntry[]
+  actionItems: DailyReviewActionItem[]
 }
 
 function buildSections(
@@ -105,6 +164,62 @@ function buildSections(
       items: activities.length > 0
         ? activities.slice(0, 12).map(formatActivityEntry)
         : ['No BranchPilot activity recorded for this date.']
+    },
+    {
+      id: 'next_actions',
+      title: 'Suggested Next Actions',
+      items: actionItems.length > 0
+        ? actionItems.map((item) => `${item.priority === 'high' ? 'High' : 'Normal'}: ${item.title} - ${item.details}`)
+        : ['No immediate local actions detected.']
+    }
+  ]
+}
+
+function buildMultiRepositorySections(
+  bundles: DailyReviewBundle[],
+  actionItems: DailyReviewActionItem[],
+  generatedAt: string
+): DailyReviewSection[] {
+  const commits = bundles.flatMap((bundle) =>
+    bundle.commits.map((commit) => `${bundle.snapshot.summary.name}: ${commit.shortSha} ${commit.subject || '(no subject)'} - ${formatTime(commit.authoredAt)}`)
+  )
+  const activities = bundles.flatMap((bundle) =>
+    bundle.activities.map((activity) => `${bundle.snapshot.summary.name}: ${formatActivityEntry(activity)}`)
+  )
+
+  return [
+    {
+      id: 'summary',
+      title: 'Summary',
+      items: [
+        `Repositories: ${bundles.map((bundle) => bundle.snapshot.summary.name).join(', ')}`,
+        `Generated: ${formatDateTime(generatedAt)}`,
+        `Worktrees: ${bundles.filter((bundle) => bundle.snapshot.status.counts.changed === 0).length} clean, ${bundles.filter((bundle) => bundle.snapshot.status.counts.changed > 0).length} with local changes.`
+      ]
+    },
+    {
+      id: 'commits',
+      title: 'Commits',
+      items: commits.length > 0 ? commits.slice(0, 24) : ['No commits recorded for this date.']
+    },
+    {
+      id: 'worktree',
+      title: 'Current Worktree',
+      items: bundles.map(({ snapshot }) =>
+        `${snapshot.summary.name}: ${snapshot.status.counts.changed === 0 ? 'clean' : `${snapshot.status.counts.staged} staged, ${snapshot.status.counts.unstaged} unstaged, ${snapshot.status.counts.untracked} untracked, ${snapshot.status.counts.conflicted} conflicted`}.`
+      )
+    },
+    {
+      id: 'sync',
+      title: 'Branch And Sync',
+      items: bundles.map(({ snapshot }) =>
+        `${snapshot.summary.name}: ${snapshot.summary.currentBranch}${snapshot.summary.upstream ? ` -> ${snapshot.summary.upstream}` : snapshot.summary.remoteName ? `, remote ${snapshot.summary.remoteName}, no upstream` : ', no remote'}, ${snapshot.summary.ahead} ahead/${snapshot.summary.behind} behind.`
+      )
+    },
+    {
+      id: 'activity',
+      title: 'Activity',
+      items: activities.length > 0 ? activities.slice(0, 24) : ['No BranchPilot activity recorded for this date.']
     },
     {
       id: 'next_actions',
@@ -265,6 +380,21 @@ function normalizeRepoPath(repoPath: string): string {
   }
 
   return normalizeNativePath(normalized)
+}
+
+function normalizeRepoPaths(repoPaths: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const repoPath of repoPaths) {
+    const path = normalizeRepoPath(repoPath)
+    const key = path.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(path)
+  }
+
+  return normalized
 }
 
 function normalizeDateKey(date: string | undefined): string {

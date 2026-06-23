@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { AssistantId, AssistantPolicyMode, AssistantPolicyStatus, AssistantStatus, BranchPilotApi } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
-import { assistantLabel, assistantPolicyModeLabel } from '../lib/assistantLabels'
+import { assistantBaseId, assistantPolicyModeLabel, assistantSelectionLabel } from '../lib/assistantLabels'
 import type { ViewMode } from '../lib/viewMode'
 
 /** Owns assistant detection state and the per-repository assistant policy. */
@@ -48,7 +48,7 @@ export function useAssistants({
 
       if (fallback) {
         setSelectedAssistant(fallback.id)
-        const previous = selectedAssistant === 'auto' ? 'Auto' : assistantLabel(selectedAssistant)
+        const previous = assistantSelectionLabel(selectedAssistant)
         setNotice(`${fallback.label} is ready. Switched from ${previous}.`)
       } else {
         setNotice(`${ready} of ${result.data.length} assistant CLIs are ready.`)
@@ -117,7 +117,10 @@ function readyAssistantFallback(assistants: AssistantStatus[], selectedAssistant
     return undefined
   }
 
-  const selected = assistants.find((assistant) => assistant.id === selectedAssistant)
+  const selectedBaseAssistant = assistantBaseId(selectedAssistant)
+  const selected = selectedBaseAssistant === 'auto'
+    ? undefined
+    : assistants.find((assistant) => assistant.id === selectedBaseAssistant)
 
   if (selected?.state === 'ready') {
     return undefined

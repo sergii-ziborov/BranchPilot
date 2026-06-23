@@ -25,6 +25,13 @@ export function StageCheckbox({
 
   const checked = optimisticChecked ?? toggleState.checked
   const showMixed = optimisticChecked === null && toggleState.mixed
+  const title = change.conflicted
+    ? 'Resolve conflicts before staging.'
+    : showMixed
+      ? 'Partially included in commit. Click to include the remaining changes.'
+      : checked
+        ? 'Included in commit. Click to remove this file from the commit.'
+        : 'Not included in commit. Click to include this file.'
 
   // No dependency array: the browser clears `indeterminate` on click even when
   // the mixed state is unchanged, so re-assert it after every render.
@@ -35,7 +42,7 @@ export function StageCheckbox({
   })
 
   return (
-    <label className="change-stage-toggle" title={change.conflicted ? 'Resolve conflicts before staging.' : 'Stage or unstage this file'}>
+    <label className="change-stage-toggle" title={title}>
       <input
         ref={inputRef}
         type="checkbox"

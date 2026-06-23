@@ -59,6 +59,24 @@ export function PublishRepositoryView({
   const userAccounts = useMemo(() => accounts.filter((account) => account.type === 'user'), [accounts])
   const organizationAccounts = useMemo(() => accounts.filter((account) => account.type === 'organization'), [accounts])
   const ownerAccounts = ownerKind === 'user' ? userAccounts : organizationAccounts
+  const authenticatedUserAccount = useMemo(
+    () => userAccounts.find((account) => account.login === githubStatus?.username) ?? userAccounts[0],
+    [githubStatus?.username, userAccounts]
+  )
+  const commitAuthorAccount = useMemo(
+    () => ownerKind === 'user'
+      ? userAccounts.find((account) => account.login === owner) ?? authenticatedUserAccount
+      : authenticatedUserAccount,
+    [authenticatedUserAccount, owner, ownerKind, userAccounts]
+  )
+  const gitIdentityEmailOptions = useMemo(() => uniqueStrings([
+    ...(commitAuthorAccount?.emails ?? []),
+    gitConfig?.localUserEmail ?? '',
+    gitConfig?.globalUserEmail ?? ''
+  ].map(normalizeEmailInput)).filter(Boolean), [commitAuthorAccount, gitConfig?.globalUserEmail, gitConfig?.localUserEmail])
+  const commitAuthorPreview = gitUserName.trim() && gitUserEmail.trim()
+    ? `${gitUserName.trim()} <${gitUserEmail.trim()}>`
+    : 'Choose a commit author email'
   const repoNameSuggestions = useMemo(() => buildRepositoryNameSuggestions(defaultName), [defaultName])
   const canGenerateStarter = assistantPolicyAllows(assistantPolicy, 'repository_starter')
   const starterBlockedText = canGenerateStarter ? '' : assistantPolicyBlockedLabel('repository_starter', assistantPolicy)
@@ -93,6 +111,12 @@ export function PublishRepositoryView({
       setOwner('')
     }
   }, [accounts.length, githubStatus?.username, ownerAccounts, ownerKind])
+
+  useEffect(() => {
+    if (!gitUserEmail.trim() && gitIdentityEmailOptions.length > 0) {
+      setGitUserEmail(gitIdentityEmailOptions[0])
+    }
+  }, [gitIdentityEmailOptions, gitUserEmail])
 
   useEffect(() => {
     if (!api || !repoPath) return
@@ -368,15 +392,37 @@ export function PublishRepositoryView({
           </div>
 
           <div className="publish-identity-block">
-            <strong>Git commit identity</strong>
-            <p>Used only for the optional README/.gitignore starter commit.</p>
+            <strong>Commit author</strong>
+            <p>Used for the optional README/.gitignore starter commit. Pick the GitHub email intentionally.</p>
+            <div className="publish-commit-as">
+              <UserRound size={16} />
+              <div>
+                <span>Starter commit will be authored as</span>
+                <strong>{commitAuthorPreview}</strong>
+              </div>
+            </div>
+            {gitIdentityEmailOptions.length > 0 && (
+              <div className="publish-email-options" aria-label="Known GitHub and Git config emails">
+                {gitIdentityEmailOptions.map((email) => (
+                  <button
+                    type="button"
+                    key={email}
+                    className={isSameEmail(gitUserEmail, email) ? 'active' : ''}
+                    onClick={() => setGitUserEmail(email)}
+                    title={`Use ${email} as the starter commit author`}
+                  >
+                    {email}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="publish-two-col">
               <label>
                 <span>Name</span>
                 <input value={gitUserName} onChange={(event) => setGitUserName(event.target.value)} placeholder={gitConfig?.globalUserName ?? 'Name'} />
               </label>
               <label>
-                <span>Email</span>
+                <span>Custom email</span>
                 <input value={gitUserEmail} onChange={(event) => setGitUserEmail(event.target.value)} placeholder={gitConfig?.globalUserEmail ?? 'email@example.com'} />
               </label>
             </div>
@@ -516,6 +562,14 @@ function buildLocalGitignore(snapshot: RepositorySnapshot | null): string {
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))]
+}
+
+function normalizeEmailInput(value: string | undefined): string {
+  return value?.trim() ?? ''
+}
+
+function isSameEmail(left: string, right: string): boolean {
+  return left.trim().toLowerCase() === right.trim().toLowerCase()
 }
 
 function createRepositoryBlockedReason({

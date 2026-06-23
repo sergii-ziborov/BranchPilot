@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import type {
   ApiResult, BranchPilotApi, ContributionGraph, RecentRepository,
-  RepositoryDashboardSnapshot, RepositoryRhythm, RepositorySnapshot
+  RepositoryDashboardSnapshot, RepositoryRhythm, RepositoryScopeRequest, RepositorySnapshot
 } from '../shared/branchPilot'
 import type { ViewMode } from '../lib/viewMode'
 
@@ -11,6 +11,7 @@ interface UseRepositoryManagementDeps {
   currentRepoPath: string | undefined
   allReposMode: boolean
   viewMode: ViewMode
+  reportRepoPaths?: string[]
   setViewMode: (mode: ViewMode) => void
   snapshot: RepositorySnapshot | null
   runBusyOperation: <T>(label: string, action: () => Promise<T>) => Promise<T>
@@ -24,7 +25,7 @@ interface UseRepositoryManagementDeps {
 /** Repository lifecycle: recent list, dashboard, open/clone/refresh, editor & terminal launch. */
 export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   const {
-    api, currentRepoPath, allReposMode, viewMode, setViewMode, snapshot,
+    api, currentRepoPath, allReposMode, viewMode, reportRepoPaths = [], setViewMode, snapshot,
     runBusyOperation, applySnapshot, applySnapshotResult,
     setNotice, setError, refreshProviderStatusOnly
   } = deps
@@ -32,6 +33,10 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   // In "All repositories" mode the dashboard and heatmap aggregate across every
   // recent repository (no single-repo scope).
   const dashboardScopePath = allReposMode ? undefined : currentRepoPath
+  const reportRepoPathsKey = reportRepoPaths.join('\n')
+  const graphScope: string | RepositoryScopeRequest | undefined = reportRepoPaths.length > 0
+    ? { repoPaths: reportRepoPaths }
+    : dashboardScopePath
 
   const [repositoryDashboard, setRepositoryDashboard] = useState<RepositoryDashboardSnapshot | null>(null)
   const [contributionGraph, setContributionGraph] = useState<ContributionGraph | null>(null)
@@ -59,13 +64,13 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   }, [recentRepositories, recentRepositoryFilter])
 
   useEffect(() => {
-    if (!api || viewMode !== 'dashboard') return
+    if (!api || (viewMode !== 'dashboard' && viewMode !== 'daily')) return
     void loadRepositoryDashboard()
 
     if (snapshot && !allReposMode) {
       void refreshProviderStatusOnly()
     }
-  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode, allReposMode])
+  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode, allReposMode, reportRepoPathsKey])
 
   // Keep the repo-switcher badges populated even when the dashboard view is closed:
   // load the multi-repo status quietly whenever the API or active repo becomes ready.
@@ -89,7 +94,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     // Dashboard scan, contribution graph and rhythm are independent: run concurrently.
     const dashboardPromise = api.getRepositoryDashboard(dashboardScopePath)
     const graphPromise = typeof api.getContributionGraph === 'function'
-      ? api.getContributionGraph(dashboardScopePath).catch(() => null)
+      ? api.getContributionGraph(graphScope).catch(() => null)
       : Promise.resolve(null)
     const rhythmPromise = typeof api.getRepositoryRhythm === 'function'
       ? api.getRepositoryRhythm(dashboardScopePath).catch(() => null)

@@ -5,6 +5,30 @@ import { HISTORY_LIST_ITEM_HEIGHT } from '../lib/listMetrics'
 import type { ViewMode } from '../lib/viewMode'
 import { useVirtualList } from './useVirtualList'
 
+type HistorySearchMode = 'commit' | 'files' | 'all'
+
+const HISTORY_FILE_SEARCH_LIMIT = 200
+
+function commitSearchText(commit: CommitSummary): string {
+  return [
+    commit.sha,
+    commit.shortSha,
+    commit.subject,
+    commit.authorName,
+    commit.authorEmail,
+    formatDate(commit.authoredAt)
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join('\n')
+}
+
+function commitFileSearchText(details: CommitDetails): string {
+  return details.files
+    .flatMap((file) => [file.path, file.originalPath, file.status, file.rawStatus])
+    .filter((value): value is string => Boolean(value))
+    .join('\n')
+}
+
 /** Owns commit history, selection, and per-commit detail/diff loading. */
 export function useHistory({
   api,
@@ -22,10 +46,13 @@ export function useHistory({
   const [history, setHistory] = useState<CommitSummary[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyFilter, setHistoryFilter] = useState('')
+  const [historySearchMode, setHistorySearchMode] = useState<HistorySearchMode>('commit')
   const [selectedCommitSha, setSelectedCommitSha] = useState<string | null>(null)
   const [commitDetails, setCommitDetails] = useState<CommitDetails | null>(null)
   const [selectedCommitFilePath, setSelectedCommitFilePath] = useState<string | null>(null)
   const [commitFileDiff, setCommitFileDiff] = useState<DiffResult | null>(null)
+  const [historyFileIndex, setHistoryFileIndex] = useState<Map<string, string>>(new Map())
+  const [historyFileIndexing, setHistoryFileIndexing] = useState(false)
   const commitDetailsRequestIdRef = useRef(0)
   const commitFileDiffRequestIdRef = useRef(0)
 
@@ -34,21 +61,18 @@ export function useHistory({
 
     if (!query) return history
 
-    return history.filter((commit) =>
-      [
-        commit.sha,
-        commit.shortSha,
-        commit.subject,
-        commit.authorName,
-        commit.authorEmail,
-        formatDate(commit.authoredAt)
-      ]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(query))
-    )
-  }, [history, historyFilter])
+    return history.filter((commit) => {
+      const commitMatches = historySearchMode !== 'files' && commitSearchText(commit).toLowerCase().includes(query)
+      const fileMatches = historySearchMode !== 'commit' && (historyFileIndex.get(commit.sha) ?? '').toLowerCase().includes(query)
+      return commitMatches || fileMatches
+    })
+  }, [history, historyFileIndex, historyFilter, historySearchMode])
 
-  const virtualHistory = useVirtualList(filteredHistory, HISTORY_LIST_ITEM_HEIGHT, `${snapshot?.summary.rootPath ?? ''}|${historyFilter}`)
+  const virtualHistory = useVirtualList(
+    filteredHistory,
+    HISTORY_LIST_ITEM_HEIGHT,
+    `${snapshot?.summary.rootPath ?? ''}|${historyFilter}|${historySearchMode}|${historyFileIndex.size}`
+  )
 
   async function loadHistory() {
     if (!api || !currentRepoPath) return
@@ -116,6 +140,58 @@ export function useHistory({
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
   useEffect(() => {
+    setHistoryFileIndex(new Map())
+    setHistoryFileIndexing(false)
+  }, [snapshot?.summary.rootPath, snapshot?.summary.headOid])
+
+  useEffect(() => {
+    const query = historyFilter.trim()
+    if (!api || !currentRepoPath || viewMode !== 'history' || !query || historySearchMode === 'commit') {
+      setHistoryFileIndexing(false)
+      return
+    }
+
+    const commits = history
+      .filter((commit) => !historyFileIndex.has(commit.sha))
+      .slice(0, HISTORY_FILE_SEARCH_LIMIT)
+
+    if (commits.length === 0) {
+      setHistoryFileIndexing(false)
+      return
+    }
+
+    let cancelled = false
+    setHistoryFileIndexing(true)
+
+    const loadFileIndex = async () => {
+      const entries: [string, string][] = []
+
+      for (const commit of commits) {
+        if (cancelled) return
+
+        const result = await api.getCommitDetails({ repoPath: currentRepoPath, commitSha: commit.sha }).catch(() => null)
+        if (cancelled) return
+        if (result?.ok) entries.push([commit.sha, commitFileSearchText(result.data)])
+      }
+
+      if (cancelled) return
+
+      setHistoryFileIndex((current) => {
+        const next = new Map(current)
+        for (const [sha, text] of entries) next.set(sha, text)
+        return next
+      })
+      setHistoryFileIndexing(false)
+    }
+
+    void loadFileIndex()
+
+    return () => {
+      cancelled = true
+    }
+  }, [api, currentRepoPath, history, historyFilter, historySearchMode, snapshot?.summary.rootPath, viewMode])
+
+  useEffect(() => {
     if (viewMode !== 'history') return
 
     const filterActive = historyFilter.trim().length > 0
@@ -145,6 +221,9 @@ export function useHistory({
     historyLoading,
     historyFilter,
     setHistoryFilter,
+    historySearchMode,
+    setHistorySearchMode,
+    historyFileIndexing,
     selectedCommitSha,
     setSelectedCommitSha,
     commitDetails,

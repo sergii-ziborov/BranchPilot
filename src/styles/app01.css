@@ -113,7 +113,9 @@ html[data-platform='linux'] .shell-bar-row {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  flex: 0 0 188px;
   height: 40px;
+  width: 188px;
   padding: 0 12px;
   border: 0;
   border-left: 1px solid var(--border);
@@ -124,6 +126,12 @@ html[data-platform='linux'] .shell-bar-row {
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.shell-sync-primary > span:first-of-type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .shell-sync-primary:hover:not(:disabled) {
@@ -437,7 +445,9 @@ button.icon-button.active {
 .shell-aheadbehind {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 2px;
+  margin-left: auto;
   padding: 0 6px;
   color: var(--muted);
   font-size: 12px;
@@ -2059,8 +2069,8 @@ button.danger-button:hover {
 /* Reports: back button inline, before the Daily review / LinkedIn tabs. */
 .reports-topbar {
   display: flex;
-  align-items: flex-end;
-  gap: 14px;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }

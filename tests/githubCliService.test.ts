@@ -138,6 +138,7 @@ describe('GitHub CLI bridge', () => {
 
   it('lists GitHub user and organization accounts through gh', async () => {
     const runner = new GitHubCliTestRunner({
+      userEmails: ['primary@branchpilot.test', 'work@branchpilot.test'],
       accounts: [
         makeAccount({ login: 'branchpilot-user', type: 'user' }),
         makeAccount({ login: 'branchpilot-org', label: 'BranchPilot Org', type: 'organization' })
@@ -145,13 +146,14 @@ describe('GitHub CLI bridge', () => {
     })
 
     await expect(listGitHubAccounts(runner)).resolves.toEqual([
-      makeAccount({ login: 'branchpilot-user', type: 'user' }),
+      makeAccount({ login: 'branchpilot-user', type: 'user', emails: ['primary@branchpilot.test', 'work@branchpilot.test'] }),
       makeAccount({ login: 'branchpilot-org', label: 'BranchPilot Org', type: 'organization' })
     ])
 
     expect(runner.ghApiArgs).toEqual([
       ['api', 'user'],
-      ['api', 'user/orgs', '--paginate']
+      ['api', 'user/orgs', '--paginate'],
+      ['api', 'user/emails', '--paginate']
     ])
   })
 
@@ -213,6 +215,49 @@ describe('GitHub CLI bridge', () => {
       'api',
       'orgs/branchpilot-org/members?per_page=100',
       '--paginate'
+    ])
+  })
+
+  it('returns GitHub co-author suggestions for an empty search query', async () => {
+    const runner = new GitHubCliTestRunner({
+      accounts: [
+        makeAccount({ login: 'branchpilot-user', type: 'user' }),
+        makeAccount({ login: 'branchpilot-org', label: 'BranchPilot Org', type: 'organization' })
+      ],
+      orgMembers: {
+        'branchpilot-org': [
+          makeCoAuthor({
+            name: 'Ada Lovelace',
+            login: 'ada-lovelace',
+            email: '1843+ada-lovelace@users.noreply.github.com'
+          })
+        ]
+      }
+    })
+
+    await expect(searchGitHubCoAuthors(
+      runner,
+      { query: '', limit: 10 },
+      new FakeGitHubCredentialProvider(null)
+    )).resolves.toEqual([
+      {
+        name: 'branchpilot-user',
+        email: 'branchpilot-user@users.noreply.github.com',
+        login: 'branchpilot-user',
+        avatarUrl: undefined,
+        profileUrl: 'https://github.com/branchpilot-user',
+        source: 'github',
+        organization: undefined
+      },
+      {
+        name: 'Ada Lovelace',
+        email: '1843+ada-lovelace@users.noreply.github.com',
+        login: 'ada-lovelace',
+        avatarUrl: 'https://avatars.githubusercontent.com/ada-lovelace',
+        profileUrl: 'https://github.com/ada-lovelace',
+        source: 'organization',
+        organization: 'branchpilot-org'
+      }
     ])
   })
 

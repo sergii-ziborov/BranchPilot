@@ -15,6 +15,29 @@ import type { RequestConfirmation } from '../lib/prompts'
 import { useVirtualList } from './useVirtualList'
 
 type DiffDisplayMode = 'unified' | 'split'
+type ChangeSearchMode = 'path' | 'content' | 'all'
+
+const CHANGE_CONTENT_SEARCH_LIMIT = 120
+const DEFAULT_DIFF_CONTEXT_LINES = 3
+const EXPANDED_DIFF_CONTEXT_LINES = 40
+
+function changeSearchText(change: FileChange): string {
+  return [change.path, change.originalPath, change.status, changeLabel(change)]
+    .filter((value): value is string => Boolean(value))
+    .join('\n')
+}
+
+function getChangeIndexKey(snapshot: RepositorySnapshot | null): string {
+  if (!snapshot) return ''
+  return [
+    snapshot.summary.rootPath,
+    snapshot.summary.headOid,
+    snapshot.status.changes
+      .map((change) => `${change.path}:${change.stagedStatus ?? ''}:${change.unstagedStatus ?? ''}:${change.additions ?? ''}:${change.deletions ?? ''}`)
+      .sort()
+      .join('|')
+  ].join('::')
+}
 
 /** Owns change selection, diff viewing, staging, and patch operations. */
 export function useChanges({
@@ -44,6 +67,7 @@ export function useChanges({
 }) {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [changeFilter, setChangeFilter] = useState('')
+  const [changeSearchMode, setChangeSearchMode] = useState<ChangeSearchMode>('path')
   const [diffMode, setDiffMode] = useState<ChangeDiffMode>('unstaged')
   const [diffDisplayMode, setDiffDisplayMode] = useState<DiffDisplayMode>('unified')
   const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
@@ -51,8 +75,11 @@ export function useChanges({
   const [diff, setDiff] = useState<DiffResult | null>(null)
   const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null)
   const [patchScope, setPatchScope] = useState<PatchScope>('working-tree')
+  const [changeContentIndex, setChangeContentIndex] = useState<Map<string, string>>(new Map())
+  const [changeContentIndexing, setChangeContentIndexing] = useState(false)
   const diffRequestIdRef = useRef(0)
   const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
+  const changeIndexKey = useMemo(() => getChangeIndexKey(snapshot), [snapshot])
 
   const filteredChanges = useMemo(() => {
     // Stable alphabetical order so staging/unstaging a file never reorders the
@@ -62,12 +89,12 @@ export function useChanges({
 
     if (!query) return changes
 
-    return changes.filter((change) =>
-      [change.path, change.originalPath, change.status, changeLabel(change)]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(query))
-    )
-  }, [changeFilter, snapshot])
+    return changes.filter((change) => {
+      const metadataMatches = changeSearchMode !== 'content' && changeSearchText(change).toLowerCase().includes(query)
+      const contentMatches = changeSearchMode !== 'path' && (changeContentIndex.get(change.path) ?? '').toLowerCase().includes(query)
+      return metadataMatches || contentMatches
+    })
+  }, [changeContentIndex, changeFilter, changeSearchMode, snapshot])
 
   const selectedChange = useMemo(
     () => snapshot?.status.changes.find((change) => change.path === selectedFilePath) ?? null,
@@ -79,7 +106,11 @@ export function useChanges({
     return getDiffStats(diff)
   }, [diff])
 
-  const virtualChanges = useVirtualList(filteredChanges, CHANGE_LIST_ITEM_HEIGHT, `${snapshot?.summary.rootPath ?? ''}|${changeFilter}`)
+  const virtualChanges = useVirtualList(
+    filteredChanges,
+    CHANGE_LIST_ITEM_HEIGHT,
+    `${snapshot?.summary.rootPath ?? ''}|${changeFilter}|${changeSearchMode}|${changeContentIndex.size}`
+  )
   const bulkStageToggleState = getBulkStageToggleState(counts)
   const selectedFileTarget = currentRepoPath && selectedChange ? `${currentRepoPath}/${selectedChange.path}` : null
 
@@ -93,7 +124,7 @@ export function useChanges({
       filePath: change.path,
       staged,
       ignoreWhitespace: diffIgnoreWhitespace,
-      contextLines: diffExpanded ? 100000 : 3
+      contextLines: diffExpanded ? EXPANDED_DIFF_CONTEXT_LINES : DEFAULT_DIFF_CONTEXT_LINES
     })
 
     if (diffRequestIdRef.current !== requestId) return
@@ -288,6 +319,75 @@ export function useChanges({
   }, [])
 
   useEffect(() => {
+    setChangeContentIndex(new Map())
+    setChangeContentIndexing(false)
+  }, [changeIndexKey])
+
+  useEffect(() => {
+    const query = changeFilter.trim()
+    if (!api || !currentRepoPath || !snapshot || !query || changeSearchMode === 'path') {
+      setChangeContentIndexing(false)
+      return
+    }
+
+    const changes = [...snapshot.status.changes]
+      .sort((a, b) => a.path.localeCompare(b.path))
+      .filter((change) => !changeContentIndex.has(change.path))
+      .slice(0, CHANGE_CONTENT_SEARCH_LIMIT)
+
+    if (changes.length === 0) {
+      setChangeContentIndexing(false)
+      return
+    }
+
+    let cancelled = false
+    setChangeContentIndexing(true)
+
+    const loadIndex = async () => {
+      const entries: [string, string][] = []
+
+      for (const change of changes) {
+        if (cancelled) return
+
+        const stagedModes = new Set<boolean>()
+        if (change.staged) stagedModes.add(true)
+        if (change.unstaged || change.untracked || !change.staged) stagedModes.add(false)
+
+        const chunks: string[] = []
+        for (const staged of stagedModes) {
+          const result = await api.getDiff({
+            repoPath: currentRepoPath,
+            filePath: change.path,
+            staged,
+            ignoreWhitespace: false,
+            contextLines: 20
+          }).catch(() => null)
+
+          if (cancelled) return
+          if (result?.ok) chunks.push(result.data.text)
+        }
+
+        entries.push([change.path, chunks.join('\n')])
+      }
+
+      if (cancelled) return
+
+      setChangeContentIndex((current) => {
+        const next = new Map(current)
+        for (const [path, text] of entries) next.set(path, text)
+        return next
+      })
+      setChangeContentIndexing(false)
+    }
+
+    void loadIndex()
+
+    return () => {
+      cancelled = true
+    }
+  }, [api, changeFilter, changeIndexKey, changeSearchMode, currentRepoPath, snapshot])
+
+  useEffect(() => {
     if (!snapshot) return
 
     const filterActive = changeFilter.trim().length > 0
@@ -325,6 +425,7 @@ export function useChanges({
 
   return {
     selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter,
+    changeSearchMode, setChangeSearchMode, changeContentIndexing,
     diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
     diffExpanded, setDiffExpanded,
     diff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,

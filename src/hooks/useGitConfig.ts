@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type {
   ApiResult, BranchPilotApi, EditorPreference, EditorSettings,
-  GitConfigSnapshot, RemoteSummary, RepositorySnapshot
+  GitConfigSnapshot, RemoteSummary, RepositorySnapshot, TerminalPreference, TerminalSettings
 } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
-import { editorPreferenceLabel } from '../lib/editorLabels'
+import { editorPreferenceLabel, terminalPreferenceLabel } from '../lib/editorLabels'
 import type { RequestConfirmation } from '../lib/prompts'
 
 /** Owns Git identity, editor settings, and remote management state + handlers. */
@@ -31,6 +31,9 @@ export function useGitConfig({
   const [editorSettings, setEditorSettings] = useState<EditorSettings | null>(null)
   const [editorPreference, setEditorPreference] = useState<EditorPreference>('vscode')
   const [editorCustomCommand, setEditorCustomCommand] = useState('')
+  const [terminalSettings, setTerminalSettings] = useState<TerminalSettings | null>(null)
+  const [terminalPreference, setTerminalPreference] = useState<TerminalPreference>('auto')
+  const [terminalCustomCommand, setTerminalCustomCommand] = useState('')
   const [editorSettingsLoading, setEditorSettingsLoading] = useState(false)
   const [localUserName, setLocalUserName] = useState('')
   const [localUserEmail, setLocalUserEmail] = useState('')
@@ -41,15 +44,27 @@ export function useGitConfig({
   async function loadEditorSettings() {
     if (!api) return
     setEditorSettingsLoading(true)
-    const result = await api.getEditorSettings()
+    const [editorResult, terminalResult] = await Promise.all([
+      api.getEditorSettings(),
+      api.getTerminalSettings()
+    ])
 
-    if (result.ok) {
-      setEditorSettings(result.data)
-      setEditorPreference(result.data.preference)
-      setEditorCustomCommand(result.data.customCommand ?? '')
+    if (editorResult.ok) {
+      setEditorSettings(editorResult.data)
+      setEditorPreference(editorResult.data.preference)
+      setEditorCustomCommand(editorResult.data.customCommand ?? '')
     } else {
-      setError(result.error.message)
-      setNotice(branchPilotErrorText(result.error))
+      setError(editorResult.error.message)
+      setNotice(branchPilotErrorText(editorResult.error))
+    }
+
+    if (terminalResult.ok) {
+      setTerminalSettings(terminalResult.data)
+      setTerminalPreference(terminalResult.data.preference)
+      setTerminalCustomCommand(terminalResult.data.customCommand ?? '')
+    } else {
+      setError(terminalResult.error.message)
+      setNotice(branchPilotErrorText(terminalResult.error))
     }
 
     setEditorSettingsLoading(false)
@@ -69,6 +84,28 @@ export function useGitConfig({
       setEditorPreference(result.data.preference)
       setEditorCustomCommand(result.data.customCommand ?? '')
       setNotice(`Default editor set to ${editorPreferenceLabel(result.data.preference)}.`)
+    } else {
+      setError(result.error.message)
+      setNotice(branchPilotErrorText(result.error))
+    }
+
+    setEditorSettingsLoading(false)
+  }
+
+  async function saveTerminalSettings() {
+    if (!api) return
+    setEditorSettingsLoading(true)
+    setError(null)
+    const result = await api.setTerminalSettings({
+      preference: terminalPreference,
+      customCommand: terminalPreference === 'custom' ? terminalCustomCommand.trim() : undefined
+    })
+
+    if (result.ok) {
+      setTerminalSettings(result.data)
+      setTerminalPreference(result.data.preference)
+      setTerminalCustomCommand(result.data.customCommand ?? '')
+      setNotice(`Default terminal set to ${terminalPreferenceLabel(result.data.preference)}.`)
     } else {
       setError(result.error.message)
       setNotice(branchPilotErrorText(result.error))
@@ -183,6 +220,8 @@ export function useGitConfig({
     gitConfig, setGitConfig,
     editorSettings, editorPreference, setEditorPreference,
     editorCustomCommand, setEditorCustomCommand, editorSettingsLoading,
+    terminalSettings, terminalPreference, setTerminalPreference,
+    terminalCustomCommand, setTerminalCustomCommand, saveTerminalSettings,
     localUserName, setLocalUserName, localUserEmail, setLocalUserEmail,
     remoteName, setRemoteName, remoteUrl, setRemoteUrl, editingRemoteName,
     loadEditorSettings, saveEditorSettings, loadGitConfig, saveLocalGitIdentity,

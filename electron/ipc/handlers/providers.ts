@@ -1,9 +1,13 @@
+import { existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
 import type {
   CheckoutPullRequestRequest,
   CreateGitHubRepositoryRequest,
   CreatePullRequestRequest,
   EditorOpenRequest,
   EditorSettingsUpdate,
+  TerminalSettingsUpdate,
   GitHubCoAuthorSearchRequest,
   ListGitHubRepositoriesRequest,
   PullRequestDetailsRequest
@@ -29,6 +33,9 @@ import { withProjectMemoryRefresh } from '../ipcTypes.js'
 import type { createIpcHelpers } from '../ipcHelpers.js'
 import type { RegisterIpcHandlersServices } from '../ipcTypes.js'
 
+const require = createRequire(import.meta.url)
+const { shell } = require('electron') as typeof import('electron')
+
 export function registerProviderHandlers(
   helpers: ReturnType<typeof createIpcHelpers>,
   services: RegisterIpcHandlersServices
@@ -41,7 +48,17 @@ export function registerProviderHandlers(
   handle('editor:open', async (request: EditorOpenRequest) =>
     editorService.openInEditor(request.targetPath, request.line, await settingsStore.getEditorSettings())
   )
-  handle('terminal:open', (targetPath: string) => editorService.openTerminal(targetPath))
+  handle('terminal:getSettings', () => settingsStore.getTerminalSettings())
+  handle('terminal:setSettings', (update: TerminalSettingsUpdate) => settingsStore.setTerminalSettings(update))
+  handle('terminal:open', async (targetPath: string) => editorService.openTerminal(targetPath, await settingsStore.getTerminalSettings()))
+  handle('filesystem:showItem', (targetPath: string) => {
+    const absolutePath = path.resolve(targetPath)
+    const existingTarget = existsSync(absolutePath) ? absolutePath : path.dirname(absolutePath)
+    shell.showItemInFolder(existingTarget)
+    return {
+      message: existsSync(absolutePath) ? 'Shown in file manager.' : 'Opened containing folder.'
+    }
+  })
 
   handle('providers:list', () => listProviderStatuses(commandRunner))
   handle('providers:githubCliStatus', (repoPath?: string) => getGitHubCliStatus(commandRunner, repoPath))

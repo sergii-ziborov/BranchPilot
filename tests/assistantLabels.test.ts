@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   assistantActionLabel,
+  assistantBaseId,
   assistantLabel,
+  assistantSelectionLabel,
   assistantPolicyAllows,
   assistantPolicyBlockedLabel,
   assistantPolicyModeLabel,
@@ -33,6 +35,13 @@ describe('assistantLabel', () => {
   it('names each assistant', () => {
     expect(assistantLabel('claude')).toBe('Claude Code')
     expect(assistantLabel('codex')).toBe('Codex')
+    expect(assistantLabel('claude:opus')).toBe('Claude Code')
+  })
+
+  it('maps model selections back to their provider', () => {
+    expect(assistantBaseId('claude:sonnet')).toBe('claude')
+    expect(assistantBaseId('codex:gpt-5-codex')).toBe('codex')
+    expect(assistantSelectionLabel('codex:gpt-5')).toBe('Codex - GPT-5')
   })
 })
 
@@ -103,6 +112,12 @@ describe('assistantReadinessSummary', () => {
     const summary = assistantReadinessSummary([makeStatus({ id: 'claude', label: 'Claude Code', state: 'ready', message: 'OK' })], 'claude')
     expect(summary.state).toBe('ready')
     expect(summary.title).toBe('Claude Code: ready')
+  })
+
+  it('reflects a configured model-specific assistant state', () => {
+    const summary = assistantReadinessSummary([makeStatus({ id: 'claude', label: 'Claude Code', state: 'ready', message: 'OK' })], 'claude:opus')
+    expect(summary.state).toBe('ready')
+    expect(summary.title).toBe('Claude Code / Opus: ready')
   })
 
   it('auto prefers a ready assistant', () => {

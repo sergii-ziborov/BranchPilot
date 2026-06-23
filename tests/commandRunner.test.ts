@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { promises as fs } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { CommandRunner } from '../electron/lib/commandRunner'
 
 describe('CommandRunner', () => {
@@ -38,5 +41,22 @@ describe('CommandRunner', () => {
     expect(result.stderr).toBe('bbbbb')
     expect(result.stdoutTruncated).toBe(true)
     expect(result.stderrTruncated).toBe(true)
+  })
+
+  const itOnWindows = process.platform === 'win32' ? it : it.skip
+
+  itOnWindows('runs Windows cmd shims from paths with spaces', async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'branchpilot command runner '))
+    const shimPath = path.join(tempDir, 'editor shim.cmd')
+    await fs.writeFile(shimPath, '@echo off\r\necho %~1\r\n', 'utf8')
+
+    try {
+      const runner = new CommandRunner()
+      const result = await runner.run(shimPath, ['safe literal'])
+
+      expect(result.stdout.trim()).toBe('safe literal')
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true })
+    }
   })
 })

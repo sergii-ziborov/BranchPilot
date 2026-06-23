@@ -9,6 +9,7 @@ import type {
   ContributorStatsRequest,
   ContributorStatsWindow,
   RecentRepository,
+  RepositoryScopeRequest,
   RepositoryRhythm
 } from '../../src/shared/branchPilot.js'
 import { computeRhythm, rhythmLogArgs } from './rhythmAnalytics.js'
@@ -71,9 +72,7 @@ export class RepositoryActivityAnalytics {
    */
   async getContributorStats(request?: string | ContributorStatsRequest): Promise<ContributorStat[]> {
     const normalizedRequest = normalizeContributorStatsRequest(request)
-    const repoPaths = normalizedRequest.repoPath
-      ? [await this.kernel.resolveRepositoryRoot(normalizedRequest.repoPath)]
-      : (await this.kernel.getRecentRepositories()).slice(0, 12).map((repo) => repo.path)
+    const repoPaths = await this.resolveScopePaths(normalizedRequest)
     const sinceArg = contributorStatsSinceArg(normalizedRequest.window)
 
     const logs = await Promise.all(
@@ -156,10 +155,8 @@ export class RepositoryActivityAnalytics {
   }
 
   /** Commit activity over the last ~53 weeks, aggregated for a GitHub-style heatmap. */
-  async getContributionGraph(repoPath?: string): Promise<ContributionGraph> {
-    const repoPaths = repoPath
-      ? [repoPath]
-      : (await this.kernel.getRecentRepositories()).slice(0, 12).map((repo) => repo.path)
+  async getContributionGraph(request?: string | RepositoryScopeRequest): Promise<ContributionGraph> {
+    const repoPaths = await this.resolveScopePaths(normalizeRepositoryScopeRequest(request))
 
     // Repositories are independent: run the git logs in parallel, then merge.
     const logs = await Promise.all(
@@ -200,6 +197,20 @@ export class RepositoryActivityAnalytics {
     }
 
     return { days, total }
+  }
+
+  private async resolveScopePaths(scope: RepositoryScopeRequest): Promise<string[]> {
+    const explicitPaths = normalizeScopePathList([
+      ...(scope.repoPaths ?? []),
+      ...(scope.repoPath ? [scope.repoPath] : [])
+    ])
+
+    if (explicitPaths.length > 0) {
+      const resolved = await Promise.all(explicitPaths.map((repoPath) => this.kernel.resolveRepositoryRoot(repoPath)))
+      return normalizeScopePathList(resolved)
+    }
+
+    return (await this.kernel.getRecentRepositories()).slice(0, 24).map((repo) => repo.path)
   }
 
   /** Cadence / velocity / churn analytics from local git history ("Rhythm"). */
@@ -285,7 +296,7 @@ function mergeContributorGroups(
   return targetKey
 }
 
-function normalizeContributorStatsRequest(request?: string | ContributorStatsRequest): { repoPath?: string; window: ContributorStatsWindow } {
+function normalizeContributorStatsRequest(request?: string | ContributorStatsRequest): RepositoryScopeRequest & { window: ContributorStatsWindow } {
   if (typeof request === 'string') {
     return {
       repoPath: request,
@@ -295,8 +306,36 @@ function normalizeContributorStatsRequest(request?: string | ContributorStatsReq
 
   return {
     ...(request?.repoPath ? { repoPath: request.repoPath } : {}),
+    ...(request?.repoPaths?.length ? { repoPaths: normalizeScopePathList(request.repoPaths) } : {}),
     window: normalizeContributorStatsWindow(request?.window)
   }
+}
+
+function normalizeRepositoryScopeRequest(request?: string | RepositoryScopeRequest): RepositoryScopeRequest {
+  if (typeof request === 'string') {
+    return { repoPath: request }
+  }
+
+  return {
+    ...(request?.repoPath ? { repoPath: request.repoPath } : {}),
+    ...(request?.repoPaths?.length ? { repoPaths: normalizeScopePathList(request.repoPaths) } : {})
+  }
+}
+
+function normalizeScopePathList(paths: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const path of paths) {
+    const trimmed = path.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(trimmed)
+  }
+
+  return normalized
 }
 
 function normalizeContributorStatsWindow(window?: ContributorStatsWindow): ContributorStatsWindow {
@@ -317,7 +356,7 @@ function contributorNameKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-function contributorProfileFields(name: string, email: string): Pick<ContributorStat, 'login' | 'avatarUrl' | 'profileUrl' | 'profileSearchUrl'> {
+function contributorProfileFields(_name: string, email: string): Pick<ContributorStat, 'login' | 'avatarUrl' | 'profileUrl'> {
   const login = inferGitHubLogin(email)
   const normalizedEmail = email.trim().toLowerCase()
 
@@ -330,8 +369,7 @@ function contributorProfileFields(name: string, email: string): Pick<Contributor
         }
       : {
           avatarUrl: `https://www.gravatar.com/avatar/${md5(normalizedEmail)}?s=96&d=identicon`
-        }),
-    profileSearchUrl: `https://github.com/search?q=${encodeURIComponent(`${name} ${email}`)}&type=users`
+        })
   }
 }
 

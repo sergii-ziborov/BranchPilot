@@ -14,6 +14,7 @@ import type {
   CommitDetailsRequest,
   CommitFileDiffRequest,
   DailyReviewRequest,
+  DiffContextRequest,
   DiffRequest,
   ImagePreviewRequest,
   ProjectMemoryScanResult,
@@ -119,10 +120,11 @@ export function registerRepositoryHandlers(
   // (auto-refresh polls it, and the log feeds AI generation).
   handle('repository:refresh', (repoPath: string) => repositoryService.getSnapshot(repoPath))
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
+  handle('repository:diffContext', (request: DiffContextRequest) => repositoryService.getDiffContext(request))
   handle('repository:imagePreview', (request: ImagePreviewRequest) => repositoryService.getImagePreview(request))
-  handle('repository:contributionGraph', (repoPath?: string) => repositoryService.activity.getContributionGraph(repoPath))
+  handle('repository:contributionGraph', (request?: string | { repoPath?: string; repoPaths?: string[] }) => repositoryService.activity.getContributionGraph(request))
   handle('repository:rhythm', (repoPath?: string) => repositoryService.activity.getRepositoryRhythm(repoPath))
-  handle('repository:contributorStats', (request?: string | { repoPath?: string; window?: 'all' | 'year' | 'month' | 'week' | 'day' }) =>
+  handle('repository:contributorStats', (request?: string | { repoPath?: string; repoPaths?: string[]; window?: 'all' | 'year' | 'month' | 'week' | 'day' }) =>
     repositoryService.activity.getContributorStats(request)
   )
   handle('repository:contributors', (repoPath: string) => repositoryService.activity.getContributors(repoPath))

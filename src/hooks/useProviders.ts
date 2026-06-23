@@ -149,8 +149,8 @@ export function useProviders({
     }
   }
 
-  async function loadGitHubAccounts(statusOverride?: GitHubCliStatus | null) {
-    await fetchGitHubAccounts(statusOverride)
+  async function loadGitHubAccounts(statusOverride?: GitHubCliStatus | null, quiet = false) {
+    await fetchGitHubAccounts(statusOverride, quiet)
   }
 
   async function fetchGitHubAccounts(statusOverride?: GitHubCliStatus | null, quiet = false): Promise<GitHubAccountSummary[]> {
@@ -158,7 +158,7 @@ export function useProviders({
 
     setGithubAccountsLoading(true)
     setError(null)
-    const status = statusOverride ?? githubCliStatus ?? await loadGitHubCliStatus()
+    const status = statusOverride ?? (githubCliStatus?.authenticated ? githubCliStatus : await loadGitHubCliStatus())
 
     if (!status?.authenticated) {
       setGithubAccounts([])
@@ -195,7 +195,7 @@ export function useProviders({
 
     setGithubRepoLoading(true)
     setError(null)
-    const status = githubCliStatus ?? await loadGitHubCliStatus()
+    const status = githubCliStatus?.authenticated ? githubCliStatus : await loadGitHubCliStatus()
 
     if (!status?.authenticated) {
       setGithubRepositories([])
@@ -302,6 +302,11 @@ export function useProviders({
     void loadProviders()
     await loadGitHubCliStatus()
   }
+
+  useEffect(() => {
+    if (!api) return
+    void loadGitHubCliStatus()
+  }, [api, currentRepoPath])
 
   async function connectGitHub() {
     if (!api) return

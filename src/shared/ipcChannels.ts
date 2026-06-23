@@ -18,6 +18,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'editor:getSettings',
   'editor:open',
   'editor:setSettings',
+  'filesystem:showItem',
   'git:amendCommit',
   'git:applyPatch',
   'git:cherryPickCommit',
@@ -88,6 +89,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'repository:dashboard',
   'repository:rhythm',
   'repository:diff',
+  'repository:diffContext',
   'repository:generateProjectWiki',
   'repository:gitConfig',
   'repository:history',
@@ -105,7 +107,9 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'stash:create',
   'stash:drop',
   'stash:list',
-  'terminal:open'
+  'terminal:getSettings',
+  'terminal:open',
+  'terminal:setSettings'
 ] as const
 
 export type BranchPilotIpcChannel = typeof BRANCH_PILOT_IPC_CHANNELS[number]

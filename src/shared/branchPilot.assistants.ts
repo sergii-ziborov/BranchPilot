@@ -112,6 +112,7 @@ export type DailyReviewActionPriority = 'high' | 'normal'
 
 export interface DailyReviewRequest {
   repoPath: string
+  repoPaths?: string[]
   date?: string
 }
 

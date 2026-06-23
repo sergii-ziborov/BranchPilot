@@ -27,7 +27,7 @@ import {
 } from './githubCliService.api.js'
 import { normalizeConfigValue, normalizeRemoteName } from '../lib/repositoryService.helpers.js'
 import {
-  PR_CHECK_JSON_FIELDS, PR_DETAILS_JSON_FIELDS, PR_JSON_FIELDS, REPOSITORY_JSON_FIELDS, filterGitHubRepositories, normalizeGitHubAccount, normalizeGitHubPullRequestDetails, normalizeGitHubRepository, normalizeOptionalGitHubOwner, normalizePullRequestNumber, normalizeRepositoryListLimit, optionalString, parseGitHubAccountList, parseGitHubJson, parseGitHubPullRequest, parseGitHubPullRequestChecks, parseGitHubPullRequestDiff, parseGitHubPullRequestList, parseGitHubRepositoryList, uniqueGitHubAccounts
+  PR_CHECK_JSON_FIELDS, PR_DETAILS_JSON_FIELDS, PR_JSON_FIELDS, REPOSITORY_JSON_FIELDS, filterGitHubRepositories, normalizeGitHubAccount, normalizeGitHubPullRequestDetails, normalizeGitHubRepository, normalizeOptionalGitHubOwner, normalizePullRequestNumber, normalizeRepositoryListLimit, optionalString, parseGitHubAccountList, parseGitHubEmailList, parseGitHubJson, parseGitHubPullRequest, parseGitHubPullRequestChecks, parseGitHubPullRequestDiff, parseGitHubPullRequestList, parseGitHubRepositoryList, uniqueGitHubAccounts
 } from './githubCliService.parsers.js'
 import type { GitHubRepositoryInfo } from './githubCliService.shared.js'
 import { isSafeGitHubPathSegment } from './githubCliService.shared.js'
@@ -395,11 +395,29 @@ export async function listGitHubAccounts(
   const orgsResult = await runner.run(status.executable, ['api', 'user/orgs', '--paginate'], {
     timeoutMs: 45_000
   })
+  const emailsResult = await runner.run(status.executable, ['api', 'user/emails', '--paginate'], {
+    allowedExitCodes: [0, 1],
+    timeoutMs: 30_000
+  })
+  const viewer = normalizeGitHubAccount(parseGitHubJson(viewerResult.stdout, 'github_account_parse_failed', 'GitHub CLI did not return a valid account.'), 'user')
+  const emails = emailsResult.exitCode === 0 ? safeParseGitHubEmailList(emailsResult.stdout) : []
+
+  if (emails.length > 0) {
+    viewer.emails = emails
+  }
 
   return uniqueGitHubAccounts([
-    normalizeGitHubAccount(parseGitHubJson(viewerResult.stdout, 'github_account_parse_failed', 'GitHub CLI did not return a valid account.'), 'user'),
+    viewer,
     ...parseGitHubAccountList(orgsResult.stdout, 'organization')
   ])
+}
+
+function safeParseGitHubEmailList(output: string): string[] {
+  try {
+    return parseGitHubEmailList(output)
+  } catch {
+    return []
+  }
 }
 
 export async function listGitHubContributors(runner: CommandRunner, repoPath: string): Promise<CoAuthor[]> {
@@ -460,7 +478,7 @@ export async function searchGitHubCoAuthors(
   credentialProvider = DEFAULT_CREDENTIAL_PROVIDER
 ): Promise<CoAuthor[]> {
   const query = normalizeCoAuthorSearchQuery(request.query)
-  if (query.length < 2) return []
+  if (query.length === 1) return []
 
   const limit = normalizeCoAuthorSearchLimit(request.limit)
   const status = await getGitHubCliStatus(runner, request.repoPath)
@@ -629,7 +647,7 @@ function normalizeCoAuthorSearchQuery(query: string): string {
 
 function normalizeCoAuthorSearchLimit(limit?: number): number {
   if (!Number.isFinite(limit)) return 12
-  return Math.max(1, Math.min(25, Math.trunc(limit ?? 12)))
+  return Math.max(1, Math.min(100, Math.trunc(limit ?? 12)))
 }
 
 export async function listGitHubRepositories(
