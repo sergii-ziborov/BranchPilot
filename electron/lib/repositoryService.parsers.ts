@@ -4,6 +4,7 @@ import { normalizeNativePath } from './platformExecutables.js'
 import type {
   CommitFileChange,
   CommitSummary,
+  GitGraphToken,
   GitLfsFile,
   GitLfsFileStatus,
   GitLfsPattern,
@@ -14,6 +15,64 @@ import type {
 } from '../../src/shared/branchPilot.js'
 
 /** Parsers: git/gh output -> structured RepositoryService models. */
+
+const GRAPH_PAYLOAD_SEPARATOR = '\x1f'
+const ANSI_PATTERN = /\x1b\[[0-9;]*m/g
+const ANSI_COLOR_MAP = new Map<string, string>([
+  ['30', '#8b949e'],
+  ['31', '#ff7b72'],
+  ['32', '#3fb950'],
+  ['33', '#d29922'],
+  ['34', '#58a6ff'],
+  ['35', '#bc8cff'],
+  ['36', '#39c5cf'],
+  ['37', '#c9d1d9'],
+  ['90', '#6e7681'],
+  ['91', '#ff938a'],
+  ['92', '#56d364'],
+  ['93', '#eac54f'],
+  ['94', '#79c0ff'],
+  ['95', '#d2a8ff'],
+  ['96', '#56d4dd'],
+  ['97', '#f0f6fc'],
+  ['1;30', '#8b949e'],
+  ['1;31', '#ff938a'],
+  ['1;32', '#56d364'],
+  ['1;33', '#eac54f'],
+  ['1;34', '#79c0ff'],
+  ['1;35', '#d2a8ff'],
+  ['1;36', '#56d4dd'],
+  ['1;37', '#f0f6fc']
+])
+
+function stripAnsi(value: string): string {
+  return value.replace(ANSI_PATTERN, '')
+}
+
+function parseGraphTokens(value: string): GitGraphToken[] {
+  const tokens: GitGraphToken[] = []
+  let color: string | undefined
+  let column = 0
+  let index = 0
+
+  while (index < value.length) {
+    if (value[index] === '\x1b') {
+      const match = /^\x1b\[([0-9;]*)m/.exec(value.slice(index))
+      if (match) {
+        color = ANSI_COLOR_MAP.get(match[1] || '0')
+        index += match[0].length
+        continue
+      }
+    }
+
+    const ch = value[index]
+    if (ch !== ' ') tokens.push({ column, ch, ...(color ? { color } : {}) })
+    column += 1
+    index += 1
+  }
+
+  return tokens
+}
 
 export function normalizeRelativePath(filePath: string): string {
   if (!filePath || path.isAbsolute(filePath) || filePath.includes('..')) {
@@ -33,16 +92,69 @@ export function isConflictOutput(output: string): boolean {
 }
 
 export function parseCommitSummary(line: string): CommitSummary {
-  const [sha, shortSha, subject, authorName, authorEmail, authoredAt] = line.split('\0')
+  const payloadIndex = line.indexOf(GRAPH_PAYLOAD_SEPARATOR)
+  if (payloadIndex !== -1) {
+    const graphPrefixRaw = line.slice(0, payloadIndex)
+    const graphPrefix = stripAnsi(graphPrefixRaw).trimEnd()
+    const [sha, shortSha, subject, parentShasText, authorName, authorEmail, authoredAt] = stripAnsi(line.slice(payloadIndex + 1)).split('\0')
+    const graphPrefixTokens = parseGraphTokens(graphPrefixRaw)
+
+    return {
+      sha,
+      shortSha: shortSha || sha.slice(0, 7),
+      subject: subject || '',
+      parentShas: parentShasText ? parentShasText.split(' ').filter(Boolean) : [],
+      authorName: authorName || '',
+      authorEmail: authorEmail || '',
+      authoredAt: authoredAt || '',
+      ...(graphPrefix ? { graphPrefix } : {}),
+      ...(graphPrefixTokens.length ? { graphPrefixTokens } : {})
+    }
+  }
+
+  const firstSeparator = line.indexOf('\0')
+  const head = firstSeparator === -1 ? line : line.slice(0, firstSeparator)
+  const shaMatch = /([0-9a-f]{40})$/i.exec(head)
+  const graphPrefix = shaMatch && shaMatch.index > 0 ? head.slice(0, shaMatch.index).trimEnd() : undefined
+  const sha = shaMatch ? shaMatch[1] : head
+  const fields = firstSeparator === -1 ? [] : line.slice(firstSeparator + 1).split('\0')
+  const [shortSha, subject, parentShasText, authorName, authorEmail, authoredAt] = fields
 
   return {
     sha,
-    shortSha,
-    subject,
-    authorName,
-    authorEmail,
-    authoredAt
+    shortSha: shortSha || sha.slice(0, 7),
+    subject: subject || '',
+    parentShas: parentShasText ? parentShasText.split(' ').filter(Boolean) : [],
+    authorName: authorName || '',
+    authorEmail: authorEmail || '',
+    authoredAt: authoredAt || '',
+    ...(graphPrefix ? { graphPrefix } : {})
   }
+}
+
+export function parseCommitHistory(output: string): CommitSummary[] {
+  const commits: CommitSummary[] = []
+  let lastCommit: CommitSummary | null = null
+
+  for (const line of output.split('\n')) {
+    if (!line) continue
+
+    if (line.includes('\0')) {
+      const commit = parseCommitSummary(line)
+      commits.push(commit)
+      lastCommit = commit
+      continue
+    }
+
+    if (!lastCommit) continue
+    const rawGraphLine = line.trimEnd()
+    const graphLine = stripAnsi(rawGraphLine)
+    if (!graphLine) continue
+    lastCommit.graphAfter = [...(lastCommit.graphAfter ?? []), graphLine]
+    lastCommit.graphAfterTokens = [...(lastCommit.graphAfterTokens ?? []), parseGraphTokens(rawGraphLine)]
+  }
+
+  return commits
 }
 
 export function parseStashEntry(line: string): StashEntry {

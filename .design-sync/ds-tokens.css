@@ -1,0 +1,16 @@
+/*
+ * design-sync supplemental tokens.
+ *
+ * BranchPilot's component CSS references these four custom properties but never
+ * defines them on :root (the app relies on inline `var(--x, fallback)` defaults
+ * where present, and renders empty where not). They are defined here so the
+ * synced bundle is self-contained — values chosen to match the app's existing
+ * inline fallbacks and light-theme palette. Imported BEFORE src/index.css in
+ * .design-sync/entry.tsx; index.css does not set these, so it never overrides them.
+ */
+:root {
+  --danger: #f85149;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.16);
+  --border-strong: #b6c0cd;
+}

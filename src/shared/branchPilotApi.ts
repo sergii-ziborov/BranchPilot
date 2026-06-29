@@ -11,6 +11,7 @@ import type {
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
   CloneRepositoryRequest,
+  CommitCard,
   CommitDetails,
   CommitDetailsRequest,
   CommitFileDiffRequest,
@@ -50,6 +51,7 @@ import type {
   ExportedPatch,
   FileActionRequest,
   FileChangeStatus,
+  ForcePushRequest,
   GeneratedBranchDescription,
   GeneratedBranchDraft,
   GeneratedCommitMessage,
@@ -73,6 +75,8 @@ import type {
   PublishBranchRequest,
   PullRequestTextGenerationRequest,
   RecentRepository,
+  RepositoryBrowserRequest,
+  RepositoryBrowserSnapshot,
   RepositoryStarterGenerationRequest,
   RemoteRemoveRequest,
   RemoteUpsertRequest,
@@ -185,6 +189,7 @@ export interface GitHubAccountSummary {
   type: 'user' | 'organization'
   url: string
   emails?: string[]
+  avatarUrl?: string
 }
 
 export interface GitHubCoAuthorSearchRequest {
@@ -260,7 +265,9 @@ export interface BranchPilotApi {
   getVersion: () => Promise<string>
   chooseAndOpenRepository: () => Promise<ApiResult<RepositorySnapshot | null>>
   cloneRepository: (request: CloneRepositoryRequest) => Promise<ApiResult<RepositorySnapshot | null>>
+  initializeRepository: (path: string) => Promise<ApiResult<RepositorySnapshot>>
   openRepository: (path: string) => Promise<ApiResult<RepositorySnapshot>>
+  browseRepositoryDirectory: (request?: RepositoryBrowserRequest) => Promise<ApiResult<RepositoryBrowserSnapshot>>
   getRecentRepositories: () => Promise<ApiResult<RecentRepository[]>>
   setRepositoryPinned: (request: RepositoryPinRequest) => Promise<ApiResult<RecentRepository[]>>
   getRepositoryDashboard: (repoPath?: string) => Promise<ApiResult<RepositoryDashboardSnapshot>>
@@ -274,6 +281,7 @@ export interface BranchPilotApi {
   getContributors: (repoPath: string) => Promise<ApiResult<CoAuthor[]>>
   getGitHubContributors: (repoPath: string) => Promise<ApiResult<CoAuthor[]>>
   getHistory: (repoPath: string) => Promise<ApiResult<CommitSummary[]>>
+  getCommitCard: (request: CommitDetailsRequest) => Promise<ApiResult<CommitCard>>
   getCommitDetails: (request: CommitDetailsRequest) => Promise<ApiResult<CommitDetails>>
   getCommitFileDiff: (request: CommitFileDiffRequest) => Promise<ApiResult<DiffResult>>
   getProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemorySnapshot | null>>
@@ -308,6 +316,7 @@ export interface BranchPilotApi {
   amendCommit: (request: ConfirmedCommitRequest) => Promise<ApiResult<RepositorySnapshot>>
   revertCommit: (request: ConfirmedCommitReferenceRequest) => Promise<ApiResult<RepositorySnapshot>>
   cherryPickCommit: (request: ConfirmedCommitReferenceRequest) => Promise<ApiResult<RepositorySnapshot>>
+  resetToCommit: (request: ConfirmedCommitReferenceRequest) => Promise<ApiResult<RepositorySnapshot>>
   listStashes: (repoPath: string) => Promise<ApiResult<StashEntry[]>>
   createStash: (request: CreateStashRequest) => Promise<ApiResult<RepositorySnapshot>>
   applyStash: (request: StashActionRequest) => Promise<ApiResult<RepositorySnapshot>>
@@ -315,6 +324,7 @@ export interface BranchPilotApi {
   fetch: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   pull: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   push: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
+  forcePush: (request: ForcePushRequest) => Promise<ApiResult<RepositorySnapshot>>
   publishBranch: (request: PublishBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
   createBranch: (request: BranchActionRequest) => Promise<ApiResult<RepositorySnapshot>>
   renameBranch: (request: RenameBranchRequest) => Promise<ApiResult<RepositorySnapshot>>
@@ -343,6 +353,7 @@ export interface BranchPilotApi {
   abortMergeOperation: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   openInEditor: (request: EditorOpenRequest) => Promise<ApiResult<GitOperationResult>>
   openTerminal: (targetPath: string) => Promise<ApiResult<GitOperationResult>>
+  openFolderInFileManager: (targetPath: string) => Promise<ApiResult<GitOperationResult>>
   showItemInFolder: (targetPath: string) => Promise<ApiResult<GitOperationResult>>
   listProviders: () => Promise<ApiResult<ProviderStatus[]>>
   listAssistants: () => Promise<ApiResult<AssistantStatus[]>>

@@ -1,0 +1,294 @@
+.tool-modal.repository-picker-modal {
+  width: min(980px, calc(100vw - 48px));
+  height: min(78vh, 760px);
+}
+
+.repository-picker {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.repository-picker-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.repository-picker-location {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.repository-picker-location:hover:not(:disabled),
+.repository-picker-location.primary {
+  border-color: var(--border);
+  color: var(--text-strong);
+  background: var(--panel-2);
+}
+
+.repository-picker-location span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repository-picker-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px;
+  gap: 10px;
+}
+
+.repository-picker-path {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.repository-picker-path input,
+.repository-picker-search input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: var(--panel);
+  font: inherit;
+}
+
+.repository-picker-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.repository-picker-toolbar .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.repository-picker-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.repository-picker-search > svg {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.repository-picker-search input {
+  padding-left: 36px;
+}
+
+.repository-picker-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--panel);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.repository-picker-list {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow-y: auto;
+}
+
+.repository-picker-entry {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.repository-picker-entry:hover {
+  border-color: var(--border);
+  background: var(--panel-2);
+}
+
+.repository-picker-entry.selected,
+.repository-picker-entry.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+
+.repository-picker-entry-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.repository-picker-entry.is-repo .repository-picker-entry-icon {
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.repository-picker-entry-text {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.repository-picker-entry-text strong,
+.repository-picker-entry-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repository-picker-entry-text strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.repository-picker-entry-text small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.repository-picker-entry-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.repository-picker-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.repository-picker-badge.git {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.repository-picker-badge.active {
+  color: var(--text-strong);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+}
+
+.repository-picker-badge.recent {
+  color: var(--accent-strong);
+  border-color: color-mix(in srgb, var(--accent-strong) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent-strong) 10%, var(--panel));
+}
+
+.repository-picker-message {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.repository-picker-message.danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+
+.repository-picker-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+  gap: 8px;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.repository-picker-footer > span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repository-picker-footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  font-weight: 700;
+}
+
+.repository-picker-footer .secondary-button {
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--panel);
+}

@@ -49,8 +49,10 @@ export function useHistory({
   const [historySearchMode, setHistorySearchMode] = useState<HistorySearchMode>('commit')
   const [selectedCommitSha, setSelectedCommitSha] = useState<string | null>(null)
   const [commitDetails, setCommitDetails] = useState<CommitDetails | null>(null)
+  const [commitDetailsLoading, setCommitDetailsLoading] = useState(false)
   const [selectedCommitFilePath, setSelectedCommitFilePath] = useState<string | null>(null)
   const [commitFileDiff, setCommitFileDiff] = useState<DiffResult | null>(null)
+  const [commitFileDiffLoading, setCommitFileDiffLoading] = useState(false)
   const [historyFileIndex, setHistoryFileIndex] = useState<Map<string, string>>(new Map())
   const [historyFileIndexing, setHistoryFileIndexing] = useState(false)
   const commitDetailsRequestIdRef = useRef(0)
@@ -98,15 +100,28 @@ export function useHistory({
     const requestId = commitFileDiffRequestIdRef.current + 1
     commitFileDiffRequestIdRef.current = requestId
     setSelectedCommitFilePath(filePath)
-    const result = await api.getCommitFileDiff({ repoPath: currentRepoPath, commitSha, filePath })
+    setCommitFileDiffLoading(true)
 
-    if (commitFileDiffRequestIdRef.current !== requestId) return
+    try {
+      const result = await api.getCommitFileDiff({ repoPath: currentRepoPath, commitSha, filePath })
 
-    if (result.ok) {
-      setCommitFileDiff(result.data)
-    } else {
-      setCommitFileDiff(null)
-      setError(result.error.message)
+      if (commitFileDiffRequestIdRef.current !== requestId) return
+
+      if (result.ok) {
+        setCommitFileDiff(result.data)
+      } else {
+        setCommitFileDiff(null)
+        setError(result.error.message)
+      }
+    } catch (error) {
+      if (commitFileDiffRequestIdRef.current === requestId) {
+        setCommitFileDiff(null)
+        setError(error instanceof Error ? error.message : 'Failed to load commit file diff.')
+      }
+    } finally {
+      if (commitFileDiffRequestIdRef.current === requestId) {
+        setCommitFileDiffLoading(false)
+      }
     }
   }
 
@@ -114,22 +129,35 @@ export function useHistory({
     if (!api || !currentRepoPath) return
     const requestId = commitDetailsRequestIdRef.current + 1
     commitDetailsRequestIdRef.current = requestId
-    const result = await api.getCommitDetails({ repoPath: currentRepoPath, commitSha })
+    setCommitDetailsLoading(true)
 
-    if (commitDetailsRequestIdRef.current !== requestId) return
+    try {
+      const result = await api.getCommitDetails({ repoPath: currentRepoPath, commitSha })
 
-    if (result.ok) {
-      setCommitDetails(result.data)
-      const firstFile = result.data.files[0]
-      setSelectedCommitFilePath(firstFile?.path ?? null)
+      if (commitDetailsRequestIdRef.current !== requestId) return
 
-      if (firstFile) {
-        void loadCommitFileDiff(result.data.sha, firstFile.path)
+      if (result.ok) {
+        setCommitDetails(result.data)
+        const firstFile = result.data.files[0]
+        setSelectedCommitFilePath(firstFile?.path ?? null)
+
+        if (firstFile) {
+          void loadCommitFileDiff(result.data.sha, firstFile.path)
+        } else {
+          setCommitFileDiff(null)
+          setCommitFileDiffLoading(false)
+        }
       } else {
-        setCommitFileDiff(null)
+        setError(result.error.message)
       }
-    } else {
-      setError(result.error.message)
+    } catch (error) {
+      if (commitDetailsRequestIdRef.current === requestId) {
+        setError(error instanceof Error ? error.message : 'Failed to load commit details.')
+      }
+    } finally {
+      if (commitDetailsRequestIdRef.current === requestId) {
+        setCommitDetailsLoading(false)
+      }
     }
   }
 
@@ -209,6 +237,8 @@ export function useHistory({
       commitFileDiffRequestIdRef.current += 1
       setCommitDetails(null)
       setCommitFileDiff(null)
+      setCommitDetailsLoading(false)
+      setCommitFileDiffLoading(false)
       return
     }
 
@@ -227,8 +257,10 @@ export function useHistory({
     selectedCommitSha,
     setSelectedCommitSha,
     commitDetails,
+    commitDetailsLoading,
     selectedCommitFilePath,
     commitFileDiff,
+    commitFileDiffLoading,
     filteredHistory,
     virtualHistory,
     loadHistory,

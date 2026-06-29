@@ -1,5 +1,6 @@
 import { ArrowDownToLine, ArrowUpFromLine, DownloadCloud, FileCode2, FolderOpen, RefreshCcw, Terminal, UploadCloud } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, RepositorySnapshot } from '../shared/branchPilot'
+import { IconButton } from './IconButton'
 
 /** Workspace header: branch/sync summary and the repository action toolbar. */
 export function AppTopbar({
@@ -51,62 +52,38 @@ export function AppTopbar({
         )}
       </div>
       <div className="toolbar" aria-label="Repository actions">
-        <button className="icon-button" type="button" title="Open repository in editor" aria-label="Open repository in editor" onClick={openRepoInEditor} disabled={!snapshot || busy}>
-          <FolderOpen size={17} />
-        </button>
-        <button className="icon-button" type="button" title="Open selected file in editor" aria-label="Open selected file in editor" onClick={openSelectedFileInEditor} disabled={!selectedFileTarget || busy}>
-          <FileCode2 size={17} />
-        </button>
-        <button className="icon-button" type="button" title="Open terminal" aria-label="Open terminal" onClick={openRepositoryTerminal} disabled={!snapshot || busy}>
-          <Terminal size={17} />
-        </button>
-        <button className="icon-button" type="button" title="Refresh repository" aria-label="Refresh repository" onClick={() => refreshRepository()} disabled={!snapshot || busy}>
-          <RefreshCcw size={17} />
-        </button>
-        <button
-          className="icon-button"
-          type="button"
-          title="Fetch"
-          aria-label="Fetch"
+        <IconButton icon={<FolderOpen size={17} />} label="Open repository in editor" onClick={openRepoInEditor} disabled={!snapshot || busy} />
+        <IconButton icon={<FileCode2 size={17} />} label="Open selected file in editor" onClick={openSelectedFileInEditor} disabled={!selectedFileTarget || busy} />
+        <IconButton icon={<Terminal size={17} />} label="Open terminal" onClick={openRepositoryTerminal} disabled={!snapshot || busy} />
+        <IconButton icon={<RefreshCcw size={17} />} label="Refresh repository" onClick={() => refreshRepository()} disabled={!snapshot || busy} />
+        <IconButton
+          icon={<ArrowDownToLine size={17} />}
+          label="Fetch"
           onClick={() => currentRepoPath && runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath))}
           disabled={!canFetch || busy}
-        >
-          <ArrowDownToLine size={17} />
-        </button>
-        <button
-          className="icon-button"
-          type="button"
-          title="Pull"
-          aria-label="Pull"
+        />
+        <IconButton
+          icon={<DownloadCloud size={17} />}
+          label="Pull"
           onClick={() => currentRepoPath && runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath))}
           disabled={!canPull || busy}
-        >
-          <DownloadCloud size={17} />
-        </button>
-        <button
-          className="icon-button"
-          type="button"
-          title="Push"
-          aria-label="Push"
+        />
+        <IconButton
+          icon={<ArrowUpFromLine size={17} />}
+          label="Push"
           onClick={() => currentRepoPath && runSnapshotAction('Push complete.', () => api!.push(currentRepoPath))}
           disabled={!canPush || busy}
-        >
-          <ArrowUpFromLine size={17} />
-        </button>
+        />
         {canPublishBranch && snapshot && (
-          <button
-            className="icon-button"
-            type="button"
-            title="Publish branch"
-            aria-label="Publish branch"
+          <IconButton
+            icon={<UploadCloud size={17} />}
+            label="Publish branch"
             onClick={() => currentRepoPath && runSnapshotAction('Branch published.', () => api!.publishBranch({
               repoPath: currentRepoPath,
               remote: snapshot.summary.remoteName
             }))}
             disabled={!snapshot || busy}
-          >
-            <UploadCloud size={17} />
-          </button>
+          />
         )}
       </div>
     </header>

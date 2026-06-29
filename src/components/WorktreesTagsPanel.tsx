@@ -4,6 +4,7 @@ import type {
 } from '../shared/branchPilot'
 import { worktreeSummaryLabel } from '../lib/gitEntityLabels'
 import { formatDate } from '../lib/format'
+import { IconButton } from './IconButton'
 
 /** Worktrees + local tags management, surfaced inside Settings. */
 export function WorktreesTagsPanel({
@@ -12,7 +13,8 @@ export function WorktreesTagsPanel({
   newWorktreeBaseRef, setNewWorktreeBaseRef,
   createWorktree, openWorktree, removeWorktree,
   tagFilter, setTagFilter, newTagName, setNewTagName,
-  newTagMessage, setNewTagMessage, createTag, deleteTag
+  newTagMessage, setNewTagMessage, createTag, deleteTag,
+  panel = 'all'
 }: {
   snapshot: RepositorySnapshot | null
   api: BranchPilotApi | undefined
@@ -33,6 +35,7 @@ export function WorktreesTagsPanel({
   setNewTagMessage: (value: string) => void
   createTag: () => void | Promise<void>
   deleteTag: (tag: TagSummary) => void | Promise<void>
+  panel?: 'all' | 'worktrees' | 'tags'
 }) {
   const worktrees = snapshot?.worktrees ?? []
   const branches = snapshot?.branches ?? []
@@ -45,8 +48,7 @@ export function WorktreesTagsPanel({
 
   return (
     <>
-      <details className="config-collapsible">
-        <summary>Worktrees <span>{worktrees.length}</span></summary>
+      {panel !== 'tags' && (
         <section className="worktree-panel">
           <p className="branch-collapsible-hint">Create a linked worktree for safe branch experiments without disturbing this checkout.</p>
           <div className="worktree-composer">
@@ -89,25 +91,34 @@ export function WorktreesTagsPanel({
                     {worktree.reason && <p>{worktree.reason}</p>}
                   </div>
                   <div className="panel-actions">
-                    <button className="icon-button" type="button" title="Open worktree" aria-label="Open worktree" onClick={() => openWorktree(worktree)} disabled={busy || worktree.current}>
-                      <FolderOpen size={16} />
-                    </button>
-                    <button className="icon-button" type="button" title="Open in editor" aria-label="Open in editor" onClick={() => runOperationAction('Worktree opened in editor.', () => api!.openInEditor({ targetPath: worktree.path }))} disabled={busy}>
-                      <Code2 size={16} />
-                    </button>
-                    <button className="danger-button icon-button" type="button" title="Remove worktree" aria-label="Remove worktree" onClick={() => removeWorktree(worktree)} disabled={busy || worktree.current}>
-                      <Trash2 size={16} />
-                    </button>
+                    <IconButton
+                      icon={<FolderOpen size={16} />}
+                      label="Open worktree"
+                      onClick={() => openWorktree(worktree)}
+                      disabled={busy || worktree.current}
+                    />
+                    <IconButton
+                      icon={<Code2 size={16} />}
+                      label="Open in editor"
+                      onClick={() => runOperationAction('Worktree opened in editor.', () => api!.openInEditor({ targetPath: worktree.path }))}
+                      disabled={busy}
+                    />
+                    <IconButton
+                      icon={<Trash2 size={16} />}
+                      label="Remove worktree"
+                      tone="danger"
+                      onClick={() => removeWorktree(worktree)}
+                      disabled={busy || worktree.current}
+                    />
                   </div>
                 </article>
               ))
             )}
           </div>
         </section>
-      </details>
+      )}
 
-      <details className="config-collapsible">
-        <summary>Tags <span>{tags.length}</span></summary>
+      {panel !== 'worktrees' && (
         <section className="tag-panel">
           <p className="branch-collapsible-hint">Create lightweight or annotated local tags at the current HEAD.</p>
           <div className="tag-composer">
@@ -148,16 +159,20 @@ export function WorktreesTagsPanel({
                     {tag.subject && <p>{tag.subject}</p>}
                   </div>
                   <div className="panel-actions">
-                    <button className="danger-button icon-button" type="button" title="Delete tag" aria-label="Delete tag" onClick={() => deleteTag(tag)} disabled={busy}>
-                      <Trash2 size={16} />
-                    </button>
+                    <IconButton
+                      icon={<Trash2 size={16} />}
+                      label="Delete tag"
+                      tone="danger"
+                      onClick={() => deleteTag(tag)}
+                      disabled={busy}
+                    />
                   </div>
                 </article>
               ))
             )}
           </div>
         </section>
-      </details>
+      )}
     </>
   )
 }

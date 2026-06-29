@@ -11,6 +11,7 @@ import type {
 } from '../../shared/branchPilot'
 import { branchPilotErrorText } from '../../shared/branchPilot'
 import { assistantPolicyAllows, assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
+import { SelectableChipGroup } from '../SelectableChipGroup'
 
 type OwnerKind = GitHubAccountSummary['type']
 
@@ -345,18 +346,13 @@ export function PublishRepositoryView({
             <input value={name} onChange={(event) => setName(sanitizeRepositoryName(event.target.value))} placeholder="repository-name" />
           </label>
 
-          <div className="publish-name-suggestions" aria-label="Repository name suggestions">
-            {repoNameSuggestions.map((suggestion) => (
-              <button
-                type="button"
-                key={suggestion}
-                className={name === suggestion ? 'active' : ''}
-                onClick={() => setName(suggestion)}
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
+          <SelectableChipGroup
+            options={repoNameSuggestions}
+            selected={name}
+            onSelect={setName}
+            variant="name-suggestions"
+            ariaLabel="Repository name suggestions"
+          />
 
           <label>
             <span>Description</span>
@@ -402,19 +398,14 @@ export function PublishRepositoryView({
               </div>
             </div>
             {gitIdentityEmailOptions.length > 0 && (
-              <div className="publish-email-options" aria-label="Known GitHub and Git config emails">
-                {gitIdentityEmailOptions.map((email) => (
-                  <button
-                    type="button"
-                    key={email}
-                    className={isSameEmail(gitUserEmail, email) ? 'active' : ''}
-                    onClick={() => setGitUserEmail(email)}
-                    title={`Use ${email} as the starter commit author`}
-                  >
-                    {email}
-                  </button>
-                ))}
-              </div>
+              <SelectableChipGroup
+                options={gitIdentityEmailOptions}
+                selected={gitIdentityEmailOptions.find((email) => isSameEmail(gitUserEmail, email)) ?? ''}
+                onSelect={setGitUserEmail}
+                variant="email-options"
+                ariaLabel="Known GitHub and Git config emails"
+                titleFor={(email) => `Use ${email} as the starter commit author`}
+              />
             )}
             <div className="publish-two-col">
               <label>

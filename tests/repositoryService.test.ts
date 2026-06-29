@@ -1,11 +1,12 @@
-import { mkdtempSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { toBranchPilotError } from '../electron/lib/errors'
+import { registerRepositoryOverviewSpecs } from './repositoryService.overviewSpecs'
 import {
   cleanupTempRoots,   createService, createTempRepository,
-  git, gitWithEnv, RecordingCommandRunner, tempRoots
+  git, RecordingCommandRunner, tempRoots
 } from './support/repositoryServiceTestSupport'
 
 function readText(filePath: string): string {
@@ -15,373 +16,44 @@ function readText(filePath: string): string {
 describe('RepositoryService', () => {
   afterEach(cleanupTempRoots)
 
-  it('opens a repository and tracks staged/unstaged/untracked files', async () => {
+  registerRepositoryOverviewSpecs()
+
+  it('stages all changes through explicit pathspecs instead of a full-tree add', async () => {
     const repoPath = createTempRepository()
-    const service = createService()
+    const runner = new RecordingCommandRunner()
+    const service = createService(runner)
 
     writeFileSync(path.join(repoPath, 'tracked.txt'), 'changed\n')
     writeFileSync(path.join(repoPath, 'new.txt'), 'new\n')
-    git(repoPath, ['add', 'tracked.txt'])
-
-    const snapshot = await service.openRepository(repoPath)
-
-    expect(realpathSync.native(snapshot.summary.rootPath)).toBe(realpathSync.native(repoPath))
-    expect(snapshot.status.counts.staged).toBe(1)
-    expect(snapshot.status.counts.untracked).toBe(1)
-    expect(snapshot.status.changes.map((change) => change.path)).toContain('tracked.txt')
-    expect(snapshot.status.changes.map((change) => change.path)).toContain('new.txt')
-  })
-
-  it('drops staged new files that were deleted outside BranchPilot before refresh', async () => {
-    const repoPath = createTempRepository()
-    const service = createService()
-
-    const addedPath = path.join(repoPath, 'added-then-deleted.txt')
-    writeFileSync(addedPath, 'temporary\n')
-    git(repoPath, ['add', 'added-then-deleted.txt'])
-    unlinkSync(addedPath)
-
-    const snapshot = await service.openRepository(repoPath)
-
-    expect(snapshot.status.changes.map((change) => change.path)).not.toContain('added-then-deleted.txt')
-    expect(snapshot.status.counts.changed).toBe(0)
-    expect(git(repoPath, ['status', '--porcelain'])).toBe('')
-  })
-
-  it('pins recent repositories and keeps pinned entries first', async () => {
-    const firstRepoPath = createTempRepository()
-    const secondRepoPath = createTempRepository()
-    const firstRepoRoot = realpathSync.native(firstRepoPath)
-    const secondRepoRoot = realpathSync.native(secondRepoPath)
-    const service = createService()
-
-    await service.openRepository(firstRepoPath)
-    await service.openRepository(secondRepoPath)
-
-    let recentRepositories = await service.setRepositoryPinned({
-      repoPath: firstRepoPath,
-      pinned: true
-    })
-
-    expect(recentRepositories[0]).toMatchObject({
-      path: firstRepoRoot,
-      pinned: true
-    })
-    expect(recentRepositories[1]).toMatchObject({
-      path: secondRepoRoot,
-      pinned: false
-    })
-
-    await service.openRepository(secondRepoPath)
-    recentRepositories = await service.getRecentRepositories()
-
-    expect(recentRepositories[0]).toMatchObject({
-      path: firstRepoRoot,
-      pinned: true
-    })
-
-    recentRepositories = await service.setRepositoryPinned({
-      repoPath: firstRepoPath,
-      pinned: false
-    })
-
-    expect(recentRepositories[0]).toMatchObject({
-      path: secondRepoRoot,
-      pinned: false
-    })
-    expect(recentRepositories[1]).toMatchObject({
-      path: firstRepoRoot,
-      pinned: false
-    })
-  })
-
-  it('clones a repository by URL and opens the cloned checkout', async () => {
-    const sourceRepoPath = createTempRepository()
-    const targetParentPath = mkdtempSync(path.join(tmpdir(), 'branchpilot-clone-parent-'))
-    tempRoots.push(targetParentPath)
-    const runner = new RecordingCommandRunner()
-    const service = createService(runner)
-    const targetPath = path.join(targetParentPath, 'cloned-project')
-
-    const snapshot = await service.cloneRepository({
-      remoteUrl: sourceRepoPath,
-      targetParentPath,
-      targetName: 'cloned-project'
-    })
-    const cloneCall = runner.calls.find((call) => call.args.includes('clone'))
-
-    expect(realpathSync.native(snapshot.summary.rootPath)).toBe(realpathSync.native(targetPath))
-    expect(cloneCall?.args).toEqual(process.platform === 'win32'
-      ? ['-c', 'credential.helper=', '-c', 'credential.helper=manager', 'clone', '--', sourceRepoPath, targetPath]
-      : ['clone', '--', sourceRepoPath, targetPath])
-    expect(snapshot.summary.currentBranch).toBe('main')
-    expect(readText(path.join(targetPath, 'tracked.txt'))).toBe('initial\n')
-    expect((await service.getRecentRepositories())[0]).toMatchObject({
-      path: realpathSync.native(targetPath),
-      name: 'cloned-project'
-    })
-
-    await expect(service.cloneRepository({
-      remoteUrl: sourceRepoPath,
-      targetParentPath,
-      targetName: 'cloned-project'
-    })).rejects.toMatchObject({ code: 'clone_target_exists' })
-    await expect(service.cloneRepository({
-      remoteUrl: sourceRepoPath,
-      targetParentPath,
-      targetName: '../unsafe'
-    })).rejects.toMatchObject({ code: 'invalid_clone_target' })
-  })
-
-  it('builds a repository dashboard from recent repositories', async () => {
-    const dirtyRepoPath = createTempRepository()
-    const activeRepoPath = createTempRepository()
-    const dirtyRepoRoot = realpathSync.native(dirtyRepoPath)
-    const activeRepoRoot = realpathSync.native(activeRepoPath)
-    const service = createService()
-
-    git(dirtyRepoPath, ['switch', '--quiet', '-c', 'stale/topic'])
-    writeFileSync(path.join(dirtyRepoPath, 'stale.txt'), 'stale branch\n')
-    git(dirtyRepoPath, ['add', 'stale.txt'])
-    gitWithEnv(dirtyRepoPath, ['commit', '-m', 'Old branch work'], {
-      GIT_AUTHOR_DATE: '2024-01-01T00:00:00Z',
-      GIT_COMMITTER_DATE: '2024-01-01T00:00:00Z'
-    })
-    git(dirtyRepoPath, ['switch', '--quiet', 'main'])
-    writeFileSync(path.join(dirtyRepoPath, 'tracked.txt'), 'dirty\n')
-
-    await service.openRepository(dirtyRepoPath)
-    await service.openRepository(activeRepoPath)
-    await service.setRepositoryPinned({
-      repoPath: dirtyRepoPath,
-      pinned: true
-    })
-
-    const dashboard = await service.dashboard.getRepositoryDashboard(activeRepoPath)
-    const dirtyRepo = dashboard.repositories.find((repo) => repo.path === dirtyRepoRoot)
-    const activeRepo = dashboard.repositories.find((repo) => repo.path === activeRepoRoot)
-
-    expect(dashboard.totals.repositories).toBe(2)
-    expect(dashboard.totals.dirty).toBe(1)
-    expect(dashboard.totals.staleBranches).toBe(1)
-    expect(dirtyRepo).toMatchObject({
-      pinned: true,
-      state: 'dirty',
-      changed: 1
-    })
-    expect(activeRepo).toMatchObject({
-      active: true,
-      state: 'clean'
-    })
-    expect(dashboard.staleBranches[0]).toMatchObject({
-      repoPath: dirtyRepoRoot,
-      repoName: path.basename(dirtyRepoRoot),
-      name: 'stale/topic'
-    })
-    expect(dashboard.staleBranches[0].daysSinceCommit).toBeGreaterThan(30)
-  })
-
-  it('uses lightweight repository reads for dashboard scans', async () => {
-    const repoPath = createTempRepository()
-    const activeRepoPath = createTempRepository()
-    const runner = new RecordingCommandRunner()
-    const service = createService(runner)
-
-    git(repoPath, ['switch', '--quiet', '-c', 'old/topic'])
-    git(repoPath, ['config', 'branch.old/topic.description', 'Expensive dashboard detail'])
-    gitWithEnv(repoPath, ['commit', '--allow-empty', '-m', 'Old topic work'], {
-      GIT_AUTHOR_DATE: '2024-01-01T00:00:00Z',
-      GIT_COMMITTER_DATE: '2024-01-01T00:00:00Z'
-    })
-
-    await service.openRepository(repoPath)
-    await service.openRepository(activeRepoPath)
 
     runner.reset()
-    const dashboard = await service.dashboard.getRepositoryDashboard(activeRepoPath)
-    const commandLines = runner.calls.map((call) => call.args.join(' '))
+    const snapshot = await service.staging.stageAll(repoPath)
+    const addCall = runner.calls.find((call) => call.args.includes('add'))
 
-    expect(dashboard.totals.repositories).toBe(2)
-    expect(commandLines.some((line) => line.startsWith('lfs '))).toBe(false)
-    expect(commandLines.some((line) => line.startsWith('submodule '))).toBe(false)
-    expect(commandLines.some((line) => line.startsWith('tag '))).toBe(false)
-    expect(commandLines.some((line) => line.startsWith('worktree '))).toBe(false)
-    expect(commandLines.some((line) => line.includes('branch.old/topic.description'))).toBe(false)
+    expect(snapshot.status.counts.staged).toBe(2)
+    expect(addCall?.args).toContain('--pathspec-from-file=-')
+    expect(addCall?.args).toContain('--pathspec-file-nul')
+    expect(addCall?.options.input).toContain('tracked.txt\0')
+    expect(addCall?.options.input).toContain('new.txt\0')
   })
 
-  it('uses status-only snapshot refreshes after staging when a full snapshot is cached', async () => {
+  it('stages deleted files through the index without asking Git to scan the working tree path', async () => {
     const repoPath = createTempRepository()
     const runner = new RecordingCommandRunner()
     const service = createService(runner)
-    const openedSnapshot = await service.openRepository(repoPath)
 
-    writeFileSync(path.join(repoPath, 'new.txt'), 'new\n')
+    unlinkSync(path.join(repoPath, 'tracked.txt'))
 
     runner.reset()
-    const snapshot = await service.staging.stageFile({
-      repoPath,
-      filePath: 'new.txt'
-    })
-    const commandLines = runner.calls.map((call) => call.args.join(' '))
+    const snapshot = await service.staging.stageAll(repoPath)
+    const updateIndexCall = runner.calls.find((call) => call.args.includes('update-index'))
+    const addCalls = runner.calls.filter((call) => call.args.includes('add'))
 
     expect(snapshot.status.counts.staged).toBe(1)
-    expect(snapshot.branches).toEqual(openedSnapshot.branches)
-    expect(snapshot.remoteBranches).toEqual(openedSnapshot.remoteBranches)
-    expect(snapshot.tags).toEqual(openedSnapshot.tags)
-    expect(snapshot.worktrees).toEqual(openedSnapshot.worktrees)
-    expect(snapshot.submodules).toEqual(openedSnapshot.submodules)
-    expect(snapshot.lfs).toEqual(openedSnapshot.lfs)
-    expect(commandLines.some((line) => line.startsWith('lfs '))).toBe(false)
-    expect(commandLines.some((line) => line.startsWith('submodule '))).toBe(false)
-    expect(commandLines.some((line) => line.startsWith('tag '))).toBe(false)
-    expect(commandLines.some((line) => line.startsWith('branch -r '))).toBe(false)
-    expect(commandLines.some((line) => line.startsWith('worktree '))).toBe(false)
-  })
-
-  it('commits staged changes with a multiline message', async () => {
-    const repoPath = createTempRepository()
-    const service = createService()
-
-    writeFileSync(path.join(repoPath, 'tracked.txt'), 'changed\n')
-    git(repoPath, ['add', 'tracked.txt'])
-
-    const snapshot = await service.commits.commit({
-      repoPath,
-      title: 'Update tracked file',
-      description: 'Adds a second line of commit context.'
-    })
-
-    expect(snapshot.status.counts.staged).toBe(0)
-    const subject = git(repoPath, ['log', '-1', '--pretty=%s'])
-    expect(subject).toBe('Update tracked file')
-  })
-
-  it('commits staged changes with co-author trailers', async () => {
-    const repoPath = createTempRepository()
-    const service = createService()
-
-    writeFileSync(path.join(repoPath, 'tracked.txt'), 'coauthored change\n')
-    git(repoPath, ['add', 'tracked.txt'])
-
-    await service.commits.commit({
-      repoPath,
-      title: 'Update with coauthors',
-      description: 'Adds commit trailers through BranchPilot.',
-      coAuthors: [
-        'Ada Lovelace <ada@example.com>',
-        'Co-authored-by: Grace Hopper <grace@example.com>'
-      ].join('\n')
-    })
-
-    const body = git(repoPath, ['log', '-1', '--pretty=%b'])
-    expect(body).toContain('Adds commit trailers through BranchPilot.')
-    expect(body).toContain('Co-authored-by: Ada Lovelace <ada@example.com>')
-    expect(body).toContain('Co-authored-by: Grace Hopper <grace@example.com>')
-  })
-
-  it('rejects invalid co-author lines before committing', async () => {
-    const repoPath = createTempRepository()
-    const service = createService()
-
-    writeFileSync(path.join(repoPath, 'tracked.txt'), 'invalid coauthor\n')
-    git(repoPath, ['add', 'tracked.txt'])
-
-    await expect(service.commits.commit({
-      repoPath,
-      title: 'Invalid coauthor',
-      description: '',
-      coAuthors: 'Not an email'
-    })).rejects.toMatchObject({
-      code: 'invalid_co_author'
-    })
-  })
-
-  it('amends the last commit with confirmation and a multiline message', async () => {
-    const repoPath = createTempRepository()
-    const service = createService()
-    const originalHead = git(repoPath, ['rev-parse', 'HEAD'])
-
-    await expect(service.commits.amendCommit({
-      repoPath,
-      title: 'Blocked amend',
-      description: '',
-      confirmed: false
-    })).rejects.toMatchObject({
-      code: 'confirmation_required'
-    })
-
-    const snapshot = await service.commits.amendCommit({
-      repoPath,
-      title: 'Amended initial commit',
-      description: 'Keeps the tree and rewrites the commit message.',
-      coAuthors: 'Alan Turing <alan@example.com>',
-      confirmed: true
-    })
-
-    expect(snapshot.status.counts.changed).toBe(0)
-    expect(git(repoPath, ['rev-parse', 'HEAD'])).not.toBe(originalHead)
-    expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Amended initial commit')
-    expect(git(repoPath, ['log', '-1', '--pretty=%b'])).toContain('Keeps the tree')
-    expect(git(repoPath, ['log', '-1', '--pretty=%b'])).toContain('Co-authored-by: Alan Turing <alan@example.com>')
-  })
-
-  it('reverts a selected commit with confirmation', async () => {
-    const repoPath = createTempRepository()
-    const service = createService()
-
-    writeFileSync(path.join(repoPath, 'tracked.txt'), 'changed for revert\n')
-    git(repoPath, ['add', 'tracked.txt'])
-    git(repoPath, ['commit', '-m', 'Change tracked file'])
-    const commitToRevert = git(repoPath, ['rev-parse', 'HEAD'])
-
-    await expect(service.commits.revertCommit({
-      repoPath,
-      commitSha: commitToRevert,
-      confirmed: false
-    })).rejects.toMatchObject({
-      code: 'confirmation_required'
-    })
-
-    const snapshot = await service.commits.revertCommit({
-      repoPath,
-      commitSha: commitToRevert,
-      confirmed: true
-    })
-
-    expect(snapshot.status.counts.changed).toBe(0)
-    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('initial\n')
-    expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Revert "Change tracked file"')
-  })
-
-  it('cherry-picks a selected commit with confirmation', async () => {
-    const repoPath = createTempRepository()
-    const service = createService()
-
-    git(repoPath, ['switch', '--quiet', '-c', 'feature/pick'])
-    writeFileSync(path.join(repoPath, 'picked.txt'), 'picked\n')
-    git(repoPath, ['add', 'picked.txt'])
-    git(repoPath, ['commit', '-m', 'Add picked file'])
-    const commitToPick = git(repoPath, ['rev-parse', 'HEAD'])
-
-    git(repoPath, ['switch', '--quiet', 'main'])
-
-    await expect(service.commits.cherryPickCommit({
-      repoPath,
-      commitSha: commitToPick,
-      confirmed: false
-    })).rejects.toMatchObject({
-      code: 'confirmation_required'
-    })
-
-    const snapshot = await service.commits.cherryPickCommit({
-      repoPath,
-      commitSha: commitToPick,
-      confirmed: true
-    })
-
-    expect(snapshot.status.counts.changed).toBe(0)
-    expect(readText(path.join(repoPath, 'picked.txt'))).toBe('picked\n')
-    expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Add picked file')
+    expect(updateIndexCall?.args).toEqual(['update-index', '--remove', '-z', '--stdin'])
+    expect(updateIndexCall?.options.input).toBe('tracked.txt\0')
+    expect(addCalls).toHaveLength(0)
+    expect(git(repoPath, ['status', '--porcelain'])).toContain('D  tracked.txt')
   })
 
   it('stages and unstages individual hunks', async () => {
@@ -726,6 +398,41 @@ describe('RepositoryService', () => {
       filePath: 'tracked.txt'
     })
     expect(diff.text).toContain('+history change')
+  })
+
+  it('shows merge commit files and diffs against the first parent', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+
+    git(repoPath, ['switch', '--quiet', '-c', 'feature/merge-details'])
+    writeFileSync(path.join(repoPath, 'feature.txt'), 'feature merge line\n')
+    git(repoPath, ['add', 'feature.txt'])
+    git(repoPath, ['commit', '-m', 'Add feature file'])
+
+    git(repoPath, ['switch', '--quiet', 'main'])
+    git(repoPath, ['merge', '--no-ff', 'feature/merge-details', '-m', 'Merge feature details'])
+    const mergeSha = git(repoPath, ['rev-parse', 'HEAD'])
+
+    const details = await service.getCommitDetails({
+      repoPath,
+      commitSha: mergeSha
+    })
+
+    expect(details.parentShas).toHaveLength(2)
+    expect(details.files).toEqual([
+      {
+        path: 'feature.txt',
+        rawStatus: 'A',
+        status: 'added'
+      }
+    ])
+
+    const diff = await service.getCommitFileDiff({
+      repoPath,
+      commitSha: mergeSha,
+      filePath: 'feature.txt'
+    })
+    expect(diff.text).toContain('+feature merge line')
   })
 
   it('reads and updates repository-local Git identity', async () => {

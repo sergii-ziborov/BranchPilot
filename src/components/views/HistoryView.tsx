@@ -1,17 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
-import { Code2, Copy, ExternalLink, GitCommitHorizontal, ListFilter, Search, Trash2, X } from 'lucide-react'
-import type { BranchPilotApi, CommitDetails, CommitSummary, DiffResult, ImagePreview, RepositorySnapshot } from '../../shared/branchPilot'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
+import { Code2, Copy, ExternalLink, GitCommitHorizontal, ListFilter, RotateCcw, Search, Trash2, X } from 'lucide-react'
+import type { BranchPilotApi, CommitCard, CommitDetails, CommitSummary, DiffResult, ImagePreview, RepositorySnapshot } from '../../shared/branchPilot'
 import { getProviderCommitUrl } from '../../shared/providerRemote'
 import { formatDate } from '../../lib/format'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
 import type { ViewMode } from '../../lib/viewMode'
 import { useVirtualList } from '../../hooks/useVirtualList'
+import { useHistoryContextMenus } from '../../hooks/useHistoryContextMenus'
 import { DiffPreview } from '../DiffView'
 import { ViewSwitch } from '../ViewSwitch'
 import { useWorkflowPaneResize } from '../../hooks/useWorkflowPaneResize'
+import { HistoryGraphCanvas } from '../HistoryGraphCanvas'
+import { CommitHoverCard, type CommitHoverCardAnchor } from '../CommitHoverCard'
+import {
+  HISTORY_GRAPH_TEXT_GUTTER,
+  buildHistoryGraphModel,
+  historyGraphWidth as getHistoryGraphWidth,
+  historyGraphTextStarts,
+  hitHistoryGraphNode
+} from '../../lib/historyGraph'
 
 type HistorySearchMode = 'commit' | 'files' | 'all'
+
 
 export function HistoryView({
   snapshot,
@@ -29,9 +40,11 @@ export function HistoryView({
   selectedCommitSha,
   setSelectedCommitSha,
   commitDetails,
+  commitDetailsLoading,
   selectedCommitFilePath,
   loadCommitFileDiff,
   commitFileDiff,
+  commitFileDiffLoading,
   openExternalLink,
   applyCommitOperation,
   api,
@@ -54,11 +67,13 @@ export function HistoryView({
   selectedCommitSha: string | null
   setSelectedCommitSha: (sha: string) => void
   commitDetails: CommitDetails | null
+  commitDetailsLoading: boolean
   selectedCommitFilePath: string | null
   loadCommitFileDiff: (commitSha: string, filePath: string) => void | Promise<void>
   commitFileDiff: DiffResult | null
+  commitFileDiffLoading: boolean
   openExternalLink: (url: string | undefined, label?: string) => void
-  applyCommitOperation: (kind: 'revert' | 'cherry-pick') => void | Promise<void>
+  applyCommitOperation: (kind: 'revert' | 'cherry-pick' | 'reset', commitSha?: string) => void | Promise<void>
   api: BranchPilotApi | undefined
   currentRepoPath: string | undefined
   setViewMode: (mode: ViewMode) => void
@@ -79,9 +94,115 @@ export function HistoryView({
 
   const [commitImagePreview, setCommitImagePreview] = useState<ImagePreview | null>(null)
   const historySearchModeLabel = historySearchMode === 'commit' ? 'Commit' : historySearchMode === 'files' ? 'Files' : 'All'
+  const historyGraphWidth = useMemo(() => getHistoryGraphWidth(filteredHistory), [filteredHistory])
+  const historyDetailLoading = commitDetailsLoading || commitFileDiffLoading
+  const historyDetailLoadingLabel = commitDetailsLoading ? 'Resolving commit' : 'Loading file diff'
   const closeHistorySearchFilter = () => {
     if (historySearchFilterRef.current) historySearchFilterRef.current.open = false
   }
+
+  // Commit dots: hover hit-test against the graph model to show a GitLens-style card.
+  const graphModel = useMemo(() => buildHistoryGraphModel(filteredHistory, itemHeight), [filteredHistory, itemHeight])
+  const graphTextStarts = useMemo(
+    () => historyGraphTextStarts(graphModel, filteredHistory.length, itemHeight),
+    [filteredHistory, graphModel, itemHeight]
+  )
+  const [hoverCardAnchor, setHoverCardAnchor] = useState<CommitHoverCardAnchor | null>(null)
+  const [hoverCard, setHoverCard] = useState<CommitCard | null>(null)
+  const [hoverAvatarBroken, setHoverAvatarBroken] = useState(false)
+  const hoverCardCacheRef = useRef(new Map<string, CommitCard>())
+  const hoverShowTimerRef = useRef<number | null>(null)
+  const hoverHideTimerRef = useRef<number | null>(null)
+  const hoverPendingShaRef = useRef<string | null>(null)
+  const hoverActiveShaRef = useRef<string | null>(null)
+  const hoverOverCardRef = useRef(false)
+  const hoverCardProviderUrl = getProviderCommitUrl(snapshot?.summary.remoteUrl, hoverCard?.sha)
+
+  const hideHoverCard = () => {
+    if (hoverShowTimerRef.current) window.clearTimeout(hoverShowTimerRef.current)
+    if (hoverHideTimerRef.current) window.clearTimeout(hoverHideTimerRef.current)
+    hoverShowTimerRef.current = null
+    hoverHideTimerRef.current = null
+    hoverPendingShaRef.current = null
+    hoverActiveShaRef.current = null
+    setHoverCardAnchor(null)
+    setHoverCard(null)
+    setHoverAvatarBroken(false)
+  }
+
+  const scheduleHideHoverCard = () => {
+    if (hoverHideTimerRef.current) window.clearTimeout(hoverHideTimerRef.current)
+    hoverHideTimerRef.current = window.setTimeout(() => {
+      if (!hoverOverCardRef.current) hideHoverCard()
+    }, 220)
+  }
+
+  const loadHoverCard = (sha: string) => {
+    const cached = hoverCardCacheRef.current.get(sha)
+    if (cached) {
+      setHoverCard(cached)
+      return
+    }
+    if (!api || !currentRepoPath || typeof api.getCommitCard !== 'function') return
+    void api
+      .getCommitCard({ repoPath: currentRepoPath, commitSha: sha })
+      .then((result) => {
+        if (!result.ok) return
+        hoverCardCacheRef.current.set(sha, result.data)
+        if (hoverActiveShaRef.current === sha) setHoverCard(result.data)
+      })
+      .catch(() => {})
+  }
+
+  const handleGraphPointerMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const container = event.currentTarget
+    const rect = container.getBoundingClientRect()
+    const contentX = event.clientX - rect.left + container.scrollLeft
+    const contentY = event.clientY - rect.top + container.scrollTop
+
+    const missed = () => {
+      hoverPendingShaRef.current = null
+      if (hoverShowTimerRef.current) {
+        window.clearTimeout(hoverShowTimerRef.current)
+        hoverShowTimerRef.current = null
+      }
+      if (hoverCardAnchor) scheduleHideHoverCard()
+    }
+
+    if (contentX > historyGraphWidth + 6) {
+      missed()
+      return
+    }
+    const node = hitHistoryGraphNode(graphModel, itemHeight, contentX, contentY)
+    if (!node?.sha) {
+      missed()
+      return
+    }
+    if (hoverCardAnchor?.sha === node.sha || hoverPendingShaRef.current === node.sha) return
+
+    if (hoverHideTimerRef.current) {
+      window.clearTimeout(hoverHideTimerRef.current)
+      hoverHideTimerRef.current = null
+    }
+    if (hoverShowTimerRef.current) window.clearTimeout(hoverShowTimerRef.current)
+    const sha = node.sha
+    const anchorX = event.clientX
+    const anchorY = event.clientY
+    hoverPendingShaRef.current = sha
+    hoverShowTimerRef.current = window.setTimeout(() => {
+      hoverPendingShaRef.current = null
+      hoverActiveShaRef.current = sha
+      setHoverAvatarBroken(false)
+      setHoverCardAnchor({ sha, x: anchorX, y: anchorY })
+      setHoverCard(hoverCardCacheRef.current.get(sha) ?? null)
+      loadHoverCard(sha)
+    }, 280)
+  }
+
+  useEffect(() => () => {
+    if (hoverShowTimerRef.current) window.clearTimeout(hoverShowTimerRef.current)
+    if (hoverHideTimerRef.current) window.clearTimeout(hoverHideTimerRef.current)
+  }, [])
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
@@ -110,44 +231,18 @@ export function HistoryView({
     }
   }, [commitFileDiff, commitDetails?.sha, selectedCommitFilePath, api, currentRepoPath])
 
-  const [fileMenu, setFileMenu] = useState<{ x: number; y: number; path: string } | null>(null)
-
-  useEffect(() => {
-    if (!fileMenu) return
-    const close = () => setFileMenu(null)
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setFileMenu(null)
-    }
-    window.addEventListener('click', close)
-    window.addEventListener('scroll', close, true)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('click', close)
-      window.removeEventListener('scroll', close, true)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [fileMenu])
-
-  const openInEditorFromMenu = () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path || !currentRepoPath || !api) return
-    void api.openInEditor({ targetPath: `${currentRepoPath}/${path}` })
-  }
-
-  const copyPathFromMenu = () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path || !currentRepoPath) return
-    void navigator.clipboard.writeText(`${currentRepoPath}/${path}`)
-  }
-
-  const copyNameFromMenu = () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path) return
-    void navigator.clipboard.writeText(path.split('/').pop() ?? path)
-  }
+  const {
+    fileMenu,
+    setFileMenu,
+    commitMenu,
+    setCommitMenu,
+    openInEditorFromMenu,
+    copyPathFromMenu,
+    copyNameFromMenu,
+    copyCommitShaFromMenu,
+    copyCommitSubjectFromMenu,
+    applyCommitOperationFromMenu
+  } = useHistoryContextMenus({ api, currentRepoPath, setSelectedCommitSha, applyCommitOperation })
 
   return (
     <section className="content-grid changes-workflow-grid history-grid" ref={splitGridRef} style={splitStyle}>
@@ -214,13 +309,31 @@ export function HistoryView({
           )}
         </div>
 
-        <div className="history-list virtual-list-viewport" ref={historyContainerRef} onScroll={historyScroll}>
+        <div
+          className="history-list virtual-list-viewport"
+          ref={historyContainerRef}
+          onScroll={(event) => {
+            hideHoverCard()
+            historyScroll(event)
+          }}
+          onMouseMove={handleGraphPointerMove}
+          onMouseLeave={scheduleHideHoverCard}
+        >
           {history.length === 0 ? (
             <div className="quiet-box">{historyLoading ? 'Loading commits.' : 'No commits found.'}</div>
           ) : filteredHistory.length === 0 ? (
             <div className="quiet-box">No commits match this search.</div>
           ) : (
-            <div className="virtual-list-spacer" style={{ height: historyWindow.totalHeight }}>
+            <div
+              className="virtual-list-spacer history-list-spacer"
+              style={{ height: historyWindow.totalHeight, '--history-graph-width': `${historyGraphWidth}px` } as CSSProperties}
+            >
+              <HistoryGraphCanvas
+                commits={filteredHistory}
+                width={historyGraphWidth}
+                rowHeight={itemHeight}
+                totalHeight={historyWindow.totalHeight}
+              />
               {historyItems.map(({ item: commit, index }) => (
                 <div
                   className="virtual-list-item"
@@ -228,9 +341,19 @@ export function HistoryView({
                   style={{ transform: `translateY(${index * itemHeight}px)` }}
                 >
                   <button
-                    className={selectedCommitSha === commit.sha ? 'history-row selected' : 'history-row'}
+                    className={selectedCommitSha === commit.sha ? 'history-row has-graph selected' : 'history-row has-graph'}
+                    style={{
+                      '--history-graph-width': `${historyGraphWidth}px`,
+                      '--history-graph-text-start': `${graphTextStarts[index] ?? historyGraphWidth + HISTORY_GRAPH_TEXT_GUTTER}px`,
+                      '--history-row-height': `${itemHeight}px`
+                    } as CSSProperties}
                     type="button"
                     onClick={() => setSelectedCommitSha(commit.sha)}
+                    onContextMenu={(event) => {
+                      event.preventDefault()
+                      setSelectedCommitSha(commit.sha)
+                      setCommitMenu({ x: event.clientX, y: event.clientY, commit })
+                    }}
                   >
                     <strong>{commit.subject || '(no subject)'}</strong>
                     <span>
@@ -259,7 +382,7 @@ export function HistoryView({
         <span />
       </div>
 
-      <div className="history-detail">
+      <div className={historyDetailLoading ? 'history-detail is-loading' : 'history-detail'} aria-busy={historyDetailLoading}>
         <div className="history-commit-header">
           <div className="history-commit-headline">
             <div>
@@ -283,6 +406,16 @@ export function HistoryView({
                   <ExternalLink size={17} />
                 </button>
               )}
+              <button
+                type="button"
+                className="secondary icon-button"
+                title="Copy full commit SHA"
+                aria-label="Copy full commit SHA"
+                onClick={() => commitDetails && navigator.clipboard.writeText(commitDetails.sha)}
+                disabled={!commitDetails}
+              >
+                <Copy size={17} />
+              </button>
               <button
                 className="icon-button"
                 type="button"
@@ -358,6 +491,23 @@ export function HistoryView({
             <DiffPreview diff={commitFileDiff} imagePreview={commitImagePreview} />
           </div>
         </div>
+        {historyDetailLoading && (
+          <div className="history-detail-loading" role="status" aria-live="polite">
+            <div className="history-signal-loader" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+            <div className="history-detail-loading-copy">
+              <strong>{historyDetailLoadingLabel}</strong>
+              <span>{selectedCommitSha?.slice(0, 7) ?? 'history'}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {fileMenu && (
@@ -375,6 +525,74 @@ export function HistoryView({
             Copy file name
           </button>
         </div>
+      )}
+
+      {commitMenu && (
+        <div className="context-menu" role="menu" style={{ top: commitMenu.y, left: commitMenu.x }}>
+          <button type="button" role="menuitem" title="Copy the full commit SHA" onClick={copyCommitShaFromMenu}>
+            <Copy size={15} />
+            Copy full SHA
+          </button>
+          <button type="button" role="menuitem" title="Copy the commit subject" onClick={copyCommitSubjectFromMenu}>
+            <Copy size={15} />
+            Copy subject
+          </button>
+          <hr />
+          <button
+            type="button"
+            role="menuitem"
+            title="Cherry-pick this commit onto the current branch"
+            onClick={() => applyCommitOperationFromMenu('cherry-pick')}
+            disabled={busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
+          >
+            <GitCommitHorizontal size={15} />
+            Cherry-pick commit
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="danger"
+            title="Create a new commit that reverts this commit"
+            onClick={() => applyCommitOperationFromMenu('revert')}
+            disabled={busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
+          >
+            <RotateCcw size={15} />
+            Revert commit
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="danger"
+            title="Move the current branch to this commit and reset the working tree"
+            onClick={() => applyCommitOperationFromMenu('reset')}
+            disabled={busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
+          >
+            <Trash2 size={15} />
+            Reset branch to commit
+          </button>
+        </div>
+      )}
+
+      {hoverCardAnchor && (
+        <CommitHoverCard
+          anchor={hoverCardAnchor}
+          card={hoverCard}
+          providerUrl={hoverCardProviderUrl ?? null}
+          avatarBroken={hoverAvatarBroken}
+          onAvatarError={() => setHoverAvatarBroken(true)}
+          onMouseEnter={() => {
+            hoverOverCardRef.current = true
+            if (hoverHideTimerRef.current) {
+              window.clearTimeout(hoverHideTimerRef.current)
+              hoverHideTimerRef.current = null
+            }
+          }}
+          onMouseLeave={() => {
+            hoverOverCardRef.current = false
+            hideHoverCard()
+          }}
+          onOpenProvider={() => hoverCardProviderUrl && openExternalLink(hoverCardProviderUrl, 'Commit link')}
+        />
       )}
     </section>
   )

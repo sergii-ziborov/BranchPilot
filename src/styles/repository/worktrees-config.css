@@ -1,0 +1,322 @@
+﻿.worktree-panel,
+.tag-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.worktree-composer {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 9px 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.worktree-composer label {
+  padding-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.worktree-composer-actions {
+  display: flex;
+  grid-column: 2;
+  justify-content: flex-end;
+}
+
+.worktree-composer-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.worktree-list {
+  display: grid;
+  gap: 10px;
+}
+
+.worktree-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.worktree-row.current {
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
+}
+
+.worktree-row > div:first-child {
+  flex: 1 1 360px;
+  min-width: 0;
+}
+
+.worktree-row strong,
+.worktree-row span,
+.worktree-row code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worktree-row strong {
+  color: var(--text-strong);
+}
+
+.worktree-row span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.worktree-row code {
+  margin-top: 6px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.worktree-row p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.worktree-row .panel-actions {
+  flex: 0 0 auto;
+  max-width: min(100%, 420px);
+}
+
+.tag-composer {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 9px 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.tag-composer label {
+  padding-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tag-composer textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.tag-composer-actions {
+  display: flex;
+  grid-column: 2;
+  justify-content: flex-end;
+}
+
+.tag-composer-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.tag-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.tag-row > div:first-child {
+  min-width: 0;
+}
+
+.tag-row strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-row span {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-row p {
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.config-card-stack {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 14px;
+}
+
+.config-card-stack > .config-card {
+  min-width: 0;
+}
+
+.config-grid > .worktree-panel,
+.config-grid > .tag-panel {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+/* Collapsible Config sections (remotes, submodules, LFS) span the full width. */
+.config-collapsible {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.config-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+  user-select: none;
+}
+
+.config-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.config-collapsible > summary::before {
+  content: 'â–¸';
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.config-collapsible[open] > summary::before {
+  content: 'â–¾';
+}
+
+.config-collapsible[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.config-collapsible > .config-card {
+  border: none;
+}
+
+/* Collapsible secondary panels on the Branches view (remote, worktrees, tags). */
+.branch-collapsible {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  margin-top: 12px;
+}
+
+.branch-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+  user-select: none;
+}
+
+.branch-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.branch-collapsible > summary::before {
+  content: 'â–¸';
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.branch-collapsible[open] > summary::before {
+  content: 'â–¾';
+}
+
+.branch-collapsible > summary span {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.branch-collapsible[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.branch-collapsible > section {
+  border: none;
+  padding: 12px 14px;
+}
+
+.branch-collapsible-hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+

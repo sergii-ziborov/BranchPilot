@@ -1,0 +1,248 @@
+﻿.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 26px 18px;
+  color: var(--sidebar-text);
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+}
+
+.brand,
+.repo-picker,
+.toolbar,
+.commit-actions,
+.runtime-status,
+.runtime-status span,
+.message,
+.panel-actions,
+.daily-controls,
+.segmented {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: 12px;
+  min-height: 44px;
+}
+
+.brand-mark {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 8px;
+  color: #f8fafc;
+  background: #111827;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.brand strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 16px;
+}
+
+.brand span,
+.section-label {
+  color: var(--sidebar-muted);
+  font-size: 12px;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.repo-picker,
+.nav-list button,
+.recent-repo-open,
+.recent-pin-button {
+  width: 100%;
+  gap: 10px;
+  border: 1px solid transparent;
+  color: var(--sidebar-text);
+  background: transparent;
+}
+
+.repo-picker {
+  min-height: 44px;
+  padding: 0 12px;
+  border-color: rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+}
+
+.repo-picker span,
+.recent-repo-open span,
+.repo-path,
+.file-name,
+.file-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Clip the left (directories) so the filename at the end stays visible. */
+.file-name {
+  direction: rtl;
+  text-align: left;
+}
+
+.nav-list {
+  display: grid;
+  gap: 6px;
+}
+
+.nav-list button {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  min-height: 38px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.nav-list button:hover,
+.nav-list button.active,
+.repo-picker:hover,
+.recent-repo-open:hover,
+.recent-pin-button:hover {
+  color: #ffffff;
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.recent-list {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+}
+
+.recent-list p {
+  color: var(--sidebar-muted);
+  font-size: 13px;
+}
+
+.recent-list-heading,
+.recent-filter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.recent-list-heading > span:last-child {
+  color: var(--sidebar-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.recent-filter label {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  color: var(--sidebar-muted);
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.recent-filter input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: var(--sidebar-text);
+  background: transparent;
+  font-size: 13px;
+}
+
+.recent-filter button {
+  display: inline-flex;
+  width: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  color: var(--sidebar-muted);
+  background: transparent;
+}
+
+.recent-filter button:hover {
+  color: #ffffff;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.recent-repo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.recent-repo-open {
+  display: grid;
+  gap: 3px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.recent-pin-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 8px;
+  color: var(--sidebar-muted);
+}
+
+.recent-pin-button.pinned {
+  color: #fde68a;
+  background: rgba(250, 204, 21, 0.1);
+  border-color: rgba(250, 204, 21, 0.28);
+}
+
+.recent-list strong {
+  display: block;
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-repo-open span {
+  color: var(--sidebar-muted);
+  font-size: 12px;
+}
+
+.runtime-status {
+  margin-top: auto;
+  color: var(--sidebar-muted);
+  font-size: 12px;
+}
+
+.runtime-status span {
+  gap: 6px;
+}
+

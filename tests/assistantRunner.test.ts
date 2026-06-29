@@ -1,15 +1,6 @@
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  CommandExecutionError,
-  type CommandRunOptions,
-  type CommandRunResult,
-  CommandRunner
-} from '../electron/lib/commandRunner'
-import { GIT_EXECUTABLE, WHICH_EXECUTABLE } from '../electron/lib/platformExecutables'
 import {
   checkAssistantStatuses,
   generateBranchDescription,
@@ -18,18 +9,18 @@ import {
   generateLinkedInProject,
   generatePullRequestText,
   generateRepositoryStarter,
-  generateReviewReport,
   listAssistantStatuses
 } from '../electron/assistants/assistantRunner'
-
-const tempRoots: string[] = []
+import {
+  AssistantTestRunner,
+  cleanupAssistantTempRoots,
+  createStagedRepository,
+  createTempRepository,
+  git
+} from './support/assistantRunnerTestSupport'
 
 describe('assistant commit message generation', () => {
-  afterEach(() => {
-    for (const root of tempRoots.splice(0)) {
-      rmSync(root, { force: true, recursive: true })
-    }
-  })
+  afterEach(cleanupAssistantTempRoots)
 
   it('uses staged diff context and excludes unstaged content', async () => {
     const repoPath = createTempRepository()
@@ -475,255 +466,5 @@ describe('assistant commit message generation', () => {
     })
   })
 
-  it('reviews staged changes without including unstaged diff content', async () => {
-    const repoPath = createTempRepository()
-    const runner = new AssistantTestRunner({
-      available: ['claude'],
-      assistantOutput: reviewOutput('Staged review complete.')
-    })
-
-    writeFileSync(path.join(repoPath, 'tracked.txt'), 'staged\n')
-    git(repoPath, ['add', 'tracked.txt'])
-    writeFileSync(path.join(repoPath, 'tracked.txt'), 'unstaged\n')
-
-    const report = await generateReviewReport(runner, {
-      repoPath,
-      assistant: 'auto',
-      mode: 'consistency',
-      scope: 'staged'
-    })
-
-    expect(report).toMatchObject({
-      summary: 'Staged review complete.',
-      mode: 'consistency',
-      scope: 'staged',
-      assistant: 'claude',
-      truncated: false
-    })
-    expect(report.findings[0]).toMatchObject({
-      severity: 'medium',
-      title: 'Review finding'
-    })
-    expect(runner.assistantPrompt).toContain('architecture boundary')
-    expect(runner.assistantPrompt).toContain('+staged')
-    expect(runner.assistantPrompt).not.toContain('+unstaged')
-  })
-
-  it('reviews unstaged changes without including staged-only file content', async () => {
-    const repoPath = createTempRepository()
-    const runner = new AssistantTestRunner({
-      available: ['claude'],
-      assistantOutput: reviewOutput('Unstaged review complete.')
-    })
-
-    writeFileSync(path.join(repoPath, 'other.txt'), 'initial other\n')
-    git(repoPath, ['add', 'other.txt'])
-    git(repoPath, ['commit', '-m', 'Add other file'])
-    writeFileSync(path.join(repoPath, 'tracked.txt'), 'staged only\n')
-    git(repoPath, ['add', 'tracked.txt'])
-    writeFileSync(path.join(repoPath, 'other.txt'), 'unstaged only\n')
-
-    await generateReviewReport(runner, {
-      repoPath,
-      assistant: 'auto',
-      mode: 'quality',
-      scope: 'unstaged'
-    })
-
-    expect(runner.assistantPrompt).toContain('likely bugs')
-    expect(runner.assistantPrompt).toContain('+unstaged only')
-    expect(runner.assistantPrompt).not.toContain('+staged only')
-  })
-
-  it('reviews branch changes against origin HEAD when available', async () => {
-    const repoPath = createTempRepository()
-    const runner = new AssistantTestRunner({
-      available: ['claude'],
-      assistantOutput: reviewOutput('Branch review complete.')
-    })
-    const mainSha = git(repoPath, ['rev-parse', 'main'])
-
-    git(repoPath, ['update-ref', 'refs/remotes/origin/trunk', mainSha])
-    git(repoPath, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk'])
-    git(repoPath, ['switch', '--quiet', '-c', 'feature/review'])
-    writeFileSync(path.join(repoPath, 'tracked.txt'), 'branch review\n')
-    git(repoPath, ['add', 'tracked.txt'])
-    git(repoPath, ['commit', '-m', 'Review branch work'])
-
-    const report = await generateReviewReport(runner, {
-      repoPath,
-      assistant: 'auto',
-      mode: 'security',
-      scope: 'branch'
-    })
-
-    expect(report.scope).toBe('branch')
-    expect(runner.assistantPrompt).toContain('Base branch: trunk')
-    expect(runner.assistantPrompt).toContain('Review branch work')
-    expect(runner.assistantPrompt).toContain('unsafe shell/process execution')
-    expect(runner.assistantPrompt).toContain('+branch review')
-  })
-
-  it('returns readable errors for invalid review output and empty review scopes', async () => {
-    const invalidRepo = createStagedRepository()
-    const invalidRunner = new AssistantTestRunner({
-      available: ['claude'],
-      assistantOutput: 'not json'
-    })
-
-    await expect(generateReviewReport(invalidRunner, {
-      repoPath: invalidRepo,
-      assistant: 'auto',
-      mode: 'security',
-      scope: 'staged'
-    })).rejects.toMatchObject({ code: 'assistant_parse_failed' })
-
-    const emptyRepo = createTempRepository()
-    const emptyRunner = new AssistantTestRunner({
-      available: ['claude'],
-      assistantOutput: reviewOutput('Should not run.')
-    })
-
-    await expect(generateReviewReport(emptyRunner, {
-      repoPath: emptyRepo,
-      assistant: 'auto',
-      mode: 'consistency',
-      scope: 'staged'
-    })).rejects.toMatchObject({ code: 'no_review_changes' })
-    expect(emptyRunner.assistantInvocations).toHaveLength(0)
-  })
-
-  it('marks oversized review diffs as truncated and keeps Codex read-only', async () => {
-    const repoPath = createTempRepository()
-    const runner = new AssistantTestRunner({
-      available: ['codex'],
-      assistantOutput: reviewOutput('Large review complete.')
-    })
-
-    writeFileSync(path.join(repoPath, 'tracked.txt'), `${'x'.repeat(130_000)}\n`)
-    git(repoPath, ['add', 'tracked.txt'])
-
-    const report = await generateReviewReport(runner, {
-      repoPath,
-      assistant: 'codex',
-      mode: 'quality',
-      scope: 'staged'
-    })
-
-    expect(report.truncated).toBe(true)
-    expect(runner.assistantPrompt).toContain('Diff truncated: yes')
-    expect(runner.assistantInvocations[0].command).toBe('/tmp/branchpilot-codex')
-    expect(runner.assistantInvocations[0].args).toEqual(expect.arrayContaining(['--sandbox', 'read-only']))
-    expect(runner.assistantInvocations[0].cwd).not.toBe(repoPath)
-  })
 })
 
-interface AssistantTestRunnerOptions {
-  available: Array<'claude' | 'codex'>
-  failingAssistants?: Array<'claude' | 'codex'>
-  assistantOutput?: string
-}
-
-class AssistantTestRunner extends CommandRunner {
-  assistantPrompt = ''
-  assistantInvocations: Array<{ command: string; args: string[]; cwd?: string }> = []
-
-  constructor(private readonly options: AssistantTestRunnerOptions) {
-    super()
-  }
-
-  override async run(command: string, args: string[], options: CommandRunOptions = {}): Promise<CommandRunResult> {
-    if (command === WHICH_EXECUTABLE) {
-      const executable = args[0] as 'claude' | 'codex'
-
-      if (this.options.available.includes(executable)) {
-        return makeResult(command, args, `/tmp/branchpilot-${executable}\n`, '', options.cwd)
-      }
-
-      throw new CommandExecutionError(`${executable} not found`, makeResult(command, args, '', 'not found', options.cwd, 1))
-    }
-
-    if (command === '/tmp/branchpilot-claude' || command === '/tmp/branchpilot-codex') {
-      const assistant = command.endsWith('claude') ? 'claude' : 'codex'
-      this.assistantPrompt = options.input ?? ''
-      this.assistantInvocations.push({ command, args, cwd: options.cwd })
-
-      if (this.options.failingAssistants?.includes(assistant)) {
-        throw new CommandExecutionError(`${assistant} failed`, makeResult(command, args, '', `${assistant} failed`, options.cwd, 1))
-      }
-
-      return makeResult(
-        command,
-        args,
-        this.options.assistantOutput ?? '{"title":"Generate commit text","description":"Summarizes staged changes."}',
-        '',
-        options.cwd
-      )
-    }
-
-    return super.run(command, args, options)
-  }
-}
-
-function createTempRepository() {
-  const repoPath = mkdtempSync(path.join(tmpdir(), 'branchpilot-assistant-test-'))
-  tempRoots.push(repoPath)
-
-  git(repoPath, ['init', '-b', 'main'])
-  git(repoPath, ['config', 'user.name', 'BranchPilot Test'])
-  git(repoPath, ['config', 'user.email', 'branchpilot@example.com'])
-  writeFileSync(path.join(repoPath, 'tracked.txt'), 'initial\n')
-  git(repoPath, ['add', 'tracked.txt'])
-  git(repoPath, ['commit', '-m', 'Initial commit'])
-
-  return repoPath
-}
-
-function createStagedRepository() {
-  const repoPath = createTempRepository()
-  writeFileSync(path.join(repoPath, 'tracked.txt'), 'staged\n')
-  git(repoPath, ['add', 'tracked.txt'])
-  return repoPath
-}
-
-function reviewOutput(summary: string) {
-  return JSON.stringify({
-    summary,
-    findings: [
-      {
-        severity: 'medium',
-        title: 'Review finding',
-        details: 'A concrete review finding.',
-        filePath: 'tracked.txt',
-        line: 1,
-        recommendation: 'Inspect the change before merging.'
-      }
-    ]
-  })
-}
-
-function git(cwd: string, args: string[]) {
-  return execFileSync(GIT_EXECUTABLE, args, {
-    cwd,
-    encoding: 'utf8'
-  }).trim()
-}
-
-function makeResult(
-  command: string,
-  args: string[],
-  stdout: string,
-  stderr: string,
-  cwd?: string,
-  exitCode = 0
-): CommandRunResult {
-  return {
-    command,
-    args,
-    cwd,
-    exitCode,
-    stdout,
-    stderr,
-    durationMs: 1
-  }
-}

@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs'
+﻿import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type {
@@ -33,9 +33,9 @@ import {
   parseTagSummary,
   parseWorktreeList,
   pathExists,
-  readFilePrefix,
   resolveRepositoryPath
 } from './repositoryService.helpers.js'
+import { readUntrackedFilePreview } from './repositoryService.untrackedPreview.js'
 
 export const MAX_DIFF_BYTES = 350_000
 export const MAX_DIFF_OUTPUT_BYTES = MAX_DIFF_BYTES + 1
@@ -351,8 +351,38 @@ export abstract class RepositoryServiceBase {
     return result.exitCode === 0
   }
 
-  protected async getCommitFiles(rootPath: string, commitSha: string): Promise<CommitFileChange[]> {
-    const result = await this.git(rootPath, ['diff-tree', '--root', '-r', '--name-status', '-z', '--no-commit-id', commitSha])
+  protected async getCommitParentShas(rootPath: string, commitSha: string): Promise<string[]> {
+    const result = await this.git(rootPath, ['rev-list', '--parents', '-n', '1', commitSha])
+    const [, ...parentShas] = result.stdout.trim().split(/\s+/).filter(Boolean)
+
+    return parentShas
+  }
+
+  protected commitDiffTreeRefs(commitSha: string, parentShas: string[]): string[] {
+    if (parentShas.length > 1) return [parentShas[0], commitSha]
+
+    return [commitSha]
+  }
+
+  protected commitDiffRefs(commitSha: string, parentShas: string[]): string[] {
+    if (parentShas.length > 0) return [parentShas[0], commitSha]
+
+    return [commitSha]
+  }
+
+  protected async getCommitFiles(rootPath: string, commitSha: string, parentShas?: string[]): Promise<CommitFileChange[]> {
+    const resolvedParentShas = parentShas ?? (await this.getCommitParentShas(rootPath, commitSha))
+    const result = await this.git(rootPath, [
+      'diff-tree',
+      '--root',
+      '-r',
+      '--name-status',
+      '-z',
+      '--find-renames',
+      '--no-commit-id',
+      ...this.commitDiffTreeRefs(commitSha, resolvedParentShas)
+    ])
+
     return parseNameStatusRecords(result.stdout)
   }
 
@@ -490,7 +520,7 @@ export abstract class RepositoryServiceBase {
   }
 
   protected async assertNoConflicts(rootPath: string, actionLabel: string): Promise<void> {
-    const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
+    const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'])
     const parsedStatus = parseGitStatus(statusOutput.stdout)
 
     if (parsedStatus.counts.conflicted > 0) {
@@ -533,39 +563,10 @@ export abstract class RepositoryServiceBase {
   }
 
   protected async getUntrackedFilePreview(rootPath: string, filePath: string): Promise<DiffResult> {
-    const fullPath = resolveRepositoryPath(rootPath, filePath)
-    const fileStats = await fs.stat(fullPath)
-    if (fileStats.isDirectory()) {
-      // An untracked *directory* has no single file to read (reading it throws EISDIR).
-      return {
-        filePath,
-        staged: false,
-        text: 'Untracked directory — open it to see individual files.',
-        binary: false,
-        tooLarge: false,
-        files: []
-      }
-    }
-    const file = await readFilePrefix(fullPath, MAX_DIFF_OUTPUT_BYTES)
-    const binary = file.includes(0)
-    const tooLarge = fileStats.size > MAX_DIFF_BYTES
-    const text = binary
-      ? 'Binary untracked file.'
-      : file
-          .toString('utf8')
-          .slice(0, MAX_DIFF_BYTES)
-          .split('\n')
-          .map((line) => `+${line}`)
-          .join('\n')
-
-    return {
-      filePath,
-      staged: false,
-      text,
-      binary,
-      tooLarge,
-      files: []
-    }
+    return readUntrackedFilePreview(rootPath, filePath, {
+      maxDiffBytes: MAX_DIFF_BYTES,
+      maxOutputBytes: MAX_DIFF_OUTPUT_BYTES
+    })
   }
 
   protected async gitCommitWithMessageFile(rootPath: string, argsPrefix: string[], message: string): Promise<void> {

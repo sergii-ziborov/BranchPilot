@@ -1,3 +1,17 @@
+export type {
+  CreatePullRequestRequest,
+  EditorOpenRequest,
+  EditorPreference,
+  EditorSettings,
+  EditorSettingsUpdate,
+  GitHubAuthProvider,
+  GitHubCliState,
+  GitHubCliStatus,
+  TerminalPreference,
+  TerminalSettings,
+  TerminalSettingsUpdate
+} from './branchPilot.integrations.js'
+
 import type {
   CommitSummary,
   FileChangeStatus
@@ -14,6 +28,23 @@ export interface CommitDetails extends CommitSummary {
   body: string
   files: CommitFileChange[]
   containingBranches: string[]
+}
+
+/** Lightweight commit summary for a hover card (GitLens-style), one fast git call. */
+export interface CommitCard {
+  sha: string
+  shortSha: string
+  subject: string
+  body: string
+  authorName: string
+  authorEmail: string
+  authoredAt: string
+  avatarUrl?: string
+  filesChanged: number
+  insertions: number
+  deletions: number
+  tags: string[]
+  branches: string[]
 }
 
 export interface CommitDetailsRequest {
@@ -134,7 +165,7 @@ export interface CoAuthor {
   login?: string
   avatarUrl?: string
   profileUrl?: string
-  source?: 'repository' | 'github' | 'organization' | 'identity'
+  source?: 'repository' | 'github' | 'organization' | 'collaborator' | 'identity'
   organization?: string
 }
 
@@ -173,6 +204,8 @@ export interface ContributorStatsRequest {
   repoPath?: string
   repoPaths?: string[]
   window?: ContributorStatsWindow
+  /** YYYY-MM-DD. Used with the `day` window to rank the selected calendar day. */
+  date?: string
 }
 
 export interface ContributionDay {
@@ -416,8 +449,8 @@ export interface GeneratedRepositoryStarter {
   truncated: boolean
 }
 
-export type ReviewMode = 'consistency' | 'security' | 'quality'
-export type ReviewScope = 'staged' | 'unstaged' | 'branch'
+export type ReviewMode = 'consistency' | 'security' | 'quality' | 'knip' | 'depcheck' | 'osv' | 'gitleaks'
+export type ReviewScope = 'selected' | 'staged' | 'unstaged' | 'branch'
 export type ReviewSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
 
 export interface ReviewFinding {
@@ -443,6 +476,7 @@ export interface ReviewReportRequest {
   assistant: AssistantId
   mode: ReviewMode
   scope: ReviewScope
+  filePaths?: string[]
 }
 
 export interface GitOperationResult {
@@ -515,77 +549,16 @@ export interface RemoveWorktreeRequest {
   force?: boolean
 }
 
+export interface ForcePushRequest {
+  repoPath: string
+  confirmed: boolean
+}
+
 export interface UpdateSubmoduleRequest {
   repoPath: string
   path?: string
   init: boolean
   recursive: boolean
-}
-
-export interface EditorOpenRequest {
-  targetPath: string
-  line?: number
-}
-
-export type EditorPreference = 'auto' | 'vscode' | 'cursor' | 'webstorm' | 'rider' | 'sublime' | 'custom'
-
-export interface EditorSettings {
-  preference: EditorPreference
-  customCommand?: string
-  updatedAt?: string
-}
-
-export interface EditorSettingsUpdate {
-  preference: EditorPreference
-  customCommand?: string
-}
-
-export type TerminalPreference =
-  | 'auto'
-  | 'windows-terminal'
-  | 'powershell'
-  | 'cmd'
-  | 'git-bash'
-  | 'terminal'
-  | 'iterm'
-  | 'gnome-terminal'
-  | 'konsole'
-  | 'alacritty'
-  | 'wezterm'
-  | 'custom'
-
-export interface TerminalSettings {
-  preference: TerminalPreference
-  customCommand?: string
-  updatedAt?: string
-}
-
-export interface TerminalSettingsUpdate {
-  preference: TerminalPreference
-  customCommand?: string
-}
-
-export type GitHubCliState = 'missing' | 'unauthenticated' | 'authenticated'
-export type GitHubAuthProvider = 'none' | 'gh' | 'git-credential'
-
-export interface GitHubCliStatus {
-  state: GitHubCliState
-  installed: boolean
-  authenticated: boolean
-  ghAuthenticated: boolean
-  gitCredentialAuthenticated: boolean
-  authProvider: GitHubAuthProvider
-  executable?: string
-  username?: string
-  message: string
-}
-
-export interface CreatePullRequestRequest {
-  repoPath: string
-  title: string
-  description: string
-  baseBranch?: string
-  headBranch?: string
 }
 
 

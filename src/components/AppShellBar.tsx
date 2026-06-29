@@ -1,63 +1,18 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
-  AlignLeft, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown, Code2,
+  AlignLeft, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown,
   DownloadCloud, FolderOpen, GitBranch, GitMerge, GitPullRequest,
-  Palette, Pencil, RefreshCcw, Settings, Star, Terminal, Trash2, UploadCloud, X, Check
+  Palette, Pencil, RefreshCcw, Settings, Star, Trash2, UploadCloud, X, Check
 } from 'lucide-react'
 import type { ViewMode } from '../lib/viewMode'
 import { CreateBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './Dialogs'
 import { BranchPilotLogo } from './BrandIcons'
+import { IconButton } from './IconButton'
 import { useController } from '../hooks/AppControllerContext'
+import { APP_THEMES, useAppTheme } from '../hooks/useAppTheme'
+import { mergeBranchCandidates } from '../lib/mergeCandidates'
 
 type TabIcon = ComponentType<{ size?: number }>
-
-/** Popular VS Code color themes, applied via document.documentElement[data-theme]. */
-const THEMES: { id: string; label: string; dot: string }[] = [
-  { id: 'github-light', label: 'GitHub Light', dot: '#2563eb' },
-  { id: 'github-dark', label: 'GitHub Dark', dot: '#2f81f7' },
-  { id: 'one-dark-pro', label: 'One Dark Pro', dot: '#61afef' },
-  { id: 'dracula', label: 'Dracula', dot: '#bd93f9' },
-  { id: 'monokai', label: 'Monokai', dot: '#a6e22e' },
-  { id: 'nord', label: 'Nord', dot: '#88c0d0' },
-  { id: 'night-owl', label: 'Night Owl', dot: '#82aaff' },
-  { id: 'tokyo-night', label: 'Tokyo Night', dot: '#7aa2f7' },
-  { id: 'deus-ex', label: 'Deus Ex', dot: '#f2c94c' },
-  { id: 'cyberpunk', label: 'Cyberpunk', dot: '#fcee0a' },
-  { id: 'solarized-light', label: 'Solarized Light', dot: '#268bd2' }
-]
-
-const THEME_KEY = 'bp-theme'
-
-function applyTheme(id: string) {
-  const root = document.documentElement
-  if (id === 'github-light') root.removeAttribute('data-theme')
-  else root.setAttribute('data-theme', id)
-}
-
-function syncChromeTheme() {
-  const api = window.branchPilot
-  if (!api?.setChromeTheme) return
-
-  requestAnimationFrame(() => {
-    const style = getComputedStyle(document.documentElement)
-    const backgroundColor = style.getPropertyValue('--app-grad-top').trim() || '#f8fafc'
-    const symbolColor = style.getPropertyValue('--text-strong').trim() || '#0f172a'
-    void api.setChromeTheme({ backgroundColor, symbolColor })
-  })
-}
-
-function useTheme(): [string, (id: string) => void] {
-  const [theme, setTheme] = useState<string>(() => {
-    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(THEME_KEY) : null
-    return saved && THEMES.some((t) => t.id === saved) ? saved : 'github-light'
-  })
-  useEffect(() => {
-    applyTheme(theme)
-    syncChromeTheme()
-    try { localStorage.setItem(THEME_KEY, theme) } catch { /* ignore */ }
-  }, [theme])
-  return [theme, setTheme]
-}
 
 const TOOL_TABS: { id: ViewMode; label: string; icon: TabIcon }[] = [
   { id: 'providers', label: 'Pull requests', icon: GitPullRequest },
@@ -76,7 +31,7 @@ export function AppShellBar({
     snapshot, busy, currentRepoPath, viewMode, setViewMode,
     recentRepositories, openRepository, chooseRepository,
     allReposMode, setAllReposMode, hasRemote, canFetch, canPull, canPush,
-    runSnapshotAction, refreshRepository, openRepoInEditor, openRepositoryTerminal,
+    runSnapshotAction, requestConfirmation, refreshRepository,
     repositoryDashboard
   } = useController()
   const api = window.branchPilot
@@ -91,7 +46,19 @@ export function AppShellBar({
     )
   const branches = snapshot?.branches ?? []
   const remoteBranches = snapshot?.remoteBranches ?? []
+  const mergeCandidates = mergeBranchCandidates(snapshot)
   const currentBranch = snapshot?.summary.currentBranch ?? null
+  // Remote branches that have no local counterpart — surfaced in the switcher so
+  // you can check one out (git switch DWIMs a local tracking branch from its
+  // short name). Mirrors the dedup the merge dialog uses.
+  const localBranchNames = new Set(branches.map((branch) => branch.name))
+  const switchableRemoteBranches = remoteBranches.filter(
+    (branch) =>
+      Boolean(branch.branchName) &&
+      branch.branchName !== 'HEAD' &&
+      !localBranchNames.has(branch.branchName) &&
+      !localBranchNames.has(branch.name)
+  )
   const headerRef = useRef<HTMLElement>(null)
   const [showCreateBranch, setShowCreateBranch] = useState(false)
   const [newBranchName, setNewBranchName] = useState('')
@@ -100,7 +67,7 @@ export function AppShellBar({
   const [createBranchChangesMode, setCreateBranchChangesMode] = useState<'move' | 'leave'>('move')
   const [pendingSwitch, setPendingSwitch] = useState<string | null>(null)
   const [showMergeInto, setShowMergeInto] = useState(false)
-  const [theme, setTheme] = useTheme()
+  const [theme, setTheme] = useAppTheme()
   const [branchAction, setBranchAction] = useState<{ name: string; mode: 'rename' | 'describe' | 'delete' } | null>(null)
   const [branchActionValue, setBranchActionValue] = useState('')
   const [branchMenuOpen, setBranchMenuOpen] = useState(false)
@@ -386,8 +353,30 @@ export function AppShellBar({
                   )
                 })
               )}
+              {switchableRemoteBranches.length > 0 && (
+                <>
+                  <p className="shell-dropdown-section">Remote branches</p>
+                  {switchableRemoteBranches.map((branch) => (
+                    <div className="shell-branch-row" key={branch.name}>
+                      <button
+                        className="shell-branch-pick"
+                        type="button"
+                        disabled={busy}
+                        title={`Check out ${branch.branchName} (tracking ${branch.name})`}
+                        onClick={(event) => { closeMenu(event); switchBranch(branch.branchName) }}
+                      >
+                        <GitBranch size={13} />
+                        <span className="shell-dropdown-item-text">
+                          <strong>{branch.branchName}</strong>
+                          <span>{branch.name}</span>
+                        </span>
+                      </button>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
-            <button className="shell-dropdown-primary shell-dropdown-merge" type="button" disabled={!snapshot || busy || branches.length < 2} onClick={(event) => { closeMenu(event); setShowMergeInto(true) }}>
+            <button className="shell-dropdown-primary shell-dropdown-merge" type="button" disabled={!snapshot || busy || mergeCandidates.length === 0} onClick={(event) => { closeMenu(event); setShowMergeInto(true) }}>
               <GitMerge size={15} />
               Choose a branch to merge into {currentBranch ?? 'current'}…
             </button>
@@ -400,6 +389,15 @@ export function AppShellBar({
           const doFetch = () => { if (currentRepoPath) void runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath)) }
           const doPull = () => { if (currentRepoPath) void runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath)) }
           const doPush = () => { if (currentRepoPath) void runSnapshotAction('Push complete.', () => api!.push(currentRepoPath)) }
+          const doForcePush = async () => {
+            if (!currentRepoPath) return
+            const confirmed = await requestConfirmation(
+              `Force push ${currentBranch ?? 'the current branch'} with lease? This can rewrite the remote branch if it still points to the value you last fetched.`,
+              { title: 'Force Push', confirmLabel: 'Force push with lease', variant: 'danger' }
+            )
+            if (!confirmed) return
+            void runSnapshotAction('Force push complete.', () => api!.forcePush({ repoPath: currentRepoPath, confirmed }))
+          }
           const doPublishRepository = () => { if (snapshot) onOpenPublishRepository() }
           // GitHub-Desktop priority: pull what's behind first, then push what's ahead, else fetch.
           const remotePrimary = behind > 0
@@ -444,6 +442,10 @@ export function AppShellBar({
                     <ArrowUpFromLine size={15} />
                     Push{ahead > 0 ? ` (${ahead})` : ''}
                   </button>
+                  <button className="shell-dropdown-primary danger" type="button" disabled={!canPush || busy} onClick={(event) => { closeMenu(event); void doForcePush() }}>
+                    <UploadCloud size={15} />
+                    Force push with lease
+                  </button>
                 </div>
               </details>
             </div>
@@ -452,31 +454,6 @@ export function AppShellBar({
         </>
         )}
         </div>
-
-        {!allReposMode && (
-        <div className="shell-repo-actions">
-          <button className="icon-button" type="button" title="Refresh repository" aria-label="Refresh repository" disabled={!snapshot || busy} onClick={() => refreshRepository()}>
-            <RefreshCcw size={17} />
-          </button>
-          <button className="icon-button" type="button" title="Open repository in editor" aria-label="Open repository in editor" disabled={!snapshot || busy} onClick={openRepoInEditor}>
-            <Code2 size={17} />
-          </button>
-          <button className="icon-button" type="button" title="Open terminal" aria-label="Open terminal" disabled={!snapshot || busy} onClick={openRepositoryTerminal}>
-            <Terminal size={17} />
-          </button>
-          <button
-            className={viewMode === 'config' ? 'icon-button active' : 'icon-button'}
-            type="button"
-            title={viewMode === 'config' ? 'Back to Changes' : 'Git settings'}
-            aria-label="Git settings"
-            aria-pressed={viewMode === 'config'}
-            disabled={!snapshot || busy}
-            onClick={() => setViewMode(viewMode === 'config' ? 'changes' : 'config')}
-          >
-            <Settings size={17} />
-          </button>
-        </div>
-        )}
 
         <div className="shell-tabs-tools">
           {TOOL_TABS.filter((tab) => !allReposMode || tab.id === 'daily').map((tab) => {
@@ -496,6 +473,20 @@ export function AppShellBar({
             )
           })}
 
+          {!allReposMode && (
+            <>
+              <IconButton icon={<RefreshCcw size={17} />} label="Refresh repository" disabled={!snapshot || busy} onClick={() => refreshRepository()} />
+              <IconButton
+                icon={<Settings size={17} />}
+                label="Git settings"
+                title={viewMode === 'config' ? 'Back to Changes' : 'Git settings'}
+                active={viewMode === 'config'}
+                disabled={!snapshot || busy}
+                onClick={() => setViewMode(viewMode === 'config' ? 'changes' : 'config')}
+              />
+            </>
+          )}
+
           <details className="shell-menu shell-theme" onToggle={handleToggle}>
             <summary>
               <span className="shell-seg-value">
@@ -504,7 +495,7 @@ export function AppShellBar({
               </span>
             </summary>
             <div className="shell-dropdown shell-theme-dropdown">
-              {THEMES.map((t) => (
+              {APP_THEMES.map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -554,7 +545,7 @@ export function AppShellBar({
     {showMergeInto && (
       <MergeBranchDialog
         currentBranch={currentBranch ?? 'current branch'}
-        branches={branches}
+        branches={mergeCandidates}
         busy={busy}
         onCancel={() => setShowMergeInto(false)}
         onMerge={mergeIntoBranch}

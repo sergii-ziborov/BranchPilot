@@ -1,0 +1,351 @@
+﻿.content-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.8fr) minmax(480px, 1.2fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.changes-workflow-grid {
+  --changes-pane-width: 430px;
+  --changes-pane-min-width: 320px;
+  --diff-pane-min-width: 520px;
+  grid-template-columns:
+    minmax(var(--changes-pane-min-width), var(--changes-pane-width))
+    10px
+    minmax(var(--diff-pane-min-width), 1fr);
+  align-items: stretch;
+  gap: 0;
+  min-height: 0;
+}
+
+.changes-splitter {
+  display: flex;
+  width: 10px;
+  min-width: 10px;
+  align-items: stretch;
+  justify-content: center;
+  align-self: stretch;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.changes-splitter span {
+  width: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.changes-splitter:hover span,
+.changes-splitter:focus-visible span,
+.is-resizing-changes .changes-splitter span {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(107, 33, 168, 0.12);
+}
+
+.is-resizing-changes {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.changes-panel,
+.diff-panel,
+.single-panel {
+  min-width: 0;
+  padding: 18px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.panel-heading > div:first-child {
+  min-width: 0;
+}
+
+.panel-heading p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.changes-panel-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+  padding: 6px 8px 2px;
+  overflow: hidden;
+}
+
+.changes-topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.changes-topbar h2 {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-strong);
+  font-size: 16px;
+}
+
+.changes-topbar h2 span {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: #475569;
+  background: #e2e8f0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+
+.change-filter-bar,
+.list-filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+/* Search field grows to the panel edge; buttons/counters stay their natural size. */
+.change-filter-bar > .change-filter-input,
+.list-filter-bar > .list-filter-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.change-filter-bar > .changes-actions-menu,
+.change-filter-bar > span,
+.change-filter-bar > button,
+.list-filter-bar > span,
+.list-filter-bar > button {
+  flex: 0 0 auto;
+}
+
+.change-filter-bar-compact {
+  margin-bottom: 0;
+}
+
+.changes-actions-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.changes-actions-menu summary {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-size: 13px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.changes-actions-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.changes-actions-menu summary:hover,
+.changes-actions-menu[open] summary {
+  border-color: #a7b0c0;
+  background: var(--panel-2);
+}
+
+.changes-actions-popover {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  width: 220px;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.14);
+}
+
+.changes-actions-popover button,
+.changes-actions-popover select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font: inherit;
+  font-size: 13px;
+}
+
+.changes-actions-popover button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.changes-actions-popover button:hover {
+  border-color: #a7b0c0;
+  background: var(--panel-2);
+}
+
+.changes-actions-section {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.changes-actions-section > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.changes-actions-popover label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.changes-actions-popover select {
+  padding: 0 9px;
+  text-transform: none;
+}
+
+.change-filter-input,
+.list-filter-input {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.change-filter-input input,
+.list-filter-input input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: var(--text-strong);
+  background: transparent;
+}
+
+.change-filter-bar > span,
+.list-filter-bar > span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.change-filter-bar button,
+.list-filter-bar button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.branch-list,
+.remote-branch-list,
+.conflict-list,
+.assistant-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.change-list,
+.history-list {
+  display: block;
+  min-height: 220px;
+}
+
+.change-list-header {
+  display: grid;
+  min-height: 34px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: var(--panel);
+}
+
+.changes-panel-compact .change-list {
+  flex: 1 1 0;
+  min-height: 100px;
+  /* Cancel the column gap so the list joins flush to its header (one card). */
+  margin-top: -8px;
+  border: 1px solid var(--border);
+  border-radius: 0 0 8px 8px;
+  background: var(--panel);
+}
+
+.changes-panel-compact .virtual-list-viewport {
+  max-height: none;
+  min-height: 0;
+}
+
+/* Commit composer stays pinned below the (scrolling) file list. */
+.changes-panel-compact .commit-box {
+  flex: 0 0 auto;
+}
+
+/* Changes diff pane: heading + controls fixed, the diff itself scrolls. */
+.changes-workflow-grid .diff-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 6px 10px 10px;
+}
+
+.changes-workflow-grid .diff-panel .structured-diff,
+.changes-workflow-grid .diff-panel .mixed-diff-stack,
+.changes-workflow-grid .diff-panel .diff-preview,
+.changes-workflow-grid .diff-panel .diff-empty,
+.changes-workflow-grid .diff-panel .diff-image {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+

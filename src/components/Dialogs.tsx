@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { GitBranch } from 'lucide-react'
+import { ChoiceOptionCard } from './ChoiceOptionCard'
 import type { ConfirmationRequest, TextPromptRequest } from '../lib/prompts'
+import type { MergeBranchCandidate } from '../lib/mergeCandidates'
 
 /** GitHub-Desktop-style "choose a branch to merge into <current>" dialog. */
 export function MergeBranchDialog({
@@ -11,7 +13,7 @@ export function MergeBranchDialog({
   onMerge
 }: {
   currentBranch: string
-  branches: { name: string }[]
+  branches: MergeBranchCandidate[]
   busy: boolean
   onCancel: () => void
   onMerge: (branchName: string) => void
@@ -19,9 +21,10 @@ export function MergeBranchDialog({
   const [filter, setFilter] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const query = filter.trim().toLowerCase()
-  const options = branches.filter(
-    (branch) => branch.name !== currentBranch && (!query || branch.name.toLowerCase().includes(query))
-  )
+  const options = branches.filter((branch) => {
+    const haystack = `${branch.name} ${branch.label} ${branch.kind}`.toLowerCase()
+    return branch.name !== currentBranch && (!query || haystack.includes(query))
+  })
 
   return (
     <div className="confirmation-backdrop" role="presentation">
@@ -48,7 +51,7 @@ export function MergeBranchDialog({
                   onClick={() => setSelected(branch.name)}
                 >
                   <GitBranch size={14} />
-                  <span>{branch.name}</span>
+                  <span>{branch.label}</span>
                 </button>
               ))
             )}
@@ -90,22 +93,18 @@ export function SwitchBranchDialog({
           <h2 id="switch-branch-title">Switch branch</h2>
           <p>You have changes on <strong>{fromBranch}</strong>. What would you like to do with them?</p>
           <div className="switch-options">
-            <button
-              type="button"
-              className={leaveChanges ? 'switch-option' : 'switch-option active'}
-              onClick={() => setLeaveChanges(false)}
-            >
-              <strong>Bring my changes to {toBranch}</strong>
-              <span>Your in-progress work will follow you to the other branch.</span>
-            </button>
-            <button
-              type="button"
-              className={leaveChanges ? 'switch-option active' : 'switch-option'}
-              onClick={() => setLeaveChanges(true)}
-            >
-              <strong>Leave my changes on {fromBranch}</strong>
-              <span>Your work will be stashed on this branch for you to return to later.</span>
-            </button>
+            <ChoiceOptionCard
+              title={`Bring my changes to ${toBranch}`}
+              description="Your in-progress work will follow you to the other branch."
+              selected={!leaveChanges}
+              onSelect={() => setLeaveChanges(false)}
+            />
+            <ChoiceOptionCard
+              title={`Leave my changes on ${fromBranch}`}
+              description="Your work will be stashed on this branch for you to return to later."
+              selected={leaveChanges}
+              onSelect={() => setLeaveChanges(true)}
+            />
           </div>
         </div>
         <div className="confirmation-actions">
@@ -218,22 +217,18 @@ export function CreateBranchDialog({
 
               {hasChanges ? (
                 <div className="switch-options" role="group" aria-label="Current file changes">
-                  <button
-                    type="button"
-                    className={changesMode === 'move' ? 'switch-option active' : 'switch-option'}
-                    onClick={() => onChangesModeChange('move')}
-                  >
-                    <strong>Move current changes to the new branch</strong>
-                    <span>Switch to {branchName} and keep {changeCount} changed file{changeCount === 1 ? '' : 's'} with it.</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={changesMode === 'leave' ? 'switch-option active' : 'switch-option'}
-                    onClick={() => onChangesModeChange('leave')}
-                  >
-                    <strong>Leave current changes here</strong>
-                    <span>Create {branchName} from {selectedBase}, but stay on {fallbackBase} so the files remain here.</span>
-                  </button>
+                  <ChoiceOptionCard
+                    title="Move current changes to the new branch"
+                    description={`Switch to ${branchName} and keep ${changeCount} changed file${changeCount === 1 ? '' : 's'} with it.`}
+                    selected={changesMode === 'move'}
+                    onSelect={() => onChangesModeChange('move')}
+                  />
+                  <ChoiceOptionCard
+                    title="Leave current changes here"
+                    description={`Create ${branchName} from ${selectedBase}, but stay on ${fallbackBase} so the files remain here.`}
+                    selected={changesMode === 'leave'}
+                    onSelect={() => onChangesModeChange('leave')}
+                  />
                 </div>
               ) : (
                 <div className="create-branch-note">No changed files are waiting, so BranchPilot will switch to the new branch after creating it.</div>

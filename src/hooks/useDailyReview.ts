@@ -28,11 +28,17 @@ export function useDailyReview({
   const [contributorStats, setContributorStats] = useState<ContributorStat[]>([])
   const [contributorWindow, setContributorWindow] = useState<ContributorStatsWindow>('day')
 
+  function updateDailyReviewDate(date: string) {
+    if (date !== dailyReviewDate) setDailyReview(null)
+    setDailyReviewDate(date)
+  }
+
   async function loadContributorStats(scope: string | RepositoryScopeRequest | undefined = currentRepoPath) {
     if (!api || typeof api.getContributorStats !== 'function') return
     const request: ContributorStatsRequest = typeof scope === 'string'
       ? { repoPath: scope, window: contributorWindow }
       : { ...(scope ?? {}), window: contributorWindow }
+    if (contributorWindow === 'day' && dailyReviewDate) request.date = dailyReviewDate
     const result = await api.getContributorStats(request).catch(() => null)
     setContributorStats(result?.ok ? result.data : [])
   }
@@ -72,7 +78,7 @@ export function useDailyReview({
     dailyReview,
     setDailyReview,
     dailyReviewDate,
-    setDailyReviewDate,
+    setDailyReviewDate: updateDailyReviewDate,
     dailyReviewLoading,
     contributorStats,
     contributorWindow,

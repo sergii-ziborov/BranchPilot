@@ -1,0 +1,548 @@
+﻿
+.diff-lines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+}
+
+.split-diff-lines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+}
+
+.split-diff-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.split-diff-cell {
+  display: grid;
+  grid-template-columns: 28px 48px 22px minmax(0, 1fr);
+  min-height: 24px;
+  align-items: center;
+  border-right: 1px solid var(--diff-border);
+  color: var(--diff-text);
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.split-diff-cell.line-empty {
+  background: var(--diff-empty-bg);
+}
+
+.diff-line {
+  display: grid;
+  grid-template-columns: 36px 48px 48px 22px minmax(0, 1fr);
+  min-height: 24px;
+  align-items: start;
+  color: var(--diff-text);
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+  user-select: text;
+}
+
+.line-select-control,
+.line-select-spacer,
+.diff-line .line-number,
+.diff-line .line-marker,
+.split-diff-cell .line-number,
+.split-diff-cell .line-marker {
+  color: var(--diff-muted);
+  text-align: right;
+  user-select: none;
+}
+
+.line-select-control,
+.line-select-spacer {
+  display: block;
+  width: 100%;
+  min-height: 24px;
+}
+
+.line-select-control {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.line-select-control:hover {
+  background: color-mix(in srgb, var(--diff-selected-accent) 18%, transparent);
+  box-shadow: inset 4px 0 0 var(--diff-selected-accent);
+}
+
+.line-select-control.selected {
+  background: color-mix(in srgb, var(--diff-selected-accent) 24%, transparent);
+  box-shadow: inset 4px 0 0 var(--diff-selected-accent);
+}
+
+.line-select-control:focus-visible {
+  outline: 1px solid var(--diff-selected-accent);
+  outline-offset: -2px;
+}
+
+.line-number-button {
+  width: 100%;
+  height: 100%;
+  padding: 0 4px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.line-number-button:hover {
+  color: var(--diff-hunk-text);
+  background: var(--sel-bg);
+}
+
+.line-number-button:focus-visible {
+  outline: 1px solid var(--sel-border);
+  outline-offset: -1px;
+}
+
+.diff-line .line-marker,
+.split-diff-cell .line-marker {
+  padding-right: 8px;
+}
+
+.diff-line .line-content,
+.split-diff-cell .line-content {
+  overflow: visible;
+  user-select: text;
+}
+
+/* Wrap long lines (inline + split) so nothing runs off into endless rows. */
+.split-diff-cell {
+  align-items: start;
+}
+
+.diff-line .line-content,
+.split-diff-cell .line-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff-line.line-add,
+.split-diff-cell.line-add {
+  color: var(--diff-add-text);
+  background: var(--diff-add-bg);
+}
+
+.diff-line.line-remove,
+.split-diff-cell.line-remove {
+  color: var(--diff-remove-text);
+  background: var(--diff-remove-bg);
+}
+
+.structured-diff-sectioned .diff-line.line-add,
+.structured-diff-sectioned .split-diff-cell.line-add {
+  box-shadow: inset 3px 0 0 var(--diff-section-accent);
+  background: color-mix(in srgb, var(--diff-add-bg) 86%, var(--diff-section-accent));
+}
+
+.structured-diff-sectioned .diff-line.line-remove,
+.structured-diff-sectioned .split-diff-cell.line-remove {
+  box-shadow: inset 3px 0 0 var(--diff-section-accent);
+  background: color-mix(in srgb, var(--diff-remove-bg) 86%, var(--diff-section-accent));
+}
+
+.diff-line.line-meta,
+.split-diff-cell.line-meta {
+  color: var(--diff-muted);
+}
+
+/* Word-level intra-line diff: the exact added/removed text within a changed line. */
+.line-content .word-add {
+  border-radius: 3px;
+  background: var(--diff-word-add-bg);
+  box-shadow: 0 0 0 1px var(--diff-word-add-border);
+}
+
+.line-content .word-del {
+  border-radius: 3px;
+  background: var(--diff-word-del-bg);
+  box-shadow: 0 0 0 1px var(--diff-word-del-border);
+}
+
+/* GitHub-Desktop-style line selection: click a +/- line to select it for staging;
+   the selection persists (highlight + accent bar) until you act on it or clear it. */
+.diff-line.selectable,
+.split-diff-cell.selectable {
+  cursor: text;
+}
+
+.diff-line.selectable:hover .line-select-control:not(.selected),
+.split-diff-cell.selectable:hover .line-select-control:not(.selected) {
+  box-shadow: inset 2px 0 0 rgba(88, 166, 255, 0.5);
+}
+
+.diff-line.line-selected,
+.split-diff-cell.line-selected {
+  box-shadow: inset 3px 0 0 var(--diff-selected-accent);
+}
+
+.structured-diff-sectioned .diff-line.line-selected,
+.structured-diff-sectioned .split-diff-cell.line-selected {
+  box-shadow: inset 3px 0 0 var(--diff-selected-accent);
+}
+
+.diff-line.line-selected .line-number,
+.split-diff-cell.line-selected .line-number {
+  color: var(--diff-selected-accent);
+}
+
+.diff-context-expander {
+  display: flex;
+  min-height: 28px;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 12px 0 18px;
+  border: 0;
+  border-top: 1px solid var(--diff-border);
+  border-bottom: 1px solid var(--diff-border);
+  border-radius: 0;
+  color: var(--diff-hunk-text);
+  background: var(--diff-hunk-bg);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.diff-context-expander:hover {
+  background: var(--sel-bg);
+}
+
+.diff-line.line-add.line-selected,
+.split-diff-cell.line-add.line-selected {
+  background: var(--diff-word-add-bg);
+}
+
+.diff-line.line-remove.line-selected,
+.split-diff-cell.line-remove.line-selected {
+  background: var(--diff-word-del-bg);
+}
+
+.diff-selection-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--diff-border);
+  background: var(--diff-selection-bg);
+  color: var(--diff-selection-text);
+  font-size: 13px;
+}
+
+.diff-selection-bar > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+}
+
+.diff-selection-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.diff-selection-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.diff-selection-actions button.secondary {
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #c9d1d9;
+  background: transparent;
+}
+
+.diff-selection-actions button.danger {
+  border-color: rgba(248, 81, 73, 0.6);
+  color: #ffd7d7;
+  background: rgba(248, 81, 73, 0.18);
+}
+
+.diff-selection-actions button.danger:hover:not(:disabled) {
+  color: #ffffff;
+  background: #da3633;
+}
+
+.quiet-box {
+  padding: 18px;
+  color: var(--muted);
+}
+
+.conflict-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff5f5;
+  color: #991b1b;
+}
+
+.conflict-banner > svg {
+  flex: 0 0 auto;
+  color: #dc2626;
+}
+
+.conflict-banner-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.conflict-banner-text strong {
+  color: #991b1b;
+}
+
+.conflict-banner-text span {
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.conflict-banner-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.conflict-banner-actions button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  background: var(--panel);
+  color: #991b1b;
+  cursor: pointer;
+}
+
+.conflict-banner-actions button:hover {
+  background: #fef2f2;
+}
+
+.app-tooltip {
+  position: fixed;
+  z-index: 100;
+  transform: translateX(-50%);
+  max-width: 280px;
+  width: max-content;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.35);
+  animation: tooltip-fade 0.12s ease both;
+}
+
+/* Flipped above the anchor (used near the bottom edge of the window). */
+.app-tooltip-above {
+  transform: translate(-50%, -100%);
+}
+
+/* Small diamond pointer toward the anchored element. */
+.app-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.app-tooltip:not(.app-tooltip-above)::after {
+  top: -4px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.app-tooltip-above::after {
+  bottom: -4px;
+  border-left: 0;
+  border-top: 0;
+}
+
+@keyframes tooltip-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  color: var(--text);
+  font-size: 13px;
+  pointer-events: auto;
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toast-info {
+  border-color: #bbf7d0;
+}
+
+.toast-info svg {
+  color: #16a34a;
+}
+
+.toast-warning {
+  border-color: color-mix(in srgb, var(--warning, #f59e0b) 62%, var(--border));
+  background: color-mix(in srgb, var(--warning, #f59e0b) 12%, var(--panel));
+  color: var(--text);
+}
+
+.toast-warning svg {
+  color: var(--warning, #f59e0b);
+}
+
+.toast-busy {
+  border-color: #bfdbfe;
+}
+
+.toast-busy svg {
+  color: var(--accent);
+}
+
+.toast-error {
+  border-color: #fecaca;
+  background: #fff5f5;
+  color: #b91c1c;
+}
+
+.toast-error button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.toast-error button:hover {
+  background: rgba(185, 28, 28, 0.12);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.diff-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 280px;
+  padding: 32px 18px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.diff-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 280px;
+  padding: 24px;
+  background:
+    linear-gradient(45deg, #eef2f7 25%, transparent 25%),
+    linear-gradient(-45deg, #eef2f7 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eef2f7 75%),
+    linear-gradient(-45deg, transparent 75%, #eef2f7 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+
+.diff-image img {
+  max-width: 100%;
+  max-height: calc(100vh - 320px);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  object-fit: contain;
+}
+
+.diff-image-meta {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.diff-empty svg {
+  color: #94a3b8;
+  opacity: 0.7;
+}
+
+.diff-empty strong {
+  color: var(--text-strong);
+  font-size: 15px;
+}
+
+.diff-empty span {
+  font-size: 13px;
+}
+

@@ -2,8 +2,9 @@ import { ExternalLink, Loader2, ShieldCheck } from 'lucide-react'
 import type {
   AssistantPolicyStatus, RepositoryCounts, ReviewFinding, ReviewMode, ReviewReport, ReviewSeverity
 } from '../shared/branchPilot'
-import { reviewModeLabel, reviewModes, reviewSeverities } from '../lib/reviewLabels'
+import { defaultPreCommitReviewModes, reviewModeLabel, reviewSeverities } from '../lib/reviewLabels'
 import { assistantPolicyBlockedLabel } from '../lib/assistantLabels'
+import { FindingCard } from './FindingCard'
 
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
 
@@ -53,7 +54,7 @@ export function PreCommitReviewPanel({
 
       <div className="precommit-controls">
         <div className="segmented precommit-modes" aria-label="Pre-commit review modes">
-          {reviewModes.map((mode) => (
+          {defaultPreCommitReviewModes.map((mode) => (
             <button
               aria-pressed={preCommitReviewModes.includes(mode)}
               className={preCommitReviewModes.includes(mode) ? 'active' : ''}
@@ -105,14 +106,14 @@ export function PreCommitReviewPanel({
           {displayedFindings.length > 0 && (
             <div className="precommit-finding-list">
               {displayedFindings.map((finding, index) => (
-                <article className={`finding-card compact severity-${finding.severity}`} key={`${finding.mode}-${finding.severity}-${finding.title}-${index}`}>
-                  <div className="finding-heading">
-                    <span>{finding.severity}</span>
-                    <strong>{finding.title}</strong>
-                  </div>
-                  <code>{reviewModeLabel(finding.mode)}{finding.filePath ? ` / ${finding.filePath}${finding.line ? `:${finding.line}` : ''}` : ''}</code>
-                  <p>{finding.details}</p>
-                </article>
+                <FindingCard
+                  compact
+                  severity={finding.severity}
+                  title={finding.title}
+                  location={`${reviewModeLabel(finding.mode)}${finding.filePath ? ` / ${finding.filePath}${finding.line ? `:${finding.line}` : ''}` : ''}`}
+                  details={finding.details}
+                  key={`${finding.mode}-${finding.severity}-${finding.title}-${index}`}
+                />
               ))}
               {hiddenFindingCount > 0 && <div className="precommit-empty">{hiddenFindingCount} more findings in the full review.</div>}
             </div>

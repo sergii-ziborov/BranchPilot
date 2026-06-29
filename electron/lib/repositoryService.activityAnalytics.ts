@@ -1,5 +1,5 @@
-import type { CommandRunResult } from './commandRunner.js'
 import { createHash } from 'node:crypto'
+import type { CommandRunResult } from './commandRunner.js'
 import type {
   CoAuthor,
   ContributionDay,
@@ -73,13 +73,13 @@ export class RepositoryActivityAnalytics {
   async getContributorStats(request?: string | ContributorStatsRequest): Promise<ContributorStat[]> {
     const normalizedRequest = normalizeContributorStatsRequest(request)
     const repoPaths = await this.resolveScopePaths(normalizedRequest)
-    const sinceArg = contributorStatsSinceArg(normalizedRequest.window)
+    const timeArgs = contributorStatsTimeArgs(normalizedRequest)
 
     const logs = await Promise.all(
       repoPaths.map(async (candidate) => {
         try {
           const args = ['log', '--format=%an\t%ae\t%ad', '--date=short', '-n', '8000']
-          if (sinceArg) args.push(sinceArg)
+          args.push(...timeArgs)
           const result = await this.kernel.git(candidate, args, {
             allowedExitCodes: [0, 128, 129]
           })
@@ -296,7 +296,7 @@ function mergeContributorGroups(
   return targetKey
 }
 
-function normalizeContributorStatsRequest(request?: string | ContributorStatsRequest): RepositoryScopeRequest & { window: ContributorStatsWindow } {
+function normalizeContributorStatsRequest(request?: string | ContributorStatsRequest): RepositoryScopeRequest & { window: ContributorStatsWindow; date?: string } {
   if (typeof request === 'string') {
     return {
       repoPath: request,
@@ -307,7 +307,8 @@ function normalizeContributorStatsRequest(request?: string | ContributorStatsReq
   return {
     ...(request?.repoPath ? { repoPath: request.repoPath } : {}),
     ...(request?.repoPaths?.length ? { repoPaths: normalizeScopePathList(request.repoPaths) } : {}),
-    window: normalizeContributorStatsWindow(request?.window)
+    window: normalizeContributorStatsWindow(request?.window),
+    ...(normalizeIsoDate(request?.date) ? { date: normalizeIsoDate(request?.date) } : {})
   }
 }
 
@@ -352,13 +353,40 @@ function contributorStatsSinceArg(window: ContributorStatsWindow): string | unde
   return undefined
 }
 
+function contributorStatsTimeArgs(request: { window: ContributorStatsWindow; date?: string }): string[] {
+  if (request.window === 'day' && request.date) {
+    return [
+      `--since=${request.date} 00:00:00`,
+      `--before=${nextIsoDate(request.date)} 00:00:00`
+    ]
+  }
+
+  const sinceArg = contributorStatsSinceArg(request.window)
+  return sinceArg ? [sinceArg] : []
+}
+
+function normalizeIsoDate(value?: string): string | undefined {
+  const trimmed = value?.trim()
+  return trimmed && /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : undefined
+}
+
+function nextIsoDate(date: string): string {
+  const [year = 0, month = 1, day = 1] = date.split('-').map((part) => Number(part))
+  const next = new Date(Date.UTC(year, month - 1, day))
+  next.setUTCDate(next.getUTCDate() + 1)
+  return [
+    next.getUTCFullYear(),
+    String(next.getUTCMonth() + 1).padStart(2, '0'),
+    String(next.getUTCDate()).padStart(2, '0')
+  ].join('-')
+}
+
 function contributorNameKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function contributorProfileFields(_name: string, email: string): Pick<ContributorStat, 'login' | 'avatarUrl' | 'profileUrl'> {
   const login = inferGitHubLogin(email)
-  const normalizedEmail = email.trim().toLowerCase()
 
   return {
     ...(login
@@ -368,9 +396,14 @@ function contributorProfileFields(_name: string, email: string): Pick<Contributo
           profileUrl: `https://github.com/${encodeURIComponent(login)}`
         }
       : {
-          avatarUrl: `https://www.gravatar.com/avatar/${md5(normalizedEmail)}?s=96&d=identicon`
+          avatarUrl: gravatarIdenticonUrl(email)
         })
   }
+}
+
+function gravatarIdenticonUrl(email: string): string {
+  const hash = createHash('md5').update(email.trim().toLowerCase()).digest('hex')
+  return `https://www.gravatar.com/avatar/${hash}?s=96&d=identicon`
 }
 
 function inferGitHubLogin(email: string): string | undefined {
@@ -379,8 +412,4 @@ function inferGitHubLogin(email: string): string | undefined {
   if (noreplyMatch?.[1]) return noreplyMatch[1]
 
   return undefined
-}
-
-function md5(value: string): string {
-  return createHash('md5').update(value).digest('hex')
 }

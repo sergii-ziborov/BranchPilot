@@ -1,0 +1,224 @@
+﻿.linkedin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.linkedin-heading {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.linkedin-heading-actions,
+.linkedin-settings-actions,
+.linkedin-copy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.linkedin-heading-actions .icon-button {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+}
+
+.linkedin-generate-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  font: inherit;
+  font-weight: 700;
+}
+
+.linkedin-generate-button:hover:not(:disabled) {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+
+.linkedin-generate-button:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+.linkedin-workspace {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(420px, 1.08fr) minmax(320px, 0.92fr);
+  gap: 14px;
+  align-items: stretch;
+  min-height: 0;
+  overflow: auto;
+}
+
+.linkedin-settings,
+.linkedin-draft,
+.linkedin-side,
+.linkedin-list-card {
+  display: grid;
+  gap: 10px;
+}
+
+.linkedin-side {
+  min-width: 0;
+  align-content: start;
+}
+
+.linkedin-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.linkedin-prompt-field {
+  grid-column: 1 / -1;
+}
+
+.linkedin-field,
+.linkedin-draft label,
+.linkedin-list-card label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: none;
+}
+
+.linkedin-draft {
+  min-width: 0;
+  align-content: start;
+}
+
+.linkedin-field-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.9fr) minmax(130px, 0.7fr) minmax(130px, 0.7fr);
+  gap: 10px;
+}
+
+.linkedin-field input,
+.linkedin-field textarea,
+.linkedin-field-grid input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: var(--panel);
+  font: inherit;
+}
+
+.linkedin-field input,
+.linkedin-field-grid input {
+  height: 38px;
+  padding: 0 10px;
+}
+
+.linkedin-field textarea {
+  min-height: 88px;
+  resize: vertical;
+  padding: 10px;
+}
+
+.linkedin-settings textarea {
+  min-height: 112px;
+}
+
+.linkedin-list-card textarea {
+  min-height: 112px;
+}
+
+.linkedin-markdown-editor {
+  min-height: 220px;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.linkedin-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.linkedin-field > input,
+.linkedin-field > textarea {
+  margin-top: 2px;
+}
+
+.linkedin-description {
+  min-height: 132px;
+}
+
+.linkedin-markdown-block {
+  display: grid;
+  gap: 8px;
+}
+
+.linkedin-markdown-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.linkedin-markdown-heading strong {
+  font-size: 13px;
+  color: var(--text-strong);
+}
+
+.linkedin-empty {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  align-content: center;
+}
+
+.linkedin-panel .secondary-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-weight: 600;
+}
+
+.linkedin-panel .secondary-button:hover:not(:disabled) {
+  border-color: var(--sel-border);
+  background: var(--panel-2);
+}
+
+button.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-weight: 500;
+}
+
+button.secondary:hover:not(:disabled) {
+  border-color: #a7b0c0;
+  background: var(--panel-2);
+}
+

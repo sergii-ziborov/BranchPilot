@@ -7,7 +7,7 @@ import { BranchPilotUserError } from '../lib/errors.js'
 import { GIT_EXECUTABLE, gitArgsWithNonInteractiveCredentialManager } from '../lib/platformExecutables.js'
 import type {
   GitHubDesktopCredential, GitHubApiClient, GitHubApiPullRequest
-} from './githubCliService.js'
+} from './githubCliService.auth.js'
 import {
   buildGitHubPullRequestDiffFromApiFiles, filterGitHubRepositories, normalizeGitHubAccount, normalizeGitHubEmailList, normalizeGitHubPullRequest, normalizeGitHubPullRequestDetails, normalizeGitHubRepository, normalizeRepositoryListLimit, uniqueGitHubAccounts
 } from './githubCliService.parsers.js'

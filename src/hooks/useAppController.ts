@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ApiResult,
   AssistantId,
@@ -25,35 +25,22 @@ import { assistantPolicyAllows } from '../lib/assistantLabels'
 import { progressLabelFromSuccess } from '../lib/progressLabels'
 import { isSafeExternalUrl } from '../shared/externalUrl'
 import { usePrompts } from './usePrompts'
+import { useReportRepoPaths } from './useReportRepoPaths'
 import { useRepositoryManagement } from './useRepositoryManagement'
 
 const api = window.branchPilot
-
-function readStoredReportRepoPaths(): string[] {
-  if (typeof localStorage === 'undefined') return []
-  try {
-    const parsed = JSON.parse(localStorage.getItem('bp-report-repo-paths') ?? '[]')
-    return Array.isArray(parsed) ? normalizeReportRepoPaths(parsed.filter((value): value is string => typeof value === 'string')) : []
-  } catch {
-    return []
-  }
-}
-
-function normalizeReportRepoPaths(paths: string[]): string[] {
-  const seen = new Set<string>()
-  const normalized: string[] = []
-
-  for (const path of paths) {
-    const trimmed = path.trim()
-    if (!trimmed) continue
-    const key = trimmed.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    normalized.push(trimmed)
-  }
-
-  return normalized
-}
+const ASSISTANT_PREFERENCE_KEY = 'bp-assistant'
+const ASSISTANT_IDS = new Set<AssistantId>([
+  'auto',
+  'claude',
+  'codex',
+  'claude:opus',
+  'claude:sonnet',
+  'claude:haiku',
+  'codex:gpt-5',
+  'codex:gpt-5-codex',
+  'codex:gpt-5-mini'
+])
 
 export function useAppController() {
   const [appVersion, setAppVersion] = useState('0.0.0')
@@ -64,12 +51,16 @@ export function useAppController() {
     return saved ?? 'changes'
   })
   const [allReposMode, setAllReposMode] = useState(false)
-  const [selectedReportRepoPaths, setSelectedReportRepoPathsState] = useState<string[]>(readStoredReportRepoPaths)
+  const { selectedReportRepoPaths, setSelectedReportRepoPathsState, updateReportRepoPaths } = useReportRepoPaths()
   const [busy, setBusy] = useState(false)
   const [operationLabel, setOperationLabel] = useState<string | null>(null)
   const [notice, setNotice] = useState('Open a repository to begin.')
   const [error, setError] = useState<string | null>(null)
-  const [selectedAssistant, setSelectedAssistant] = useState<AssistantId>('auto')
+  const [selectedAssistant, setSelectedAssistantState] = useState<AssistantId>(readSelectedAssistantPreference)
+  const setSelectedAssistant = useCallback((assistant: AssistantId) => {
+    setSelectedAssistantState(assistant)
+    try { localStorage.setItem(ASSISTANT_PREFERENCE_KEY, assistant) } catch { /* ignore */ }
+  }, [])
   const {
     confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue,
     requestConfirmation, answerConfirmation, requestTextInput, answerTextPrompt
@@ -94,10 +85,6 @@ export function useAppController() {
   useEffect(() => {
     try { localStorage.setItem('bp-view', viewMode) } catch { /* ignore */ }
   }, [viewMode])
-
-  useEffect(() => {
-    try { localStorage.setItem('bp-report-repo-paths', JSON.stringify(selectedReportRepoPaths)) } catch { /* ignore */ }
-  }, [selectedReportRepoPaths.join('\n')])
 
   useEffect(() => {
     if (!api) {
@@ -179,7 +166,7 @@ export function useAppController() {
   const {
     history, historyLoading, historyFilter, setHistoryFilter, historySearchMode, setHistorySearchMode, historyFileIndexing,
     selectedCommitSha, setSelectedCommitSha,
-    commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory,
+    commitDetails, commitDetailsLoading, selectedCommitFilePath, commitFileDiff, commitFileDiffLoading, filteredHistory, virtualHistory,
     loadHistory, loadCommitFileDiff
   } = useHistory({ api, currentRepoPath, snapshot, viewMode, setError })
   const {
@@ -197,10 +184,10 @@ export function useAppController() {
   const {
     recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter,
     filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading,
-    dashboardRepositoryFilter, setDashboardRepositoryFilter,
+    dashboardRepositoryFilter, setDashboardRepositoryFilter, repositoryPickerOpen, setRepositoryPickerOpen,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
     loadRecentRepositories, loadRepositoryDashboard, silentRefreshDashboard, toggleRepositoryPinned,
-    chooseRepository, openRepository, cloneRepository, refreshRepository,
+    chooseRepository, openRepository, initializeRepository, cloneRepository, refreshRepository,
     openRepoInEditor, openRepositoryTerminal
   } = useRepositoryManagement({
     api, currentRepoPath, allReposMode, viewMode, reportRepoPaths: selectedReportRepoPaths, setViewMode, snapshot,
@@ -282,7 +269,7 @@ export function useAppController() {
         ? undefined
         : currentRepoPath
     void loadContributorStats(scope)
-  }, [snapshot?.summary.rootPath, viewMode, allReposMode, contributorWindow, selectedReportRepoPaths.join('\n'), recentRepositoryPathsKey])
+  }, [snapshot?.summary.rootPath, viewMode, allReposMode, contributorWindow, dailyReviewDate, selectedReportRepoPaths.join('\n'), recentRepositoryPathsKey])
 
   useEffect(() => {
     if (viewMode !== 'daily' && viewMode !== 'dashboard') return
@@ -298,18 +285,15 @@ export function useAppController() {
     }
   }
 
-  function updateReportRepoPaths(paths: string[]) {
-    setSelectedReportRepoPathsState(normalizeReportRepoPaths(paths))
-  }
-
   const counts = snapshot?.status.counts
   const {
     selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter,
     changeSearchMode, setChangeSearchMode, changeContentIndexing,
     diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
     diffExpanded, setDiffExpanded,
-    diff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef,
-    filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
+    diff, relatedDiff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef,
+    filteredChanges, selectedChange, selectedDiffStats, selectedRelatedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
+    stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked,
     closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,
     stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, discardSelectedLines, exportPatch, applyPatch,
     openSelectedFileInEditor, openSelectedFileLineInEditor
@@ -322,7 +306,7 @@ export function useAppController() {
     reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport,
     preCommitReviewModes, preCommitReports, preCommitRunningMode, canRunAssistantReview, preCommitFindings, preCommitFindingsBySeverity,
     resetPreCommitReview, runReviewReport, runPreCommitReview, togglePreCommitReviewMode, openPreCommitReviewDetails
-  } = useReview({ api, currentRepoPath, counts, assistantPolicy, selectedAssistant, setNotice, setError, runApiAction, runBusyOperation, setViewMode })
+  } = useReview({ api, currentRepoPath, counts, assistantPolicy, selectedAssistant, setNotice, setError, runApiAction, runBusyOperation, setViewMode, selectedFilePath })
   const {
     commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors,
     canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState,
@@ -510,32 +494,39 @@ export function useAppController() {
     }
   }, [api, currentRepoPath])
 
-  async function applyCommitOperation(kind: 'revert' | 'cherry-pick') {
-    if (!api || !currentRepoPath || !commitDetails) return
+  async function applyCommitOperation(kind: 'revert' | 'cherry-pick' | 'reset', commitSha = commitDetails?.sha) {
+    if (!api || !currentRepoPath || !commitSha) return
+    const targetCommit = commitDetails?.sha === commitSha ? commitDetails : history.find((commit) => commit.sha === commitSha)
+    const shortSha = targetCommit?.shortSha ?? commitSha.slice(0, 7)
+    const branchName = snapshot?.summary.currentBranch ?? 'the current branch'
 
     const confirmed = await requestConfirmation(
-      kind === 'revert'
-        ? `Revert ${commitDetails.shortSha}? This creates a new commit that reverses the selected commit.`
-        : `Cherry-pick ${commitDetails.shortSha} onto ${snapshot?.summary.currentBranch ?? 'the current branch'}?`,
-      kind === 'revert'
-        ? { title: 'Revert Commit', confirmLabel: 'Revert commit', variant: 'danger' }
-        : { title: 'Cherry-Pick Commit', confirmLabel: 'Cherry-pick' }
+      kind === 'reset'
+        ? `Reset ${branchName} to ${shortSha}? This moves the current branch and resets the working tree to that commit.`
+        : kind === 'revert'
+          ? `Revert ${shortSha}? This creates a new commit that reverses the selected commit.`
+          : `Cherry-pick ${shortSha} onto ${branchName}?`,
+      kind === 'reset'
+        ? { title: 'Reset Branch', confirmLabel: 'Reset to commit', variant: 'danger' }
+        : kind === 'revert'
+          ? { title: 'Revert Commit', confirmLabel: 'Revert commit', variant: 'danger' }
+          : { title: 'Cherry-Pick Commit', confirmLabel: 'Cherry-pick' }
     )
     if (!confirmed) return
 
     const request = {
       repoPath: currentRepoPath,
-      commitSha: commitDetails.sha,
+      commitSha,
       confirmed
     }
 
     await runApiAction(
-      kind === 'revert' ? 'Reverting commit...' : 'Cherry-picking commit...',
-      () => kind === 'revert' ? api.revertCommit(request) : api.cherryPickCommit(request),
+      kind === 'reset' ? 'Resetting branch...' : kind === 'revert' ? 'Reverting commit...' : 'Cherry-picking commit...',
+      () => kind === 'reset' ? api.resetToCommit(request) : kind === 'revert' ? api.revertCommit(request) : api.cherryPickCommit(request),
       (data) => {
         const hasConflicts = data.status.merge.operation !== 'none' || data.status.counts.conflicted > 0
         const conflictLabel = kind === 'revert' ? 'Revert has conflicts.' : 'Cherry-pick has conflicts.'
-        const cleanLabel = kind === 'revert' ? 'Commit reverted.' : 'Commit cherry-picked.'
+        const cleanLabel = kind === 'reset' ? 'Branch reset.' : kind === 'revert' ? 'Commit reverted.' : 'Commit cherry-picked.'
         applySnapshot(data, hasConflicts ? conflictLabel : cleanLabel)
         void loadHistory()
 
@@ -616,6 +607,18 @@ export function useAppController() {
     updateReportRepoPaths,
     contributorWindow,
     setContributorWindow,
-    appVersion, setAppVersion, snapshot, setSnapshot, viewMode, setViewMode, allReposMode, setAllReposMode, enableAllReposMode, busy, setBusy, operationLabel, setOperationLabel, notice, setNotice, error, setError, selectedAssistant, setSelectedAssistant, confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue, requestConfirmation, answerConfirmation, requestTextInput, answerTextPrompt, currentRepoPath, projectMemory, projectMemoryMcpConfig, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId, selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading, selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports, filteredActivityEntries, completedWorkItems, loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage, clearActivityLog, assistants, assistantsChecking, assistantPolicy, setAssistantPolicy, assistantPolicyLoading, loadAssistants, checkAssistants, loadAssistantPolicy, updateAssistantPolicy, newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription, branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter, newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef, tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage, editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating, branchComparison, setBranchComparison, branchComparisonLoading, canGenerateBranchDraft, branchDraftActionState, createBranchActionState, branchComposerSummary, generateBranchDraft, createBranch, deleteBranch, renameBranch, setBranchUpstream, compareBranch, createTag, deleteTag, createWorktree, openWorktree, removeWorktree, startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription, history, historyLoading, historyFilter, setHistoryFilter, historySearchMode, setHistorySearchMode, historyFileIndexing, selectedCommitSha, setSelectedCommitSha, commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory, loadHistory, loadCommitFileDiff, providers, githubCliStatus, githubAccounts, githubAccountsLoading, githubRepositories, githubRepoOwner, setGithubRepoOwner, githubRepoQuery, setGithubRepoQuery, githubRepoVisibility, setGithubRepoVisibility, githubRepoLimit, setGithubRepoLimit, githubRepoLoading, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber, selectedPullRequestDetails, selectedPullRequestChecks, selectedPullRequestDiff, selectedPullRequestFilePath, setSelectedPullRequestFilePath, pullRequestDetailsLoading, prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch, createdPullRequest, canPublishBranch, canGeneratePullRequestText, selectedPullRequestDiffResult, loadProviders, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, refreshProviderStatusOnly, connectGitHub, generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest, recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter, filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, dashboardRepositoryFilter, setDashboardRepositoryFilter, cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName, loadRecentRepositories, loadRepositoryDashboard, toggleRepositoryPinned, chooseRepository, openRepository, cloneRepository, refreshRepository, openRepoInEditor, openRepositoryTerminal, gitConfig, editorSettings, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand, editorSettingsLoading, terminalSettings, terminalPreference, setTerminalPreference, terminalCustomCommand, setTerminalCustomCommand, saveTerminalSettings, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, remoteName, setRemoteName, remoteUrl, setRemoteUrl, editingRemoteName, loadEditorSettings, saveEditorSettings, loadGitConfig, saveLocalGitIdentity, startRemoteEdit, cancelRemoteEdit, saveRemote, removeRemote, dailyReview, setDailyReview, dailyReviewDate, setDailyReviewDate, dailyReviewLoading, contributorStats, runDailyReview, copyDailyReviewMarkdown, counts, selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter, changeSearchMode, setChangeSearchMode, changeContentIndexing, diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace, diffExpanded, setDiffExpanded, diff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef, filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch, openSelectedFileInEditor, openSelectedFileLineInEditor, selectedMergeBranch, setSelectedMergeBranch, startMergeOperation, continueMergeOperation, abortCurrentOperation, acceptConflictSide, reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport, preCommitReviewModes, preCommitReports, preCommitRunningMode, canRunAssistantReview, preCommitFindings, preCommitFindingsBySeverity, resetPreCommitReview, runReviewReport, runPreCommitReview, togglePreCommitReviewMode, openPreCommitReviewDetails, commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors, canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState, commitChanges, amendLastCommit, generateCommitText, mergeState, canCreateStash, stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage, createStash, createQuickStash, applyStash, dropStash, hasRemote, hasUpstream, canFetch, canPull, canPush, canGenerateLinkedInProject, linkedinProject, setLinkedInProject, linkedinHighlightsText, setLinkedinHighlightsText, linkedinTagsText, setLinkedinTagsText, linkedinSkillsText, setLinkedinSkillsText, linkedinRole, setLinkedInRole, linkedinAudience, setLinkedInAudience, linkedinProjectUrl, setLinkedInProjectUrl, linkedinCustomPrompt, setLinkedInCustomPrompt, resetLinkedInPrompt, linkedinLoading, generateLinkedInProject, updateLinkedInProject, copyLinkedInMarkdown, copyLinkedInTags, copyToClipboard, openExternalLink, runBusyOperation, runApiAction, runSnapshotAction, runOperationAction, applySnapshotResult, applySnapshot, applyCommitOperation, updateSubmodule, openSubmodule, pullGitLfs
+    appVersion, setAppVersion, snapshot, setSnapshot, viewMode, setViewMode, allReposMode, setAllReposMode, enableAllReposMode, busy, setBusy, operationLabel, setOperationLabel, notice, setNotice, error, setError, selectedAssistant, setSelectedAssistant, confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue, requestConfirmation, answerConfirmation, requestTextInput, answerTextPrompt, currentRepoPath, projectMemory, projectMemoryMcpConfig, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId, selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading, selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports, filteredActivityEntries, completedWorkItems, loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage, clearActivityLog, assistants, assistantsChecking, assistantPolicy, setAssistantPolicy, assistantPolicyLoading, loadAssistants, checkAssistants, loadAssistantPolicy, updateAssistantPolicy, newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription, branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter, newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef, tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage, editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating, branchComparison, setBranchComparison, branchComparisonLoading, canGenerateBranchDraft, branchDraftActionState, createBranchActionState, branchComposerSummary, generateBranchDraft, createBranch, deleteBranch, renameBranch, setBranchUpstream, compareBranch, createTag, deleteTag, createWorktree, openWorktree, removeWorktree, startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription, history, historyLoading, historyFilter, setHistoryFilter, historySearchMode, setHistorySearchMode, historyFileIndexing, selectedCommitSha, setSelectedCommitSha, commitDetails, commitDetailsLoading, selectedCommitFilePath, commitFileDiff, commitFileDiffLoading, filteredHistory, virtualHistory, loadHistory, loadCommitFileDiff, providers, githubCliStatus, githubAccounts, githubAccountsLoading, githubRepositories, githubRepoOwner, setGithubRepoOwner, githubRepoQuery, setGithubRepoQuery, githubRepoVisibility, setGithubRepoVisibility, githubRepoLimit, setGithubRepoLimit, githubRepoLoading, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber, selectedPullRequestDetails, selectedPullRequestChecks, selectedPullRequestDiff, selectedPullRequestFilePath, setSelectedPullRequestFilePath, pullRequestDetailsLoading, prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch, createdPullRequest, canPublishBranch, canGeneratePullRequestText, selectedPullRequestDiffResult, loadProviders, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, refreshProviderStatusOnly, connectGitHub, generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest, recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter, filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, dashboardRepositoryFilter, setDashboardRepositoryFilter, repositoryPickerOpen, setRepositoryPickerOpen, cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName, loadRecentRepositories, loadRepositoryDashboard, toggleRepositoryPinned, chooseRepository, openRepository, initializeRepository, cloneRepository, refreshRepository, openRepoInEditor, openRepositoryTerminal, gitConfig, editorSettings, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand, editorSettingsLoading, terminalSettings, terminalPreference, setTerminalPreference, terminalCustomCommand, setTerminalCustomCommand, saveTerminalSettings, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, remoteName, setRemoteName, remoteUrl, setRemoteUrl, editingRemoteName, loadEditorSettings, saveEditorSettings, loadGitConfig, saveLocalGitIdentity, startRemoteEdit, cancelRemoteEdit, saveRemote, removeRemote, dailyReview, setDailyReview, dailyReviewDate, setDailyReviewDate, dailyReviewLoading, contributorStats, runDailyReview, copyDailyReviewMarkdown, counts, selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter, changeSearchMode, setChangeSearchMode, changeContentIndexing, diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace, diffExpanded, setDiffExpanded, diff, relatedDiff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef, filteredChanges, selectedChange, selectedDiffStats, selectedRelatedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget, stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch, openSelectedFileInEditor, openSelectedFileLineInEditor, selectedMergeBranch, setSelectedMergeBranch, startMergeOperation, continueMergeOperation, abortCurrentOperation, acceptConflictSide, reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport, preCommitReviewModes, preCommitReports, preCommitRunningMode, canRunAssistantReview, preCommitFindings, preCommitFindingsBySeverity, resetPreCommitReview, runReviewReport, runPreCommitReview, togglePreCommitReviewMode, openPreCommitReviewDetails, commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors, canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState, commitChanges, amendLastCommit, generateCommitText, mergeState, canCreateStash, stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage, createStash, createQuickStash, applyStash, dropStash, hasRemote, hasUpstream, canFetch, canPull, canPush, canGenerateLinkedInProject, linkedinProject, setLinkedInProject, linkedinHighlightsText, setLinkedinHighlightsText, linkedinTagsText, setLinkedinTagsText, linkedinSkillsText, setLinkedinSkillsText, linkedinRole, setLinkedInRole, linkedinAudience, setLinkedInAudience, linkedinProjectUrl, setLinkedInProjectUrl, linkedinCustomPrompt, setLinkedInCustomPrompt, resetLinkedInPrompt, linkedinLoading, generateLinkedInProject, updateLinkedInProject, copyLinkedInMarkdown, copyLinkedInTags, copyToClipboard, openExternalLink, runBusyOperation, runApiAction, runSnapshotAction, runOperationAction, applySnapshotResult, applySnapshot, applyCommitOperation, updateSubmodule, openSubmodule, pullGitLfs
   }
 }
+
+function readSelectedAssistantPreference(): AssistantId {
+  try {
+    const saved = localStorage.getItem(ASSISTANT_PREFERENCE_KEY)
+    return saved && ASSISTANT_IDS.has(saved as AssistantId)
+      ? saved as AssistantId
+      : 'auto'
+  } catch {
+    return 'auto'
+  }
+}
+

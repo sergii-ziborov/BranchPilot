@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ApiResult, AssistantId, AssistantPolicyStatus, BranchPilotApi, RepositorySnapshot } from '../shared/branchPilot'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from '../shared/commitPreconditions'
 import { assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel } from '../lib/assistantLabels'
@@ -31,6 +31,29 @@ export function useCommit({
   const [commitTitle, setCommitTitle] = useState('')
   const [commitDescription, setCommitDescription] = useState('')
   const [commitCoAuthors, setCommitCoAuthors] = useState('')
+
+  // Per-branch commit drafts (in-memory, session-scoped): each branch keeps its
+  // own composer draft, so switching branches swaps the visible text instead of
+  // carrying it over. Keyed by repo + branch so same-named branches in different
+  // repos don't collide.
+  const draftsRef = useRef(new Map<string, { title: string; description: string; coAuthors: string }>())
+  const draftKey = `${currentRepoPath ?? ''}\n${snapshot?.summary.currentBranch ?? 'HEAD'}`
+  const activeDraftKeyRef = useRef(draftKey)
+  useEffect(() => {
+    const previousKey = activeDraftKeyRef.current
+    if (previousKey === draftKey) return
+    // Stash the draft we were editing under the branch we just left...
+    draftsRef.current.set(previousKey, { title: commitTitle, description: commitDescription, coAuthors: commitCoAuthors })
+    // ...and restore the draft for the branch we moved to (empty if none yet).
+    const next = draftsRef.current.get(draftKey) ?? { title: '', description: '', coAuthors: '' }
+    setCommitTitle(next.title)
+    setCommitDescription(next.description)
+    setCommitCoAuthors(next.coAuthors)
+    activeDraftKeyRef.current = draftKey
+    // Intentionally only react to branch/repo change: the title/description read
+    // here are the previous branch's draft (state hasn't been swapped yet).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey])
 
   const canGenerateCommitText = assistantPolicyAllows(assistantPolicy, 'commit_message')
   const commitActionState = getCommitActionState({ snapshot, title: commitTitle })

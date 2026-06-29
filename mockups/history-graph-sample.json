@@ -1,0 +1,3849 @@
+{
+  "generatedAt": "2026-06-25T11:43:06.417Z",
+  "repoPath": "C:\\Users\\SergiiZiborov\\Documents\\GitHub\\analytics",
+  "commits": [
+    {
+      "sha": "2bd495d2fc6ed27a54fe13aa9a5b88d65f9ad3ed",
+      "shortSha": "2bd495d",
+      "subject": "Merge remote-tracking branch 'origin/release' into develop",
+      "parentShas": [
+        "5584e73d82ea59998e9c83f499f96ed1cd5a16f3",
+        "4620f2bfd534e36b7657d4311c9e10eae957f54e"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-25T14:14:37+03:00",
+      "graphPrefix": "*   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "|\\"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 1,
+            "ch": "\\",
+            "color": "#3fb950"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "5584e73d82ea59998e9c83f499f96ed1cd5a16f3",
+      "shortSha": "5584e73",
+      "subject": "GPRO-7067 EdgeAnalystics - Create New Dashboard - Search results are shown replicated",
+      "parentShas": [
+        "a2b2ceaf36223b5eb466020d763f0b16a57d29d9"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-25T13:58:11+03:00",
+      "graphPrefix": "* | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#3fb950"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "a2b2ceaf36223b5eb466020d763f0b16a57d29d9",
+      "shortSha": "a2b2cea",
+      "subject": "Add OpenAPI assembly, generator and contract tests",
+      "parentShas": [
+        "69bac0f7f870f35f9d2b19439c9e3c1a982c4458"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-25T10:08:19+03:00",
+      "graphPrefix": "* | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#3fb950"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "69bac0f7f870f35f9d2b19439c9e3c1a982c4458",
+      "shortSha": "69bac0f",
+      "subject": "Refactor dashboard services into modules",
+      "parentShas": [
+        "222136cf31b35dc78b3218afd0b210248452f3aa"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-24T16:00:23+03:00",
+      "graphPrefix": "* | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#3fb950"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "222136cf31b35dc78b3218afd0b210248452f3aa",
+      "shortSha": "222136c",
+      "subject": "GPRO-7031 EdgeAnalytics - LIMIT clause is not applied",
+      "parentShas": [
+        "ed6a792d2d0781c4eeff00a90ae22f7c20ba54a6"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-24T11:41:55+03:00",
+      "graphPrefix": "* | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#3fb950"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "7bfcec2a839a795133a520d237521ff942a5b1ad",
+      "shortSha": "7bfcec2",
+      "subject": "Merge pull request #15 from edgehawk/release",
+      "parentShas": [
+        "ab83122160d22dd789d7ab46c5b77c5a8d242e74",
+        "4620f2bfd534e36b7657d4311c9e10eae957f54e"
+      ],
+      "authorName": "Edgehawk CI",
+      "authorEmail": "95214321+edgehawk-system@users.noreply.github.com",
+      "date": "2026-06-24T19:56:26+03:00",
+      "graphPrefix": "| | *   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 4,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "| | |\\",
+        "| | |/",
+        "| |/|"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#d29922"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#3fb950"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#d29922"
+          },
+          {
+            "column": 5,
+            "ch": "/",
+            "color": "#3fb950"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 3,
+            "ch": "/",
+            "color": "#3fb950"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "4620f2bfd534e36b7657d4311c9e10eae957f54e",
+      "shortSha": "4620f2b",
+      "subject": "Merge pull request #14 from edgehawk/develop",
+      "parentShas": [
+        "a9e450be0ba048a9dc8ed74ac3d0ce9cbec1a989",
+        "ed6a792d2d0781c4eeff00a90ae22f7c20ba54a6"
+      ],
+      "authorName": "Roi Ben David",
+      "authorEmail": "68657027+RoiBenDavids@users.noreply.github.com",
+      "date": "2026-06-24T09:05:34+03:00",
+      "graphPrefix": "| * |   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [
+        "| |\\ \\",
+        "| |/ /",
+        "|/| |"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#bc8cff"
+          },
+          {
+            "column": 3,
+            "ch": "\\",
+            "color": "#3fb950"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#d29922"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#bc8cff"
+          },
+          {
+            "column": 3,
+            "ch": "/",
+            "color": "#3fb950"
+          },
+          {
+            "column": 5,
+            "ch": "/",
+            "color": "#d29922"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 1,
+            "ch": "/",
+            "color": "#3fb950"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#bc8cff"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "ed6a792d2d0781c4eeff00a90ae22f7c20ba54a6",
+      "shortSha": "ed6a792",
+      "subject": "Refactor networkObservability into modular services",
+      "parentShas": [
+        "e1003bdbc846db3bb80c925f6fb5c16c338c430b"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-24T01:08:38+03:00",
+      "graphPrefix": "* | | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#bc8cff"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "e1003bdbc846db3bb80c925f6fb5c16c338c430b",
+      "shortSha": "e1003bd",
+      "subject": "GPRO-7031 EdgeAnalytics - LIMIT clause is not applied",
+      "parentShas": [
+        "a9e450be0ba048a9dc8ed74ac3d0ce9cbec1a989"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-23T17:50:35+03:00",
+      "graphPrefix": "* | | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#bc8cff"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [
+        "|/ /"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#bc8cff"
+          },
+          {
+            "column": 1,
+            "ch": "/",
+            "color": "#bc8cff"
+          },
+          {
+            "column": 3,
+            "ch": "/",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "a9e450be0ba048a9dc8ed74ac3d0ce9cbec1a989",
+      "shortSha": "a9e450b",
+      "subject": "Merge pull request #13 from edgehawk/develop",
+      "parentShas": [
+        "7a91ee6abff82bfbd2db09d98831717ae0f251ac",
+        "cb006d98d4b1156c0e5f6e59b9daaf8f0e0ea8cf"
+      ],
+      "authorName": "Roi Ben David",
+      "authorEmail": "68657027+RoiBenDavids@users.noreply.github.com",
+      "date": "2026-06-23T11:44:16+03:00",
+      "graphPrefix": "* |   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [
+        "|\\ \\"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 1,
+            "ch": "\\",
+            "color": "#56d364"
+          },
+          {
+            "column": 3,
+            "ch": "\\",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "cb006d98d4b1156c0e5f6e59b9daaf8f0e0ea8cf",
+      "shortSha": "cb006d9",
+      "subject": "Merge pull request #12 from edgehawk/GPRO-7058-Enable-DateHour-time-range-pruning-for-Edge-Analytics-ClickHouse-queries",
+      "parentShas": [
+        "4e27e664dd507d73a725450a69fbb9957e4b2817",
+        "ede0e7314079f21aa982a3ef1876de94b5edc279"
+      ],
+      "authorName": "Roi Ben David",
+      "authorEmail": "68657027+RoiBenDavids@users.noreply.github.com",
+      "date": "2026-06-23T11:42:28+03:00",
+      "graphPrefix": "| * \\   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 4,
+          "ch": "\\",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [
+        "| |\\ \\"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#eac54f"
+          },
+          {
+            "column": 3,
+            "ch": "\\",
+            "color": "#79c0ff"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "ede0e7314079f21aa982a3ef1876de94b5edc279",
+      "shortSha": "ede0e73",
+      "subject": "Merge branch 'develop' into GPRO-7058-Enable-DateHour-time-range-pruning-for-Edge-Analytics-ClickHouse-queries",
+      "parentShas": [
+        "5b258e4fa9d3be257eb881bb75061f221f58a447",
+        "71f62e3d597a5890ce5f8ff3dd241d4cd4972e1e"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-23T10:39:23+03:00",
+      "graphPrefix": "| | * \\   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#eac54f"
+        },
+        {
+          "column": 4,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 6,
+          "ch": "\\",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [
+        "| | |\\ \\"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#eac54f"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 7,
+            "ch": "\\",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "5b258e4fa9d3be257eb881bb75061f221f58a447",
+      "shortSha": "5b258e4",
+      "subject": "Merge branch 'develop' into GPRO-7058-Enable-DateHour-time-range-pruning-for-Edge-Analytics-ClickHouse-queries",
+      "parentShas": [
+        "3d6426e9aeeba36797813fa92351e0f36e01ae1c",
+        "112efe6f601190849e6c2a48a0938e93212f8888"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-22T17:18:09+03:00",
+      "graphPrefix": "| | * \\ \\   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#eac54f"
+        },
+        {
+          "column": 4,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 6,
+          "ch": "\\",
+          "color": "#56d4dd"
+        },
+        {
+          "column": 8,
+          "ch": "\\",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [
+        "| | |\\ \\ \\"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#eac54f"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#3fb950"
+          },
+          {
+            "column": 7,
+            "ch": "\\",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 9,
+            "ch": "\\",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "4e27e664dd507d73a725450a69fbb9957e4b2817",
+      "shortSha": "4e27e66",
+      "subject": "Merge pull request #6 from edgehawk/dependabot/github_actions/develop/actions/checkout-7",
+      "parentShas": [
+        "71f62e3d597a5890ce5f8ff3dd241d4cd4972e1e",
+        "12acb3e38a1ee58a5af36aea108ac65cd72cf316"
+      ],
+      "authorName": "motoshkov",
+      "authorEmail": "andreym@edgehawk.io",
+      "date": "2026-06-23T10:47:30+03:00",
+      "graphPrefix": "| * | \\ \\ \\   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 6,
+          "ch": "\\",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "\\",
+          "color": "#56d4dd"
+        },
+        {
+          "column": 10,
+          "ch": "\\",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [
+        "| |\\ \\ \\ \\ \\",
+        "| | |_|_|/ /",
+        "| |/| | | |"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 3,
+            "ch": "\\",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 7,
+            "ch": "\\",
+            "color": "#3fb950"
+          },
+          {
+            "column": 9,
+            "ch": "\\",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 11,
+            "ch": "\\",
+            "color": "#d29922"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 5,
+            "ch": "_",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 7,
+            "ch": "_",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 9,
+            "ch": "/",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 11,
+            "ch": "/",
+            "color": "#d29922"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 3,
+            "ch": "/",
+            "color": "#56d4dd"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 10,
+            "ch": "|",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "12acb3e38a1ee58a5af36aea108ac65cd72cf316",
+      "shortSha": "12acb3e",
+      "subject": "Bump actions/checkout from 4 to 7",
+      "parentShas": [
+        "1f2e939718df6e051cc9df2ce9ad371d6e9a82be"
+      ],
+      "authorName": "dependabot[bot]",
+      "authorEmail": "49699333+dependabot[bot]@users.noreply.github.com",
+      "date": "2026-06-21T13:25:50Z",
+      "graphPrefix": "| | * | | | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#56d4dd"
+        },
+        {
+          "column": 4,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 8,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 10,
+          "ch": "|",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "71f62e3d597a5890ce5f8ff3dd241d4cd4972e1e",
+      "shortSha": "71f62e3",
+      "subject": "Merge remote-tracking branch 'origin/release' into develop",
+      "parentShas": [
+        "95d623d0094160d2296fd36cf955f75f06492fc6",
+        "7a91ee6abff82bfbd2db09d98831717ae0f251ac"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-23T10:38:48+03:00",
+      "graphPrefix": "| * | | | |   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 8,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 10,
+          "ch": "|",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [
+        "| |\\ \\ \\ \\ \\",
+        "| |/ / / / /",
+        "|/| | | | |"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#bc8cff"
+          },
+          {
+            "column": 3,
+            "ch": "\\",
+            "color": "#ff938a"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 7,
+            "ch": "\\",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 9,
+            "ch": "\\",
+            "color": "#3fb950"
+          },
+          {
+            "column": 11,
+            "ch": "\\",
+            "color": "#d29922"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#bc8cff"
+          },
+          {
+            "column": 3,
+            "ch": "/",
+            "color": "#ff938a"
+          },
+          {
+            "column": 5,
+            "ch": "/",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 7,
+            "ch": "/",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 9,
+            "ch": "/",
+            "color": "#3fb950"
+          },
+          {
+            "column": 11,
+            "ch": "/",
+            "color": "#d29922"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 1,
+            "ch": "/",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#bc8cff"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 10,
+            "ch": "|",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "95d623d0094160d2296fd36cf955f75f06492fc6",
+      "shortSha": "95d623d",
+      "subject": "Bump @clickhouse, cidr-tools, mongoose",
+      "parentShas": [
+        "112efe6f601190849e6c2a48a0938e93212f8888"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-23T10:37:38+03:00",
+      "graphPrefix": "| * | | | | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 8,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 10,
+          "ch": "|",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [
+        "| | |_|/ /",
+        "| |/| | |"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 5,
+            "ch": "_",
+            "color": "#3fb950"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 7,
+            "ch": "/",
+            "color": "#3fb950"
+          },
+          {
+            "column": 9,
+            "ch": "/",
+            "color": "#d29922"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 3,
+            "ch": "/",
+            "color": "#3fb950"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#d29922"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "112efe6f601190849e6c2a48a0938e93212f8888",
+      "shortSha": "112efe6",
+      "subject": "GPRO-7057 EdgeAnalytics - If there is no data in the clickhouse for custom period, backend returns data to query table without Time Filter",
+      "parentShas": [
+        "0176d50fcc97fa0609b9d289dc3f956f9f28851f"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-22T17:08:59+03:00",
+      "graphPrefix": "| * | | | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 8,
+          "ch": "|",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "0176d50fcc97fa0609b9d289dc3f956f9f28851f",
+      "shortSha": "0176d50",
+      "subject": "GPRO-7058 EdgeAnalytics - If there is no data in the clickhouse for custom period, backend returns data to widgets without Time Filter",
+      "parentShas": [
+        "849d4270955ec5c56c05406251be287c11820a35"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-22T17:00:08+03:00",
+      "graphPrefix": "| * | | | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 8,
+          "ch": "|",
+          "color": "#d29922"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "ab83122160d22dd789d7ab46c5b77c5a8d242e74",
+      "shortSha": "ab83122",
+      "subject": "Merge pull request #11 from edgehawk/release",
+      "parentShas": [
+        "61cd188af450e97fb7905c076be353dcb9602185",
+        "7a91ee6abff82bfbd2db09d98831717ae0f251ac"
+      ],
+      "authorName": "Gregory Patkin",
+      "authorEmail": "76471586+gregorypa@users.noreply.github.com",
+      "date": "2026-06-22T14:14:10+03:00",
+      "graphPrefix": "| | | | *   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#ff938a"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "| | | | |\\",
+        "| |_|_|_|/",
+        "|/| | | |"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 9,
+            "ch": "\\",
+            "color": "#ff938a"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 3,
+            "ch": "_",
+            "color": "#ff938a"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 5,
+            "ch": "_",
+            "color": "#ff938a"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 7,
+            "ch": "_",
+            "color": "#ff938a"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 9,
+            "ch": "/",
+            "color": "#ff938a"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff938a"
+          },
+          {
+            "column": 1,
+            "ch": "/",
+            "color": "#ff938a"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#ff938a"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "7a91ee6abff82bfbd2db09d98831717ae0f251ac",
+      "shortSha": "7a91ee6",
+      "subject": "Merge pull request #10 from edgehawk/develop",
+      "parentShas": [
+        "49bc78d1773beeef752cf53e7e550dd309998d05",
+        "849d4270955ec5c56c05406251be287c11820a35"
+      ],
+      "authorName": "Roi Ben David",
+      "authorEmail": "68657027+RoiBenDavids@users.noreply.github.com",
+      "date": "2026-06-22T09:50:10+03:00",
+      "graphPrefix": "* | | | | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 8,
+          "ch": "|",
+          "color": "#ff938a"
+        }
+      ],
+      "graphAfter": [
+        "|\\| | | |"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#eac54f"
+          },
+          {
+            "column": 1,
+            "ch": "\\",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#ff938a"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "61cd188af450e97fb7905c076be353dcb9602185",
+      "shortSha": "61cd188",
+      "subject": "Merge pull request #5 from edgehawk/release",
+      "parentShas": [
+        "0a1b166054d0ca45a82473c767dd8c1f1acdad00",
+        "49bc78d1773beeef752cf53e7e550dd309998d05"
+      ],
+      "authorName": "Gregory Patkin",
+      "authorEmail": "76471586+gregorypa@users.noreply.github.com",
+      "date": "2026-06-21T16:25:16+03:00",
+      "graphPrefix": "| | | | *   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#eac54f"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "| | | | |\\",
+        "| |_|_|_|/",
+        "|/| | | |"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#eac54f"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 9,
+            "ch": "\\",
+            "color": "#eac54f"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#eac54f"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 3,
+            "ch": "_",
+            "color": "#eac54f"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 5,
+            "ch": "_",
+            "color": "#eac54f"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 7,
+            "ch": "_",
+            "color": "#eac54f"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 9,
+            "ch": "/",
+            "color": "#eac54f"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#eac54f"
+          },
+          {
+            "column": 1,
+            "ch": "/",
+            "color": "#eac54f"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#d2a8ff"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "49bc78d1773beeef752cf53e7e550dd309998d05",
+      "shortSha": "49bc78d",
+      "subject": "Merge pull request #4 from edgehawk/develop",
+      "parentShas": [
+        "1242fb067b3bc86158b75c335b51b209861b13f8",
+        "2eb4f5b8d8cc4cf0021467e2ad7d538c2b61c4b8"
+      ],
+      "authorName": "Roi Ben David",
+      "authorEmail": "68657027+RoiBenDavids@users.noreply.github.com",
+      "date": "2026-06-14T13:55:09+03:00",
+      "graphPrefix": "* | | | |   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 8,
+          "ch": "|",
+          "color": "#d2a8ff"
+        }
+      ],
+      "graphAfter": [
+        "|\\ \\ \\ \\ \\"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 1,
+            "ch": "\\",
+            "color": "#3fb950"
+          },
+          {
+            "column": 3,
+            "ch": "\\",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 7,
+            "ch": "\\",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 9,
+            "ch": "\\",
+            "color": "#d2a8ff"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "1242fb067b3bc86158b75c335b51b209861b13f8",
+      "shortSha": "1242fb0",
+      "subject": "Merge pull request #3 from edgehawk/develop",
+      "parentShas": [
+        "c64b8b3e66a23e135d92f301c7b234bff1f6dbce",
+        "51230097931e3e30beaa6594de3a5f5b03f7f488"
+      ],
+      "authorName": "motoshkov",
+      "authorEmail": "andreym@edgehawk.io",
+      "date": "2026-06-14T10:00:08+03:00",
+      "graphPrefix": "* \\ \\ \\ \\ \\   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "\\",
+          "color": "#3fb950"
+        },
+        {
+          "column": 4,
+          "ch": "\\",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 6,
+          "ch": "\\",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 8,
+          "ch": "\\",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 10,
+          "ch": "\\",
+          "color": "#d2a8ff"
+        }
+      ],
+      "graphAfter": [
+        "|\\ \\ \\ \\ \\ \\"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d29922"
+          },
+          {
+            "column": 1,
+            "ch": "\\",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 3,
+            "ch": "\\",
+            "color": "#3fb950"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 7,
+            "ch": "\\",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 9,
+            "ch": "\\",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 11,
+            "ch": "\\",
+            "color": "#d2a8ff"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "c64b8b3e66a23e135d92f301c7b234bff1f6dbce",
+      "shortSha": "c64b8b3",
+      "subject": "Merge pull request #2 from edgehawk/develop",
+      "parentShas": [
+        "0a1b166054d0ca45a82473c767dd8c1f1acdad00",
+        "8b05b1321d694710c577d63625e1d8708d841542"
+      ],
+      "authorName": "Roi Ben David",
+      "authorEmail": "68657027+RoiBenDavids@users.noreply.github.com",
+      "date": "2026-06-11T18:12:11+03:00",
+      "graphPrefix": "* \\ \\ \\ \\ \\ \\   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 2,
+          "ch": "\\",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 4,
+          "ch": "\\",
+          "color": "#3fb950"
+        },
+        {
+          "column": 6,
+          "ch": "\\",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 8,
+          "ch": "\\",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 10,
+          "ch": "\\",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 12,
+          "ch": "\\",
+          "color": "#d2a8ff"
+        }
+      ],
+      "graphAfter": [
+        "|\\ \\ \\ \\ \\ \\ \\",
+        "| |_|_|_|_|_|/",
+        "|/| | | | | |"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 1,
+            "ch": "\\",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 3,
+            "ch": "\\",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 5,
+            "ch": "\\",
+            "color": "#3fb950"
+          },
+          {
+            "column": 7,
+            "ch": "\\",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 9,
+            "ch": "\\",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 11,
+            "ch": "\\",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 13,
+            "ch": "\\",
+            "color": "#d2a8ff"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 3,
+            "ch": "_",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 5,
+            "ch": "_",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 7,
+            "ch": "_",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 9,
+            "ch": "_",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 10,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 11,
+            "ch": "_",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 12,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 13,
+            "ch": "/",
+            "color": "#d2a8ff"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 1,
+            "ch": "/",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 10,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 12,
+            "ch": "|",
+            "color": "#ff7b72"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "41eb80a70d86aa56c6a9f1792b4e9c52cfb1d109",
+      "shortSha": "41eb80a",
+      "subject": "GPRO-7056 EdgeAnalytics - If there is no data in the clickhouse for custom period, backend returns data to widgets without Time Filter",
+      "parentShas": [
+        "3d6426e9aeeba36797813fa92351e0f36e01ae1c"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-22T16:46:53+03:00",
+      "graphPrefix": "| | | | | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 10,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 12,
+          "ch": "|",
+          "color": "#ff7b72"
+        },
+        {
+          "column": 14,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "| | | | | | |/"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 10,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 12,
+            "ch": "|",
+            "color": "#ff7b72"
+          },
+          {
+            "column": 13,
+            "ch": "/",
+            "color": "#ff7b72"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "3d6426e9aeeba36797813fa92351e0f36e01ae1c",
+      "shortSha": "3d6426e",
+      "subject": "GPRO-7058 Enable DateHour time-range pruning for Edge Analytics ClickHouse queries",
+      "parentShas": [
+        "849d4270955ec5c56c05406251be287c11820a35"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-22T14:55:15+03:00",
+      "graphPrefix": "| | | | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 10,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 12,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "| | | | | |/",
+        "| | | | |/|"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 10,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 11,
+            "ch": "/",
+            "color": "#39c5cf"
+          }
+        ],
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 9,
+            "ch": "/",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 10,
+            "ch": "|",
+            "color": "#58a6ff"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "849d4270955ec5c56c05406251be287c11820a35",
+      "shortSha": "849d427",
+      "subject": "GPRO-7021 EdgeAnalytics - TopNChart - It looks like each value stays tied to the specific \"bar id\", so Filtering/Slicing will not work correct",
+      "parentShas": [
+        "5bc36390a2c5c593928363114d7476c9b5e31a25"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-21T18:14:23+03:00",
+      "graphPrefix": "| | | | * | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 10,
+          "ch": "|",
+          "color": "#58a6ff"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "5bc36390a2c5c593928363114d7476c9b5e31a25",
+      "shortSha": "5bc3639",
+      "subject": "Add shared hash utils and ownership helpers",
+      "parentShas": [
+        "164c5ebbb14dad4998776bde7eea9a4dd20214aa"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-21T17:32:51+03:00",
+      "graphPrefix": "| | | | * | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 10,
+          "ch": "|",
+          "color": "#58a6ff"
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "164c5ebbb14dad4998776bde7eea9a4dd20214aa",
+      "shortSha": "164c5eb",
+      "subject": "GPRO-7037 EdgeAnalytics - HAVING clause is not supported",
+      "parentShas": [
+        "1f2e939718df6e051cc9df2ce9ad371d6e9a82be"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-21T17:20:42+03:00",
+      "graphPrefix": "| | | | * | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 10,
+          "ch": "|",
+          "color": "#58a6ff"
+        }
+      ],
+      "graphAfter": [
+        "| | | | |/"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 8,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 9,
+            "ch": "/",
+            "color": "#58a6ff"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "1f2e939718df6e051cc9df2ce9ad371d6e9a82be",
+      "shortSha": "1f2e939",
+      "subject": "GPRO-7022 EdgeAnalytics - All Widgets - No options are shown for Dst_Port, Src_Port when clicking on Filter",
+      "parentShas": [
+        "7aca25519e1e07fe5f873451fe15a6ccbbb7d938"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-21T15:17:17+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "7aca25519e1e07fe5f873451fe15a6ccbbb7d938",
+      "shortSha": "7aca255",
+      "subject": "PRO-7015 EdgeAnalytics - In some cases number of slices/bars are not up...",
+      "parentShas": [
+        "90c66b688fade3bb069019bf852d6dc1f8875a6e"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-21T15:05:07+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "90c66b688fade3bb069019bf852d6dc1f8875a6e",
+      "shortSha": "90c66b6",
+      "subject": "Disable hourly TTL during fill",
+      "parentShas": [
+        "56792db927ff66df302d1752052134c24c002fd4"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-21T14:45:59+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "56792db927ff66df302d1752052134c24c002fd4",
+      "shortSha": "56792db",
+      "subject": "GPRO-7015 EdgeAnalytics - In some cases number of slices/bars are not updated",
+      "parentShas": [
+        "8030ad788ac28e59b978eb24985c36bce78c786f"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-21T14:45:46+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "8030ad788ac28e59b978eb24985c36bce78c786f",
+      "shortSha": "8030ad7",
+      "subject": "Add standalone fast fill script",
+      "parentShas": [
+        "f22785571d11404434c94e87b04d9cc2dee03d24"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-21T09:00:34+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "f22785571d11404434c94e87b04d9cc2dee03d24",
+      "shortSha": "f227855",
+      "subject": "GPRO-6986 Benchmark ClickHouse to validate extending the time-range filter",
+      "parentShas": [
+        "29ba3095507e8782ee16494c2b0e36f97662bdc7"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-18T16:07:36+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "29ba3095507e8782ee16494c2b0e36f97662bdc7",
+      "shortSha": "29ba309",
+      "subject": "GPRO-6986 Benchmark ClickHouse to validate extending the time-range filter",
+      "parentShas": [
+        "a44105b04380e78c20a45c0503a09f60ba536d89"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-17T16:53:57+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "a44105b04380e78c20a45c0503a09f60ba536d89",
+      "shortSha": "a44105b",
+      "subject": "GPRO-6986 Benchmark ClickHouse to validate extending the time-range filter",
+      "parentShas": [
+        "ce6c6f2e9765f9ee7be69a3b7b698dc193c6f782"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-17T12:49:51+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "ce6c6f2e9765f9ee7be69a3b7b698dc193c6f782",
+      "shortSha": "ce6c6f2",
+      "subject": "GPRO-6986 Benchmark ClickHouse to validate extending the time-range filter",
+      "parentShas": [
+        "1c820525d83e2a3ed0b08ed156ff247eda7b110d"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-16T19:03:05+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "1c820525d83e2a3ed0b08ed156ff247eda7b110d",
+      "shortSha": "1c82052",
+      "subject": "GPRO-6986 Benchmark ClickHouse to validate extending the time-range filter from 1 hour to 1 year",
+      "parentShas": [
+        "43c1d52c44743d57ac1c1639e95c2bbd251bb3dd"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-15T18:39:48+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "43c1d52c44743d57ac1c1639e95c2bbd251bb3dd",
+      "shortSha": "43c1d52",
+      "subject": "GPRO-6989 EdgeAnalytics: arbitrary time ranges + fixed-interval time bucketing for time-series, with SUM/MAX metric aggregation",
+      "parentShas": [
+        "3392753dfb44e0181fcd3e2bc971ec7a4eaa7cae"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-15T17:57:10+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "3392753dfb44e0181fcd3e2bc971ec7a4eaa7cae",
+      "shortSha": "3392753",
+      "subject": "GPRO-6318 Add widget filter pushdown overrides",
+      "parentShas": [
+        "2bac2fe64603355c081cfb1da1d41c1bf085e3e2"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-14T23:26:53+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "2bac2fe64603355c081cfb1da1d41c1bf085e3e2",
+      "shortSha": "2bac2fe",
+      "subject": "GPRO-6986 Benchmark ClickHouse to validate extending the time-range filter from 1 hour to 1 year",
+      "parentShas": [
+        "2eb4f5b8d8cc4cf0021467e2ad7d538c2b61c4b8"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-14T18:12:11+03:00",
+      "graphPrefix": "| | | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "|",
+          "color": "#3fb950"
+        },
+        {
+          "column": 8,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "| | | |/"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 6,
+            "ch": "|",
+            "color": "#3fb950"
+          },
+          {
+            "column": 7,
+            "ch": "/",
+            "color": "#3fb950"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "2eb4f5b8d8cc4cf0021467e2ad7d538c2b61c4b8",
+      "shortSha": "2eb4f5b",
+      "subject": "Upgrade Alpine packages and bump deps",
+      "parentShas": [
+        "51230097931e3e30beaa6594de3a5f5b03f7f488"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-14T11:04:26+03:00",
+      "graphPrefix": "| | | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#58a6ff"
+        },
+        {
+          "column": 6,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "| | |/"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 4,
+            "ch": "|",
+            "color": "#58a6ff"
+          },
+          {
+            "column": 5,
+            "ch": "/",
+            "color": "#58a6ff"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "51230097931e3e30beaa6594de3a5f5b03f7f488",
+      "shortSha": "5123009",
+      "subject": "use validate-licenses-bun action instead of validate-licenses-node",
+      "parentShas": [
+        "3215f43cdf305e1dadc4ae60a2c2e72d223ff5d9"
+      ],
+      "authorName": "Andrey Motoshkov",
+      "authorEmail": "andreym@edgehawk.io",
+      "date": "2026-06-14T09:55:18+03:00",
+      "graphPrefix": "| | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "3215f43cdf305e1dadc4ae60a2c2e72d223ff5d9",
+      "shortSha": "3215f43",
+      "subject": "GPRO-6953 EdgeAnalytics - Dst_PO and Src_PO values are returned as id",
+      "parentShas": [
+        "8b05b1321d694710c577d63625e1d8708d841542"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-11T18:17:00+03:00",
+      "graphPrefix": "| | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#39c5cf"
+        },
+        {
+          "column": 4,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "| |/"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#39c5cf"
+          },
+          {
+            "column": 3,
+            "ch": "/",
+            "color": "#39c5cf"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "8b05b1321d694710c577d63625e1d8708d841542",
+      "shortSha": "8b05b13",
+      "subject": "GPRO-6953 EdgeAnalytics - Dst_PO and Src_PO values are returned as id, should be returned Protected Object Names, as they represented on system UI",
+      "parentShas": [
+        "71782ad49efa53440d750be1ec1bd77078d9da20"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-11T17:55:14+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "71782ad49efa53440d750be1ec1bd77078d9da20",
+      "shortSha": "71782ad",
+      "subject": "GPRO-6934 Use query owner for widget ownership",
+      "parentShas": [
+        "9952f44bc6a4e1ee66fd40cdd138f8c534d8f1e9"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-11T14:20:26+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "9952f44bc6a4e1ee66fd40cdd138f8c534d8f1e9",
+      "shortSha": "9952f44",
+      "subject": "GPRO-6934 Add ClickHouse test utils and unify EA search",
+      "parentShas": [
+        "78a55444d54b802ab36f94cf637025d9bf84ffca"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-11T13:44:13+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "78a55444d54b802ab36f94cf637025d9bf84ffca",
+      "shortSha": "78a5544",
+      "subject": "GPRO-6934 Remove named exports from handlers/services",
+      "parentShas": [
+        "734695608abbdd9ce54b71614aff7cbf7d114f2e"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-11T12:57:29+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "734695608abbdd9ce54b71614aff7cbf7d114f2e",
+      "shortSha": "7346956",
+      "subject": "GPRO-6934 Move shared/clients modules and update imports",
+      "parentShas": [
+        "e501e93adabb30992326f52ab199645962c2ef6e"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-11T12:04:45+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "e501e93adabb30992326f52ab199645962c2ef6e",
+      "shortSha": "e501e93",
+      "subject": "GPRO-6934 Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "74b054a44f1ff8fc456c9a277a218e69ac4db331"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-10T17:49:16+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "74b054a44f1ff8fc456c9a277a218e69ac4db331",
+      "shortSha": "74b054a",
+      "subject": "GPRO-6934 Add editor audit fields; expand README",
+      "parentShas": [
+        "b45545205387af92a0500e8cc947f5e5e50a0647"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-10T16:11:36+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "b45545205387af92a0500e8cc947f5e5e50a0647",
+      "shortSha": "b455452",
+      "subject": "GPRO-6934 Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "c47a4aadeae5f4be4fe4a8f59890240263dac7e6"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-10T14:29:36+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "c47a4aadeae5f4be4fe4a8f59890240263dac7e6",
+      "shortSha": "c47a4aa",
+      "subject": "GPRO-6934 Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "e89c028cb5e539c89069d3b2a6a45714b334af39"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-10T13:50:19+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "e89c028cb5e539c89069d3b2a6a45714b334af39",
+      "shortSha": "e89c028",
+      "subject": "GPRO-6934 Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "3e273dea6a4c566cf52569f487c66200639653f8"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-10T13:40:18+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "3e273dea6a4c566cf52569f487c66200639653f8",
+      "shortSha": "3e273de",
+      "subject": "Merge branch 'develop' of https://github.com/edgehawk/analytics into develop",
+      "parentShas": [
+        "e6fd834392585ed743b59775e6864b1d107a9492",
+        "af8e323b71e41ff91c53e0c5a01c0b9766075b47"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-10T11:43:51+03:00",
+      "graphPrefix": "| *   ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "| |\\"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#56d364"
+          },
+          {
+            "column": 3,
+            "ch": "\\",
+            "color": "#eac54f"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "af8e323b71e41ff91c53e0c5a01c0b9766075b47",
+      "shortSha": "af8e323",
+      "subject": "switch to validate-licenses-bun",
+      "parentShas": [
+        "091b3982ff0e4c34d5a6523edc325db5a41147df"
+      ],
+      "authorName": "Andrey Motoshkov",
+      "authorEmail": "andreym@edgehawk.io",
+      "date": "2026-06-10T11:19:35+03:00",
+      "graphPrefix": "| | * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "|",
+          "color": "#56d364"
+        },
+        {
+          "column": 4,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "e6fd834392585ed743b59775e6864b1d107a9492",
+      "shortSha": "e6fd834",
+      "subject": "GPRO-6934 Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "091b3982ff0e4c34d5a6523edc325db5a41147df"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-10T11:43:49+03:00",
+      "graphPrefix": "| * | ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        },
+        {
+          "column": 4,
+          "ch": "|",
+          "color": "#eac54f"
+        }
+      ],
+      "graphAfter": [
+        "| |/"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 2,
+            "ch": "|",
+            "color": "#eac54f"
+          },
+          {
+            "column": 3,
+            "ch": "/",
+            "color": "#eac54f"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "091b3982ff0e4c34d5a6523edc325db5a41147df",
+      "shortSha": "091b398",
+      "subject": "GPRO-6944 Update EdgeAnalytics consts and schema",
+      "parentShas": [
+        "2e54af740dd2d93ea2418c16215b50c32e05dd57"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-09T17:30:29+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "2e54af740dd2d93ea2418c16215b50c32e05dd57",
+      "shortSha": "2e54af7",
+      "subject": "GPRO-6941 Rename tests, remove controllers and add scripts",
+      "parentShas": [
+        "9f797141794ded866b1964671bc8410b5c1a4f95"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-09T14:40:48+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "9f797141794ded866b1964671bc8410b5c1a4f95",
+      "shortSha": "9f79714",
+      "subject": "GRPO-6318 Include queryId in widget execution summary",
+      "parentShas": [
+        "13f06a337da3ac7d7f6fe09042b0079ab9c2d175"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-09T11:46:09+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "13f06a337da3ac7d7f6fe09042b0079ab9c2d175",
+      "shortSha": "13f06a3",
+      "subject": "GPRO-6941 Add an Edge Analytics endpoint for removing a widget from a dashboard",
+      "parentShas": [
+        "d999cf88653ab074f9c3d6c38d9fb1476f11aaee"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-09T11:42:09+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "d999cf88653ab074f9c3d6c38d9fb1476f11aaee",
+      "shortSha": "d999cf8",
+      "subject": "GPRO-6934 Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "51bfaeeb8d86ee8e9b1c76e3f4e9006d3fa7b148"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-09T09:46:12+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "51bfaeeb8d86ee8e9b1c76e3f4e9006d3fa7b148",
+      "shortSha": "51bfaee",
+      "subject": "GPRO-6934 Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "3ed22a18f5aa8367b241b98067467efe161e5dfe"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-08T18:45:44+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "3ed22a18f5aa8367b241b98067467efe161e5dfe",
+      "shortSha": "3ed22a1",
+      "subject": "GPRO-6934 Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "5ce4cd77e8c01608a7850b3e591d1bee1ca9ae1d"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-08T18:03:10+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "5ce4cd77e8c01608a7850b3e591d1bee1ca9ae1d",
+      "shortSha": "5ce4cd7",
+      "subject": "GPRO-6934 Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "4db436d5f33b48b0459019f86fbf56760f833171"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-08T15:57:40+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "4db436d5f33b48b0459019f86fbf56760f833171",
+      "shortSha": "4db436d",
+      "subject": "GPRO-6934Extract Edge Analytics into standalone Bun microservice",
+      "parentShas": [
+        "6a026ee4e3acf0cff7e2bd1777603e95731b086e"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-08T14:41:18+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "6a026ee4e3acf0cff7e2bd1777603e95731b086e",
+      "shortSha": "6a026ee",
+      "subject": "Add Edge Analytics service and core modules",
+      "parentShas": [
+        "938f0d442425087fa8dff7e7149aa85c696245b0"
+      ],
+      "authorName": "Sergii Ziborov",
+      "authorEmail": "sergii@edgehawk.io",
+      "date": "2026-06-07T18:25:45+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    },
+    {
+      "sha": "938f0d442425087fa8dff7e7149aa85c696245b0",
+      "shortSha": "938f0d4",
+      "subject": "added initial cicd",
+      "parentShas": [
+        "0a1b166054d0ca45a82473c767dd8c1f1acdad00"
+      ],
+      "authorName": "Andrey Motoshkov",
+      "authorEmail": "andreym@edgehawk.io",
+      "date": "2026-06-07T10:41:01+03:00",
+      "graphPrefix": "| * ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "|",
+          "color": "#d2a8ff"
+        },
+        {
+          "column": 2,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [
+        "|/"
+      ],
+      "graphAfterTokens": [
+        [
+          {
+            "column": 0,
+            "ch": "|",
+            "color": "#d2a8ff"
+          },
+          {
+            "column": 1,
+            "ch": "/",
+            "color": "#d2a8ff"
+          }
+        ]
+      ]
+    },
+    {
+      "sha": "0a1b166054d0ca45a82473c767dd8c1f1acdad00",
+      "shortSha": "0a1b166",
+      "subject": "Initial commit",
+      "parentShas": [],
+      "authorName": "motoshkov",
+      "authorEmail": "motoskov@gmail.com",
+      "date": "2026-06-07T10:18:37+03:00",
+      "graphPrefix": "* ",
+      "graphPrefixTokens": [
+        {
+          "column": 0,
+          "ch": "*",
+          "color": null
+        }
+      ],
+      "graphAfter": [],
+      "graphAfterTokens": []
+    }
+  ]
+}

@@ -1,5 +1,25 @@
 import { ArrowDownToLine, FolderOpen, GitBranch, GitCommitHorizontal, ShieldCheck } from 'lucide-react'
 import { BranchPilotMark } from './BrandIcons'
+import { RepositoryLoadingScene } from './RepositoryLoadingScene'
+
+export function RepositoryLoadingState({ operationLabel }: { operationLabel: string | null }) {
+  return (
+    <section className="repository-loading-state" aria-busy="true" aria-live="polite">
+      <RepositoryLoadingScene className="repository-loading-scene" />
+      <div className="repository-loading-inner">
+        <span className="repository-loading-brand">
+          <BranchPilotMark size={56} />
+        </span>
+
+        <div className="repository-loading-copy">
+          <p className="eyebrow">BranchPilot</p>
+          <h2>{operationLabel ?? 'Loading repository...'}</h2>
+          <p>Preparing working tree, branch, and diff data.</p>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 /** Shown when no repository is open: open-folder prompt and clone panel. */
 export function EmptyState({

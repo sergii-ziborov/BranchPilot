@@ -169,7 +169,7 @@ export class ProjectMemoryService {
       'log',
       `--max-count=${RECENT_COMMIT_LIMIT}`,
       '--date=iso-strict',
-      '--pretty=format:%H%x00%h%x00%s%x00%an%x00%ae%x00%ad'
+      '--pretty=format:%H%x00%h%x00%s%x00%P%x00%an%x00%ae%x00%ad'
     ], {
       allowedExitCodes: [0, 128]
     })
@@ -182,12 +182,13 @@ export class ProjectMemoryService {
       .split('\n')
       .filter(Boolean)
       .map((line) => {
-        const [sha, shortSha, subject, authorName, authorEmail, authoredAt] = line.split('\0')
+        const [sha, shortSha, subject, parentShasText, authorName, authorEmail, authoredAt] = line.split('\0')
 
         return {
           sha,
           shortSha,
           subject,
+          parentShas: parentShasText ? parentShasText.split(' ').filter(Boolean) : [],
           authorName,
           authorEmail,
           authoredAt

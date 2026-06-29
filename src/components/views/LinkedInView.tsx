@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Clipboard, Loader2, RotateCcw, Settings2, Star } from 'lucide-react'
+import { Bot, Clipboard, Loader2, RotateCcw, Settings2, Star } from 'lucide-react'
 import type { GeneratedLinkedInProject, RepositorySnapshot } from '../../shared/branchPilot'
+import { IconButton } from '../IconButton'
 
 export function LinkedInView({
   generateLinkedInProject,
@@ -85,22 +86,21 @@ export function LinkedInView({
           <p>Draft a LinkedIn Projects entry from this repository.</p>
         </div>
         <div className="linkedin-heading-actions">
-          <button
-            className={settingsOpen ? 'icon-button active' : 'icon-button'}
-            type="button"
+          <IconButton
+            active={settingsOpen}
             onClick={() => setSettingsOpen((open) => !open)}
             title="LinkedIn generation settings"
-            aria-label="LinkedIn generation settings"
-          >
-            <Settings2 size={17} />
-          </button>
+            label="LinkedIn generation settings"
+            icon={<Settings2 size={17} />}
+          />
           <button
             type="button"
+            className="linkedin-generate-button"
             onClick={generateLinkedInProject}
             disabled={!snapshot || busy || linkedinLoading || !canGenerateLinkedInProject}
             title={generateTitle}
           >
-            {linkedinLoading ? <Loader2 className="spin" size={17} /> : <Star size={17} />}
+            {linkedinLoading ? <Loader2 className="spin" size={17} /> : <Bot size={17} />}
             Generate
           </button>
         </div>

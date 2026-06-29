@@ -15,6 +15,7 @@ import type {
   DeleteTagRequest,
   ExportPatchRequest,
   FileActionRequest,
+  ForcePushRequest,
   GitIdentityUpdate,
   HunkActionRequest,
   MergeBranchRequest,
@@ -138,6 +139,18 @@ export function registerGitHandlers(
   }, async (request: ConfirmedCommitReferenceRequest) =>
     withProjectMemoryRefresh(await repositoryService.commits.cherryPickCommit(request))
   )
+  handleLogged('git:resetToCommit', {
+    type: 'commit_reset',
+    actor: 'user',
+    title: 'Branch reset',
+    repoPath: requestRepoPath,
+    metadata: ([request], snapshot) => ({
+      commit: request.commitSha.slice(0, 12),
+      branch: snapshot?.summary.currentBranch ?? 'unknown'
+    })
+  }, async (request: ConfirmedCommitReferenceRequest) =>
+    withProjectMemoryRefresh(await repositoryService.commits.resetToCommit(request))
+  )
   handle('stash:list', (repoPath: string) => repositoryService.stash.listStashes(repoPath))
   handleLogged('stash:create', {
     type: 'stash_created',
@@ -188,6 +201,15 @@ export function registerGitHandlers(
     metadata: (_args, snapshot) => snapshot ? ({ branch: snapshot.summary.currentBranch }) : undefined
   }, async (repoPath: string) =>
     withProjectMemoryRefresh(await repositoryService.push(repoPath))
+  )
+  handleLogged('git:forcePush', {
+    type: 'git_force_pushed',
+    actor: 'user',
+    title: 'Force-pushed branch',
+    repoPath: requestRepoPath,
+    metadata: (_args, snapshot) => snapshot ? ({ branch: snapshot.summary.currentBranch }) : undefined
+  }, async (request: ForcePushRequest) =>
+    withProjectMemoryRefresh(await repositoryService.forcePush(request))
   )
   handleLogged('git:publishBranch', {
     type: 'branch_published',

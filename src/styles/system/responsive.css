@@ -1,0 +1,286 @@
+﻿@media (max-width: 1280px) {
+  .app-shell {
+    grid-template-columns: 238px minmax(0, 1fr);
+  }
+
+  .stats-grid,
+  .dashboard-stat-grid,
+  .memory-summary-grid,
+  .daily-summary-grid,
+  .assistant-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .changes-workflow-grid {
+    grid-template-columns:
+      minmax(var(--changes-pane-min-width), var(--changes-pane-width))
+      10px
+      minmax(var(--diff-pane-min-width), 1fr);
+  }
+
+  .topbar {
+    align-items: stretch;
+  }
+
+  .toolbar,
+  .panel-actions {
+    justify-content: flex-start;
+  }
+
+  .branch-row,
+  .branch-compare-heading,
+  .conflict-row,
+  .worktree-row,
+  .submodule-row,
+  .tag-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .branch-row .panel-actions,
+  .conflict-row .panel-actions,
+  .worktree-row .panel-actions,
+  .submodule-row .panel-actions,
+  .tag-row .panel-actions {
+    max-width: 100%;
+  }
+
+  .commit-file-grid,
+  .clone-panel,
+  .dashboard-workspace,
+  .dashboard-filter-bar,
+  .config-grid,
+  .memory-grid,
+  .memory-meta,
+  .project-wiki-grid,
+  .branch-compare-heading,
+  .branch-composer-summary,
+  .lfs-summary-grid,
+  .lfs-columns,
+  .completed-work-row,
+  .activity-row,
+  .daily-selector-grid,
+  .daily-insight-grid,
+  .daily-workspace,
+  .assistant-settings-panel,
+  .review-controls,
+  .assistant-policy-actions,
+  .branch-composer-grid,
+  .remote-branch-row,
+  .remote-composer,
+  .remote-row,
+  .worktree-composer,
+  .tag-composer,
+  .merge-start,
+  .pr-details-meta,
+  .pr-form-row,
+  .pr-diff-panel,
+  .pr-check-row,
+  .stash-create,
+  .stash-row,
+  .current-pr,
+  .pr-row,
+  .github-repo-row,
+  .report-scope-list,
+  .severity-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .providers-connection-panel .provider-status-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .providers-connection-panel .provider-remote-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .review-layout {
+    grid-template-columns: minmax(280px, 0.85fr) minmax(440px, 1.15fr);
+  }
+
+  .pr-actions {
+    justify-content: flex-start;
+  }
+
+  .github-repo-controls {
+    grid-template-columns: minmax(220px, 1fr) auto auto;
+  }
+
+  .config-card-heading {
+    display: grid;
+  }
+
+  .worktree-composer-actions,
+  .tag-composer-actions,
+  .remote-row-actions {
+    grid-column: auto;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 980px) {
+  .providers-pr-layout,
+  .pr-workspace,
+  .provider-remote-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .providers-connection-panel .github-repo-browser {
+    max-height: 220px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .review-panel {
+    overflow: auto;
+  }
+
+  .review-layout,
+  .review-sidebar,
+  .review-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .review-main .review-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .review-main .review-controls .control-group:last-child {
+    grid-column: auto;
+  }
+
+  .tool-modal.review-modal .review-layout,
+  .tool-modal.review-modal .review-sidebar,
+  .tool-modal.review-modal .review-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .tool-modal.review-modal .review-controls,
+  .tool-modal.review-modal .assistant-policy-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-modal.review-modal .control-group-assistant {
+    grid-column: auto;
+  }
+
+}
+
+@media (max-width: 900px) {
+  .linkedin-workspace,
+  .linkedin-settings-grid,
+  .linkedin-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .changes-workflow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .changes-splitter {
+    display: none;
+  }
+
+  .tool-modal.publish-modal {
+    width: calc(100vw - 24px);
+    height: calc(100dvh - 64px);
+    max-height: calc(100dvh - 64px);
+  }
+
+  html[data-platform='win32'] .tool-modal.publish-modal,
+  html[data-platform='linux'] .tool-modal.publish-modal {
+    height: calc(100dvh - 84px);
+    max-height: calc(100dvh - 84px);
+  }
+
+  .publish-panel {
+    overflow: auto;
+  }
+
+  .publish-grid {
+    flex: 0 0 auto;
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+    align-items: start;
+    overflow: visible;
+  }
+
+  .publish-card,
+  .publish-settings-card,
+  .publish-starter-card {
+    height: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .github-repo-controls {
+    grid-template-columns: 1fr auto;
+  }
+
+  .github-repo-refresh-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .github-repo-filter-panel {
+    right: auto;
+    left: 0;
+  }
+
+  .empty-state {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 30px 28px;
+  }
+
+  .clone-panel {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid #e5eaf2;
+    padding-top: 24px;
+  }
+
+  .changes-workflow-grid,
+  .history-grid,
+  .history-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .changes-splitter {
+    display: none;
+  }
+
+  .changes-topbar,
+  .change-filter-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .publish-two-col,
+  .assistant-choice-grid,
+  .publish-options {
+    grid-template-columns: 1fr;
+  }
+
+  .list-filter-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-repo-row,
+  .dashboard-repo-metrics,
+  .dashboard-compact-row,
+  .tag-composer-actions {
+    grid-template-columns: 1fr;
+    grid-column: auto;
+  }
+}
+

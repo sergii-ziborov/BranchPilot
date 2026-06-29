@@ -6,6 +6,7 @@ import type {
   ApplyPatchRequest,
   ExportPatchRequest,
   ExportedPatch,
+  ForcePushRequest,
   RepositorySnapshot
 } from '../../src/shared/branchPilot.js'
 import {
@@ -46,6 +47,19 @@ export class RepositoryServiceWrites extends RepositoryServiceQueries {
     await this.assertHasAnyRemote(rootPath)
     await this.assertHasUpstream(rootPath, 'pushing')
     await this.git(rootPath, ['push'], { timeoutMs: 120_000 })
+    return this.getSnapshot(rootPath)
+  }
+
+  async forcePush(request: ForcePushRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Force-pushing requires explicit confirmation.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    await this.assertCurrentBranch(rootPath, 'force push')
+    await this.assertHasAnyRemote(rootPath)
+    await this.assertHasUpstream(rootPath, 'force-pushing')
+    await this.git(rootPath, ['push', '--force-with-lease'], { timeoutMs: 120_000 })
     return this.getSnapshot(rootPath)
   }
 

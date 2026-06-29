@@ -1,0 +1,280 @@
+﻿:root[data-theme='pure-dark'] {
+  --sel-bg: rgba(139, 92, 246, 0.18);
+  --sel-border: #a78bfa;
+  --scrollbar-thumb: rgba(120, 120, 120, 0.34);
+  --scrollbar-thumb-hover: rgba(180, 180, 180, 0.58);
+  --diff-bg: #000000;
+  --diff-text: #e5e7eb;
+  --diff-muted: #9ca3af;
+  --diff-border: rgba(255, 255, 255, 0.14);
+  --diff-file-bg: #050505;
+  --diff-file-text: #ffffff;
+  --diff-hunk-bg: #101010;
+  --diff-hunk-text: #c4b5fd;
+  --diff-button-bg: rgba(12, 12, 12, 0.82);
+  --diff-add-text: #d7ffe3;
+  --diff-add-bg: rgba(34, 197, 94, 0.08);
+  --diff-remove-text: #ffe1e1;
+  --diff-remove-bg: rgba(248, 81, 73, 0.09);
+  --diff-empty-bg: #050505;
+  --diff-word-add-bg: rgba(34, 197, 94, 0.18);
+  --diff-word-add-border: rgba(34, 197, 94, 0.24);
+  --diff-word-del-bg: rgba(248, 81, 73, 0.18);
+  --diff-word-del-border: rgba(248, 81, 73, 0.24);
+  --diff-selected-accent: #a78bfa;
+  --diff-selection-bg: #050505;
+  --diff-selection-text: #ffffff;
+  --syntax-keyword: #c084fc;
+  --syntax-string: #86efac;
+  --syntax-comment: #737373;
+  --syntax-number: #67e8f9;
+  --syntax-type: #fbbf24;
+  --syntax-function: #93c5fd;
+  --syntax-variable: #f5f5f5;
+  --syntax-operator: #f472b6;
+  --syntax-punctuation: #a3a3a3;
+}
+
+:root[data-theme='one-dark-pro'] {
+  --syntax-keyword: #c678dd;
+  --syntax-string: #98c379;
+  --syntax-comment: #7f848e;
+  --syntax-number: #d19a66;
+  --syntax-type: #e5c07b;
+  --syntax-function: #61afef;
+  --syntax-variable: #e06c75;
+  --syntax-operator: #56b6c2;
+  --syntax-punctuation: #abb2bf;
+}
+
+:root[data-theme='dracula'] {
+  --diff-bg: #191a21;
+  --diff-file-bg: #21222c;
+  --diff-hunk-bg: #2f3142;
+  --syntax-keyword: #ff79c6;
+  --syntax-string: #f1fa8c;
+  --syntax-comment: #6272a4;
+  --syntax-number: #bd93f9;
+  --syntax-type: #8be9fd;
+  --syntax-function: #50fa7b;
+  --syntax-variable: #f8f8f2;
+  --syntax-operator: #ff79c6;
+  --syntax-punctuation: #f8f8f2;
+}
+
+:root[data-theme='monokai'] {
+  --diff-bg: #1e1f1c;
+  --diff-file-bg: #1b1c18;
+  --diff-hunk-bg: #34352d;
+  --diff-add-text: #e6f8c7;
+  --diff-remove-text: #ffd0dc;
+  --syntax-keyword: #f92672;
+  --syntax-string: #e6db74;
+  --syntax-comment: #a59f85;
+  --syntax-number: #ae81ff;
+  --syntax-type: #a6e22e;
+  --syntax-function: #66d9ef;
+  --syntax-variable: #f8f8f2;
+  --syntax-operator: #f92672;
+  --syntax-punctuation: #f8f8f2;
+}
+
+:root[data-theme='nord'] {
+  --diff-bg: #2e3440;
+  --diff-file-bg: #3b4252;
+  --diff-hunk-bg: #434c5e;
+  --syntax-keyword: #81a1c1;
+  --syntax-string: #a3be8c;
+  --syntax-comment: #7b88a1;
+  --syntax-number: #b48ead;
+  --syntax-type: #8fbcbb;
+  --syntax-function: #88c0d0;
+  --syntax-variable: #d8dee9;
+  --syntax-operator: #81a1c1;
+  --syntax-punctuation: #c8d0df;
+}
+
+:root[data-theme='night-owl'] {
+  --diff-bg: #011627;
+  --diff-file-bg: #010f1c;
+  --diff-hunk-bg: #0b2942;
+  --syntax-keyword: #c792ea;
+  --syntax-string: #ecc48d;
+  --syntax-comment: #637777;
+  --syntax-number: #f78c6c;
+  --syntax-type: #82aaff;
+  --syntax-function: #82aaff;
+  --syntax-variable: #d6deeb;
+  --syntax-operator: #c792ea;
+  --syntax-punctuation: #7fdbca;
+}
+
+:root[data-theme='tokyo-night'] {
+  --diff-bg: #1a1b26;
+  --diff-file-bg: #16161e;
+  --diff-hunk-bg: #24283b;
+  --syntax-keyword: #bb9af7;
+  --syntax-string: #9ece6a;
+  --syntax-comment: #565f89;
+  --syntax-number: #ff9e64;
+  --syntax-type: #7dcfff;
+  --syntax-function: #7aa2f7;
+  --syntax-variable: #c0caf5;
+  --syntax-operator: #bb9af7;
+  --syntax-punctuation: #89ddff;
+}
+
+:root[data-theme='deus-ex'] {
+  --diff-bg: #020402;
+  --diff-text: #e4d99c;
+  --diff-muted: #8f8966;
+  --diff-border: rgba(216, 201, 60, 0.20);
+  --diff-file-bg: rgba(5, 7, 4, 0.96);
+  --diff-file-text: #fff4bd;
+  --diff-hunk-bg: rgba(216, 201, 60, 0.08);
+  --diff-hunk-text: #fff176;
+  --diff-button-bg: rgba(9, 11, 6, 0.80);
+  --diff-add-text: #eff0b6;
+  --diff-add-bg: rgba(58, 207, 163, 0.08);
+  --diff-remove-text: #ffc487;
+  --diff-remove-bg: rgba(202, 98, 34, 0.13);
+  --diff-empty-bg: rgba(12, 14, 8, 0.66);
+  --diff-selected-accent: #d8c93c;
+  --diff-selection-bg: #0d1008;
+  --diff-selection-text: #fff4bd;
+  --syntax-keyword: #f1d64b;
+  --syntax-string: #68e2bd;
+  --syntax-comment: #777356;
+  --syntax-number: #ffb247;
+  --syntax-type: #8ed8ff;
+  --syntax-function: #fff0a0;
+  --syntax-variable: #e8dfae;
+  --syntax-operator: #d8c93c;
+  --syntax-punctuation: #a59a5a;
+}
+
+:root[data-theme='cyberpunk'] {
+  --diff-bg: #08040b;
+  --diff-text: #ffe1e8;
+  --diff-muted: #b26069;
+  --diff-border: rgba(255, 48, 73, 0.26);
+  --diff-file-bg: rgba(13, 4, 9, 0.96);
+  --diff-file-text: #fff9e7;
+  --diff-hunk-bg: rgba(255, 48, 73, 0.14);
+  --diff-hunk-text: #00eaff;
+  --diff-button-bg: rgba(16, 4, 10, 0.76);
+  --diff-add-text: #9effd6;
+  --diff-add-bg: rgba(0, 255, 159, 0.18);
+  --diff-remove-text: #ffb0bc;
+  --diff-remove-bg: rgba(255, 48, 73, 0.23);
+  --diff-empty-bg: rgba(16, 4, 10, 0.68);
+  --diff-selected-accent: #ffd400;
+  --diff-selection-bg: #11050b;
+  --diff-selection-text: #fff9e7;
+  --syntax-keyword: #ff3049;
+  --syntax-string: #ffd400;
+  --syntax-comment: #9d5965;
+  --syntax-number: #00eaff;
+  --syntax-type: #00ff9f;
+  --syntax-function: #ffd400;
+  --syntax-variable: #fff9e7;
+  --syntax-operator: #ff3049;
+  --syntax-punctuation: #00eaff;
+}
+
+:root[data-theme='matrix'] {
+  --sel-bg: rgba(0, 255, 106, 0.16);
+  --sel-border: #00ff6a;
+  --scrollbar-thumb: rgba(0, 255, 106, 0.32);
+  --scrollbar-thumb-hover: rgba(0, 255, 106, 0.60);
+  --diff-bg: #000804;
+  --diff-text: #b8ffd0;
+  --diff-muted: #4fa46d;
+  --diff-border: rgba(0, 255, 106, 0.24);
+  --diff-file-bg: #000302;
+  --diff-file-text: #e4ffec;
+  --diff-hunk-bg: rgba(0, 255, 106, 0.11);
+  --diff-hunk-text: #00ff6a;
+  --diff-button-bg: rgba(0, 15, 7, 0.78);
+  --diff-add-text: #c7ffdc;
+  --diff-add-bg: rgba(0, 137, 55, 0.26);
+  --diff-remove-text: #ffadad;
+  --diff-remove-bg: rgba(128, 0, 24, 0.24);
+  --diff-empty-bg: rgba(0, 12, 6, 0.72);
+  --diff-selected-accent: #00ff6a;
+  --diff-selection-bg: #001006;
+  --diff-selection-text: #e4ffec;
+  --syntax-keyword: #00ff6a;
+  --syntax-string: #9dffb5;
+  --syntax-comment: #3f8f5e;
+  --syntax-number: #00d1ff;
+  --syntax-type: #51ff9e;
+  --syntax-function: #e4ffec;
+  --syntax-variable: #b8ffd0;
+  --syntax-operator: #00ff6a;
+  --syntax-punctuation: #4fa46d;
+}
+
+:root[data-theme='far-manager'] {
+  --sel-bg: #0052d6;
+  --sel-border: #00ffff;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.42);
+  --scrollbar-thumb-hover: rgba(255, 255, 0, 0.70);
+  --diff-bg: #001050;
+  --diff-text: #ffffff;
+  --diff-muted: #8db4e8;
+  --diff-border: rgba(0, 255, 255, 0.38);
+  --diff-file-bg: #000080;
+  --diff-file-text: #ffff00;
+  --diff-hunk-bg: #0030a8;
+  --diff-hunk-text: #00ffff;
+  --diff-button-bg: rgba(0, 32, 128, 0.92);
+  --diff-add-text: #00ff00;
+  --diff-add-bg: rgba(0, 128, 0, 0.32);
+  --diff-remove-text: #ff8080;
+  --diff-remove-bg: rgba(128, 0, 0, 0.34);
+  --diff-empty-bg: #001a70;
+  --diff-word-add-bg: rgba(0, 255, 0, 0.34);
+  --diff-word-add-border: rgba(0, 255, 0, 0.30);
+  --diff-word-del-bg: rgba(255, 0, 0, 0.30);
+  --diff-word-del-border: rgba(255, 0, 0, 0.30);
+  --diff-selected-accent: #ffff00;
+  --diff-selection-bg: #000080;
+  --diff-selection-text: #ffffff;
+  --syntax-keyword: #ffff00;
+  --syntax-string: #00ff00;
+  --syntax-comment: #8db4e8;
+  --syntax-number: #00ffff;
+  --syntax-type: #ff80ff;
+  --syntax-function: #ffffff;
+  --syntax-variable: #d7e9ff;
+  --syntax-operator: #ffff00;
+  --syntax-punctuation: #00ffff;
+}
+
+:root[data-theme='solarized-light'] {
+  --diff-bg: #fdf6e3;
+  --diff-text: #073642;
+  --diff-muted: #657b83;
+  --diff-border: rgba(101, 123, 131, 0.22);
+  --diff-file-bg: #eee8d5;
+  --diff-file-text: #073642;
+  --diff-hunk-bg: #e0eee8;
+  --diff-hunk-text: #268bd2;
+  --diff-button-bg: rgba(238, 232, 213, 0.86);
+  --diff-add-text: #2e7d32;
+  --diff-add-bg: #e2f2d6;
+  --diff-remove-text: #b58900;
+  --diff-remove-bg: #f8e6d6;
+  --diff-empty-bg: #eee8d5;
+  --syntax-keyword: #859900;
+  --syntax-string: #2aa198;
+  --syntax-comment: #93a1a1;
+  --syntax-number: #d33682;
+  --syntax-type: #b58900;
+  --syntax-function: #268bd2;
+  --syntax-variable: #073642;
+  --syntax-operator: #859900;
+  --syntax-punctuation: #657b83;
+}
+

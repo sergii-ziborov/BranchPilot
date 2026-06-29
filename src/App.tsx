@@ -1,21 +1,18 @@
-import type {
-  AssistantPolicyMode,
-  EditorPreference,
-  TerminalPreference,
-} from './shared/branchPilot'
 import { CalendarDays } from 'lucide-react'
 import { AssistantPolicyPanel } from './components/AssistantPanels'
 import { ConfirmationDialog, TextPromptDialog } from './components/Dialogs'
-import { BranchPilotMark, LinkedinIcon } from './components/BrandIcons'
+import { LinkedinIcon } from './components/BrandIcons'
 import { useEffect, useState } from 'react'
+import { AboutBranchPilotModal } from './components/AboutBranchPilotModal'
 import { AppShellBar } from './components/AppShellBar'
 import { BackToChanges } from './components/BackToChanges'
 import { ToolModal } from './components/ToolModal'
 import { Toaster } from './components/Toaster'
 import { GlobalTooltip } from './components/GlobalTooltip'
 import { ConflictBanner } from './components/ConflictBanner'
-import { EmptyState } from './components/EmptyState'
+import { EmptyState, RepositoryLoadingState } from './components/EmptyState'
 import { GitHubRepositoryBrowser, PullRequestDetailsPanel } from './components/ProvidersPanels'
+import { assistantPolicyModes, editorPreferences, terminalPreferences } from './lib/appOptions'
 import { CHANGE_LIST_ITEM_HEIGHT, HISTORY_LIST_ITEM_HEIGHT } from './lib/listMetrics'
 import { DailyView, ReportScopeMenu } from './components/views/DailyView'
 import { StashView } from './components/views/StashView'
@@ -29,38 +26,17 @@ import { ChangesView } from './components/views/ChangesView'
 import { BranchesView } from './components/views/BranchesView'
 import { ProvidersView } from './components/views/ProvidersView'
 import { PublishRepositoryView } from './components/views/PublishRepositoryView'
+import { RepositoryPickerModal } from './components/RepositoryPickerModal'
 import './App.css'
 import { useAppController } from './hooks/useAppController'
 import { AppControllerProvider } from './hooks/AppControllerContext'
 
 const api = window.branchPilot
-const assistantPolicyModes: AssistantPolicyMode[] = [
-  'disabled',
-  'review-only',
-  'suggest-only',
-  'allow-local-commands',
-  'allow-file-edits'
-]
-const editorPreferences: EditorPreference[] = ['vscode', 'auto', 'cursor', 'webstorm', 'rider', 'sublime', 'custom']
-const terminalPreferences: TerminalPreference[] = [
-  'auto',
-  'windows-terminal',
-  'powershell',
-  'cmd',
-  'git-bash',
-  'terminal',
-  'iterm',
-  'gnome-terminal',
-  'konsole',
-  'alacritty',
-  'wezterm',
-  'custom'
-]
 
 function App() {
   const controller = useAppController()
   const {
-    snapshot, viewMode, setViewMode, allReposMode, busy, operationLabel, notice, setNotice, error, setError, selectedAssistant, setSelectedAssistant, confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue, answerConfirmation, answerTextPrompt, currentRepoPath, assistants, assistantsChecking, assistantPolicy, assistantPolicyLoading, checkAssistants, updateAssistantPolicy, newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription, branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter, newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef, tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage, editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating, branchComparison, branchComparisonLoading, canGenerateBranchDraft, branchDraftActionState, createBranchActionState, generateBranchDraft, createBranch, deleteBranch, renameBranch, setBranchUpstream, compareBranch, createTag, deleteTag, createWorktree, openWorktree, removeWorktree, startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription, history, historyLoading, historyFilter, setHistoryFilter, historySearchMode, setHistorySearchMode, historyFileIndexing, selectedCommitSha, setSelectedCommitSha, commitDetails, selectedCommitFilePath, commitFileDiff, filteredHistory, virtualHistory, loadCommitFileDiff, providers, githubCliStatus, githubAccounts, githubAccountsLoading, githubRepositories, githubRepoOwner, setGithubRepoOwner, githubRepoQuery, setGithubRepoQuery, githubRepoVisibility, setGithubRepoVisibility, githubRepoLimit, githubRepoLoading, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber, selectedPullRequestDetails, selectedPullRequestChecks, selectedPullRequestDiff, selectedPullRequestFilePath, setSelectedPullRequestFilePath, pullRequestDetailsLoading, prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch, createdPullRequest, canPublishBranch, canGeneratePullRequestText, selectedPullRequestDiffResult, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest, recentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, dashboardRepositoryFilter, setDashboardRepositoryFilter, cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName, loadRepositoryDashboard, chooseRepository, openRepository, cloneRepository, dailyReview, dailyReviewDate, setDailyReviewDate, dailyReviewLoading, contributorStats, runDailyReview, copyDailyReviewMarkdown, counts, selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter, changeSearchMode, setChangeSearchMode, changeContentIndexing, diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace, diffExpanded, setDiffExpanded, diff, imagePreview, changesActionsMenuRef, filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch, selectedMergeBranch, setSelectedMergeBranch, startMergeOperation, continueMergeOperation, abortCurrentOperation, acceptConflictSide, reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport, canRunAssistantReview, runReviewReport, commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors, canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState, commitChanges, amendLastCommit, generateCommitText, canCreateStash, stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage, createStash, createQuickStash, applyStash, dropStash, canGenerateLinkedInProject, linkedinProject, linkedinSkillsText, setLinkedinSkillsText, linkedinLoading, generateLinkedInProject, updateLinkedInProject, openExternalLink, runSnapshotAction, runOperationAction, applySnapshot, applyCommitOperation
+    snapshot, viewMode, setViewMode, allReposMode, busy, operationLabel, notice, setNotice, error, setError, selectedAssistant, setSelectedAssistant, confirmationRequest, textPromptRequest, textPromptValue, setTextPromptValue, answerConfirmation, answerTextPrompt, currentRepoPath, assistants, assistantsChecking, assistantPolicy, assistantPolicyLoading, checkAssistants, updateAssistantPolicy, newBranchName, setNewBranchName, newBranchDescription, setNewBranchDescription, branchDraftGoal, setBranchDraftGoal, branchFilter, setBranchFilter, newWorktreeBranchName, setNewWorktreeBranchName, newWorktreeBaseRef, setNewWorktreeBaseRef, tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage, editingBranchName, branchDescriptionDraft, setBranchDescriptionDraft, branchDescriptionGenerating, branchComparison, branchComparisonLoading, canGenerateBranchDraft, branchDraftActionState, createBranchActionState, generateBranchDraft, createBranch, deleteBranch, renameBranch, setBranchUpstream, compareBranch, createTag, deleteTag, createWorktree, openWorktree, removeWorktree, startBranchDescriptionEdit, cancelBranchDescriptionEdit, saveBranchDescription, generateBranchDescription, history, historyLoading, historyFilter, setHistoryFilter, historySearchMode, setHistorySearchMode, historyFileIndexing, selectedCommitSha, setSelectedCommitSha, commitDetails, commitDetailsLoading, selectedCommitFilePath, commitFileDiff, commitFileDiffLoading, filteredHistory, virtualHistory, loadCommitFileDiff, providers, githubCliStatus, githubAccounts, githubAccountsLoading, githubRepositories, githubRepoOwner, setGithubRepoOwner, githubRepoQuery, setGithubRepoQuery, githubRepoVisibility, setGithubRepoVisibility, githubRepoLimit, githubRepoLoading, currentPullRequest, pullRequests, pullRequestsLoading, selectedPullRequestNumber, selectedPullRequestDetails, selectedPullRequestChecks, selectedPullRequestDiff, selectedPullRequestFilePath, setSelectedPullRequestFilePath, pullRequestDetailsLoading, prTitle, setPrTitle, prDescription, setPrDescription, prBaseBranch, setPrBaseBranch, createdPullRequest, canPublishBranch, canGeneratePullRequestText, selectedPullRequestDiffResult, loadGitHubPullRequests, loadPullRequestDetails, loadGitHubAccounts, loadGitHubRepositories, cloneGitHubRepository, refreshProvidersPanel, generatePullRequestText, createPullRequest, checkoutPullRequest, selectPullRequest, recentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, dashboardRepositoryFilter, setDashboardRepositoryFilter, repositoryPickerOpen, setRepositoryPickerOpen, cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName, loadRepositoryDashboard, chooseRepository, openRepository, initializeRepository, cloneRepository, dailyReview, dailyReviewDate, setDailyReviewDate, dailyReviewLoading, contributorStats, runDailyReview, copyDailyReviewMarkdown, counts, selectedFilePath, setSelectedFilePath, changeFilter, setChangeFilter, changeSearchMode, setChangeSearchMode, changeContentIndexing, diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace, diffExpanded, setDiffExpanded, diff, relatedDiff, imagePreview, changesActionsMenuRef, filteredChanges, selectedChange, selectedDiffStats, selectedRelatedDiffStats, virtualChanges, bulkStageToggleState, stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, exportPatch, applyPatch, selectedMergeBranch, setSelectedMergeBranch, startMergeOperation, continueMergeOperation, abortCurrentOperation, acceptConflictSide, reviewMode, setReviewMode, reviewScope, setReviewScope, reviewReport, canRunAssistantReview, runReviewReport, commitTitle, setCommitTitle, commitDescription, setCommitDescription, commitCoAuthors, setCommitCoAuthors, canGenerateCommitText, commitActionState, commitAndPushActionState, amendCommitActionState, commitChanges, amendLastCommit, generateCommitText, canCreateStash, stashMessage, setStashMessage, stashes, loadStashes, defaultStashMessage, createStash, createQuickStash, applyStash, dropStash, canGenerateLinkedInProject, linkedinProject, linkedinSkillsText, setLinkedinSkillsText, linkedinLoading, generateLinkedInProject, updateLinkedInProject, openExternalLink, runSnapshotAction, runOperationAction, applySnapshot, applyCommitOperation
   } = controller
   const {
     appVersion, connectGitHub, contributorWindow, setContributorWindow, selectedReportRepoPaths, updateReportRepoPaths, discardSelectedLines,
@@ -75,6 +51,7 @@ function App() {
   const [showClone, setShowClone] = useState(false)
   const [showPublishRepository, setShowPublishRepository] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
+  const showRepositoryLoading = busy && isRepositoryTransitionOperation(operationLabel)
 
   useEffect(() => {
     if (!api?.onMenuAction) return
@@ -112,6 +89,11 @@ function App() {
 
       <Toaster notice={notice} busy={busy} operationLabel={operationLabel} error={error} onDismissError={() => setError(null)} />
       <GlobalTooltip />
+      {showRepositoryLoading && (
+        <div className="repository-transition-overlay" role="presentation">
+          <RepositoryLoadingState operationLabel={operationLabel} />
+        </div>
+      )}
 
       <section className="workspace">
 
@@ -125,13 +107,15 @@ function App() {
           />
         )}
 
-        {!snapshot && !allReposMode ? (
-          <EmptyState
-            apiReady={Boolean(api)} busy={busy} chooseRepository={chooseRepository}
-            cloneRemoteUrl={cloneRemoteUrl} setCloneRemoteUrl={setCloneRemoteUrl}
-            cloneTargetName={cloneTargetName} setCloneTargetName={setCloneTargetName}
-            cloneRepository={cloneRepository}
-          />
+        {!showRepositoryLoading && !snapshot && !allReposMode && busy ? (
+            <RepositoryLoadingState operationLabel={operationLabel} />
+        ) : !snapshot && !allReposMode ? (
+            <EmptyState
+              apiReady={Boolean(api)} busy={busy} chooseRepository={chooseRepository}
+              cloneRemoteUrl={cloneRemoteUrl} setCloneRemoteUrl={setCloneRemoteUrl}
+              cloneTargetName={cloneTargetName} setCloneTargetName={setCloneTargetName}
+              cloneRepository={cloneRepository}
+            />
         ) : (
           <>
             {viewMode === 'dashboard' && (
@@ -178,6 +162,9 @@ function App() {
                 exportPatch={exportPatch}
                 applyPatch={applyPatch}
                 bulkStageToggleState={bulkStageToggleState}
+                stagingPendingPaths={stagingPendingPaths}
+                bulkStagingPending={bulkStagingPending}
+                bulkStageOptimisticChecked={bulkStageOptimisticChecked}
                 toggleBulkStage={toggleBulkStage}
                 toggleChangeStage={toggleChangeStage}
                 selectedFilePath={selectedFilePath}
@@ -197,6 +184,7 @@ function App() {
                 setLocalUserEmail={setLocalUserEmail}
                 githubAccounts={githubAccounts}
                 githubCliStatus={githubCliStatus}
+                assistantPolicy={assistantPolicy}
                 setNotice={setNotice}
                 generateCommitText={generateCommitText}
                 canGenerateCommitText={canGenerateCommitText}
@@ -210,6 +198,7 @@ function App() {
                 api={api}
                 selectedChange={selectedChange}
                 selectedDiffStats={selectedDiffStats}
+                selectedRelatedDiffStats={selectedRelatedDiffStats}
                 discardSelected={discardSelected}
                 diffMode={diffMode}
                 diffDisplayMode={diffDisplayMode}
@@ -219,6 +208,7 @@ function App() {
                 diffExpanded={diffExpanded}
                 setDiffExpanded={setDiffExpanded}
                 diff={diff}
+                relatedDiff={relatedDiff}
                 imagePreview={imagePreview}
                 stageSelectedHunk={stageSelectedHunk}
                 unstageSelectedHunk={unstageSelectedHunk}
@@ -260,6 +250,7 @@ function App() {
                       assistants={assistants}
                       assistantsChecking={assistantsChecking}
                       checkAssistants={checkAssistants}
+                      selectedFilePath={selectedFilePath}
                       renderAssistantPolicyPanel={renderAssistantPolicyPanel}
                     />
                   </ToolModal>
@@ -283,9 +274,11 @@ function App() {
                 selectedCommitSha={selectedCommitSha}
                 setSelectedCommitSha={setSelectedCommitSha}
                 commitDetails={commitDetails}
+                commitDetailsLoading={commitDetailsLoading}
                 selectedCommitFilePath={selectedCommitFilePath}
                 loadCommitFileDiff={loadCommitFileDiff}
                 commitFileDiff={commitFileDiff}
+                commitFileDiffLoading={commitFileDiffLoading}
                 openExternalLink={openExternalLink}
                 applyCommitOperation={applyCommitOperation}
                 api={api}
@@ -511,6 +504,17 @@ function App() {
       {textPromptRequest && (
         <TextPromptDialog request={textPromptRequest} value={textPromptValue} onChange={setTextPromptValue} onAnswer={answerTextPrompt} />
       )}
+      {repositoryPickerOpen && (
+        <RepositoryPickerModal
+          api={api}
+          busy={busy}
+          currentRepoPath={currentRepoPath}
+          recentRepositories={recentRepositories}
+          openRepository={openRepository}
+          initializeRepository={initializeRepository}
+          onClose={() => setRepositoryPickerOpen(false)}
+        />
+      )}
       {showClone && (
         <ToolModal title="Clone repository" onClose={() => setShowClone(false)}>
           <section className="single-panel clone-modal-body">
@@ -565,22 +569,7 @@ function App() {
         </ToolModal>
       )}
       {showAbout && (
-        <ToolModal title="About BranchPilot" className="about-modal" onClose={() => setShowAbout(false)}>
-          <section className="about-panel">
-            <div className="about-brand">
-              <BranchPilotMark size={56} />
-              <div>
-                <h3>BranchPilot</h3>
-                <p>Version {appVersion}</p>
-              </div>
-            </div>
-            <p className="about-copy">A local-first Git desktop client for branches, diffs, reviews, and pull requests.</p>
-            <div className="about-meta">
-              <span>MIT License</span>
-              <span>Built by Serhii Ziborov</span>
-            </div>
-          </section>
-        </ToolModal>
+        <AboutBranchPilotModal appVersion={appVersion} onClose={() => setShowAbout(false)} />
       )}
     </main>
     </AppControllerProvider>
@@ -629,6 +618,16 @@ function App() {
     )
   }
 
+}
+
+function isRepositoryTransitionOperation(operationLabel: string | null): boolean {
+  if (!operationLabel) return false
+  return (
+    operationLabel === 'Opening repository...' ||
+    operationLabel === 'Opening worktree...' ||
+    operationLabel === 'Opening submodule...' ||
+    operationLabel.startsWith('Cloning ')
+  )
 }
 
 export default App

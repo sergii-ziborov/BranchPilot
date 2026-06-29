@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import type {
@@ -51,6 +51,15 @@ export function registerProviderHandlers(
   handle('terminal:getSettings', () => settingsStore.getTerminalSettings())
   handle('terminal:setSettings', (update: TerminalSettingsUpdate) => settingsStore.setTerminalSettings(update))
   handle('terminal:open', async (targetPath: string) => editorService.openTerminal(targetPath, await settingsStore.getTerminalSettings()))
+  handle('filesystem:openFolder', async (targetPath: string) => {
+    const absolutePath = path.resolve(targetPath)
+    const folderPath = existsSync(absolutePath) && statSync(absolutePath).isDirectory()
+      ? absolutePath
+      : path.dirname(absolutePath)
+    const errorMessage = await shell.openPath(folderPath)
+    if (errorMessage) throw new Error(errorMessage)
+    return { message: 'Opened folder in file manager.' }
+  })
   handle('filesystem:showItem', (targetPath: string) => {
     const absolutePath = path.resolve(targetPath)
     const existingTarget = existsSync(absolutePath) ? absolutePath : path.dirname(absolutePath)

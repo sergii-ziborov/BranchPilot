@@ -1,0 +1,199 @@
+﻿/* Collapsible PR sub-sections (Connection, Create PR) so the PR list dominates. */
+.pr-collapse {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.pr-collapse > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.pr-collapse > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pr-collapse > summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--muted);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s ease;
+}
+
+.pr-collapse[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.pr-collapse[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.pr-collapse > :not(summary) {
+  margin: 12px 16px;
+}
+
+.providers-page {
+  gap: 10px;
+}
+
+.providers-pr-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.58fr) minmax(620px, 1.42fr);
+  gap: 10px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.providers-connection-column,
+.providers-workflow-column,
+.providers-connection-panel {
+  display: grid;
+  align-items: stretch;
+  gap: 14px;
+  min-width: 0;
+}
+
+.providers-connection-panel {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.providers-connection-panel .compact-heading {
+  margin-bottom: 0;
+}
+
+.provider-status-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 0;
+}
+
+.provider-status-grid .provider-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 7px;
+  align-items: center;
+  min-height: 44px;
+  padding: 7px 8px;
+}
+
+.provider-status-grid .provider-card svg {
+  grid-row: span 2;
+  width: 16px;
+  height: 16px;
+}
+
+.provider-status-grid .provider-card strong,
+.provider-status-grid .provider-card span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-status-grid .provider-card span {
+  margin-top: 0;
+  font-size: 11px;
+}
+
+.providers-connection-panel .provider-remote-card,
+.providers-connection-panel .github-repo-browser,
+.providers-workflow-column .pr-panel {
+  margin-top: 0;
+}
+
+.providers-connection-panel .provider-remote-card {
+  gap: 7px;
+  padding: 9px;
+}
+
+.providers-connection-panel .provider-remote-card p {
+  margin: 0;
+  line-height: 1.25;
+}
+
+.providers-connection-panel .provider-remote-heading {
+  align-items: center;
+}
+
+.providers-connection-panel .remote-support-chip {
+  min-height: 24px;
+}
+
+.providers-connection-panel .provider-remote-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+}
+
+.providers-connection-panel .provider-remote-card code {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.providers-connection-panel .github-repo-browser {
+  max-height: min(280px, calc(100vh - 455px));
+  min-height: 148px;
+  overflow: auto;
+}
+
+.providers-workflow-column .pr-workspace {
+  grid-template-columns: minmax(280px, 0.86fr) minmax(340px, 1.14fr);
+}
+
+.providers-connection-column,
+.providers-workflow-column,
+.providers-connection-panel,
+.providers-workflow-column > .pr-panel {
+  height: 100%;
+}
+
+.pr-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.pr-workspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.92fr) minmax(380px, 1.08fr);
+  gap: 10px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.pr-primary-column,
+.pr-secondary-column {
+  display: grid;
+  align-items: stretch;
+  gap: 14px;
+  min-width: 0;
+}
+
+@media (min-width: 981px) {
+  .providers-workflow-column > .pr-panel {
+    align-content: start;
+  }
+
+  .pr-composer.branch-composer,
+  .pr-list-panel {
+    min-height: 340px;
+  }
+}
+

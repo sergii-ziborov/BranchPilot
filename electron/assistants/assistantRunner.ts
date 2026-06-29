@@ -541,7 +541,7 @@ export async function generateReviewReport(
   request: ReviewReportRequest
 ): Promise<ReviewReport> {
   const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
-  const context = await buildReviewContext(runner, rootPath, request.scope)
+  const context = await buildReviewContext(runner, rootPath, request.scope, request.filePaths)
 
   if (!context.diff.trim()) {
     throw new BranchPilotUserError('no_review_changes', `No ${request.scope} changes found to review.`)

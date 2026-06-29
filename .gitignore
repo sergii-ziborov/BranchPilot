@@ -15,6 +15,18 @@ release
 *.local
 .branchpilot-plan.md
 
+# claude.ai/design sync — staged converter scripts, build output, machine state.
+# The durable inputs under .design-sync/ (config.json, NOTES.md, conventions.md,
+# entry.tsx, previews/, overrides/) ARE committed; only the below are ignored.
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+.design-sync/branchpilot-loading-preview.cjs
+.design-sync/branchpilot-loading-preview-app/
+.design-sync/repository-loading-preview.tmp.html
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

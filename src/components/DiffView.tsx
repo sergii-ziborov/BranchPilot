@@ -5,6 +5,9 @@ import type { ChangeDiffMode } from '../shared/changeStaging'
 import { buildSplitDiffRows } from '../shared/diffView'
 import { highlight, langFromPath } from '../lib/highlight'
 import { renderSegs, shouldWordDiff, wordDiff } from '../lib/wordDiff'
+import { buildStagePatch, buildUnstagePatch } from '../lib/diffPatches'
+import { RawDiffPreview } from './diff/RawDiffPreview'
+import { DiffStatBadges } from './DiffStatBadges'
 
 /** Word-level highlight map for the unified view: line index → highlighted content. */
 function buildUnifiedWordDiff(lines: DiffLine[], lang: string): Map<number, ReactNode> {
@@ -49,17 +52,7 @@ interface ExtraContextEntry {
   totalLines?: number
 }
 
-function lineClass(line: string): string {
-  if (line.startsWith('+') && !line.startsWith('+++')) return 'marker-add'
-  if (line.startsWith('-') && !line.startsWith('---')) return 'marker-remove'
-  return 'marker-base'
-}
-
-function linePrefix(line: string): string {
-  if (line.startsWith('+') && !line.startsWith('+++')) return '+'
-  if (line.startsWith('-') && !line.startsWith('---')) return '-'
-  return ' '
-}
+type ExtraContextMap = Record<string, ExtraContextEntry>
 
 function diffLinePrefix(line: DiffLine): string {
   if (line.type === 'add') return '+'
@@ -70,25 +63,6 @@ function diffLinePrefix(line: DiffLine): string {
 
 function formatLineNumber(lineNumber?: number): string {
   return lineNumber ? String(lineNumber) : ''
-}
-
-function RawDiffPreview({ diff }: { diff: DiffResult }) {
-  return (
-    <pre className="diff-preview">
-      {diff.tooLarge && (
-        <code className="line marker-base">
-          <span> </span>
-          Diff truncated for performance.
-        </code>
-      )}
-      {diff.text.split('\n').map((line, index) => (
-        <code className={`line ${lineClass(line)}`} key={`${index}-${line.slice(0, 20)}`}>
-          <span>{linePrefix(line)}</span>
-          {line}
-        </code>
-      ))}
-    </pre>
-  )
 }
 
 function DiffLineNumber({
@@ -123,17 +97,38 @@ function SplitDiffCell({
   line,
   side,
   content,
+  selectKey,
+  selected = false,
+  onLineSelect,
   onOpenLine
 }: {
   line?: DiffLine
   side: 'old' | 'new'
   content: ReactNode
+  selectKey?: string
+  selected?: boolean
+  onLineSelect?: (key: string, shift: boolean) => void
   onOpenLine?: (line?: number) => void
 }) {
   const lineNumber = side === 'old' ? line?.oldLineNumber : line?.newLineNumber
+  const canSelect = Boolean(selectKey && onLineSelect)
 
   return (
-    <code className={`split-diff-cell ${line ? `line-${line.type}` : 'line-empty'}`}>
+    <code
+      className={`split-diff-cell ${line ? `line-${line.type}` : 'line-empty'}${canSelect ? ' selectable' : ''}${selected ? ' line-selected' : ''}`}
+    >
+      {canSelect ? (
+        <button
+          type="button"
+          className={selected ? 'line-select-control selected' : 'line-select-control'}
+          title={selected ? 'Deselect this line' : 'Select this line'}
+          aria-label={selected ? 'Deselect this line' : 'Select this line'}
+          aria-pressed={selected}
+          onClick={(event) => onLineSelect!(selectKey!, event.shiftKey)}
+        />
+      ) : (
+        <span className="line-select-spacer" />
+      )}
       <DiffLineNumber lineNumber={lineNumber} openLine={line?.newLineNumber} onOpenLine={onOpenLine} />
       <span className="line-marker">{line ? diffLinePrefix(line) : ''}</span>
       <span className="line-content">{content}</span>
@@ -141,11 +136,38 @@ function SplitDiffCell({
   )
 }
 
-function SplitDiffLines({ lines, lang, onOpenLine }: { lines: DiffLine[]; lang: string; onOpenLine?: (line?: number) => void }) {
+function SplitDiffLines({
+  lines,
+  lang,
+  onOpenLine,
+  keyPrefix,
+  selectable,
+  selected,
+  onLineSelect
+}: {
+  lines: DiffLine[]
+  lang: string
+  onOpenLine?: (line?: number) => void
+  keyPrefix?: string
+  selectable?: boolean
+  selected?: Set<string>
+  onLineSelect?: (key: string, shift: boolean) => void
+}) {
+  const lineIndexes = new Map<DiffLine, number>()
+  lines.forEach((line, lineIndex) => lineIndexes.set(line, lineIndex))
+
+  const selectableKey = (line?: DiffLine): string | undefined => {
+    if (!selectable || !keyPrefix || !line || (line.type !== 'add' && line.type !== 'remove')) return undefined
+    const lineIndex = lineIndexes.get(line)
+    return lineIndex === undefined ? undefined : `${keyPrefix}:${lineIndex}`
+  }
+
   return (
     <div className="split-diff-lines">
       {buildSplitDiffRows(lines).map((row, rowIndex) => {
         const { oldLine, newLine } = row
+        const oldKey = selectableKey(oldLine)
+        const newKey = selectableKey(newLine)
         let oldContent: ReactNode = oldLine ? highlight(oldLine.content, lang) : ''
         let newContent: ReactNode = newLine ? highlight(newLine.content, lang) : ''
         if (
@@ -159,8 +181,24 @@ function SplitDiffLines({ lines, lang, onOpenLine }: { lines: DiffLine[]; lang: 
         }
         return (
           <div className="split-diff-row" key={`${rowIndex}-${oldLine?.content ?? ''}-${newLine?.content ?? ''}`}>
-            <SplitDiffCell line={oldLine} side="old" content={oldContent} onOpenLine={onOpenLine} />
-            <SplitDiffCell line={newLine} side="new" content={newContent} onOpenLine={onOpenLine} />
+            <SplitDiffCell
+              line={oldLine}
+              side="old"
+              content={oldContent}
+              selectKey={oldKey}
+              selected={Boolean(oldKey && selected?.has(oldKey))}
+              onLineSelect={onLineSelect}
+              onOpenLine={onOpenLine}
+            />
+            <SplitDiffCell
+              line={newLine}
+              side="new"
+              content={newContent}
+              selectKey={newKey}
+              selected={Boolean(newKey && selected?.has(newKey))}
+              onLineSelect={onLineSelect}
+              onOpenLine={onOpenLine}
+            />
           </div>
         )
       })}
@@ -221,94 +259,6 @@ function UnifiedDiffLines({
   )
 }
 
-/** Build a `git apply --cached` patch that stages only the selected +/- lines. */
-function buildStagePatch(files: DiffFile[], selected: Set<string>): string {
-  let out = ''
-  files.forEach((file, fi) => {
-    const hunkPatches: string[] = []
-    file.hunks.forEach((hunk, hi) => {
-      const body: string[] = []
-      let oldCount = 0
-      let newCount = 0
-      let hasSelected = false
-      hunk.lines.forEach((line, li) => {
-        const sel = selected.has(`${fi}:${hi}:${li}`)
-        if (line.type === 'context') {
-          body.push(` ${line.content}`)
-          oldCount += 1
-          newCount += 1
-        } else if (line.type === 'add') {
-          if (sel) {
-            body.push(`+${line.content}`)
-            newCount += 1
-            hasSelected = true
-          }
-        } else if (line.type === 'remove') {
-          if (sel) {
-            body.push(`-${line.content}`)
-            oldCount += 1
-            hasSelected = true
-          } else {
-            body.push(` ${line.content}`)
-            oldCount += 1
-            newCount += 1
-          }
-        }
-      })
-      if (!hasSelected) return
-      hunkPatches.push(`@@ -${hunk.oldStart},${oldCount} +${hunk.newStart},${newCount} @@\n${body.join('\n')}`)
-    })
-    if (hunkPatches.length === 0) return
-    const a = file.oldPath ?? file.newPath
-    const b = file.newPath
-    out += `diff --git a/${a} b/${b}\n--- a/${a}\n+++ b/${b}\n${hunkPatches.join('\n')}\n`
-  })
-  return out
-}
-
-/** Build a patch that can be reverse-applied to the index to exclude selected staged lines. */
-function buildUnstagePatch(files: DiffFile[], selected: Set<string>): string {
-  let out = ''
-  files.forEach((file, fi) => {
-    const hunkPatches: string[] = []
-    file.hunks.forEach((hunk, hi) => {
-      const body: string[] = []
-      let oldCount = 0
-      let newCount = 0
-      let hasSelected = false
-      hunk.lines.forEach((line, li) => {
-        const sel = selected.has(`${fi}:${hi}:${li}`)
-        if (line.type === 'context') {
-          body.push(` ${line.content}`)
-          oldCount += 1
-          newCount += 1
-        } else if (line.type === 'add') {
-          if (sel) {
-            body.push(`+${line.content}`)
-            newCount += 1
-            hasSelected = true
-          } else {
-            body.push(` ${line.content}`)
-            oldCount += 1
-            newCount += 1
-          }
-        } else if (line.type === 'remove' && sel) {
-          body.push(`-${line.content}`)
-          oldCount += 1
-          hasSelected = true
-        }
-      })
-      if (!hasSelected) return
-      hunkPatches.push(`@@ -${hunk.oldStart},${oldCount} +${hunk.newStart},${newCount} @@\n${body.join('\n')}`)
-    })
-    if (hunkPatches.length === 0) return
-    const a = file.oldPath ?? file.newPath
-    const b = file.newPath
-    out += `diff --git a/${a} b/${b}\n--- a/${a}\n+++ b/${b}\n${hunkPatches.join('\n')}\n`
-  })
-  return out
-}
-
 function hunkHasHiddenContextAfter(file: DiffFile, index: number): boolean {
   return index < file.hunks.length - 1
 }
@@ -339,6 +289,14 @@ function hunkContextKey(file: DiffFile, hunk: DiffHunk): string {
   return `${file.newPath}:${hunk.oldStart}:${hunk.newStart}:${hunk.header}`
 }
 
+function firstVisibleLineNumber(hunk: DiffHunk, entry?: ExtraContextEntry): number | undefined {
+  return firstContextLineNumber(entry?.above.length ? entry.above : hunk.lines)
+}
+
+function lastVisibleLineNumber(hunk: DiffHunk, entry?: ExtraContextEntry): number | undefined {
+  return lastContextLineNumber(entry?.below.length ? entry.below : hunk.lines)
+}
+
 function mergeContextLines(existing: DiffLine[], incoming: DiffLine[], direction: DiffContextDirection): DiffLine[] {
   const byLine = new Map<number, DiffLine>()
   const ordered = direction === 'up' ? [...incoming, ...existing] : [...existing, ...incoming]
@@ -352,15 +310,22 @@ function mergeContextLines(existing: DiffLine[], incoming: DiffLine[], direction
   return [...byLine.values()].sort((a, b) => (contextLineNumber(a) ?? 0) - (contextLineNumber(b) ?? 0))
 }
 
-function contextBoundaryBefore(file: DiffFile, hunkIndex: number): number {
+function contextBoundaryBefore(file: DiffFile, hunkIndex: number, extraContext: ExtraContextMap = {}): number {
   const previous = file.hunks[hunkIndex - 1]
-  const previousLast = previous ? lastContextLineNumber(previous.lines) : undefined
+  const previousEntry = previous ? extraContext[hunkContextKey(file, previous)] : undefined
+  const previousLast = previous ? lastVisibleLineNumber(previous, previousEntry) : undefined
   return previousLast ? previousLast + 1 : 1
 }
 
-function contextBoundaryAfter(file: DiffFile, hunkIndex: number, totalLines?: number): number | undefined {
+function contextBoundaryAfter(
+  file: DiffFile,
+  hunkIndex: number,
+  totalLines?: number,
+  extraContext: ExtraContextMap = {}
+): number | undefined {
   const next = file.hunks[hunkIndex + 1]
-  const nextFirst = next ? firstContextLineNumber(next.lines) : undefined
+  const nextEntry = next ? extraContext[hunkContextKey(file, next)] : undefined
+  const nextFirst = next ? firstVisibleLineNumber(next, nextEntry) : undefined
   if (nextFirst) return nextFirst - 1
   return totalLines
 }
@@ -370,18 +335,47 @@ function canExpandContext(
   hunk: DiffHunk,
   hunkIndex: number,
   entry: ExtraContextEntry | undefined,
-  direction: DiffContextDirection
+  direction: DiffContextDirection,
+  extraContext: ExtraContextMap = {}
 ): boolean {
   if (direction === 'up') {
-    const firstVisible = firstContextLineNumber(entry?.above.length ? entry.above : hunk.lines)
-    return Boolean(firstVisible && firstVisible > contextBoundaryBefore(file, hunkIndex))
+    const firstVisible = firstVisibleLineNumber(hunk, entry)
+    return Boolean(firstVisible && firstVisible > contextBoundaryBefore(file, hunkIndex, extraContext))
   }
 
-  const lastVisible = lastContextLineNumber(entry?.below.length ? entry.below : hunk.lines)
-  const upperBoundary = contextBoundaryAfter(file, hunkIndex, entry?.totalLines)
+  const lastVisible = lastVisibleLineNumber(hunk, entry)
+  const upperBoundary = contextBoundaryAfter(file, hunkIndex, entry?.totalLines, extraContext)
   if (upperBoundary === undefined) return hunkHasHiddenContextAfter(file, hunkIndex)
 
   return Boolean(lastVisible && lastVisible < upperBoundary)
+}
+
+function trimIncomingContextLines(
+  lines: DiffLine[],
+  file: DiffFile,
+  hunk: DiffHunk,
+  hunkIndex: number,
+  direction: DiffContextDirection,
+  currentEntry: ExtraContextEntry,
+  currentContext: ExtraContextMap,
+  totalLines: number
+): DiffLine[] {
+  const lowerBoundary = contextBoundaryBefore(file, hunkIndex, currentContext)
+  const upperBoundary = contextBoundaryAfter(file, hunkIndex, totalLines, currentContext)
+  const firstVisible = firstVisibleLineNumber(hunk, currentEntry)
+  const lastVisible = lastVisibleLineNumber(hunk, currentEntry)
+
+  return lines.filter((line) => {
+    const lineNumber = contextLineNumber(line)
+    if (!lineNumber) return false
+
+    if (direction === 'up') {
+      return lineNumber >= lowerBoundary && Boolean(!firstVisible || lineNumber < firstVisible)
+    }
+
+    if (upperBoundary !== undefined && lineNumber > upperBoundary) return false
+    return Boolean(!lastVisible || lineNumber > lastVisible)
+  })
 }
 
 function DiffContextExpander({
@@ -410,6 +404,11 @@ export function DiffPreview({
   displayMode = 'unified',
   expanded = false,
   busy = false,
+  hideFileHeading = false,
+  sectionLabel,
+  sectionDescription,
+  sectionStats,
+  sectionTone,
   onStageHunk,
   onUnstageHunk,
   onDiscardHunk,
@@ -426,6 +425,11 @@ export function DiffPreview({
   displayMode?: DiffDisplayMode
   expanded?: boolean
   busy?: boolean
+  hideFileHeading?: boolean
+  sectionLabel?: string
+  sectionDescription?: string
+  sectionStats?: { additions: number; deletions: number } | null
+  sectionTone?: DiffMode
   onStageHunk?: (hunk: DiffHunk) => void
   onUnstageHunk?: (hunk: DiffHunk) => void
   onDiscardHunk?: (hunk: DiffHunk) => void
@@ -504,17 +508,17 @@ export function DiffPreview({
 
     const key = hunkContextKey(file, hunk)
     const entry = extraContext[key]
-    const firstVisible = firstContextLineNumber(entry?.above.length ? entry.above : hunk.lines)
-    const lastVisible = lastContextLineNumber(entry?.below.length ? entry.below : hunk.lines)
+    const firstVisible = firstVisibleLineNumber(hunk, entry)
+    const lastVisible = lastVisibleLineNumber(hunk, entry)
     let lineStart = 1
     let maxLines = 0
 
     if (direction === 'up' && firstVisible) {
-      const lowerBoundary = contextBoundaryBefore(file, hunkIndex)
+      const lowerBoundary = contextBoundaryBefore(file, hunkIndex, extraContext)
       lineStart = Math.max(lowerBoundary, firstVisible - 20)
       maxLines = firstVisible - lineStart
     } else if (direction === 'down' && lastVisible) {
-      const upperBoundary = contextBoundaryAfter(file, hunkIndex, entry?.totalLines)
+      const upperBoundary = contextBoundaryAfter(file, hunkIndex, entry?.totalLines, extraContext)
       const cappedEnd = upperBoundary ? Math.min(upperBoundary, lastVisible + 20) : lastVisible + 20
       lineStart = lastVisible + 1
       maxLines = cappedEnd - lastVisible
@@ -533,9 +537,22 @@ export function DiffPreview({
 
     setExtraContext((current) => {
       const currentEntry = current[key] ?? { above: [], below: [] }
+      const incomingLines = trimIncomingContextLines(
+        result.lines,
+        file,
+        hunk,
+        hunkIndex,
+        direction,
+        currentEntry,
+        current,
+        result.totalLines
+      )
+      if (incomingLines.length === 0) {
+        return { ...current, [key]: { ...currentEntry, totalLines: result.totalLines } }
+      }
       const nextEntry: ExtraContextEntry = {
-        above: direction === 'up' ? mergeContextLines(currentEntry.above, result.lines, direction) : currentEntry.above,
-        below: direction === 'down' ? mergeContextLines(currentEntry.below, result.lines, direction) : currentEntry.below,
+        above: direction === 'up' ? mergeContextLines(currentEntry.above, incomingLines, direction) : currentEntry.above,
+        below: direction === 'down' ? mergeContextLines(currentEntry.below, incomingLines, direction) : currentEntry.below,
         totalLines: result.totalLines
       }
 
@@ -586,23 +603,45 @@ export function DiffPreview({
     return <RawDiffPreview diff={diff} />
   }
 
-  const canSelectLines = displayMode === 'unified'
+  const canSelectLines = Boolean(onStageLines || onUnstageLines || onDiscardLines)
   const canLoadMoreContext = Boolean(onLoadContext || onExpandContext)
+  const sectionClassName = [
+    'structured-diff',
+    sectionLabel ? 'structured-diff-sectioned' : '',
+    sectionTone ? `diff-section-${sectionTone}` : ''
+  ].filter(Boolean).join(' ')
 
   return (
-    <div className="structured-diff">
+    <div className={sectionClassName}>
+      {sectionLabel && (
+        <div className="diff-section-heading">
+          <div className="diff-section-title">
+            <strong>{sectionLabel}</strong>
+            {sectionDescription && <span>{sectionDescription}</span>}
+          </div>
+          {sectionStats && (
+            <DiffStatBadges
+              additions={sectionStats.additions}
+              deletions={sectionStats.deletions}
+              label={`${sectionLabel} diff stats`}
+            />
+          )}
+        </div>
+      )}
       {diff.files.map((file, fileIndex) => (
         <section className="diff-file" key={`${file.oldPath ?? 'none'}-${file.newPath}`}>
-          <div className="diff-file-heading">
-            <strong>{file.newPath}</strong>
-            {file.oldPath && file.oldPath !== file.newPath && <span>from {file.oldPath}</span>}
-          </div>
+          {!hideFileHeading && (
+            <div className="diff-file-heading">
+              <strong>{file.newPath}</strong>
+              {file.oldPath && file.oldPath !== file.newPath && <span>from {file.oldPath}</span>}
+            </div>
+          )}
           {file.hunks.map((hunk, index) => {
             const lang = langFromPath(file.newPath)
             const contextKey = hunkContextKey(file, hunk)
             const contextEntry = extraContext[contextKey]
-            const canExpandBefore = canLoadMoreContext && !expanded && canExpandContext(file, hunk, index, contextEntry, 'up')
-            const canExpandAfter = canLoadMoreContext && !expanded && canExpandContext(file, hunk, index, contextEntry, 'down')
+            const canExpandBefore = canLoadMoreContext && !expanded && index === 0 && canExpandContext(file, hunk, index, contextEntry, 'up', extraContext)
+            const canExpandAfter = canLoadMoreContext && !expanded && canExpandContext(file, hunk, index, contextEntry, 'down', extraContext)
 
             return (
               <article className="diff-hunk" key={`${hunk.header}-${index}`}>
@@ -635,7 +674,15 @@ export function DiffPreview({
                     : <UnifiedDiffLines lines={contextEntry.above} lang={lang} onOpenLine={onOpenLine} />
                 ) : null}
                 {displayMode === 'split'
-                  ? <SplitDiffLines lines={hunk.lines} lang={lang} onOpenLine={onOpenLine} />
+                  ? <SplitDiffLines
+                      lines={hunk.lines}
+                      lang={lang}
+                      onOpenLine={onOpenLine}
+                      keyPrefix={`${fileIndex}:${index}`}
+                      selectable={canSelectLines}
+                      selected={selected}
+                      onLineSelect={selectLine}
+                    />
                   : <UnifiedDiffLines
                       lines={hunk.lines}
                       lang={lang}

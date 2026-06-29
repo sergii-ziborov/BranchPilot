@@ -1,0 +1,279 @@
+﻿.memory-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.memory-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.memory-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.memory-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.memory-stack span {
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: var(--accent-strong);
+  background: var(--sel-bg);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.memory-mcp-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.memory-mcp-card > .info-row {
+  min-width: 0;
+}
+
+.memory-mcp-snippet {
+  display: grid;
+  gap: 8px;
+}
+
+.memory-mcp-snippet button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.memory-mcp-snippet pre {
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+}
+
+.memory-mcp-snippet code {
+  color: #d1d5db;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.project-wiki-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.project-wiki-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.42fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.project-wiki-pages {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.project-wiki-page {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-2);
+  text-align: left;
+}
+
+.project-wiki-page.selected {
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
+}
+
+.project-wiki-page strong {
+  color: var(--text-strong);
+}
+
+.project-wiki-page span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.project-wiki-preview {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-wiki-preview button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.project-wiki-preview pre {
+  overflow: auto;
+  max-height: 520px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+}
+
+.project-wiki-preview code {
+  color: #d1d5db;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.memory-activity-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.completed-work-list {
+  display: grid;
+  gap: 8px;
+}
+
+.completed-work-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 52px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.completed-work-row strong,
+.completed-work-row span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.completed-work-row strong {
+  color: var(--text-strong);
+}
+
+.completed-work-row span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.completed-work-row em {
+  min-width: 74px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: #475569;
+  background: var(--panel);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.completed-work-row.source-commit em {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.completed-work-row.source-provider em {
+  color: var(--accent-strong);
+  border-color: #bfdbfe;
+  background: var(--sel-bg);
+}
+
+.completed-work-row.source-review em {
+  color: #7c2d12;
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.completed-work-row.source-linkedin em {
+  color: #0f766e;
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.memory-activity-filters {
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+.memory-activity-list {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--sel-border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.activity-row.activity-failure {
+  border-left-color: #f87171;
+  background: #fef2f2;
+}

@@ -1,28 +1,20 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Check, ChevronDown, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Copy, Loader2, ShieldCheck, Wand2, X } from 'lucide-react'
+import { SegmentedControl } from '../SegmentedControl'
+import { SeverityCountStrip } from '../SeverityCountStrip'
+import { FindingCard } from '../FindingCard'
+import { Meter } from '../Meter'
+import { AssistantModelSelect } from '../AssistantModelSelect'
 import type {
-  AssistantId, AssistantPolicyStatus, AssistantStatus, InstalledAssistantId,
+  AssistantId, AssistantPolicyStatus, AssistantStatus,
   ReviewMode, ReviewReport, ReviewScope, ReviewSeverity, RepositorySnapshot
 } from '../../shared/branchPilot'
-import { groupFindingsBySeverity, reviewModeLabel, reviewScopeLabel } from '../../lib/reviewLabels'
+import { groupFindingsBySeverity, reviewModeDescription, reviewModeLabel, reviewModes, reviewScopeLabel } from '../../lib/reviewLabels'
+import { selectedAssistantDescription } from '../../lib/assistantSelection'
 import {
-  assistantBaseId,
   assistantLabel,
-  assistantModelLabel,
-  assistantPolicyBlockedLabel,
-  assistantStatusLabel,
-  CLAUDE_MODEL_OPTIONS,
-  CODEX_MODEL_OPTIONS
+  assistantPolicyBlockedLabel
 } from '../../lib/assistantLabels'
-
-const REVIEW_ASSISTANT_GROUPS: Array<{
-  id: InstalledAssistantId
-  label: string
-  options: Array<{ id: AssistantId; label: string; description: string }>
-}> = [
-  { id: 'claude', label: 'Claude Code', options: CLAUDE_MODEL_OPTIONS },
-  { id: 'codex', label: 'Codex', options: CODEX_MODEL_OPTIONS }
-]
 
 export function ReviewView({
   reviewReport,
@@ -40,6 +32,7 @@ export function ReviewView({
   assistants,
   assistantsChecking,
   checkAssistants,
+  selectedFilePath,
   renderAssistantPolicyPanel
 }: {
   reviewReport: ReviewReport | null
@@ -57,48 +50,59 @@ export function ReviewView({
   assistants: AssistantStatus[]
   assistantsChecking: boolean
   checkAssistants: () => void | Promise<void>
+  selectedFilePath: string | null
   renderAssistantPolicyPanel: () => ReactNode
 }) {
   const findings = reviewReport?.findings ?? []
   const findingsBySeverity = groupFindingsBySeverity(findings)
-  const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
-  const assistantMenuRef = useRef<HTMLDivElement | null>(null)
-  const assistantStatuses = new Map<InstalledAssistantId, AssistantStatus>(assistants.map((assistant) => [assistant.id, assistant]))
+  const [reviewRunning, setReviewRunning] = useState(false)
+  const [fixPromptOpen, setFixPromptOpen] = useState(false)
+  const [fixPromptCopied, setFixPromptCopied] = useState(false)
   const readyAssistant = assistants.find((assistant) => assistant.state === 'ready')
-  const selectedAssistantBaseId = assistantBaseId(selectedAssistant)
-  const selectedAssistantStatus = selectedAssistantBaseId === 'auto'
-    ? readyAssistant ?? assistants.find((assistant) => assistant.state === 'detected') ?? assistants[0]
-    : assistantStatuses.get(selectedAssistantBaseId)
-  const assistantSelectState = assistantVisualState(selectedAssistantStatus)
   const selectedAssistantCopy = selectedAssistantDescription(selectedAssistant, readyAssistant, assistants)
+  const selectedScopeCopy = selectedFilePath
+    ? `Only ${selectedFilePath} will be sent as explicit context to the selected local assistant.`
+    : 'Select a changed file before running a selected-file review.'
+  const runReviewDisabled = !snapshot || busy || reviewRunning || !canRunAssistantReview
+  const reviewFixPrompt = reviewReport ? buildReviewFixPrompt(reviewReport, snapshot) : ''
+  const runReview = async () => {
+    if (runReviewDisabled) return
+    setReviewRunning(true)
+    try {
+      await runReviewReport()
+    } finally {
+      setReviewRunning(false)
+    }
+  }
+  const openFixPrompt = () => {
+    setFixPromptCopied(false)
+    setFixPromptOpen(true)
+  }
+  const copyFixPrompt = async () => {
+    if (!reviewFixPrompt) return
+    try {
+      await navigator.clipboard.writeText(reviewFixPrompt)
+      setFixPromptCopied(true)
+    } catch {
+      setFixPromptCopied(false)
+    }
+  }
 
   useEffect(() => {
-    if (!assistantMenuOpen) {
+    if (!fixPromptOpen) {
       return undefined
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (assistantMenuRef.current?.contains(event.target as Node)) {
-        return
-      }
-
-      setAssistantMenuOpen(false)
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setAssistantMenuOpen(false)
+        setFixPromptOpen(false)
       }
     }
 
-    document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
 
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [assistantMenuOpen])
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [fixPromptOpen])
 
   return (
     <section className="single-panel review-panel">
@@ -107,9 +111,9 @@ export function ReviewView({
           <h2>Review modes</h2>
           <p>Run local assistant reviews on staged, unstaged, or branch changes.</p>
         </div>
-        <button type="button" onClick={runReviewReport} disabled={!snapshot || busy || !canRunAssistantReview}>
-          <ShieldCheck size={17} />
-          Run review
+        <button type="button" onClick={runReview} disabled={runReviewDisabled} aria-busy={reviewRunning}>
+          {reviewRunning ? <Loader2 className="spin" size={17} /> : <ShieldCheck size={17} />}
+          {reviewRunning ? 'Running review...' : 'Run review'}
         </button>
       </div>
 
@@ -122,110 +126,42 @@ export function ReviewView({
           <section className="review-controls">
             <div className="control-group">
               <span>Mode</span>
-              <div className="segmented">
-                {(['consistency', 'security', 'quality'] as ReviewMode[]).map((mode) => (
-                  <button
-                    className={reviewMode === mode ? 'active' : ''}
-                    type="button"
-                    key={mode}
-                    onClick={() => setReviewMode(mode)}
-                  >
-                    {reviewModeLabel(mode)}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                className="review-mode-segmented"
+                value={reviewMode}
+                onChange={(value) => setReviewMode(value as ReviewMode)}
+                options={reviewModes.map((mode) => ({
+                  value: mode,
+                  label: reviewModeLabel(mode),
+                  title: reviewModeDescription(mode)
+                }))}
+              />
             </div>
 
             <div className="control-group">
               <span>Scope</span>
-              <div className="segmented">
-                {(['staged', 'unstaged', 'branch'] as ReviewScope[]).map((scope) => (
-                  <button
-                    className={reviewScope === scope ? 'active' : ''}
-                    type="button"
-                    key={scope}
-                    onClick={() => setReviewScope(scope)}
-                  >
-                    {reviewScopeLabel(scope)}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                value={reviewScope}
+                onChange={(value) => setReviewScope(value as ReviewScope)}
+                options={(['selected', 'staged', 'unstaged', 'branch'] as ReviewScope[]).map((scope) => ({
+                  value: scope,
+                  label: reviewScopeLabel(scope),
+                  disabled: scope === 'selected' && !selectedFilePath,
+                  title: scope === 'selected' ? selectedScopeCopy : undefined
+                }))}
+              />
             </div>
 
             <div className="control-group control-group-assistant">
-              <label htmlFor="review-assistant">Assistant</label>
-              <div className="assistant-select-row">
-                <div className="assistant-model-menu" ref={assistantMenuRef}>
-                  <button
-                    id="review-assistant"
-                    aria-expanded={assistantMenuOpen}
-                    aria-haspopup="listbox"
-                    className={`assistant-select assistant-model-trigger assistant-select-${assistantSelectState}`}
-                    type="button"
-                    onClick={() => setAssistantMenuOpen((open) => !open)}
-                  >
-                    <span className="assistant-model-trigger-copy">
-                      <strong>{selectedAssistantCopy.title}</strong>
-                      <span>{selectedAssistantCopy.meta}</span>
-                    </span>
-                    <ChevronDown size={16} />
-                  </button>
-                  {assistantMenuOpen && (
-                    <div className="assistant-model-popover" role="listbox" aria-label="Assistant and model">
-                      <AssistantModelOption
-                        title="Auto"
-                        meta={autoAssistantLabel(readyAssistant, assistants)}
-                        selected={selectedAssistant === 'auto'}
-                        state={assistantSelectState}
-                        onSelect={() => {
-                          setSelectedAssistant('auto')
-                          setAssistantMenuOpen(false)
-                        }}
-                      />
-                      {REVIEW_ASSISTANT_GROUPS.map((group) => {
-                        const status = assistantStatuses.get(group.id)
-                        const state = assistantVisualState(status)
-
-                        return (
-                          <section className="assistant-model-group" key={group.id}>
-                            <div className="assistant-model-group-heading">
-                              <span>{group.label}</span>
-                              <small className={`assistant-model-status state-${state}`}>
-                                {status ? assistantStatusLabel(status) : 'not loaded'}
-                              </small>
-                            </div>
-                            <div className="assistant-model-options">
-                              {group.options.map((option) => (
-                                <AssistantModelOption
-                                  title={option.label}
-                                  meta={option.description}
-                                  key={option.id}
-                                  selected={selectedAssistant === option.id}
-                                  state={state}
-                                  onSelect={() => {
-                                    setSelectedAssistant(option.id)
-                                    setAssistantMenuOpen(false)
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </section>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-                <button
-                  className="assistant-check-button"
-                  type="button"
-                  title="Check assistants"
-                  aria-label="Check assistants"
-                  onClick={checkAssistants}
-                  disabled={assistantsChecking}
-                >
-                  {assistantsChecking ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
-                </button>
-              </div>
+              <AssistantModelSelect
+                id="review-assistant"
+                label="Assistant"
+                selectedAssistant={selectedAssistant}
+                setSelectedAssistant={setSelectedAssistant}
+                assistants={assistants}
+                assistantsChecking={assistantsChecking}
+                checkAssistants={checkAssistants}
+              />
             </div>
           </section>
 
@@ -237,11 +173,22 @@ export function ReviewView({
               <strong>Assistant reviews blocked</strong>
               <span>{assistantPolicyBlockedLabel('review_report', assistantPolicy)}</span>
             </div>
+          ) : reviewRunning ? (
+            <div className="review-empty review-running" role="status" aria-live="polite">
+              <Loader2 className="spin" size={28} />
+              <strong>Running {reviewModeLabel(reviewMode)} review</strong>
+              <span>
+                {reviewScopeLabel(reviewScope)} context is being sent to {selectedAssistantCopy.title}
+                {selectedAssistantCopy.meta ? ` (${selectedAssistantCopy.meta})` : ''}.
+              </span>
+              <Meter indeterminate value={0} />
+            </div>
           ) : !reviewReport ? (
             <div className="review-empty">
               <ShieldCheck size={24} />
               <strong>{reviewModeLabel(reviewMode)} review</strong>
-              <span>{reviewScopeLabel(reviewScope)} changes will be sent as explicit context to the selected local assistant.</span>
+              <span>{reviewModeDescription(reviewMode)}</span>
+              <span>{reviewScope === 'selected' ? selectedScopeCopy : `${reviewScopeLabel(reviewScope)} changes will be sent as explicit context to the selected local assistant.`}</span>
             </div>
           ) : (
             <section className="review-results">
@@ -250,34 +197,39 @@ export function ReviewView({
                   <span>{reviewModeLabel(reviewReport.mode)} / {reviewScopeLabel(reviewReport.scope)}</span>
                   <strong>{reviewReport.summary}</strong>
                 </div>
-                <span>{reviewReport.findings.length} findings{reviewReport.truncated ? ' / truncated' : ''}</span>
+                <div className="review-summary-actions">
+                  <span>{reviewReport.findings.length} findings{reviewReport.truncated ? ' / truncated' : ''}</span>
+                  <button className="secondary review-fix-prompt-open" type="button" onClick={openFixPrompt}>
+                    <Wand2 size={15} />
+                    Open fix prompt
+                  </button>
+                </div>
               </div>
 
-              <div className="severity-strip">
-                {(['critical', 'high', 'medium', 'low', 'info'] as ReviewSeverity[]).map((severity) => (
-                  <div className={`severity-count severity-${severity}`} key={severity}>
-                    <span>{severity}</span>
-                    <strong>{findingsBySeverity[severity].length}</strong>
-                  </div>
-                ))}
-              </div>
+              <SeverityCountStrip
+                counts={(['critical', 'high', 'medium', 'low', 'info'] as ReviewSeverity[]).map((severity) => ({
+                  severity,
+                  count: findingsBySeverity[severity].length
+                }))}
+              />
 
               {findings.length === 0 ? (
                 <div className="quiet-box">No actionable findings for this review.</div>
               ) : (
                 <div className="finding-list">
                   {findings.map((finding, index) => (
-                    <article className={`finding-card severity-${finding.severity}`} key={`${finding.severity}-${finding.title}-${index}`}>
-                      <div className="finding-heading">
-                        <span>{finding.severity}</span>
-                        <strong>{finding.title}</strong>
-                      </div>
-                      {(finding.filePath || finding.line) && (
-                        <code>{finding.filePath ?? 'Unknown file'}{finding.line ? `:${finding.line}` : ''}</code>
-                      )}
-                      <p>{finding.details}</p>
-                      {finding.recommendation && <p className="finding-recommendation">{finding.recommendation}</p>}
-                    </article>
+                    <FindingCard
+                      key={`${finding.severity}-${finding.title}-${index}`}
+                      severity={finding.severity}
+                      title={finding.title}
+                      location={
+                        finding.filePath || finding.line
+                          ? `${finding.filePath ?? 'Unknown file'}${finding.line ? `:${finding.line}` : ''}`
+                          : undefined
+                      }
+                      details={finding.details}
+                      recommendation={finding.recommendation}
+                    />
                   ))}
                 </div>
               )}
@@ -285,83 +237,97 @@ export function ReviewView({
           )}
         </main>
       </div>
+
+      {fixPromptOpen && reviewReport && (
+        <div className="review-fix-prompt-backdrop" role="presentation" onMouseDown={() => setFixPromptOpen(false)}>
+          <section
+            aria-labelledby="review-fix-prompt-title"
+            aria-modal="true"
+            className="review-fix-prompt-modal"
+            role="dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="review-fix-prompt-head">
+              <div>
+                <h3 id="review-fix-prompt-title">Fix prompt</h3>
+                <p>Instruction for an AI assistant based on this review report.</p>
+              </div>
+              <button type="button" aria-label="Close fix prompt" onClick={() => setFixPromptOpen(false)}>
+                <X size={18} />
+              </button>
+            </header>
+            <textarea readOnly value={reviewFixPrompt} aria-label="Generated fix prompt" />
+            <footer className="review-fix-prompt-actions">
+              <button type="button" className="secondary" onClick={() => setFixPromptOpen(false)}>
+                Close
+              </button>
+              <button type="button" onClick={() => void copyFixPrompt()}>
+                <Copy size={16} />
+                {fixPromptCopied ? 'Copied' : 'Copy prompt'}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </section>
   )
 }
 
-function AssistantModelOption({
-  title,
-  meta,
-  selected,
-  state,
-  onSelect
-}: {
-  title: string
-  meta: string
-  selected: boolean
-  state: string
-  onSelect: () => void
-}) {
-  return (
-    <button
-      aria-selected={selected}
-      className={`assistant-model-option state-${state} ${selected ? 'active' : ''}`.trim()}
-      role="option"
-      type="button"
-      onClick={onSelect}
-    >
-      <span className={`assistant-model-dot state-${state}`} />
-      <span className="assistant-model-copy">
-        <strong>{title}</strong>
-        <span>{meta}</span>
-      </span>
-      {selected && <Check size={15} />}
-    </button>
-  )
+function buildReviewFixPrompt(report: ReviewReport, snapshot: RepositorySnapshot | null): string {
+  const summary = snapshot?.summary
+  const repoName = summary?.name ?? 'current repository'
+  const repoPath = summary?.rootPath ?? 'unknown local path'
+  const branch = summary?.currentBranch ?? 'current branch'
+  const upstream = summary?.upstream ?? 'no upstream'
+  const assistant = assistantLabel(report.assistant)
+
+  const findingText = report.findings.length
+    ? report.findings.map((finding, index) => formatFindingForPrompt(finding, index + 1)).join('\n\n')
+    : 'No actionable findings were reported.'
+
+  return [
+    'You are fixing review findings in a local Git repository.',
+    '',
+    'Working rules:',
+    '- Keep the change focused on the findings below.',
+    '- Preserve existing architecture, naming, UI style, and tests unless a finding requires changing them.',
+    '- Do not rewrite unrelated code or churn formatting.',
+    '- Add or update targeted tests when the finding is about behavior, regressions, security, or parsing.',
+    '- If a finding is not valid, explain why before skipping it.',
+    '- After implementing, run the narrowest relevant checks and summarize what changed.',
+    '',
+    'Repository context:',
+    `- Repository: ${repoName}`,
+    `- Local path: ${repoPath}`,
+    `- Branch: ${branch}`,
+    `- Upstream: ${upstream}`,
+    `- Review mode: ${reviewModeLabel(report.mode)}`,
+    `- Review scope: ${reviewScopeLabel(report.scope)}`,
+    `- Reviewing assistant: ${assistant}`,
+    `- Truncated report: ${report.truncated ? 'yes' : 'no'}`,
+    '',
+    'Review summary:',
+    report.summary,
+    '',
+    'Findings to address, in priority order:',
+    findingText,
+    '',
+    'Expected response after the fix:',
+    '- Concise change summary.',
+    '- Tests or checks run.',
+    '- Any remaining risk or follow-up that could not be completed.'
+  ].join('\n')
 }
 
-function autoAssistantLabel(readyAssistant: AssistantStatus | undefined, assistants: AssistantStatus[]): string {
-  if (readyAssistant) {
-    return `Uses ${readyAssistant.label} when ready`
-  }
+function formatFindingForPrompt(finding: ReviewReport['findings'][number], index: number): string {
+  const location = finding.filePath
+    ? `${finding.filePath}${finding.line ? `:${finding.line}` : ''}`
+    : 'No specific file'
 
-  if (assistants.some((assistant) => assistant.state === 'detected')) {
-    return 'Check access before running'
-  }
-
-  return 'First available assistant'
-}
-
-function selectedAssistantDescription(
-  assistant: AssistantId,
-  readyAssistant: AssistantStatus | undefined,
-  assistants: AssistantStatus[]
-): { title: string; meta: string } {
-  if (assistant === 'auto') {
-    return {
-      title: 'Auto',
-      meta: autoAssistantLabel(readyAssistant, assistants)
-    }
-  }
-
-  const model = assistantModelLabel(assistant)
-
-  return {
-    title: assistantLabel(assistant),
-    meta: model === 'Default' ? 'Default model' : model
-  }
-}
-
-function assistantVisualState(status?: AssistantStatus): string {
-  if (!status) {
-    return 'missing'
-  }
-
-  const label = assistantStatusLabel(status)
-
-  if (label === 'limited') {
-    return 'limited'
-  }
-
-  return status.state
+  return [
+    `${index}. [${finding.severity.toUpperCase()}] ${finding.title}`,
+    `   Location: ${location}`,
+    `   Details: ${finding.details}`,
+    `   Recommendation: ${finding.recommendation || 'Use engineering judgment to address the risk with the smallest safe change.'}`
+  ].join('\n')
 }

@@ -19,7 +19,7 @@ const suggestOnlyActions: AssistantActionKind[] = [
   'linkedin_project',
   'repository_starter'
 ]
-const reviewOnlyActions: AssistantActionKind[] = ['review_report', 'linkedin_project', 'repository_starter']
+const reviewOnlyActions: AssistantActionKind[] = ['commit_message', 'review_report', 'linkedin_project', 'repository_starter']
 
 describe('AssistantPolicyService', () => {
   afterEach(() => {
@@ -83,9 +83,6 @@ describe('AssistantPolicyService', () => {
 
     await service.setAssistantPolicy({ repoPath, mode: 'review-only' })
     await expectAllowed(service, repoPath, reviewOnlyActions)
-    await expect(service.assertActionAllowed(repoPath, 'commit_message')).rejects.toMatchObject({
-      code: 'assistant_policy_blocked'
-    })
     await expect(service.assertActionAllowed(repoPath, 'pull_request_text')).rejects.toMatchObject({
       code: 'assistant_policy_blocked'
     })

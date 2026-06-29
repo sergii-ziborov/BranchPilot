@@ -74,7 +74,8 @@ export async function getBranchLabel(runner: CommandRunner, rootPath: string): P
 export async function buildReviewContext(
   runner: CommandRunner,
   rootPath: string,
-  scope: ReviewScope
+  scope: ReviewScope,
+  filePaths: string[] = []
 ): Promise<{
   branch: string
   baseBranch?: string
@@ -97,6 +98,38 @@ export async function buildReviewContext(
     allowedExitCodes: [0, 128],
     timeoutMs: 30_000
   })
+
+  if (scope === 'selected') {
+    const selectedPaths = normalizeReviewFilePaths(filePaths)
+
+    if (selectedPaths.length === 0) {
+      throw new BranchPilotUserError('no_review_file_selected', 'Select a changed file before running a selected-file review.')
+    }
+
+    const stagedDiff = await runner.run(GIT_EXECUTABLE, ['diff', '--cached', '--no-ext-diff', '--', ...selectedPaths], {
+      cwd: rootPath,
+      allowedExitCodes: [0, 1],
+      timeoutMs: 30_000
+    })
+    const unstagedDiff = await runner.run(GIT_EXECUTABLE, ['diff', '--no-ext-diff', '--', ...selectedPaths], {
+      cwd: rootPath,
+      allowedExitCodes: [0, 1],
+      timeoutMs: 30_000
+    })
+    const diff = [
+      stagedDiff.stdout.trim() ? `Staged diff:\n${stagedDiff.stdout}` : '',
+      unstagedDiff.stdout.trim() ? `Unstaged diff:\n${unstagedDiff.stdout}` : ''
+    ].filter(Boolean).join('\n\n')
+    const truncated = truncateText(diff, MAX_ASSISTANT_REVIEW_DIFF_BYTES)
+
+    return {
+      branch,
+      status: status.stdout,
+      commits: recentCommits.stdout,
+      diff: truncated.text,
+      truncated: truncated.truncated
+    }
+  }
 
   if (scope === 'staged') {
     const diff = await runner.run(GIT_EXECUTABLE, ['diff', '--cached', '--no-ext-diff'], {
@@ -158,6 +191,33 @@ export async function buildReviewContext(
     diff: truncated.text,
     truncated: truncated.truncated
   }
+}
+
+function normalizeReviewFilePaths(filePaths: string[]): string[] {
+  const normalizedPaths: string[] = []
+  const seen = new Set<string>()
+
+  for (const filePath of filePaths) {
+    const rawPath = String(filePath ?? '').trim()
+    const normalizedPath = rawPath.replace(/\\/g, '/')
+
+    if (
+      !normalizedPath ||
+      normalizedPath.includes('\0') ||
+      normalizedPath.split('/').includes('..') ||
+      path.isAbsolute(rawPath) ||
+      path.win32.isAbsolute(rawPath)
+    ) {
+      throw new BranchPilotUserError('invalid_review_file_path', 'Selected-file review only accepts repository-relative paths.')
+    }
+
+    if (!seen.has(normalizedPath)) {
+      seen.add(normalizedPath)
+      normalizedPaths.push(normalizedPath)
+    }
+  }
+
+  return normalizedPaths
 }
 
 export async function resolveDefaultBaseRef(

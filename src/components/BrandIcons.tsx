@@ -1,6 +1,6 @@
 /**
- * BranchPilot app mark: a git branch growing from a base commit and "piloted"
- * upward by a paper plane. Rounded-badge icon with the brand gradient.
+ * BranchPilot app mark: a git branch growing from a base commit and merging
+ * into a paper plane. Rounded-badge icon with the brand gradient.
  */
 export function BranchPilotMark({ size = 28, className }: { size?: number; className?: string }) {
   const gradId = 'bp-mark-grad'
@@ -20,16 +20,17 @@ export function BranchPilotMark({ size = 28, className }: { size?: number; class
         </linearGradient>
       </defs>
       <rect x="2" y="2" width="44" height="44" rx="12" fill={`url(#${gradId})`} />
-      <circle cx="16" cy="34" r="3.4" fill="#ffffff" />
+      <circle cx="15.8" cy="34.2" r="3.5" fill="#ffffff" />
       <path
-        d="M16 33 V23 Q16 16.5 22.5 14.5"
+        d="M15.8 33.2 V24.2 C15.8 18.6 19.2 15.5 24.6 15.5 C26.5 15.5 28.2 16.2 29.8 17.5"
         stroke="#ffffff"
-        strokeWidth="3.2"
+        strokeWidth="3.25"
         strokeLinecap="round"
+        strokeLinejoin="round"
         fill="none"
       />
-      <path d="M37 10 L21.5 16.6 L27.4 19 L29.8 24.9 Z" fill="#ffffff" />
-      <path d="M27.4 19 L37 10" stroke="#3b82f6" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M38.2 9.8 L21.2 17.2 L29 20.2 L31.8 27.3 Z" fill="#ffffff" />
+      <path d="M29 20.2 L38.2 9.8" stroke="#4f63f3" strokeWidth="1.15" strokeLinecap="round" />
     </svg>
   )
 }

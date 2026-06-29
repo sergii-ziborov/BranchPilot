@@ -5,7 +5,7 @@ import type {
 } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import { assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel } from '../lib/assistantLabels'
-import { groupFindingsBySeverity, reviewModes } from '../lib/reviewLabels'
+import { defaultPreCommitReviewModes, groupFindingsBySeverity } from '../lib/reviewLabels'
 import type { ViewMode } from '../lib/viewMode'
 
 type PreCommitFinding = ReviewFinding & { mode: ReviewMode }
@@ -21,7 +21,8 @@ export function useReview({
   setError,
   runApiAction,
   runBusyOperation,
-  setViewMode
+  setViewMode,
+  selectedFilePath
 }: {
   api: BranchPilotApi | undefined
   currentRepoPath: string | undefined
@@ -33,11 +34,12 @@ export function useReview({
   runApiAction: <T>(progressLabel: string, action: () => Promise<ApiResult<T>>, onSuccess: (data: T) => void | Promise<void>) => Promise<boolean>
   runBusyOperation: <T>(label: string, action: () => Promise<T>) => Promise<T>
   setViewMode: (mode: ViewMode) => void
+  selectedFilePath: string | null
 }) {
   const [reviewMode, setReviewMode] = useState<ReviewMode>('consistency')
   const [reviewScope, setReviewScope] = useState<ReviewScope>('staged')
   const [reviewReport, setReviewReport] = useState<ReviewReport | null>(null)
-  const [preCommitReviewModes, setPreCommitReviewModes] = useState<ReviewMode[]>(reviewModes)
+  const [preCommitReviewModes, setPreCommitReviewModes] = useState<ReviewMode[]>(defaultPreCommitReviewModes)
   const [preCommitReports, setPreCommitReports] = useState<ReviewReport[]>([])
   const [preCommitRunningMode, setPreCommitRunningMode] = useState<ReviewMode | null>(null)
 
@@ -67,12 +69,17 @@ export function useReview({
       setNotice(assistantPolicyBlockedLabel('review_report', assistantPolicy))
       return
     }
+    if (reviewScope === 'selected' && !selectedFilePath) {
+      setNotice('Select a changed file before running a selected-file review.')
+      return
+    }
 
     const completed = await runApiAction('Running review...', () => api.generateReviewReport({
       repoPath: currentRepoPath,
       assistant: selectedAssistant,
       mode: reviewMode,
-      scope: reviewScope
+      scope: reviewScope,
+      filePaths: reviewScope === 'selected' && selectedFilePath ? [selectedFilePath] : undefined
     }), (data) => {
       setReviewReport(data)
       setNotice(`Review complete with ${assistantLabel(data.assistant)}${data.truncated ? ' from truncated diff' : ''}.`)
@@ -134,7 +141,7 @@ export function useReview({
     setPreCommitReviewModes((currentModes) => {
       const nextModes = currentModes.includes(mode)
         ? currentModes.filter((currentMode) => currentMode !== mode)
-        : reviewModes.filter((candidate) => candidate === mode || currentModes.includes(candidate))
+        : defaultPreCommitReviewModes.filter((candidate) => candidate === mode || currentModes.includes(candidate))
 
       return nextModes
     })

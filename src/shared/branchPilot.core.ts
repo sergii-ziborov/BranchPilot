@@ -104,6 +104,25 @@ export interface RecentRepository {
   pinned: boolean
 }
 
+export interface RepositoryBrowserRequest {
+  path?: string
+}
+
+export interface RepositoryBrowserEntry {
+  name: string
+  path: string
+  isGitRepository: boolean
+  modifiedAt?: string
+}
+
+export interface RepositoryBrowserSnapshot {
+  path: string
+  parentPath?: string
+  isGitRepository: boolean
+  repositoryCount: number
+  entries: RepositoryBrowserEntry[]
+}
+
 export interface RepositoryPinRequest {
   repoPath: string
   pinned: boolean
@@ -252,12 +271,23 @@ export interface GitLfsSummary {
   message: string
 }
 
+export interface GitGraphToken {
+  column: number
+  ch: string
+  color?: string
+}
+
 export interface CommitSummary {
   sha: string
   shortSha: string
   subject: string
+  parentShas: string[]
   authorName: string
   authorEmail: string
   authoredAt: string
+  graphPrefix?: string
+  graphPrefixTokens?: GitGraphToken[]
+  graphAfter?: string[]
+  graphAfterTokens?: GitGraphToken[][]
 }
 

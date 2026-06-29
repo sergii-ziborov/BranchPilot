@@ -16,6 +16,7 @@ import {
 } from '../lib/githubRepositoryFilters'
 import { InfoRow } from './primitives'
 import { DiffPreview } from './DiffView'
+import { StatusPill } from './StatusPill'
 
 type RepoVisibility = GitHubRepositoryVisibilityFilter
 type RepoOwnerScope = GitHubRepositoryOwnerScopeFilter
@@ -318,10 +319,10 @@ export function PullRequestDetailsPanel({
 
           <section className="pr-checks-panel">
             <div className="pr-check-summary">
-              <span className="check-bucket bucket-pass">{passedChecks} pass</span>
-              <span className="check-bucket bucket-fail">{failedChecks} fail</span>
-              <span className="check-bucket bucket-pending">{pendingChecks} pending</span>
-              <span className="check-bucket bucket-other">{checks.length} total</span>
+              <StatusPill tone="success" label={`${passedChecks} pass`} />
+              <StatusPill tone="danger" label={`${failedChecks} fail`} />
+              <StatusPill tone="warn" label={`${pendingChecks} pending`} />
+              <StatusPill tone="neutral" label={`${checks.length} total`} />
             </div>
             {checks.length === 0 ? (
               <div className="quiet-box">{githubCliStatus?.ghAuthenticated ? 'No checks reported by GitHub CLI.' : 'Checks require gh auth login.'}</div>

@@ -88,7 +88,7 @@ export function allowedActionsForMode(mode: AssistantPolicyMode): AssistantActio
   }
 
   if (mode === 'review-only') {
-    return ['review_report', 'linkedin_project', 'repository_starter']
+    return ['commit_message', 'review_report', 'linkedin_project', 'repository_starter']
   }
 
   return ['commit_message', 'pull_request_text', 'review_report', 'branch_draft', 'linkedin_project', 'repository_starter']
@@ -144,7 +144,7 @@ function assistantPolicyDetails(mode: AssistantPolicyMode): string {
   }
 
   if (mode === 'review-only') {
-    return 'Current policy allows assistant reviews, LinkedIn project drafts, and repository starter drafts. Commit and pull request text generation are disabled.'
+    return 'Current policy allows assistant reviews and local text drafts. Pull request text generation and branch drafts are disabled.'
   }
 
   return 'Current policy does not allow assistants to write files, run local commands, or auto-apply changes.'

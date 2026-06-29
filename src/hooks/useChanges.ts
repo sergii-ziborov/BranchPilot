@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  ApiResult, BranchPilotApi, DiffHunk, DiffResult, FileChange, GitOperationResult,
-  ImagePreview, PatchScope, RepositoryCounts, RepositorySnapshot
+import {
+  branchPilotErrorText,
+  type ApiResult, type BranchPilotApi, type DiffHunk, type DiffResult, type FileChange, type GitOperationResult,
+  type ImagePreview, type PatchScope, type RepositoryCounts, type RepositorySnapshot
 } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import {
@@ -20,6 +21,11 @@ type ChangeSearchMode = 'path' | 'content' | 'all'
 const CHANGE_CONTENT_SEARCH_LIMIT = 120
 const DEFAULT_DIFF_CONTEXT_LINES = 3
 const EXPANDED_DIFF_CONTEXT_LINES = 20
+
+function getRelatedDiffMode(change: FileChange, mode: ChangeDiffMode): ChangeDiffMode | null {
+  if (!change.staged || (!change.unstaged && !change.untracked)) return null
+  return mode === 'staged' ? 'unstaged' : 'staged'
+}
 
 function changeSearchText(change: FileChange): string {
   return [change.path, change.originalPath, change.status, changeLabel(change)]
@@ -73,10 +79,14 @@ export function useChanges({
   const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
   const [diffExpanded, setDiffExpanded] = useState(false)
   const [diff, setDiff] = useState<DiffResult | null>(null)
+  const [relatedDiff, setRelatedDiff] = useState<DiffResult | null>(null)
   const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null)
   const [patchScope, setPatchScope] = useState<PatchScope>('working-tree')
   const [changeContentIndex, setChangeContentIndex] = useState<Map<string, string>>(new Map())
   const [changeContentIndexing, setChangeContentIndexing] = useState(false)
+  const [stagingPendingPaths, setStagingPendingPaths] = useState<Set<string>>(new Set())
+  const [bulkStagingPending, setBulkStagingPending] = useState(false)
+  const [bulkStageOptimisticChecked, setBulkStageOptimisticChecked] = useState<boolean | null>(null)
   const diffRequestIdRef = useRef(0)
   const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
   const changeIndexKey = useMemo(() => getChangeIndexKey(snapshot), [snapshot])
@@ -105,6 +115,10 @@ export function useChanges({
     if (!diff || diff.binary || !diff.text.trim()) return null
     return getDiffStats(diff)
   }, [diff])
+  const selectedRelatedDiffStats = useMemo(() => {
+    if (!relatedDiff || relatedDiff.binary || !relatedDiff.text.trim()) return null
+    return getDiffStats(relatedDiff)
+  }, [relatedDiff])
 
   const virtualChanges = useVirtualList(
     filteredChanges,
@@ -119,13 +133,18 @@ export function useChanges({
     const requestId = diffRequestIdRef.current + 1
     diffRequestIdRef.current = requestId
     const staged = mode === 'staged' && change.staged
-    const result = await api.getDiff({
+    const diffRequest = {
       repoPath: currentRepoPath,
       filePath: change.path,
-      staged,
       ignoreWhitespace: diffIgnoreWhitespace,
       contextLines: diffExpanded ? EXPANDED_DIFF_CONTEXT_LINES : DEFAULT_DIFF_CONTEXT_LINES
-    })
+    }
+    const relatedMode = getRelatedDiffMode(change, mode)
+    const relatedStaged = relatedMode === 'staged'
+    const relatedPromise = relatedMode
+      ? api.getDiff({ ...diffRequest, staged: relatedStaged }).catch(() => null)
+      : Promise.resolve(null)
+    const result = await api.getDiff({ ...diffRequest, staged })
 
     if (diffRequestIdRef.current !== requestId) return
 
@@ -139,8 +158,13 @@ export function useChanges({
       } else {
         setImagePreview(null)
       }
+
+      const relatedResult = await relatedPromise
+      if (diffRequestIdRef.current !== requestId) return
+      setRelatedDiff(relatedResult?.ok && relatedResult.data.text.trim() ? relatedResult.data : null)
     } else {
       setDiff(null)
+      setRelatedDiff(null)
       setImagePreview(null)
       setError(result.error.message)
     }
@@ -152,6 +176,31 @@ export function useChanges({
     }
   }
 
+  function setPathStagingPending(path: string, pending: boolean) {
+    setStagingPendingPaths((current) => {
+      const next = new Set(current)
+      if (pending) next.add(path)
+      else next.delete(path)
+      return next
+    })
+  }
+
+  async function applyStagingSnapshot(
+    action: () => Promise<ApiResult<RepositorySnapshot>>,
+    successMessage: string
+  ): Promise<boolean> {
+    const result = await action()
+
+    if (result.ok) {
+      applySnapshot(result.data, successMessage)
+      return true
+    }
+
+    setError(result.error.message)
+    setNotice(branchPilotErrorText(result.error))
+    return false
+  }
+
   async function toggleChangeStage(change: FileChange) {
     if (!api || !currentRepoPath) return
     const action = getChangeStageToggleAction(change)
@@ -159,36 +208,47 @@ export function useChanges({
     if (action === 'none') return
 
     setSelectedFilePath(change.path)
+    setPathStagingPending(change.path, true)
 
-    if (action === 'unstage') {
-      await runSnapshotAction(
-        'File unstaged.',
-        () => api.unstageFile({ repoPath: currentRepoPath, filePath: change.path }),
-        'Unstaging file...'
+    try {
+      if (action === 'unstage') {
+        const ok = await applyStagingSnapshot(
+          () => api.unstageFile({ repoPath: currentRepoPath, filePath: change.path }),
+          'File unstaged.'
+        )
+        if (ok) setDiffMode('unstaged')
+        return
+      }
+
+      const ok = await applyStagingSnapshot(
+        () => api.stageFile({ repoPath: currentRepoPath, filePath: change.path }),
+        'File staged.'
       )
-      setDiffMode('unstaged')
-      return
+      if (ok) setDiffMode('staged')
+    } finally {
+      setPathStagingPending(change.path, false)
     }
-
-    await runSnapshotAction(
-      'File staged.',
-      () => api.stageFile({ repoPath: currentRepoPath, filePath: change.path }),
-      'Staging file...'
-    )
-    setDiffMode('staged')
   }
 
   async function toggleBulkStage() {
-    if (!api || !currentRepoPath) return
+    if (!api || !currentRepoPath || bulkStagingPending) return
     const action = getBulkStageToggleAction(counts)
+    if (action === 'none') return
 
-    if (action === 'stage_all') {
-      await runSnapshotAction('All changes staged.', () => api.stageAll(currentRepoPath), 'Staging all changes...')
-      return
-    }
+    setBulkStagingPending(true)
+    setBulkStageOptimisticChecked(action === 'stage_all')
+    try {
+      if (action === 'stage_all') {
+        await applyStagingSnapshot(() => api.stageAll(currentRepoPath), 'All changes staged.')
+        return
+      }
 
-    if (action === 'unstage_all') {
-      await runSnapshotAction('All changes unstaged.', () => api.unstageAll(currentRepoPath), 'Unstaging all changes...')
+      if (action === 'unstage_all') {
+        await applyStagingSnapshot(() => api.unstageAll(currentRepoPath), 'All changes unstaged.')
+      }
+    } finally {
+      setBulkStagingPending(false)
+      setBulkStageOptimisticChecked(null)
     }
   }
 
@@ -249,9 +309,8 @@ export function useChanges({
     )
   }
 
-  async function discardSelectedLines(patch: string) {
+  async function discardSelectedLines(patch: string, stagedSelection = diffMode === 'staged') {
     if (!api || !currentRepoPath || !selectedChange) return
-    const stagedSelection = diffMode === 'staged'
     const confirmed = await requestConfirmation(
       stagedSelection
         ? `Unstage and discard selected lines in ${selectedChange.path}? This permanently removes them from the commit and working tree.`
@@ -414,6 +473,7 @@ export function useChanges({
     if (!snapshot || !selectedChange) {
       diffRequestIdRef.current += 1
       setDiff(null)
+      setRelatedDiff(null)
       return
     }
 
@@ -438,8 +498,9 @@ export function useChanges({
     changeSearchMode, setChangeSearchMode, changeContentIndexing,
     diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
     diffExpanded, setDiffExpanded,
-    diff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
-    filteredChanges, selectedChange, selectedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
+    diff, relatedDiff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
+    filteredChanges, selectedChange, selectedDiffStats, selectedRelatedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
+    stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked,
     loadDiff, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,
     stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, discardSelectedLines, exportPatch, applyPatch,
     openSelectedFileInEditor, openSelectedFileLineInEditor

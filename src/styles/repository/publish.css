@@ -1,0 +1,411 @@
+﻿/* Clone dialog: manual URL row on top, your GitHub repositories below. */
+.clone-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.clone-url-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.clone-url-row input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 13px;
+}
+
+.clone-url-button {
+  height: 38px;
+  padding: 0 16px;
+  white-space: nowrap;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clone-url-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.clone-browse-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.publish-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.publish-heading,
+.publish-card-heading,
+.publish-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.publish-heading,
+.publish-actions {
+  flex: 0 0 auto;
+}
+
+.publish-heading h3,
+.publish-card-heading h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 15px;
+}
+
+.publish-heading p,
+.publish-card-heading p,
+.publish-identity-block p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.publish-grid {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(480px, 1.1fr);
+  grid-auto-rows: minmax(min-content, 1fr);
+  align-items: stretch;
+  gap: 14px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.publish-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  align-self: stretch;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.publish-card-heading-compact {
+  margin-bottom: -2px;
+}
+
+.publish-starter-card {
+  min-height: 0;
+}
+
+.publish-settings-card,
+.publish-starter-card {
+  height: 100%;
+}
+
+.publish-card label,
+.publish-two-col label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.publish-card label > span,
+.publish-options span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.publish-card input,
+.publish-card select,
+.publish-card textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: var(--panel-2);
+  font: inherit;
+}
+
+.publish-card input,
+.publish-card select {
+  height: 38px;
+  padding: 0 10px;
+}
+
+.publish-card textarea {
+  resize: vertical;
+  padding: 10px;
+  line-height: 1.45;
+}
+
+.publish-description {
+  min-height: 76px;
+}
+
+.publish-readme {
+  flex: 1 1 220px;
+  min-height: 178px;
+}
+
+.publish-gitignore {
+  flex: 1 1 132px;
+  min-height: 104px;
+}
+
+.publish-readme,
+.publish-gitignore {
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+}
+
+.publish-two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.publish-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.publish-status svg {
+  color: var(--accent);
+}
+
+.publish-status strong,
+.publish-status span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.publish-status strong,
+.publish-identity-block strong {
+  color: var(--text-strong);
+}
+
+.publish-status span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.publish-segmented,
+.publish-name-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.publish-segmented button,
+.publish-name-suggestions button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-2);
+  font-weight: 600;
+}
+
+.publish-name-suggestions button {
+  min-height: 28px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.publish-segmented button.active,
+.publish-name-suggestions button.active {
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.publish-inline-note {
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel-2);
+  font-size: 12px;
+}
+
+.publish-identity-block {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.publish-commit-as {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.publish-commit-as svg {
+  color: var(--accent);
+}
+
+.publish-commit-as span,
+.publish-commit-as strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.publish-commit-as span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.publish-commit-as strong {
+  margin-top: 2px;
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.publish-email-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.publish-email-options button {
+  display: inline-flex;
+  min-height: 28px;
+  max-width: 100%;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.publish-email-options button.active {
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.publish-starter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.publish-check {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 8px !important;
+  color: var(--text);
+}
+
+.publish-check input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.publish-check span {
+  color: var(--text) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+}
+
+.publish-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.publish-heading button,
+.publish-card-heading button,
+.publish-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-weight: 600;
+}
+
+.publish-actions {
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.publish-actions button:last-child,
+.publish-starter-actions button:last-child {
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.publish-heading button:disabled,
+.publish-card-heading button:disabled,
+.publish-starter-actions button:disabled,
+.publish-actions button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.publish-actions button:last-child:disabled,
+.publish-starter-actions button:last-child:disabled {
+  border-color: var(--border);
+  color: color-mix(in srgb, var(--text) 68%, var(--muted));
+  background: color-mix(in srgb, var(--panel-2) 84%, var(--surface));
+}
+

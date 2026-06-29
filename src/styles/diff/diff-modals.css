@@ -1,0 +1,370 @@
+﻿/* Global AI assistant selector in the top bar. */
+.shell-assistant {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.shell-assistant select {
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+/* Diff heading: title, path and +/- stats on a single line. */
+.diff-heading {
+  align-items: center;
+  flex-wrap: nowrap;
+  /* Match the Changes|History switch height so both panes share one header line. */
+  height: 32px;
+  min-height: 32px;
+  margin-bottom: 6px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* Compact diff controls: a subtle Â¶ button + a true segmented unified/split toggle. */
+.diff-controls {
+  gap: 6px;
+}
+
+.diff-file-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.diff-file-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px !important;
+  padding: 0 9px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+  color: var(--text) !important;
+  background: var(--panel-2) !important;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.diff-file-actions button:hover:not(:disabled) {
+  color: var(--accent-strong) !important;
+  border-color: var(--accent) !important;
+  background: var(--sel-bg) !important;
+}
+
+.diff-file-actions button.danger {
+  color: var(--danger) !important;
+}
+
+.diff-file-actions button.danger:hover:not(:disabled) {
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 12%, var(--panel)) !important;
+}
+
+.diff-file-actions button:disabled {
+  opacity: 0.45;
+}
+
+.diff-controls .icon-button {
+  width: 28px !important;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 !important;
+}
+
+/* Segmented toggle: one pill, joined buttons, soft raised active state. */
+.diff-controls .diff-display-toggle {
+  display: inline-flex;
+  gap: 2px;
+  margin-bottom: 0;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.diff-controls .diff-display-toggle button {
+  width: 26px !important;
+  min-width: 26px;
+  height: 22px !important;
+  min-height: 22px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 6px;
+  color: var(--muted) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.diff-controls .diff-display-toggle button:hover {
+  color: var(--text) !important;
+  background: transparent !important;
+}
+
+.diff-controls .diff-display-toggle button.active {
+  color: var(--accent) !important;
+  background: var(--panel) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.14);
+}
+
+.diff-heading-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.diff-heading-main h2 {
+  flex: 0 0 auto;
+  font-size: 15px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.diff-heading-main p {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-heading-main .diff-stats {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* Syntax highlighting tokens inside diff lines. */
+.structured-diff .tok-keyword,
+.diff-preview .tok-keyword { color: var(--syntax-keyword); }
+.structured-diff .tok-string,
+.diff-preview .tok-string { color: var(--syntax-string); }
+.structured-diff .tok-comment,
+.diff-preview .tok-comment { color: var(--syntax-comment); font-style: italic; }
+.structured-diff .tok-number,
+.diff-preview .tok-number { color: var(--syntax-number); }
+.structured-diff .tok-type,
+.diff-preview .tok-type { color: var(--syntax-type); }
+.structured-diff .tok-function,
+.diff-preview .tok-function { color: var(--syntax-function); }
+.structured-diff .tok-variable,
+.diff-preview .tok-variable { color: var(--syntax-variable); }
+.structured-diff .tok-operator,
+.diff-preview .tok-operator { color: var(--syntax-operator); }
+.structured-diff .tok-punctuation,
+.diff-preview .tok-punctuation { color: var(--syntax-punctuation); }
+
+.context-menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+/* Diff display controls live in the diff heading where Discard used to be. */
+.diff-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-display-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Right-click / two-finger context menu over the diff (stage/unstage/discard). */
+.context-menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 184px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+}
+
+.context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-menu button:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.context-menu button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.context-menu hr {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.context-menu button.danger {
+  color: var(--danger);
+}
+
+.context-menu button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+/* Modal hosting the Review / Stash tools (replaces the old bottom drawer). */
+.tool-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+html[data-platform='win32'] .tool-modal-backdrop,
+html[data-platform='linux'] .tool-modal-backdrop {
+  padding-top: 52px;
+}
+
+.tool-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  height: min(80vh, 760px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+}
+
+.tool-modal-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-modal-head h2 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tool-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-modal-body > .single-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.tool-modal.about-modal {
+  width: min(460px, 100%);
+  height: auto;
+}
+
+.tool-modal.review-modal {
+  width: min(1180px, calc(100vw - 48px));
+  height: min(84vh, 820px);
+}
+
+.tool-modal.publish-modal {
+  width: min(1160px, calc(100vw - 24px));
+  height: min(calc(100dvh - 64px), 920px);
+  max-height: calc(100dvh - 64px);
+}
+
+html[data-platform='win32'] .tool-modal.publish-modal,
+html[data-platform='linux'] .tool-modal.publish-modal {
+  height: min(calc(100dvh - 84px), 920px);
+  max-height: calc(100dvh - 84px);
+}
+
+.about-panel {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.about-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.about-brand h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.about-brand p,
+.about-copy,
+.about-meta {
+  color: var(--muted);
+}
+
+.about-copy {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.about-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.about-meta span {
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+

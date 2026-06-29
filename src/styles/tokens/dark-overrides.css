@@ -1,0 +1,50 @@
+﻿/* Dark themes: legible selected/active backgrounds (a subtle light overlay +
+   accent border) instead of the light-mode tints that wash out light text. */
+:root[data-theme='github-dark'],
+:root[data-theme='pure-dark'],
+:root[data-theme='one-dark-pro'],
+:root[data-theme='dracula'],
+:root[data-theme='monokai'],
+:root[data-theme='nord'],
+:root[data-theme='night-owl'],
+:root[data-theme='tokyo-night'],
+:root[data-theme='deus-ex'],
+:root[data-theme='cyberpunk'],
+:root[data-theme='matrix'],
+:root[data-theme='far-manager'] {
+  --sel-bg: rgba(255, 255, 255, 0.10);
+  --sel-border: var(--accent);
+  --scrollbar-thumb: rgba(148, 163, 184, 0.38);
+  --scrollbar-thumb-hover: rgba(203, 213, 225, 0.58);
+  --diff-bg: #0f172a;
+  --diff-text: #d1d5db;
+  --diff-muted: #94a3b8;
+  --diff-border: rgba(148, 163, 184, 0.18);
+  --diff-file-bg: #111827;
+  --diff-file-text: #f8fafc;
+  --diff-hunk-bg: #1e293b;
+  --diff-hunk-text: #bfdbfe;
+  --diff-button-bg: rgba(15, 23, 42, 0.72);
+  --diff-add-text: #bbf7d0;
+  --diff-add-bg: rgba(22, 101, 52, 0.24);
+  --diff-remove-text: #fecaca;
+  --diff-remove-bg: rgba(153, 27, 27, 0.24);
+  --diff-empty-bg: rgba(15, 23, 42, 0.55);
+  --diff-word-add-bg: rgba(46, 160, 67, 0.45);
+  --diff-word-add-border: rgba(46, 160, 67, 0.25);
+  --diff-word-del-bg: rgba(248, 81, 73, 0.4);
+  --diff-word-del-border: rgba(248, 81, 73, 0.25);
+  --diff-selected-accent: #58a6ff;
+  --diff-selection-bg: #0d1117;
+  --diff-selection-text: #e6edf3;
+  --syntax-keyword: #ff7b72;
+  --syntax-string: #a5d6ff;
+  --syntax-comment: #8b949e;
+  --syntax-number: #79c0ff;
+  --syntax-type: #ffa657;
+  --syntax-function: #d2a8ff;
+  --syntax-variable: #e6edf3;
+  --syntax-operator: #ff7b72;
+  --syntax-punctuation: #8b949e;
+}
+

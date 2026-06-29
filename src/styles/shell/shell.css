@@ -1,0 +1,575 @@
+﻿.app-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, var(--app-grad-top) 0%, var(--surface) 44%),
+    var(--surface);
+}
+
+/* GitHub-Desktop-style top bar (replaces the left sidebar). */
+.shell-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+  background: var(--shell-bar);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72), 0 10px 28px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(14px);
+  -webkit-app-region: drag;
+}
+
+/* Keep interactive controls clickable inside the draggable title bar. */
+.shell-bar summary,
+.shell-bar button,
+.shell-bar a,
+.shell-bar input,
+.shell-bar .shell-dropdown {
+  -webkit-app-region: no-drag;
+}
+
+.shell-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 6px 14px;
+}
+
+html[data-platform='win32'] .shell-bar-row,
+html[data-platform='linux'] .shell-bar-row {
+  padding-right: 150px;
+}
+
+/* Keep every top-bar control on one baseline at a single height. */
+.shell-bar button.icon-button {
+  height: 30px;
+  min-height: 30px;
+  width: 30px !important;
+}
+
+/* GitHub-Desktop-scale icons in the top bar (lucide sets size via attributes). */
+.shell-bar .icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.shell-menu {
+  position: relative;
+}
+
+.shell-menu[open] {
+  z-index: 80;
+}
+
+/* GitHub-Desktop-style joined Repository | Branch | Sync bar (saves space). */
+.shell-segments {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.shell-segments .shell-menu > summary {
+  height: 40px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.shell-segments .shell-menu:first-child > summary {
+  border-top-left-radius: 9px;
+  border-bottom-left-radius: 9px;
+}
+
+.shell-segments .shell-menu:last-child > summary {
+  border-top-right-radius: 9px;
+  border-bottom-right-radius: 9px;
+}
+
+.shell-segments .shell-menu:not(:first-child) > summary {
+  border-left: 1px solid var(--border);
+}
+
+.shell-segments .shell-menu > summary:hover {
+  background: var(--panel-2);
+  box-shadow: none;
+}
+
+.shell-segments .shell-sync {
+  padding-left: 0;
+}
+
+/* Split Sync control: context-aware primary action + small dropdown caret. */
+.shell-segments .shell-sync-split {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.shell-sync-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 188px;
+  height: 40px;
+  width: 188px;
+  padding: 0 12px;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shell-sync-primary > span:first-of-type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-sync-primary:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+
+.shell-sync-primary:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.shell-segments .shell-sync-menu > summary {
+  height: 40px;
+  padding: 0 7px;
+  border: 0 !important;
+  border-radius: 0 9px 9px 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.shell-segments .shell-sync-menu > summary:hover {
+  background: var(--panel-2);
+}
+
+.shell-dropdown-right {
+  left: auto;
+  right: 0;
+}
+
+.shell-menu > summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  height: 38px;
+  padding: 5px 12px 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  list-style: none;
+  cursor: pointer;
+}
+
+.shell-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.shell-menu > summary:hover {
+  border-color: var(--accent);
+  background: var(--panel-2);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.shell-seg-label {
+  color: #8090a6;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.shell-seg-value {
+  display: block;
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-repo > summary {
+  min-width: 190px;
+}
+
+.shell-branch > summary {
+  min-width: 160px;
+}
+
+.shell-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 360px;
+  max-width: 80vw;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+}
+
+.shell-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.shell-dropdown-item,
+.shell-dropdown-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.shell-dropdown-item:hover,
+.shell-dropdown-primary:hover {
+  background: var(--panel-2);
+}
+
+.shell-dropdown-item.active {
+  background: var(--sel-bg);
+}
+
+.shell-dropdown-item-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Live working-tree badges in the repository switcher (GitHub-Desktop style). */
+.shell-repo-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  margin-left: 6px;
+}
+
+.shell-repo-ab {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-repo-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-repo-dot.conflicted {
+  background: #e11d48;
+}
+
+.shell-dropdown-item-text strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-dropdown-item-text span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-dropdown-primary {
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  font-weight: 600;
+}
+
+.shell-dropdown-top {
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* GitHub-Desktop-style prominent merge action at the bottom of the branch menu. */
+.shell-dropdown-merge {
+  justify-content: center;
+  margin: 6px;
+  width: auto;
+  border-radius: 8px;
+  background: var(--panel-2);
+  font-weight: 600;
+}
+
+.shell-dropdown-merge:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.shell-dropdown-merge:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.icon-button.active {
+  border-color: var(--accent);
+  background: var(--sel-bg);
+  color: var(--accent);
+}
+
+/* Switch-branch dialog option cards (leave vs bring changes). */
+.switch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.switch-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+}
+
+.switch-option:hover {
+  border-color: #a7b0c0;
+}
+
+.switch-option.active {
+  border-color: var(--accent);
+  background: var(--sel-bg);
+}
+
+.switch-option strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.switch-option span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Merge-into-branch picker list. */
+.merge-branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  margin-top: 12px;
+  overflow-y: auto;
+}
+
+.merge-branch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.merge-branch-item:hover {
+  background: var(--panel-2);
+}
+
+.merge-branch-item.active {
+  border-color: var(--accent);
+  background: var(--sel-bg);
+  color: var(--accent);
+}
+
+.shell-dropdown-empty {
+  padding: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shell-dropdown-section {
+  margin: 0;
+  padding: 8px 10px 2px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.shell-sync {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 6px;
+}
+
+.shell-aheadbehind {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-left: auto;
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shell-tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.shell-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.shell-tabs-primary {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.shell-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shell-tab:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.shell-tab.active {
+  background: var(--panel);
+  color: var(--text-strong);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), inset 0 0 0 1px rgba(99, 102, 241, 0.14);
+}
+
+.shell-tab-badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 11px;
+}
+
+.shell-tabs-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.shell-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.shell-tabs-tools .shell-theme > summary,
+.shell-tabs-tools .icon-button {
+  height: 30px;
+  min-height: 30px;
+}
+
+.shell-tabs-tools .shell-theme > summary {
+  padding: 0 9px;
+  border-radius: 9px;
+}
+
+.shell-tool:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.shell-tool.active {
+  background: var(--panel);
+  color: var(--text-strong);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), inset 0 0 0 1px rgba(99, 102, 241, 0.14);
+}
+

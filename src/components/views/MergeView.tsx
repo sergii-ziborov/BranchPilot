@@ -1,5 +1,7 @@
 import { ArrowDownToLine, ArrowUpFromLine, Check, Code2, GitBranch, GitMerge, Save, X } from 'lucide-react'
 import type { ApiResult, BranchPilotApi, GitOperationResult, RepositorySnapshot } from '../../shared/branchPilot'
+import { mergeBranchCandidates } from '../../lib/mergeCandidates'
+import { IconButton } from '../IconButton'
 
 export function MergeView({
   snapshot,
@@ -35,7 +37,7 @@ export function MergeView({
   const mergeState = snapshot?.status.merge
   const counts = snapshot?.status.counts
   const hasOperation = mergeState && mergeState.operation !== 'none'
-  const mergeCandidates = snapshot?.branches.filter((branch) => !branch.current) ?? []
+  const mergeCandidates = mergeBranchCandidates(snapshot)
   const hasDirtyWorktree = Boolean(counts?.changed)
   const canContinueOperation = Boolean(hasOperation && mergeState.files.length === 0)
 
@@ -85,7 +87,7 @@ export function MergeView({
             ) : (
               mergeCandidates.map((branch) => (
                 <option value={branch.name} key={branch.name}>
-                  {branch.name}
+                  {branch.label}
                 </option>
               ))
             )}
@@ -130,18 +132,10 @@ export function MergeView({
                 <span>{file.type}</span>
               </div>
               <div className="panel-actions">
-                <button className="icon-button" type="button" title="Open in editor" aria-label="Open in editor" disabled={busy} onClick={() => api && currentRepoPath && runOperationAction('Opened in editor.', () => api.openInEditor({ targetPath: `${currentRepoPath}/${file.path}` }))}>
-                  <Code2 size={17} />
-                </button>
-                <button className="icon-button" type="button" title="Accept ours" aria-label="Accept ours" disabled={busy} onClick={() => acceptConflictSide(file.path, 'ours')}>
-                  <ArrowDownToLine size={16} />
-                </button>
-                <button className="icon-button" type="button" title="Accept theirs" aria-label="Accept theirs" disabled={busy} onClick={() => acceptConflictSide(file.path, 'theirs')}>
-                  <ArrowUpFromLine size={16} />
-                </button>
-                <button className="icon-button" type="button" title="Mark resolved" aria-label="Mark resolved" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Marked resolved.', () => api!.markResolved({ repoPath: currentRepoPath, filePath: file.path }))}>
-                  <Check size={16} />
-                </button>
+                <IconButton icon={<Code2 size={17} />} label="Open in editor" disabled={busy} onClick={() => api && currentRepoPath && runOperationAction('Opened in editor.', () => api.openInEditor({ targetPath: `${currentRepoPath}/${file.path}` }))} />
+                <IconButton icon={<ArrowDownToLine size={16} />} label="Accept ours" disabled={busy} onClick={() => acceptConflictSide(file.path, 'ours')} />
+                <IconButton icon={<ArrowUpFromLine size={16} />} label="Accept theirs" disabled={busy} onClick={() => acceptConflictSide(file.path, 'theirs')} />
+                <IconButton icon={<Check size={16} />} label="Mark resolved" disabled={busy} onClick={() => currentRepoPath && runSnapshotAction('Marked resolved.', () => api!.markResolved({ repoPath: currentRepoPath, filePath: file.path }))} />
               </div>
             </article>
           ))}

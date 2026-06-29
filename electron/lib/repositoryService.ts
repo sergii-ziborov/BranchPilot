@@ -216,6 +216,25 @@ export class RepositoryService extends RepositoryServiceWrites {
     return this.getSnapshot(rootPath)
   }
 
+  async initializeRepository(selectedPath: string): Promise<RepositorySnapshot> {
+    const targetPath = path.resolve(selectedPath)
+    const targetStats = await fs.stat(targetPath).catch(() => undefined)
+
+    if (!targetStats?.isDirectory()) {
+      throw new BranchPilotUserError('invalid_repository_target', 'Selected path is not a folder.')
+    }
+
+    const existingRoot = await this.resolveRepositoryRoot(targetPath).catch(() => undefined)
+
+    if (existingRoot) {
+      return this.openRepository(existingRoot)
+    }
+
+    await this.git(targetPath, ['init'], { timeoutMs: 120_000 })
+
+    return this.openRepository(targetPath)
+  }
+
   async cloneRepository(request: CloneRepositoryRequest): Promise<RepositorySnapshot> {
     const remoteUrl = normalizeCloneRemoteUrl(request.remoteUrl)
     const targetParentPath = normalizeCloneParentPath(request.targetParentPath)

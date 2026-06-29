@@ -65,7 +65,7 @@ export class RepositoryCommitService {
     const rootPath = await this.kernel.resolveRepositoryRoot(request.repoPath)
     await this.kernel.git(rootPath, ['rev-parse', '--verify', 'HEAD'])
 
-    const statusOutput = await this.kernel.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch'])
+    const statusOutput = await this.kernel.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'])
     const parsedStatus = parseGitStatus(statusOutput.stdout)
     const mergeState = await this.kernel.getMergeState(rootPath, parsedStatus.conflicts)
 
@@ -141,5 +141,20 @@ export class RepositoryCommitService {
     }
 
     throw new CommandExecutionError(`${result.command} ${result.args.join(' ')} failed with exit code ${result.exitCode}`, result)
+  }
+
+  async resetToCommit(request: ConfirmedCommitReferenceRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Resetting to a commit requires explicit confirmation.')
+    }
+
+    const rootPath = await this.kernel.resolveRepositoryRoot(request.repoPath)
+    const commitSha = normalizeCommitSha(request.commitSha)
+
+    await this.kernel.assertNoActiveOperation(rootPath)
+    await this.kernel.assertNoConflicts(rootPath, 'resetting')
+    await this.kernel.git(rootPath, ['reset', '--hard', commitSha], { timeoutMs: 120_000 })
+
+    return this.kernel.getSnapshot(rootPath)
   }
 }

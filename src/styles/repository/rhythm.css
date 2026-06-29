@@ -1,0 +1,191 @@
+﻿/* ---- Rhythm analytics (Reports) ---- */
+.dashboard-rhythm-card {
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.rhythm-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rhythm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  min-width: 0;
+}
+
+.rhythm-stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rhythm-stat strong {
+  color: var(--text-strong);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.rhythm-stat-unit {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.rhythm-stat-sub {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.rhythm-stat-sub.up { color: #16a34a; }
+.rhythm-stat-sub.down { color: #dc2626; }
+
+.rhythm-churn-line {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.churn-add { color: #16a34a; font-variant-numeric: tabular-nums; }
+.churn-del { color: #dc2626; font-variant-numeric: tabular-nums; }
+
+.rhythm-spark {
+  margin-top: 14px;
+}
+
+.rhythm-spark-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rhythm-spark-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 56px;
+  padding: 4px 2px;
+}
+
+.rhythm-spark-bar {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.rhythm-spark-bar:last-child {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.rhythm-hotfiles {
+  margin-top: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.rhythm-hotfile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.rhythm-hotfile-path {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--mono, ui-monospace, monospace);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.rhythm-hotfile-meta {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.rhythm-hotfile-commits {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rhythm-leaderboard {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.leader-row {
+  display: grid;
+  grid-template-columns: 22px minmax(80px, 1fr) minmax(60px, 2fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.leader-rank {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.leader-name {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leader-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.leader-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.leader-commits {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .rhythm-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

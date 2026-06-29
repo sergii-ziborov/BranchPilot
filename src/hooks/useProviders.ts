@@ -6,6 +6,7 @@ import type {
 } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import { assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel } from '../lib/assistantLabels'
+import { defaultPullRequestBaseBranch, normalizePullRequestBaseBranch } from '../lib/pullRequestBranches'
 import type { RequestConfirmation } from '../lib/prompts'
 import type { ViewMode } from '../lib/viewMode'
 
@@ -401,7 +402,7 @@ export function useProviders({
     await runApiAction('Generating pull request text...', () => api.generatePullRequestText({
       repoPath: currentRepoPath,
       assistant: selectedAssistant,
-      baseBranch: prBaseBranch.trim() || undefined
+      baseBranch: normalizePullRequestBaseBranch(prBaseBranch, snapshot?.summary.remoteName).trim() || undefined
     }), (data) => {
       setPrTitle(data.title)
       setPrDescription(data.description)
@@ -418,7 +419,7 @@ export function useProviders({
         repoPath: currentRepoPath,
         title: prTitle,
         description: prDescription,
-        baseBranch: prBaseBranch.trim() || undefined
+        baseBranch: normalizePullRequestBaseBranch(prBaseBranch, snapshot?.summary.remoteName).trim() || undefined
       })
 
       if (result.ok) {
@@ -469,6 +470,18 @@ export function useProviders({
     setCreatedPullRequest(null)
      
   }, [snapshot?.summary.rootPath])
+
+  useEffect(() => {
+    setPrBaseBranch((currentBaseBranch) => {
+      const trimmed = normalizePullRequestBaseBranch(currentBaseBranch, snapshot?.summary.remoteName).trim()
+
+      if (trimmed && trimmed !== snapshot?.summary.currentBranch) {
+        return trimmed
+      }
+
+      return defaultPullRequestBaseBranch(snapshot)
+    })
+  }, [snapshot])
 
   useEffect(() => {
     if (!selectedPullRequestDetails) return

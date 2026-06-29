@@ -1,9 +1,12 @@
-import { Bot, Check, Code2, Database, FolderOpen, GitBranch, Loader2, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
+import { Bot, Code2, Database, FolderOpen, GitBranch, Loader2, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
 import { BranchPilotLogo } from '../BrandIcons'
 import { BackToChanges } from '../BackToChanges'
-import type { AssistantId, AssistantStatus, EditorPreference, TerminalPreference } from '../../shared/branchPilot'
+import type { EditorPreference, TerminalPreference } from '../../shared/branchPilot'
 import { useController } from '../../hooks/AppControllerContext'
 import { WorktreesTagsPanel } from '../WorktreesTagsPanel'
+import { SettingsTabs, type SettingsTab } from '../settings/SettingsTabs'
+import { AssistantSettingsPanel } from '../settings/AssistantSettingsPanel'
 import { gitDefaultBranchLabel, gitSigningLabel } from '../../lib/gitConfigLabels'
 import {
   editorPreferenceCommandHint,
@@ -14,7 +17,8 @@ import {
 import { gitLfsFileLabel, submoduleStatusLabel } from '../../lib/gitEntityLabels'
 import { formatDate } from '../../lib/format'
 import { InfoRow } from '../primitives'
-import { assistantBaseId, assistantLabel, assistantStatusLabel } from '../../lib/assistantLabels'
+import { SelectableChipGroup } from '../SelectableChipGroup'
+import { assistantPolicyModes } from '../../lib/appOptions'
 
 export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
   onBack: () => void
@@ -24,7 +28,7 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
   const api = window.branchPilot
   const {
     appVersion, selectedAssistant, setSelectedAssistant, loadGitConfig, busy,
-    assistants, assistantsChecking, checkAssistants,
+    assistants, assistantsChecking, checkAssistants, assistantPolicy, assistantPolicyLoading, updateAssistantPolicy,
     githubAccounts, githubAccountsLoading, githubCliStatus, loadGitHubAccounts,
     localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, saveLocalGitIdentity,
     gitConfig, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand,
@@ -39,10 +43,7 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
     tagFilter, setTagFilter, newTagName, setNewTagName, newTagMessage, setNewTagMessage,
     createTag, deleteTag
   } = useController()
-  const assistantOptions = (['auto', 'claude', 'codex'] as AssistantId[]).map((assistant) =>
-    assistantChoiceOption(assistant, assistants)
-  )
-  const selectedAssistantBase = assistantBaseId(selectedAssistant)
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('identity')
   const knownGitIdentityEmails = uniqueStrings([
     ...githubAccounts.filter((account) => account.type === 'user').flatMap((account) => account.emails ?? []),
     gitConfig?.localUserEmail ?? '',
@@ -50,15 +51,24 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
     gitConfig?.globalUserEmail ?? ''
   ])
   const hasGitHubEmailOptions = githubAccounts.some((account) => (account.emails ?? []).length > 0)
+  const settingsTabCounts = {
+    remotes: gitConfig?.remotes.length ?? 0,
+    submodules: snapshot?.submodules.length ?? 0,
+    worktrees: snapshot?.worktrees.length ?? 0,
+    tags: snapshot?.tags.length ?? 0,
+    lfsItems: (snapshot?.lfs.trackedPatterns.length ?? 0) + (snapshot?.lfs.files.length ?? 0)
+  }
 
-    return (
+  return (
     <section className="single-panel">
-      <div className="panel-heading">
+      <div className="panel-heading settings-panel-heading">
         <div className="panel-heading-main">
           <BackToChanges onClick={onBack} />
-          <div>
-            <h2>Settings</h2>
-            <p>Inspect effective Git identity and update repository-local commit identity.</p>
+          <div className="settings-heading-copy">
+            <div className="settings-title-tabs">
+              <h2>Settings</h2>
+              <SettingsTabs activeTab={settingsTab} counts={settingsTabCounts} onChange={setSettingsTab} />
+            </div>
           </div>
         </div>
         <button type="button" onClick={loadGitConfig} disabled={busy}>
@@ -68,7 +78,10 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
       </div>
 
       <div className="config-grid">
-        <section className="config-card about-card">
+        {settingsTab === 'identity' && (
+          <>
+        <div className="config-card-stack identity-about-stack">
+          <section className="config-card about-card">
           <div className="about-card-headline">
             <BranchPilotLogo size={30} />
             <span className="about-card-version">v{appVersion}</span>
@@ -80,49 +93,18 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
             <span><Bot size={14} /> AI commit / PR / review drafts</span>
             <span><Database size={14} /> Git LFS & submodules</span>
           </div>
-        </section>
+          </section>
 
-        <section className="config-card">
-          <div className="config-card-heading">
-            <div>
-              <h3>AI assistant</h3>
-              <p>Used for commit text, reviews, and drafts across BranchPilot.</p>
-            </div>
-            <button className="secondary-button assistant-refresh-button" type="button" onClick={checkAssistants} disabled={assistantsChecking}>
-              {assistantsChecking ? <Loader2 className="spin" size={15} /> : <RefreshCcw size={15} />}
-              {assistantsChecking ? 'Checking' : 'Check'}
-            </button>
-          </div>
-          <div className="config-assistant-label">
-            <Bot size={16} />
-            Assistant
-          </div>
-          <div className="assistant-choice-grid" role="radiogroup" aria-label="AI assistant">
-            {assistantOptions.map((option) => {
-              const selected = selectedAssistant === option.id || (option.id !== 'auto' && selectedAssistantBase === option.id)
+          <section className="config-card git-settings-card">
+            <h3>Git settings</h3>
+            <InfoRow label="Global name" value={gitConfig?.globalUserName ?? 'Unset'} />
+            <InfoRow label="Global email" value={gitConfig?.globalUserEmail ?? 'Unset'} />
+            <InfoRow label="Default branch" value={gitDefaultBranchLabel(gitConfig)} />
+            <InfoRow label="Commit signing" value={gitSigningLabel(gitConfig)} />
+          </section>
+        </div>
 
-              return (
-                <button
-                  aria-pressed={selected}
-                  className={`assistant-choice assistant-choice-${option.state} ${selected ? 'active' : ''}`.trim()}
-                  key={option.id}
-                  onClick={() => setSelectedAssistant(option.id)}
-                  title={option.message}
-                  type="button"
-                >
-                  <span className={`assistant-choice-dot state-${option.state}`} />
-                  <span className="assistant-choice-copy">
-                    <strong>{option.label}</strong>
-                    <span>{option.meta}</span>
-                  </span>
-                  {selected && <Check className="assistant-choice-check" size={16} />}
-                </button>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="config-card">
+        <section className="config-card commit-identity-card">
           <div className="config-card-heading">
             <div>
               <h3>Commit identity</h3>
@@ -144,20 +126,16 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
           />
           <label htmlFor="local-user-email">Email</label>
           {knownGitIdentityEmails.length > 0 && (
-            <div className="config-email-options" aria-label="Known commit author emails">
-              {knownGitIdentityEmails.map((email) => (
-                <button
-                  type="button"
-                  key={email}
-                  className={sameEmail(localUserEmail, email) ? 'active' : 'secondary-button'}
-                  onClick={() => setLocalUserEmail(email)}
-                  disabled={busy}
-                  title={`Use ${email} for commits in this repository`}
-                >
-                  {email}
-                </button>
-              ))}
-            </div>
+            <SelectableChipGroup
+              variant="config-email-options"
+              ariaLabel="Known commit author emails"
+              options={knownGitIdentityEmails}
+              selected={knownGitIdentityEmails.find((email) => sameEmail(localUserEmail, email)) ?? ''}
+              onSelect={setLocalUserEmail}
+              inactiveClassName="secondary-button"
+              disabled={busy}
+              titleFor={(email) => `Use ${email} for commits in this repository`}
+            />
           )}
           {githubCliStatus?.authenticated && !hasGitHubEmailOptions && (
             <button
@@ -206,15 +184,7 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
           </div>
         </section>
 
-        <section className="config-card">
-          <h3>Git settings</h3>
-          <InfoRow label="Global name" value={gitConfig?.globalUserName ?? 'Unset'} />
-          <InfoRow label="Global email" value={gitConfig?.globalUserEmail ?? 'Unset'} />
-          <InfoRow label="Default branch" value={gitDefaultBranchLabel(gitConfig)} />
-          <InfoRow label="Commit signing" value={gitSigningLabel(gitConfig)} />
-        </section>
-
-        <section className="config-card">
+        <section className="config-card editor-settings-card">
           <h3>Editor</h3>
           <label htmlFor="editor-preference">Default editor</label>
           <select
@@ -253,7 +223,7 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
           )}
         </section>
 
-        <section className="config-card">
+        <section className="config-card terminal-settings-card">
           <h3>Terminal</h3>
           <label htmlFor="terminal-preference">Default terminal</label>
           <select
@@ -291,9 +261,25 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
             <p className="muted-text">Updated {formatDate(terminalSettings.updatedAt)}</p>
           )}
         </section>
+          </>
+        )}
 
-        <details className="config-collapsible">
-          <summary>Remotes</summary>
+        {settingsTab === 'assistant' && (
+          <AssistantSettingsPanel
+            selectedAssistant={selectedAssistant}
+            setSelectedAssistant={setSelectedAssistant}
+            assistants={assistants}
+            assistantsChecking={assistantsChecking}
+            checkAssistants={checkAssistants}
+            assistantPolicy={assistantPolicy}
+            assistantPolicyLoading={assistantPolicyLoading}
+            assistantPolicyModes={assistantPolicyModes}
+            snapshot={snapshot}
+            updateAssistantPolicy={updateAssistantPolicy}
+          />
+        )}
+
+        {settingsTab === 'remotes' && (
         <section className="config-card remotes-card">
           <div className="config-card-heading">
             <div>
@@ -355,10 +341,9 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
             ))
           )}
         </section>
-        </details>
+        )}
 
-        <details className="config-collapsible">
-          <summary>Submodules</summary>
+        {settingsTab === 'submodules' && (
         <section className="config-card submodules-card">
           <div className="config-card-heading">
             <div>
@@ -398,10 +383,9 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
             </div>
           )}
         </section>
-        </details>
+        )}
 
-        <details className="config-collapsible">
-          <summary>Git LFS</summary>
+        {settingsTab === 'lfs' && (
         <section className="config-card lfs-card">
           <div className="config-card-heading">
             <div>
@@ -455,104 +439,35 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
             </section>
           </div>
         </section>
-        </details>
+        )}
 
-        <WorktreesTagsPanel
-          snapshot={snapshot}
-          api={api}
-          busy={busy}
-          runOperationAction={runOperationAction}
-          newWorktreeBranchName={newWorktreeBranchName}
-          setNewWorktreeBranchName={setNewWorktreeBranchName}
-          newWorktreeBaseRef={newWorktreeBaseRef}
-          setNewWorktreeBaseRef={setNewWorktreeBaseRef}
-          createWorktree={createWorktree}
-          openWorktree={openWorktree}
-          removeWorktree={removeWorktree}
-          tagFilter={tagFilter}
-          setTagFilter={setTagFilter}
-          newTagName={newTagName}
-          setNewTagName={setNewTagName}
-          newTagMessage={newTagMessage}
-          setNewTagMessage={setNewTagMessage}
-          createTag={createTag}
-          deleteTag={deleteTag}
-        />
+        {(settingsTab === 'worktrees' || settingsTab === 'tags') && (
+          <WorktreesTagsPanel
+            snapshot={snapshot}
+            api={api}
+            busy={busy}
+            runOperationAction={runOperationAction}
+            newWorktreeBranchName={newWorktreeBranchName}
+            setNewWorktreeBranchName={setNewWorktreeBranchName}
+            newWorktreeBaseRef={newWorktreeBaseRef}
+            setNewWorktreeBaseRef={setNewWorktreeBaseRef}
+            createWorktree={createWorktree}
+            openWorktree={openWorktree}
+            removeWorktree={removeWorktree}
+            tagFilter={tagFilter}
+            setTagFilter={setTagFilter}
+            newTagName={newTagName}
+            setNewTagName={setNewTagName}
+            newTagMessage={newTagMessage}
+            setNewTagMessage={setNewTagMessage}
+            createTag={createTag}
+            deleteTag={deleteTag}
+            panel={settingsTab}
+          />
+        )}
       </div>
     </section>
   )
-}
-
-type AssistantChoiceState = AssistantStatus['state'] | 'limited' | 'unknown'
-
-interface AssistantChoiceOption {
-  id: AssistantId
-  label: string
-  meta: string
-  message: string
-  state: AssistantChoiceState
-}
-
-function assistantChoiceOption(assistantId: AssistantId, assistants: AssistantStatus[]): AssistantChoiceOption {
-  if (assistantId === 'auto') {
-    return autoAssistantChoice(assistants)
-  }
-
-  const status = assistants.find((assistant) => assistant.id === assistantId)
-  const state = assistantChoiceState(status)
-
-  return {
-    id: assistantId,
-    label: assistantLabel(assistantId),
-    meta: status ? assistantChoiceMeta(status) : 'Not loaded',
-    message: status?.message ?? 'Run assistant detection to load this CLI status.',
-    state
-  }
-}
-
-function autoAssistantChoice(assistants: AssistantStatus[]): AssistantChoiceOption {
-  const preferred = assistants.find((assistant) => assistant.state === 'ready')
-    ?? assistants.find((assistant) => assistant.state === 'detected')
-    ?? assistants.find((assistant) => assistantStatusLabel(assistant) === 'limited')
-    ?? assistants.find((assistant) => assistant.state === 'unavailable')
-    ?? assistants.find((assistant) => assistant.state === 'missing')
-  const state = assistantChoiceState(preferred)
-
-  return {
-    id: 'auto',
-    label: 'Auto',
-    meta: preferred ? `Uses ${preferred.label}` : 'Not loaded',
-    message: preferred
-      ? `Auto will prefer ${preferred.label}. ${preferred.message}`
-      : 'Run assistant detection to choose the first available local assistant.',
-    state
-  }
-}
-
-function assistantChoiceState(status?: AssistantStatus): AssistantChoiceState {
-  if (!status) {
-    return 'unknown'
-  }
-
-  if (assistantStatusLabel(status) === 'limited') {
-    return 'limited'
-  }
-
-  return status.state
-}
-
-function assistantChoiceMeta(status: AssistantStatus): string {
-  const statusLabel = assistantStatusLabel(status)
-
-  if (statusLabel === 'limited') {
-    return 'Session limited'
-  }
-
-  if (statusLabel === 'not found') {
-    return 'Not found'
-  }
-
-  return statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)
 }
 
 function uniqueStrings(values: string[]): string[] {

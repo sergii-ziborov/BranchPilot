@@ -1,4 +1,6 @@
 import path from 'node:path'
+import fs from 'node:fs/promises'
+import os from 'node:os'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
@@ -18,6 +20,8 @@ import type {
   DiffRequest,
   ImagePreviewRequest,
   ProjectMemoryScanResult,
+  RepositoryBrowserRequest,
+  RepositoryBrowserSnapshot,
   RepositoryPinRequest
 } from '../../../src/shared/branchPilot.js'
 import { createProjectMemoryMcpConfig } from '../../mcp/config.js'
@@ -113,7 +117,21 @@ export function registerRepositoryHandlers(
   }, async (repoPath: string) =>
     withProjectMemoryRefresh(await repositoryService.openRepository(repoPath))
   )
+  handleLogged('repository:init', {
+    type: 'repository_opened',
+    actor: 'user',
+    title: 'Repository initialized',
+    repoPath: (args, snapshot) => snapshotRepoPath(args, snapshot) ?? args[0],
+    metadata: (_args, snapshot) => snapshot ? {
+      repository: snapshot.summary.name,
+      branch: snapshot.summary.currentBranch,
+      remote: snapshot.summary.remoteName ?? 'none'
+    } : undefined
+  }, async (repoPath: string) =>
+    withProjectMemoryRefresh(await repositoryService.initializeRepository(repoPath))
+  )
   handle('repository:recent', () => repositoryService.getRecentRepositories())
+  handle('repository:browseDirectory', (request?: RepositoryBrowserRequest) => browseRepositoryDirectory(request))
   handle('repository:setPinned', (request: RepositoryPinRequest) => repositoryService.setRepositoryPinned(request))
   handle('repository:dashboard', (repoPath?: string) => repositoryService.dashboard.getRepositoryDashboard(repoPath))
   // A status refresh is not a meaningful user action — don't spam the activity log
@@ -124,11 +142,12 @@ export function registerRepositoryHandlers(
   handle('repository:imagePreview', (request: ImagePreviewRequest) => repositoryService.getImagePreview(request))
   handle('repository:contributionGraph', (request?: string | { repoPath?: string; repoPaths?: string[] }) => repositoryService.activity.getContributionGraph(request))
   handle('repository:rhythm', (repoPath?: string) => repositoryService.activity.getRepositoryRhythm(repoPath))
-  handle('repository:contributorStats', (request?: string | { repoPath?: string; repoPaths?: string[]; window?: 'all' | 'year' | 'month' | 'week' | 'day' }) =>
+  handle('repository:contributorStats', (request?: string | { repoPath?: string; repoPaths?: string[]; window?: 'all' | 'year' | 'month' | 'week' | 'day'; date?: string }) =>
     repositoryService.activity.getContributorStats(request)
   )
   handle('repository:contributors', (repoPath: string) => repositoryService.activity.getContributors(repoPath))
   handle('repository:history', (repoPath: string) => repositoryService.getHistory(repoPath))
+  handle('repository:commitCard', (request: CommitDetailsRequest) => repositoryService.getCommitCard(request))
   handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))
   handle('repository:commitFileDiff', (request: CommitFileDiffRequest) => repositoryService.getCommitFileDiff(request))
   handle('repository:projectMemory', (repoPath: string) => projectMemoryService.getProjectMemory(repoPath))
@@ -200,4 +219,58 @@ export function registerRepositoryHandlers(
   }, (request: DailyReviewRequest) =>
     dailyReviewService.generateDailyReview(request)
   )
+}
+
+async function browseRepositoryDirectory(request?: RepositoryBrowserRequest): Promise<RepositoryBrowserSnapshot> {
+  const requestedPath = request?.path?.trim()
+  const targetPath = path.resolve(requestedPath || await defaultRepositoryBrowserPath())
+  const stats = await fs.stat(targetPath)
+
+  if (!stats.isDirectory()) {
+    throw new Error('Selected path is not a folder.')
+  }
+
+  const dirents = await fs.readdir(targetPath, { withFileTypes: true })
+  const directories = dirents.filter((entry) => entry.isDirectory())
+  const entries = await Promise.all(directories.map(async (entry) => {
+    const entryPath = path.join(targetPath, entry.name)
+    const [gitRepository, entryStats] = await Promise.all([
+      isGitRepositoryDirectory(entryPath),
+      fs.stat(entryPath).catch(() => undefined)
+    ])
+
+    return {
+      name: entry.name,
+      path: entryPath,
+      isGitRepository: gitRepository,
+      modifiedAt: entryStats?.mtime ? entryStats.mtime.toISOString() : undefined
+    }
+  }))
+
+  entries.sort((left, right) => {
+    if (left.isGitRepository !== right.isGitRepository) return left.isGitRepository ? -1 : 1
+    return left.name.localeCompare(right.name, undefined, { sensitivity: 'base', numeric: true })
+  })
+
+  const parentPath = path.dirname(targetPath)
+
+  return {
+    path: targetPath,
+    parentPath: parentPath === targetPath ? undefined : parentPath,
+    isGitRepository: await isGitRepositoryDirectory(targetPath),
+    repositoryCount: entries.filter((entry) => entry.isGitRepository).length,
+    entries
+  }
+}
+
+async function defaultRepositoryBrowserPath(): Promise<string> {
+  const preferredPath = path.join(os.homedir(), 'Documents', 'GitHub')
+  const preferredStats = await fs.stat(preferredPath).catch(() => undefined)
+  return preferredStats?.isDirectory() ? preferredPath : os.homedir()
+}
+
+async function isGitRepositoryDirectory(directoryPath: string): Promise<boolean> {
+  const dotGitPath = path.join(directoryPath, '.git')
+  const stats = await fs.stat(dotGitPath).catch(() => undefined)
+  return Boolean(stats && (stats.isDirectory() || stats.isFile()))
 }

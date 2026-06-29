@@ -22,6 +22,19 @@ describe('RepositoryActivityAnalytics', () => {
     expect(stats[0]?.aliases?.map((alias) => alias.name)).toEqual(['Sergii Ziborov', 'Serhii Ziborov'])
   })
 
+  it('filters day contributor stats by the selected calendar date', async () => {
+    const kernel = new FakeActivityKernel([
+      'Sergii Ziborov\tsergii@example.com\t2026-06-16'
+    ].join('\n'))
+    const analytics = new RepositoryActivityAnalytics(kernel)
+
+    await analytics.getContributorStats({ repoPath: '/repo', window: 'day', date: '2026-06-16' })
+
+    expect(kernel.lastGitArgs).toContain('--since=2026-06-16 00:00:00')
+    expect(kernel.lastGitArgs).toContain('--before=2026-06-17 00:00:00')
+    expect(kernel.lastGitArgs).not.toContain('--since=1 day ago')
+  })
+
   it('groups the same contributor across multiple commit emails', async () => {
     const kernel = new FakeActivityKernel([
       'Sergii Ziborov\tsergii.ziborov@gmail.com\t2026-06-22',

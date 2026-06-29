@@ -1,4 +1,6 @@
-import { Copy, Database, Loader2, RefreshCcw, Trash2 } from 'lucide-react'
+import { Database, Loader2, RefreshCcw, Trash2 } from 'lucide-react'
+import { SegmentedControl } from '../SegmentedControl'
+import { CopyableCodeBlock } from '../CopyableCodeBlock'
 import type {
   ActivityLogEntry, ActivityLogSnapshot, ProjectMemoryMcpConfig, ProjectMemorySnapshot,
   ProjectWikiPage, ProjectWikiPageId, ProjectWikiSnapshot
@@ -128,26 +130,18 @@ export function MemoryView({
               <InfoRow label="Activity dir" value={projectMemoryMcpConfig.activityDir} />
               <InfoRow label="Wiki dir" value={projectMemoryMcpConfig.wikiDir} />
               <InfoRow label="Server path" value={projectMemoryMcpConfig.serverPath} />
-              <div className="memory-mcp-snippet">
-                <div className="memory-section-heading compact">
-                  <h3>CLI command</h3>
-                  <button type="button" onClick={() => copyProjectMemoryText(projectMemoryMcpConfig.codexCommand, 'Codex MCP command')}>
-                    <Copy size={15} />
-                    Copy
-                  </button>
-                </div>
-                <pre><code>{projectMemoryMcpConfig.codexCommand}</code></pre>
-              </div>
-              <div className="memory-mcp-snippet">
-                <div className="memory-section-heading compact">
-                  <h3>config.toml</h3>
-                  <button type="button" onClick={() => copyProjectMemoryText(projectMemoryMcpConfig.codexToml, 'Codex MCP TOML')}>
-                    <Copy size={15} />
-                    Copy
-                  </button>
-                </div>
-                <pre><code>{projectMemoryMcpConfig.codexToml}</code></pre>
-              </div>
+              <CopyableCodeBlock
+                variant="snippet"
+                title="CLI command"
+                code={projectMemoryMcpConfig.codexCommand}
+                onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.codexCommand, 'Codex MCP command')}
+              />
+              <CopyableCodeBlock
+                variant="snippet"
+                title="config.toml"
+                code={projectMemoryMcpConfig.codexToml}
+                onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.codexToml, 'Codex MCP TOML')}
+              />
             </section>
             </details>
           )}
@@ -204,16 +198,14 @@ export function MemoryView({
                     ))}
                   </div>
 
-                  <div className="project-wiki-preview">
-                    <div className="memory-section-heading compact">
-                      <h3>{selectedProjectWikiPage?.title ?? 'Wiki page'}</h3>
-                      <button type="button" disabled={!selectedProjectWikiPage} onClick={() => copyProjectWikiPage(selectedProjectWikiPage)}>
-                        <Copy size={15} />
-                        Copy Markdown
-                      </button>
-                    </div>
-                    <pre><code>{selectedProjectWikiPage?.markdown ?? 'Select a wiki page.'}</code></pre>
-                  </div>
+                  <CopyableCodeBlock
+                    variant="preview"
+                    title={selectedProjectWikiPage?.title ?? 'Wiki page'}
+                    code={selectedProjectWikiPage?.markdown ?? 'Select a wiki page.'}
+                    copyLabel="Copy Markdown"
+                    copyDisabled={!selectedProjectWikiPage}
+                    onCopy={() => copyProjectWikiPage(selectedProjectWikiPage)}
+                  />
                 </div>
               </>
             )}
@@ -266,18 +258,16 @@ export function MemoryView({
                 </button>
               </div>
             </div>
-            <div className="segmented memory-activity-filters" aria-label="Activity filters">
-              {activityCategories.map((category) => (
-                <button
-                  className={activityCategory === category ? 'active' : ''}
-                  type="button"
-                  key={category}
-                  onClick={() => setActivityCategory(category)}
-                >
-                  {activityCategoryLabel(category)}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              className="memory-activity-filters"
+              ariaLabel="Activity filters"
+              value={activityCategory}
+              onChange={(value) => setActivityCategory(value as ActivityCategory)}
+              options={activityCategories.map((category) => ({
+                value: category,
+                label: activityCategoryLabel(category)
+              }))}
+            />
             <div className="memory-activity-list">
               {filteredActivityEntries.length === 0 ? (
                 <div className="quiet-box">No activity for this filter.</div>

@@ -1,8 +1,9 @@
-import { CalendarDays, Check, Copy, ExternalLink, Layers3, Loader2, Search, Trophy } from 'lucide-react'
+import { CalendarDays, Check, Copy, ExternalLink, Layers3, Loader2, Search, Trophy, UserRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { ContributionDay, ContributionGraph, ContributorStat, ContributorStatsWindow, DailyReviewReport, GitHubAccountSummary, RecentRepository, RepositorySnapshot } from '../../shared/branchPilot'
 import { formatDate } from '../../lib/format'
 import { ContributionHeatmap } from '../ContributionHeatmap'
+import { Meter } from '../Meter'
 import { PanelHeading } from '../PanelHeading'
 
 const RANK_MEDAL = ['🥇', '🥈', '🥉']
@@ -14,15 +15,6 @@ const CONTRIBUTOR_WINDOWS: { id: ContributorStatsWindow; label: string }[] = [
   { id: 'week', label: 'Week' },
   { id: 'day', label: 'Day' }
 ]
-
-function contributorInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('') || '?'
-}
 
 function contributorNameKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ')
@@ -304,7 +296,7 @@ export function DailyView({
                           />
                         )
                       : null}
-                    <span>{contributorInitials(contributor.name)}</span>
+                    <UserRound className="contributor-avatar-placeholder" size={18} />
                   </span>
                   <div className="contributor-id">
                     <div className="contributor-title-row">
@@ -330,9 +322,7 @@ export function DailyView({
                     {identityDetails.length > 0 && <span className="contributor-identity">{identityDetails.join(' | ')}</span>}
                     <span>Last commit {formatDate(contributor.lastCommitAt)}</span>
                   </div>
-                  <div className="contributor-meter">
-                    <div className="contributor-bar" style={{ width: `${topCommits > 0 ? Math.max(6, Math.round((contributor.commits / topCommits) * 100)) : 0}%` }} />
-                  </div>
+                  <Meter value={contributor.commits} max={topCommits} minPercent={6} />
                   <div className="contributor-metrics">
                     <strong>{contributor.commits}</strong>
                     <span>{Math.round(contributor.share * 100)}%</span>
@@ -431,6 +421,28 @@ interface ContributorProfileView {
 }
 
 function resolveContributorProfile(contributor: ContributorStat, accounts: GitHubAccountSummary[]): ContributorProfileView {
+  const emails = new Set((contributor.emails?.length ? contributor.emails : [contributor.email])
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean))
+  const contributorLogin = contributor.login?.trim().toLowerCase()
+  const contributorName = contributorNameKey(contributor.name)
+  const account = accounts.find((candidate) =>
+    candidate.type === 'user' && (
+      (candidate.emails ?? []).some((email) => emails.has(email.trim().toLowerCase())) ||
+      candidate.login.trim().toLowerCase() === contributorLogin ||
+      contributorNameKey(candidate.label) === contributorName ||
+      contributorNameKey(candidate.login) === contributorName
+    )
+  )
+
+  if (account) {
+    return {
+      login: account.login,
+      profileUrl: account.url,
+      avatarUrl: `https://github.com/${encodeURIComponent(account.login)}.png?size=96`
+    }
+  }
+
   if (contributor.profileUrl) {
     return {
       login: contributor.login,
@@ -439,22 +451,5 @@ function resolveContributorProfile(contributor: ContributorStat, accounts: GitHu
     }
   }
 
-  const emails = new Set((contributor.emails?.length ? contributor.emails : [contributor.email])
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean))
-  const account = accounts.find((candidate) =>
-    candidate.type === 'user' && (candidate.emails ?? []).some((email) => emails.has(email.trim().toLowerCase()))
-  )
-
-  if (!account) {
-    return {
-      avatarUrl: contributor.avatarUrl
-    }
-  }
-
-  return {
-    login: account.login,
-    profileUrl: account.url,
-    avatarUrl: `https://github.com/${encodeURIComponent(account.login)}.png?size=96`
-  }
+  return {}
 }

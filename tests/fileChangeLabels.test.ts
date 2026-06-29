@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changeLabel, fileStatusToken, statusToken } from '../src/lib/fileChangeLabels'
+import { changeLabel, fileStatusToken, fileStatusTone, statusToken, statusTone } from '../src/lib/fileChangeLabels'
 import type { FileChange } from '../src/shared/branchPilot'
 
 function makeChange(overrides: Partial<FileChange> = {}): FileChange {
@@ -38,6 +38,7 @@ describe('fileStatusToken', () => {
     expect(fileStatusToken('copied')).toBe('C')
     expect(fileStatusToken('deleted')).toBe('D')
     expect(fileStatusToken('added')).toBe('A')
+    expect(fileStatusToken('untracked')).toBe('A')
   })
 
   it('defaults unknown statuses to M (modified)', () => {
@@ -51,11 +52,19 @@ describe('statusToken', () => {
     expect(statusToken(makeChange({ conflicted: true, status: 'added' }))).toBe('!')
   })
 
-  it('prioritises untracked marker over status letter', () => {
-    expect(statusToken(makeChange({ untracked: true, status: 'added' }))).toBe('?')
+  it('shows untracked files as additions so the badge stays stable after staging', () => {
+    expect(statusToken(makeChange({ untracked: true, status: 'untracked' }))).toBe('A')
+    expect(statusTone(makeChange({ untracked: true, status: 'untracked' }))).toBe('added')
   })
 
   it('falls back to the file-status token', () => {
     expect(statusToken(makeChange({ status: 'renamed' }))).toBe('R')
+  })
+})
+
+describe('fileStatusTone', () => {
+  it('uses added styling for untracked additions', () => {
+    expect(fileStatusTone('untracked')).toBe('added')
+    expect(fileStatusTone('modified')).toBe('modified')
   })
 })

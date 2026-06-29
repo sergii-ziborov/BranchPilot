@@ -1,0 +1,232 @@
+﻿/* Brand mark is a self-contained gradient badge â€” drop the generic icon tile. */
+.empty-state-icon.empty-state-brand {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+
+/* About BranchPilot card (Settings). */
+.about-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.about-card-headline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.about-card-version {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.about-card p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.about-card .about-tagline {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+.about-card-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+  margin-top: 4px;
+}
+.about-card-features span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Compact "back to Changes" control inside secondary-view headings. */
+.panel-heading-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.back-to-changes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.back-to-changes:hover {
+  border-color: #a7b0c0;
+  background: var(--panel-2);
+}
+.reports-stack > .back-to-changes {
+  margin-bottom: 10px;
+}
+
+/* Reports: back button inline, before the Daily review / LinkedIn tabs. */
+.reports-topbar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.reports-topbar .reports-switch {
+  margin-bottom: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+/* In Reports the back control is a quiet ghost link sitting on the tab baseline. */
+.reports-topbar .back-to-changes {
+  align-self: flex-end;
+  margin: 0 0 5px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+.reports-topbar .back-to-changes:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+/* App logo at the far left of the top bar. */
+.shell-brand {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin-right: 4px;
+  -webkit-app-region: no-drag;
+}
+
+/* GitHub-Desktop segment layout: icon left, label/value stack, caret far right. */
+.shell-repo > summary,
+.shell-branch > summary {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+}
+.shell-repo > summary {
+  min-width: 212px;
+}
+.shell-branch > summary {
+  min-width: 184px;
+}
+.shell-seg-icon {
+  flex: none;
+  color: var(--muted);
+}
+.shell-seg-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.18;
+}
+.shell-seg-caret {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+/* "No local changes" friendly empty state (GitHub-Desktop style). */
+.no-changes-view {
+  display: flex;
+  flex-direction: column;
+}
+.no-changes {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 52px 24px;
+  text-align: center;
+}
+.no-changes-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 460px;
+}
+.no-changes-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: var(--panel-2);
+  color: var(--accent);
+}
+.no-changes-hero h2 {
+  margin: 0;
+  font-size: 23px;
+  color: var(--text-strong);
+}
+.no-changes-hero p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.no-changes-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 460px;
+}
+.no-changes-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--accent);
+  cursor: pointer;
+}
+.no-changes-card:hover:not(:disabled) {
+  border-color: #a7b0c0;
+  background: var(--panel-2);
+}
+.no-changes-card:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.no-changes-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.no-changes-card-text strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+.no-changes-card-text span {
+  color: var(--muted);
+  font-size: 12px;
+}

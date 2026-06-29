@@ -1,0 +1,251 @@
+﻿/* Theme picker dropdown (top bar) */
+.shell-theme > summary {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-width: 42px;
+  padding: 0 8px;
+  border-radius: 9px;
+}
+.shell-theme .shell-seg-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  max-width: none;
+  line-height: 1;
+}
+.shell-theme-dropdown {
+  left: auto;
+  right: 0;
+  width: 210px;
+  min-width: 210px;
+  padding: 4px;
+}
+.shell-theme-item > span:nth-child(2) {
+  white-space: nowrap;
+}
+.shell-theme-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.shell-theme-item:hover {
+  background: var(--panel-2);
+}
+.shell-theme-item.active {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+.shell-theme-item > span:nth-child(2) {
+  flex: 1;
+}
+.shell-theme-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+  flex: none;
+}
+
+/* GitHub-Desktop-style Changes | History segmented switch (top of left column) */
+.view-switch {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 0 8px;
+  background: color-mix(in srgb, var(--panel) 72%, var(--surface));
+}
+.view-switch-tab {
+  position: relative;
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+}
+.view-switch-tab:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel-2) 78%, var(--accent) 8%);
+}
+.view-switch-tab.active {
+  color: var(--accent-contrast);
+  background: linear-gradient(180deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 72%, var(--surface)) 100%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 58%, var(--border)),
+    0 8px 18px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.view-switch-tab.active::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  bottom: 3px;
+  left: 10px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.82;
+}
+.view-switch-badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text-strong);
+  font-size: 11px;
+}
+.view-switch-tab.active .view-switch-badge {
+  background: color-mix(in srgb, var(--surface) 22%, transparent);
+  color: currentColor;
+}
+
+/* History left column: trim padding so the switch sits at the very top */
+.history-grid .changes-panel {
+  padding: 8px 10px;
+}
+
+/* Branch dropdown rows with inline rename / describe / delete actions. */
+.shell-branch-row {
+  display: flex;
+  align-items: center;
+  border-radius: 7px;
+}
+.shell-branch-row:hover,
+.shell-branch-row.active {
+  background: var(--panel-2);
+}
+.shell-branch-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.shell-branch-actions {
+  display: inline-flex;
+  gap: 2px;
+  padding-right: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.shell-branch-row:hover .shell-branch-actions {
+  opacity: 1;
+}
+.shell-branch-actions .icon-button {
+  width: 26px !important;
+  min-height: 26px;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.shell-branch-actions .icon-button:hover:not(:disabled) {
+  background: var(--panel);
+  color: var(--text);
+}
+.icon-button.danger:hover:not(:disabled) {
+  color: #b91c1c;
+}
+.shell-branch-edit,
+.shell-branch-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+.shell-branch-edit input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text-strong);
+  font: inherit;
+}
+.shell-branch-edit .icon-button,
+.shell-branch-confirm .icon-button {
+  width: 28px !important;
+  min-height: 28px;
+  height: 28px;
+}
+.shell-branch-confirm {
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text);
+}
+.shell-branch-confirm span {
+  flex: 1 1 auto;
+}
+
+/* Changes|History switch shown atop tool views â€” give it a contained pill look
+   (the bare underline style is only for the Changes/History left column). */
+.tool-view-switch {
+  margin-bottom: 12px;
+}
+.tool-view-switch .view-switch {
+  display: inline-flex;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel-2);
+}
+.tool-view-switch .view-switch-tab {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  padding: 5px 16px;
+  border: 0;
+  border-radius: 6px;
+}
+.tool-view-switch .view-switch-tab:hover {
+  color: var(--text);
+  background: var(--panel);
+}
+.tool-view-switch .view-switch-tab.active {
+  color: var(--text-strong);
+  border-bottom-color: transparent;
+  background: var(--panel);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+.tool-view-switch .view-switch-tab.active::after {
+  display: none;
+}
+

@@ -6,10 +6,12 @@ import { getBulkStageToggleState, getChangeStageToggleState } from '../shared/ch
 export function StageCheckbox({
   change,
   disabled,
+  optimisticCheckedOverride = null,
   onToggle
 }: {
   change: FileChange
   disabled: boolean
+  optimisticCheckedOverride?: boolean | null
   onToggle: (change: FileChange) => void | Promise<void>
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -23,8 +25,8 @@ export function StageCheckbox({
     setOptimisticChecked(null)
   }, [toggleState.checked, toggleState.mixed])
 
-  const checked = optimisticChecked ?? toggleState.checked
-  const showMixed = optimisticChecked === null && toggleState.mixed
+  const checked = optimisticCheckedOverride ?? optimisticChecked ?? toggleState.checked
+  const showMixed = optimisticCheckedOverride === null && optimisticChecked === null && toggleState.mixed
   const title = change.conflicted
     ? 'Resolve conflicts before staging.'
     : showMixed

@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Bot, ExternalLink, GitPullRequest, KeyRound, RefreshCcw, UploadCloud } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Bot, Check, ChevronDown, ExternalLink, GitPullRequest, KeyRound, RefreshCcw, UploadCloud } from 'lucide-react'
 import type {
   ApiResult, AssistantPolicyStatus, BranchPilotApi, CreatedPullRequest,
   GitHubCliStatus, GitHubPullRequest, ProviderStatus, RepositorySnapshot
@@ -8,6 +8,7 @@ import { getProviderRemoteSummary } from '../../shared/providerRemote'
 import { githubRepositoryBrowserSourceLabel, githubStatusLabel } from '../../lib/githubLabels'
 import { providerStateLabel } from '../../lib/dashboardLabels'
 import { assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
+import { normalizePullRequestBaseBranch, pullRequestBaseBranchOptions, type PullRequestBaseBranchOption } from '../../lib/pullRequestBranches'
 import { PlannedProviderWorkflowPanel, ProviderRemoteCard } from '../ProviderRemoteCard'
 import { getCreatePullRequestState, getPullRequestBrowseState } from '../../shared/providerPreconditions'
 import { BackToChanges } from '../BackToChanges'
@@ -56,7 +57,9 @@ export function ProvidersView({
   renderGitHubRepositoryBrowser: () => ReactNode
   renderPullRequestDetailsPanel: () => ReactNode
 }) {
-    const githubProvider = providers.find((provider) => provider.id === 'github')
+  const [prBaseBranchMenuOpen, setPrBaseBranchMenuOpen] = useState(false)
+  const prBaseBranchMenuRef = useRef<HTMLDivElement>(null)
+  const githubProvider = providers.find((provider) => provider.id === 'github')
   const providerRemote = getProviderRemoteSummary(snapshot?.summary.remoteUrl)
   const showGitHubPullRequestPanel = providerRemote.kind !== 'gitlab' && providerRemote.kind !== 'bitbucket'
   const createPrState = getCreatePullRequestState({
@@ -67,6 +70,36 @@ export function ProvidersView({
   })
   const browsePrState = getPullRequestBrowseState(snapshot, githubCliStatus)
   const needsGitHubAuth = Boolean(githubCliStatus && !githubCliStatus.authenticated)
+  const prBaseBranchOptions = pullRequestBaseBranchOptions(snapshot, prBaseBranch, pullRequests)
+  const selectedPrBaseBranch = normalizePullRequestBaseBranch(prBaseBranch, snapshot?.summary.remoteName)
+  const selectedPrBaseBranchKey = selectedPrBaseBranch.trim().toLowerCase()
+
+  useEffect(() => {
+    if (!prBaseBranchMenuOpen) return
+
+    function closePrBaseBranchMenu(event: PointerEvent) {
+      const target = event.target
+      if (target instanceof Node && prBaseBranchMenuRef.current?.contains(target)) return
+      setPrBaseBranchMenuOpen(false)
+    }
+
+    function closePrBaseBranchMenuOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPrBaseBranchMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', closePrBaseBranchMenu)
+    document.addEventListener('keydown', closePrBaseBranchMenuOnEscape)
+
+    return () => {
+      document.removeEventListener('pointerdown', closePrBaseBranchMenu)
+      document.removeEventListener('keydown', closePrBaseBranchMenuOnEscape)
+    }
+  }, [prBaseBranchMenuOpen])
+
+  function selectPrBaseBranch(branch: string) {
+    setPrBaseBranch(branch)
+    setPrBaseBranchMenuOpen(false)
+  }
 
   return (
     <section className="single-panel providers-page">
@@ -121,7 +154,7 @@ export function ProvidersView({
         <div className="panel-heading">
           <div>
             <h3>GitHub pull request</h3>
-            <p>{snapshot ? `${snapshot.summary.currentBranch} → ${prBaseBranch || 'main'}` : 'Open a repository to create pull requests.'}</p>
+            <p>{snapshot ? `${snapshot.summary.currentBranch} → ${selectedPrBaseBranch || 'main'}` : 'Open a repository to create pull requests.'}</p>
           </div>
           <div className="github-auth-actions">
             <span className={`github-status status-${githubProvider?.state ?? 'planned'}`}>
@@ -221,18 +254,56 @@ export function ProvidersView({
           <div className="pr-form-row">
             <div className="pr-field">
               <label htmlFor="pr-base">Base branch</label>
-              <select
-                id="pr-base"
-                value={prBaseBranch}
-                onChange={(event) => setPrBaseBranch(event.target.value)}
-              >
-                {prBaseBranch && !(snapshot?.branches ?? []).some((branch) => branch.name === prBaseBranch) && (
-                  <option value={prBaseBranch}>{prBaseBranch}</option>
+              <div className="pr-base-combobox" ref={prBaseBranchMenuRef}>
+                <div className="pr-base-input-row">
+                  <input
+                    id="pr-base"
+                    value={selectedPrBaseBranch}
+                    onFocus={() => setPrBaseBranchMenuOpen(true)}
+                    onChange={(event) => {
+                      setPrBaseBranch(event.target.value)
+                      setPrBaseBranchMenuOpen(true)
+                    }}
+                    placeholder="main, develop, release/2026"
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    className="pr-base-menu-button"
+                    aria-label="Show base branches"
+                    aria-expanded={prBaseBranchMenuOpen}
+                    aria-controls="pr-base-options"
+                    onClick={() => setPrBaseBranchMenuOpen((open) => !open)}
+                  >
+                    <ChevronDown size={16} />
+                  </button>
+                </div>
+                {prBaseBranchMenuOpen && (
+                  <div className="pr-base-menu" id="pr-base-options" role="listbox" aria-label="Base branches">
+                    {prBaseBranchOptions.length > 0 ? prBaseBranchOptions.map((branch) => {
+                      const selected = branch.value.toLowerCase() === selectedPrBaseBranchKey
+
+                      return (
+                        <button
+                          type="button"
+                          className={selected ? 'pr-base-option selected' : 'pr-base-option'}
+                          key={`${branch.kind}-${branch.value}`}
+                          role="option"
+                          aria-selected={selected}
+                          title={branch.label}
+                          onClick={() => selectPrBaseBranch(branch.value)}
+                        >
+                          <span className="pr-base-option-name">{branch.value}</span>
+                          <span className="pr-base-option-kind">{pullRequestBranchKindLabel(branch.kind)}</span>
+                          {selected && <Check size={14} />}
+                        </button>
+                      )
+                    }) : (
+                      <div className="pr-base-option-empty">No target branches found.</div>
+                    )}
+                  </div>
                 )}
-                {(snapshot?.branches ?? []).map((branch) => (
-                  <option key={branch.name} value={branch.name}>{branch.name}</option>
-                ))}
-              </select>
+              </div>
             </div>
             <div className="pr-field">
               <label htmlFor="pr-title">Title</label>
@@ -275,7 +346,9 @@ export function ProvidersView({
             )}
           </div>
           {!canGeneratePullRequestText && (
-            <div className="assistant-policy-note">{assistantPolicyBlockedLabel('pull_request_text', assistantPolicy)}</div>
+            <div className="assistant-policy-note">
+              {assistantPolicyBlockedLabel('pull_request_text', assistantPolicy)} {'Open Settings > Assistant to enable PR drafts.'}
+            </div>
           )}
           </div>
         </section>
@@ -394,4 +467,11 @@ export function ProvidersView({
       </div>
     </section>
   )
+}
+
+function pullRequestBranchKindLabel(kind: PullRequestBaseBranchOption['kind']): string {
+  if (kind === 'selected') return 'Selected'
+  if (kind === 'local') return 'Local'
+  if (kind === 'remote') return 'Remote'
+  return 'Pull request'
 }

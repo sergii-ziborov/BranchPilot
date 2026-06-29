@@ -1,0 +1,200 @@
+﻿html[data-theme='pure-dark'] body,
+html[data-theme='pure-dark'] .app-shell {
+  background: #000;
+}
+
+html[data-theme='pure-dark'] .shell-bar {
+  border-bottom-color: #181818;
+  background: rgba(0, 0, 0, 0.96);
+}
+
+html[data-theme='pure-dark'] .single-panel,
+html[data-theme='pure-dark'] .changes-panel,
+html[data-theme='pure-dark'] .diff-panel,
+html[data-theme='pure-dark'] .dashboard-section,
+html[data-theme='pure-dark'] .config-card,
+html[data-theme='pure-dark'] .tool-modal,
+html[data-theme='pure-dark'] .review-fix-prompt-modal,
+html[data-theme='pure-dark'] .shell-dropdown,
+html[data-theme='pure-dark'] .changes-actions-popover {
+  background: #050505;
+  box-shadow: none;
+}
+
+html[data-theme='matrix'],
+html[data-theme='far-manager'] {
+  --retro-radius: 2px;
+  --retro-line: color-mix(in srgb, var(--accent) 42%, transparent);
+  --retro-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+html[data-theme='matrix'] {
+  --retro-panel-bg:
+    radial-gradient(circle at 22% 12%, rgba(0, 255, 106, 0.08), transparent 30%),
+    rgba(0, 14, 7, 0.84);
+  --retro-panel-bg-2:
+    linear-gradient(180deg, rgba(0, 255, 106, 0.10), rgba(0, 12, 6, 0.82)),
+    rgba(0, 20, 9, 0.86);
+  --retro-grid: rgba(0, 255, 106, 0.045);
+  --retro-scanline: rgba(0, 255, 106, 0.055);
+}
+
+html[data-theme='far-manager'] {
+  --retro-panel-bg:
+    linear-gradient(180deg, rgba(0, 255, 255, 0.08), rgba(0, 20, 96, 0.88)),
+    #001a70;
+  --retro-panel-bg-2:
+    linear-gradient(180deg, #0030a8, #001a70),
+    #002287;
+  --retro-grid: rgba(255, 255, 255, 0.055);
+  --retro-scanline: rgba(255, 255, 255, 0.045);
+}
+
+html[data-theme='matrix'] body,
+html[data-theme='far-manager'] body {
+  background:
+    radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
+    var(--surface);
+}
+
+html[data-theme='matrix'] .app-shell,
+html[data-theme='far-manager'] .app-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(90deg, var(--retro-grid) 1px, transparent 1px),
+    linear-gradient(180deg, var(--retro-grid) 1px, transparent 1px),
+    var(--surface);
+  background-size: 24px 24px, 24px 24px, auto;
+}
+
+html[data-theme='matrix'] .app-shell::before,
+html[data-theme='far-manager'] .app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 0 56%, var(--retro-scanline) 56% 60%, transparent 60% 100%);
+  background-size: auto 6px;
+}
+
+html[data-theme='matrix'] .shell-bar,
+html[data-theme='far-manager'] .shell-bar {
+  border-bottom-color: var(--retro-line);
+  background: var(--shell-bar);
+  box-shadow: var(--retro-glow);
+}
+
+html[data-theme='matrix'] .single-panel,
+html[data-theme='far-manager'] .single-panel,
+html[data-theme='matrix'] .changes-panel,
+html[data-theme='far-manager'] .changes-panel,
+html[data-theme='matrix'] .diff-panel,
+html[data-theme='far-manager'] .diff-panel,
+html[data-theme='matrix'] .dashboard-section,
+html[data-theme='far-manager'] .dashboard-section,
+html[data-theme='matrix'] .config-card,
+html[data-theme='far-manager'] .config-card,
+html[data-theme='matrix'] .tool-modal,
+html[data-theme='far-manager'] .tool-modal,
+html[data-theme='matrix'] .review-fix-prompt-modal,
+html[data-theme='far-manager'] .review-fix-prompt-modal,
+html[data-theme='matrix'] .review-empty,
+html[data-theme='far-manager'] .review-empty,
+html[data-theme='matrix'] .review-results,
+html[data-theme='far-manager'] .review-results,
+html[data-theme='matrix'] .linkedin-card,
+html[data-theme='far-manager'] .linkedin-card,
+html[data-theme='matrix'] .pr-panel,
+html[data-theme='far-manager'] .pr-panel,
+html[data-theme='matrix'] .quiet-box,
+html[data-theme='far-manager'] .quiet-box {
+  border-color: var(--retro-line);
+  border-radius: var(--retro-radius);
+  background: var(--retro-panel-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+html[data-theme='matrix'] .shell-segments,
+html[data-theme='far-manager'] .shell-segments,
+html[data-theme='matrix'] .shell-menu > summary,
+html[data-theme='far-manager'] .shell-menu > summary,
+html[data-theme='matrix'] .shell-dropdown,
+html[data-theme='far-manager'] .shell-dropdown,
+html[data-theme='matrix'] .changes-actions-popover,
+html[data-theme='far-manager'] .changes-actions-popover {
+  border-color: var(--retro-line);
+  border-radius: var(--retro-radius);
+  background: var(--retro-panel-bg-2);
+  box-shadow: var(--retro-glow);
+}
+
+html[data-theme='matrix'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled),
+html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled),
+html[data-theme='matrix'] input,
+html[data-theme='far-manager'] input,
+html[data-theme='matrix'] textarea,
+html[data-theme='far-manager'] textarea,
+html[data-theme='matrix'] select,
+html[data-theme='far-manager'] select {
+  border-radius: var(--retro-radius);
+}
+
+html[data-theme='matrix'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 52%, #001005);
+  color: var(--text-strong);
+  background:
+    linear-gradient(180deg, rgba(0, 255, 106, 0.12), rgba(0, 12, 6, 0.78));
+  text-shadow: 0 0 8px rgba(0, 255, 106, 0.32);
+}
+
+html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled) {
+  border-color: #00ffff;
+  color: #ffffff;
+  background:
+    linear-gradient(180deg, #0030a8, #001a70);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.20), inset -1px -1px 0 rgba(0, 0, 0, 0.36);
+}
+
+html[data-theme='matrix'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
+html[data-theme='matrix'] .shell-dropdown-item:hover,
+html[data-theme='matrix'] .change-row:hover,
+html[data-theme='matrix'] .history-row:hover {
+  border-color: var(--accent);
+  background: rgba(0, 255, 106, 0.14);
+  box-shadow: 0 0 18px rgba(0, 255, 106, 0.16);
+}
+
+html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
+html[data-theme='far-manager'] .shell-dropdown-item:hover,
+html[data-theme='far-manager'] .change-row:hover,
+html[data-theme='far-manager'] .history-row:hover {
+  border-color: #ffff00;
+  color: #ffff00;
+  background: #0052d6;
+}
+
+html[data-theme='matrix'] .shell-theme-item.active,
+html[data-theme='matrix'] .segmented button.active,
+html[data-theme='matrix'] .search-scope-toggle button.active,
+html[data-theme='matrix'] .github-filter-segment button.active {
+  color: var(--accent-contrast);
+  background: linear-gradient(90deg, #00ff6a, #51ff9e);
+  box-shadow: 0 0 22px rgba(0, 255, 106, 0.20);
+}
+
+html[data-theme='far-manager'] .shell-theme-item.active,
+html[data-theme='far-manager'] .segmented button.active,
+html[data-theme='far-manager'] .search-scope-toggle button.active,
+html[data-theme='far-manager'] .github-filter-segment button.active {
+  border-color: #ffff00;
+  color: #000080;
+  background: #ffff00;
+  box-shadow: none;
+}
+
+html[data-theme='matrix'] .shell-theme-dot,
+html[data-theme='far-manager'] .shell-theme-dot {
+  box-shadow: 0 0 14px currentColor;
+}

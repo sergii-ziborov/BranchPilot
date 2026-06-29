@@ -4,6 +4,7 @@ import type { ViewMode } from '../../lib/viewMode'
 import { dashboardRepoMeta, dashboardStateLabel, matchesDashboardRepository, matchesDashboardStaleBranch } from '../../lib/dashboardLabels'
 import { formatDate } from '../../lib/format'
 import { Stat } from '../primitives'
+import { CountBadge } from '../CountBadge'
 
 export function DashboardView({
   repositoryDashboard,
@@ -161,7 +162,7 @@ export function DashboardView({
                   <h3>Contributors</h3>
                   <p>Top committers by share of commit history.</p>
                 </div>
-                <span className="dash-count tone-info">{contributorStats.length}</span>
+                <CountBadge count={contributorStats.length} tone="info" />
               </div>
               <div className="rhythm-leaderboard">
                 {contributorStats.slice(0, 8).map((person, index) => {
@@ -241,7 +242,7 @@ export function DashboardView({
                   <h3>Repository attention</h3>
                   <p>Dirty, conflicted, ahead, behind, and unavailable repositories.</p>
                 </div>
-                <span className="dash-count tone-warn">{attentionRepositories.length}</span>
+                <CountBadge count={attentionRepositories.length} tone="warn" />
               </div>
               {attentionRepositories.length === 0 ? (
                 <div className="quiet-box">No repository needs attention.</div>
@@ -275,7 +276,7 @@ export function DashboardView({
                   <h3>PR/MR attention</h3>
                   <p>Current branch pull request signal from the GitHub CLI bridge.</p>
                 </div>
-                <span className="dash-count tone-info">{pullRequests.length > 0 ? pullRequests.length : <GitPullRequest size={15} />}</span>
+                <CountBadge count={pullRequests.length > 0 ? pullRequests.length : <GitPullRequest size={15} />} tone="info" />
               </div>
               <article className="dashboard-callout">
                 <strong>{currentPullRequest?.title ?? 'Current branch PR'}</strong>
@@ -303,7 +304,7 @@ export function DashboardView({
                   <h3>Conflicts</h3>
                   <p>Merge, rebase, cherry-pick, and conflicted-file signals.</p>
                 </div>
-                <span className="dash-count tone-danger">{conflictedRepositories.length}</span>
+                <CountBadge count={conflictedRepositories.length} tone="danger" />
               </div>
               {conflictedRepositories.length === 0 ? (
                 <div className="quiet-box">No conflicts detected.</div>
@@ -335,7 +336,7 @@ export function DashboardView({
                   <h3>Stale branches</h3>
                   <p>Local branches older than {dashboard.staleBranchThresholdDays} days.</p>
                 </div>
-                <span className="dash-count tone-muted">{staleBranches.length}</span>
+                <CountBadge count={staleBranches.length} tone="muted" />
               </div>
               {staleBranches.length === 0 ? (
                 <div className="quiet-box">No stale local branches detected.</div>

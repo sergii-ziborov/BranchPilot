@@ -3,6 +3,7 @@ import type { ApiResult, BranchPilotApi, RepositorySnapshot } from '../shared/br
 import { branchPilotErrorText } from '../shared/branchPilot'
 import type { RequestConfirmation } from '../lib/prompts'
 import type { ViewMode } from '../lib/viewMode'
+import { mergeBranchCandidates } from '../lib/mergeCandidates'
 
 /** Owns merge/rebase start and conflict-resolution handlers. */
 export function useMerge({
@@ -36,7 +37,7 @@ export function useMerge({
   useEffect(() => {
     if (!snapshot) return
 
-    const mergeCandidates = snapshot.branches.filter((branch) => !branch.current)
+    const mergeCandidates = mergeBranchCandidates(snapshot)
 
     if (!selectedMergeBranch || !mergeCandidates.some((branch) => branch.name === selectedMergeBranch)) {
       setSelectedMergeBranch(mergeCandidates[0]?.name ?? '')

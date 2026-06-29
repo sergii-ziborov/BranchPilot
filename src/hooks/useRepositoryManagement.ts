@@ -47,6 +47,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   const [cloneTargetName, setCloneTargetName] = useState('')
   const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
   const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
+  const [repositoryPickerOpen, setRepositoryPickerOpen] = useState(false)
   const dashboardRequestIdRef = useRef(0)
 
   const filteredRecentRepositories = useMemo(() => {
@@ -153,17 +154,8 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     }
   }
 
-  async function chooseRepository() {
-    if (!api) return
-    await runBusyOperation('Opening repository...', async () => {
-      const result = await api.chooseAndOpenRepository()
-
-      if (result.ok && result.data) {
-        applySnapshot(result.data, 'Repository opened.')
-      } else if (!result.ok) {
-        setError(result.error.message)
-      }
-    })
+  function chooseRepository() {
+    setRepositoryPickerOpen(true)
   }
 
   async function openRepository(path: string): Promise<boolean> {
@@ -173,6 +165,18 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
       applySnapshotResult(result, 'Repository opened.')
       if (result.ok) {
         try { localStorage.setItem('bp-repo', path) } catch { /* ignore */ }
+      }
+      return result.ok
+    })
+  }
+
+  async function initializeRepository(path: string): Promise<boolean> {
+    if (!api) return false
+    return runBusyOperation('Initializing repository...', async () => {
+      const result = await api.initializeRepository(path)
+      applySnapshotResult(result, 'Repository initialized.')
+      if (result.ok) {
+        try { localStorage.setItem('bp-repo', result.data.summary.rootPath) } catch { /* ignore */ }
       }
       return result.ok
     })
@@ -261,10 +265,10 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   return {
     recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter,
     filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading,
-    dashboardRepositoryFilter, setDashboardRepositoryFilter,
+    dashboardRepositoryFilter, setDashboardRepositoryFilter, repositoryPickerOpen, setRepositoryPickerOpen,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
     loadRecentRepositories, loadRepositoryDashboard, silentRefreshDashboard, toggleRepositoryPinned,
-    chooseRepository, openRepository, cloneRepository, refreshRepository,
+    chooseRepository, openRepository, initializeRepository, cloneRepository, refreshRepository,
     openRepoInEditor, openRepositoryTerminal
   }
 }
