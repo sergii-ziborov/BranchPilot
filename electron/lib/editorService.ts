@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises'
 import type { EditorPreference, EditorSettings, GitOperationResult, TerminalSettings } from '../../src/shared/branchPilot.js'
 import { CommandRunner } from './commandRunner.js'
 import {
@@ -33,22 +34,27 @@ export class ExternalEditorService {
   async openInEditor(
     targetPath: string,
     line?: number,
-    settings: EditorSettings = DEFAULT_EDITOR_SETTINGS
+    settings: EditorSettings = DEFAULT_EDITOR_SETTINGS,
+    column?: number,
+    selectionText?: string
   ): Promise<GitOperationResult> {
-    const codePath = line ? `${targetPath}:${line}` : targetPath
+    const location = await resolveEditorLocation(targetPath, line, column, selectionText)
+    const codePath = location.line
+      ? `${targetPath}:${location.line}${location.column ? `:${location.column}` : ''}`
+      : targetPath
 
     if (settings.preference === 'custom') {
       return this.openWithCustomCommand(targetPath, codePath, settings.customCommand)
     }
 
     if (settings.preference === 'auto') {
-      const openedWithCli = await this.openFirstAvailableCli(EDITOR_PRESETS, targetPath, line)
+      const openedWithCli = await this.openFirstAvailableCli(EDITOR_PRESETS, targetPath, location.line, location.column)
 
       if (openedWithCli) {
         return { message: `Opened in ${openedWithCli.label}` }
       }
 
-      const openedWithStandardLocation = await this.openFirstAvailableStandardLocation(EDITOR_PRESETS, targetPath, line)
+      const openedWithStandardLocation = await this.openFirstAvailableStandardLocation(EDITOR_PRESETS, targetPath, location.line, location.column)
 
       if (openedWithStandardLocation) {
         return { message: `Opened in ${openedWithStandardLocation.label}` }
@@ -62,7 +68,7 @@ export class ExternalEditorService {
     } else {
       const preset = EDITOR_PRESETS.find((candidate) => candidate.preference === settings.preference)
 
-      if (preset && await this.openWithPreset(preset, targetPath, line)) {
+      if (preset && await this.openWithPreset(preset, targetPath, location.line, location.column)) {
         return { message: `Opened in ${preset.label}` }
       }
     }
@@ -107,8 +113,8 @@ export class ExternalEditorService {
     }
   }
 
-  private async openWithPreset(preset: EditorPreset, targetPath: string, line?: number): Promise<boolean> {
-    const args = buildEditorArgs(preset.preference, targetPath, line)
+  private async openWithPreset(preset: EditorPreset, targetPath: string, line?: number, column?: number): Promise<boolean> {
+    const args = buildEditorArgs(preset.preference, targetPath, line, column)
 
     if (await this.tryCommand(preset.cli, args)) {
       return true
@@ -125,9 +131,9 @@ export class ExternalEditorService {
       : false
   }
 
-  private async openFirstAvailableCli(presets: EditorPreset[], targetPath: string, line?: number): Promise<EditorPreset | null> {
+  private async openFirstAvailableCli(presets: EditorPreset[], targetPath: string, line?: number, column?: number): Promise<EditorPreset | null> {
     for (const preset of presets) {
-      if (await this.tryCommand(preset.cli, buildEditorArgs(preset.preference, targetPath, line))) {
+      if (await this.tryCommand(preset.cli, buildEditorArgs(preset.preference, targetPath, line, column))) {
         return preset
       }
     }
@@ -138,10 +144,11 @@ export class ExternalEditorService {
   private async openFirstAvailableStandardLocation(
     presets: EditorPreset[],
     targetPath: string,
-    line?: number
+    line?: number,
+    column?: number
   ): Promise<EditorPreset | null> {
     for (const preset of presets) {
-      const args = buildEditorArgs(preset.preference, targetPath, line)
+      const args = buildEditorArgs(preset.preference, targetPath, line, column)
 
       for (const command of getStandardEditorCommands(preset.preference, this.platform(), this.env())) {
         if (await this.tryCommand(command, args)) {
@@ -249,6 +256,61 @@ function editorFailureMessage(preference: EditorPreference): string {
 
   const preset = EDITOR_PRESETS.find((candidate) => candidate.preference === preference)
   return preset ? `Could not open ${preset.label}.` : 'Could not open the configured editor.'
+}
+
+async function resolveEditorLocation(
+  targetPath: string,
+  line?: number,
+  column?: number,
+  selectionText?: string
+): Promise<{ line?: number; column?: number }> {
+  const normalizedLine = normalizePositiveInteger(line)
+  const normalizedColumn = normalizePositiveInteger(column)
+  const needle = normalizeSelectionText(selectionText)
+
+  if (!needle) {
+    return { line: normalizedLine, column: normalizedColumn }
+  }
+
+  const content = await fs.readFile(targetPath, 'utf8').catch(() => '')
+  if (!content) {
+    return { line: normalizedLine, column: normalizedColumn }
+  }
+
+  const lines = content.split(/\r\n|\n|\r/)
+
+  if (normalizedLine) {
+    const lineText = lines[normalizedLine - 1]
+    const firstNeedleLine = needle.split('\n').find((candidate) => candidate.trim())?.trim() ?? needle
+    const lineIndex = lineText?.indexOf(firstNeedleLine)
+
+    if (lineIndex !== undefined && lineIndex >= 0) {
+      return { line: normalizedLine, column: lineIndex + 1 }
+    }
+  }
+
+  const contentIndex = content.indexOf(needle)
+  if (contentIndex < 0) {
+    return { line: normalizedLine, column: normalizedColumn }
+  }
+
+  const before = content.slice(0, contentIndex).split(/\r\n|\n|\r/)
+  return {
+    line: before.length,
+    column: before[before.length - 1].length + 1
+  }
+}
+
+function normalizePositiveInteger(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined
+  if (!Number.isFinite(value)) return undefined
+  const integer = Math.trunc(value)
+  return integer > 0 ? integer : undefined
+}
+
+function normalizeSelectionText(value: string | undefined): string | undefined {
+  const normalized = value?.replace(/\r\n?/g, '\n').trim()
+  return normalized && normalized.length <= 2_000 ? normalized : undefined
 }
 
 function parseCommandTemplate(commandTemplate: string | undefined): { command: string; args: string[] } | null {

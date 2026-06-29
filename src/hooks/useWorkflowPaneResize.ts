@@ -12,7 +12,7 @@ const DEFAULT_WORKFLOW_PANE_WIDTH = 430
 const MIN_WORKFLOW_PANE_WIDTH = 320
 const MAX_WORKFLOW_PANE_WIDTH = 760
 const MIN_WORKFLOW_DETAIL_WIDTH = 520
-const WORKFLOW_SPLITTER_WIDTH = 10
+const WORKFLOW_SPLITTER_WIDTH = 6
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)

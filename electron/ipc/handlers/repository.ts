@@ -14,7 +14,10 @@ import type {
   ChromeThemeRequest,
   CloneRepositoryRequest,
   CommitDetailsRequest,
+  CommitFileCompareRequest,
+  CommitFileContentRequest,
   CommitFileDiffRequest,
+  CssColorEditRequest,
   DailyReviewRequest,
   DiffContextRequest,
   DiffRequest,
@@ -22,12 +25,15 @@ import type {
   ProjectMemoryScanResult,
   RepositoryBrowserRequest,
   RepositoryBrowserSnapshot,
+  RepositoryFileContentRequest,
+  RepositoryFileWriteRequest,
   RepositoryPinRequest
 } from '../../../src/shared/branchPilot.js'
 import { createProjectMemoryMcpConfig } from '../../mcp/config.js'
 import { withProjectMemoryRefresh } from '../ipcTypes.js'
 import type { createIpcHelpers } from '../ipcHelpers.js'
 import type { RegisterIpcHandlersServices } from '../ipcTypes.js'
+import { detectRepositoryBrowserTech } from '../../lib/repositoryBrowserTech.js'
 
 function normalizeChromeThemeColor(value: string | undefined, fallback: string): string {
   const color = value?.trim()
@@ -134,11 +140,19 @@ export function registerRepositoryHandlers(
   handle('repository:browseDirectory', (request?: RepositoryBrowserRequest) => browseRepositoryDirectory(request))
   handle('repository:setPinned', (request: RepositoryPinRequest) => repositoryService.setRepositoryPinned(request))
   handle('repository:dashboard', (repoPath?: string) => repositoryService.dashboard.getRepositoryDashboard(repoPath))
+  handle('repository:files', (repoPath: string) => repositoryService.listRepositoryFiles(repoPath))
+  handle('repository:fileContent', (request: RepositoryFileContentRequest) => repositoryService.getRepositoryFileContent(request))
+  handle('repository:writeFile', async (request: RepositoryFileWriteRequest) =>
+    withProjectMemoryRefresh(await repositoryService.writeRepositoryFile(request))
+  )
   // A status refresh is not a meaningful user action — don't spam the activity log
   // (auto-refresh polls it, and the log feeds AI generation).
   handle('repository:refresh', (repoPath: string) => repositoryService.getSnapshot(repoPath))
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
   handle('repository:diffContext', (request: DiffContextRequest) => repositoryService.getDiffContext(request))
+  handle('repository:updateCssColor', async (request: CssColorEditRequest) =>
+    withProjectMemoryRefresh(await repositoryService.updateCssColor(request))
+  )
   handle('repository:imagePreview', (request: ImagePreviewRequest) => repositoryService.getImagePreview(request))
   handle('repository:contributionGraph', (request?: string | { repoPath?: string; repoPaths?: string[] }) => repositoryService.activity.getContributionGraph(request))
   handle('repository:rhythm', (repoPath?: string) => repositoryService.activity.getRepositoryRhythm(repoPath))
@@ -150,6 +164,8 @@ export function registerRepositoryHandlers(
   handle('repository:commitCard', (request: CommitDetailsRequest) => repositoryService.getCommitCard(request))
   handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))
   handle('repository:commitFileDiff', (request: CommitFileDiffRequest) => repositoryService.getCommitFileDiff(request))
+  handle('repository:commitFileContent', (request: CommitFileContentRequest) => repositoryService.getCommitFileContent(request))
+  handle('repository:commitFileCompareDiff', (request: CommitFileCompareRequest) => repositoryService.getCommitFileCompareDiff(request))
   handle('repository:projectMemory', (repoPath: string) => projectMemoryService.getProjectMemory(repoPath))
   handle('repository:projectWiki', (repoPath: string) => projectWikiService.getProjectWiki(repoPath))
   handleLogged('repository:scanProjectMemory', {
@@ -234,16 +250,18 @@ async function browseRepositoryDirectory(request?: RepositoryBrowserRequest): Pr
   const directories = dirents.filter((entry) => entry.isDirectory())
   const entries = await Promise.all(directories.map(async (entry) => {
     const entryPath = path.join(targetPath, entry.name)
-    const [gitRepository, entryStats] = await Promise.all([
+    const [gitRepository, entryStats, tech] = await Promise.all([
       isGitRepositoryDirectory(entryPath),
-      fs.stat(entryPath).catch(() => undefined)
+      fs.stat(entryPath).catch(() => undefined),
+      detectRepositoryBrowserTech(entryPath).catch(() => undefined)
     ])
 
     return {
       name: entry.name,
       path: entryPath,
       isGitRepository: gitRepository,
-      modifiedAt: entryStats?.mtime ? entryStats.mtime.toISOString() : undefined
+      modifiedAt: entryStats?.mtime ? entryStats.mtime.toISOString() : undefined,
+      tech
     }
   }))
 

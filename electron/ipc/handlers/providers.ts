@@ -46,7 +46,13 @@ export function registerProviderHandlers(
   handle('editor:getSettings', () => settingsStore.getEditorSettings())
   handle('editor:setSettings', (update: EditorSettingsUpdate) => settingsStore.setEditorSettings(update))
   handle('editor:open', async (request: EditorOpenRequest) =>
-    editorService.openInEditor(request.targetPath, request.line, await settingsStore.getEditorSettings())
+    editorService.openInEditor(
+      request.targetPath,
+      request.line,
+      await settingsStore.getEditorSettings(),
+      request.column,
+      request.selectionText
+    )
   )
   handle('terminal:getSettings', () => settingsStore.getTerminalSettings())
   handle('terminal:setSettings', (update: TerminalSettingsUpdate) => settingsStore.setTerminalSettings(update))

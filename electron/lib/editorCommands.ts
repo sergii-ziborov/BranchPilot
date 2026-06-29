@@ -45,13 +45,14 @@ export const EDITOR_PRESETS: EditorPreset[] = [
 export function buildEditorArgs(
   preference: Exclude<EditorPreference, 'auto' | 'custom'>,
   targetPath: string,
-  line?: number
+  line?: number,
+  column?: number
 ): string[] {
   if (!line) {
     return [targetPath]
   }
 
-  const targetWithLine = `${targetPath}:${line}`
+  const targetWithLine = column ? `${targetPath}:${line}:${column}` : `${targetPath}:${line}`
 
   if (preference === 'vscode' || preference === 'cursor') {
     return ['--goto', targetWithLine]

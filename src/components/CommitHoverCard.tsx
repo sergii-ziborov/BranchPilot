@@ -72,6 +72,9 @@ export function CommitHoverCard({
               <strong>{card.authorName || 'Unknown'}</strong>
               <span title={formatDate(card.authoredAt)}>{formatRelativeTime(card.authoredAt)}</span>
             </div>
+            <button type="button" className="commit-hover-head-copy" title="Copy full SHA" aria-label="Copy full SHA" onClick={() => navigator.clipboard.writeText(card.sha)}>
+              <Copy size={13} />
+            </button>
           </div>
           <div className="commit-hover-message">
             <strong>{card.subject || '(no subject)'}</strong>

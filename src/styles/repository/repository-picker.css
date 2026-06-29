@@ -144,8 +144,8 @@
   grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  min-height: 48px;
-  padding: 7px 10px;
+  min-height: 56px;
+  padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--text);
@@ -183,7 +183,7 @@
 .repository-picker-entry-text {
   display: grid;
   min-width: 0;
-  gap: 2px;
+  gap: 3px;
 }
 
 .repository-picker-entry-text strong,
@@ -203,11 +203,20 @@
   font-size: 11px;
 }
 
+.repository-picker-entry-tech {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-top: 2px;
+}
+
 .repository-picker-entry-meta {
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 5px;
+  max-width: min(250px, 32vw);
 }
 
 .repository-picker-badge {
@@ -241,6 +250,33 @@
   color: var(--accent-strong);
   border-color: color-mix(in srgb, var(--accent-strong) 40%, var(--border));
   background: color-mix(in srgb, var(--accent-strong) 10%, var(--panel));
+}
+
+.repository-picker-badge.tech {
+  max-width: 118px;
+  min-height: 20px;
+  padding: 0 7px;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+
+.repository-picker-badge.tech.language {
+  border-color: color-mix(in srgb, var(--accent-strong) 34%, var(--border));
+  background: color-mix(in srgb, var(--accent-strong) 9%, var(--surface));
+}
+
+.repository-picker-badge.tech.framework {
+  border-color: color-mix(in srgb, var(--success, #22c55e) 44%, var(--border));
+  color: color-mix(in srgb, var(--success, #22c55e) 78%, var(--text-strong));
+  background: color-mix(in srgb, var(--success, #22c55e) 12%, var(--surface));
+}
+
+.repository-picker-badge.tech.more {
+  max-width: none;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 10%, var(--surface));
 }
 
 .repository-picker-message {

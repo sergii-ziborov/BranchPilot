@@ -2,6 +2,7 @@ import { Code2, Columns2, FolderOpen, GitCommitHorizontal, Maximize2, Minimize2,
 import type {
   ApiResult,
   BranchPilotApi,
+  CssColorEditRequest,
   DiffContextResult,
   DiffHunk,
   DiffResult,
@@ -11,7 +12,7 @@ import type {
 } from '../../shared/branchPilot'
 import type { ChangeDiffMode } from '../../shared/changeStaging'
 import { ActionCard } from '../ActionCard'
-import { DiffPreview } from '../DiffView'
+import { DiffPreview, type DiffLineContextMenuTarget, type DiffLineEditorTarget } from '../DiffView'
 import { DiffStatBadges } from '../DiffStatBadges'
 import { IconButton } from '../IconButton'
 import { SegmentedControl } from '../SegmentedControl'
@@ -36,7 +37,8 @@ interface ChangesDiffPanelProps {
   api: BranchPilotApi | undefined
   canDiscardSelectedFile: boolean
   onDiscardSelected: () => void
-  onOpenContextMenu: (x: number, y: number, change: FileChange) => void
+  onOpenContextMenu: (x: number, y: number, change: FileChange, target?: DiffLineContextMenuTarget) => void
+  onOpenDiffLineInEditor: (target: DiffLineEditorTarget) => void
   diffMode: ChangeDiffMode
   diffDisplayMode: 'unified' | 'split'
   setDiffDisplayMode: (mode: 'unified' | 'split') => void
@@ -66,6 +68,7 @@ export function ChangesDiffPanel({
   canDiscardSelectedFile,
   onDiscardSelected,
   onOpenContextMenu,
+  onOpenDiffLineInEditor,
   diffMode,
   diffDisplayMode,
   setDiffDisplayMode,
@@ -106,6 +109,11 @@ export function ChangesDiffPanel({
   const mixedDiffOldPath = mixedDiffFile?.oldPath && mixedDiffFile.oldPath !== mixedDiffFile.newPath
     ? mixedDiffFile.oldPath
     : null
+  const updateCssColor = currentRepoPath && api
+    ? async (request: Omit<CssColorEditRequest, 'repoPath'>) => {
+        await runSnapshotAction('CSS color updated.', () => api.updateCssColor({ repoPath: currentRepoPath, ...request }))
+      }
+    : undefined
   const primaryDiffPreview = (
     <DiffPreview
       diff={diff}
@@ -133,6 +141,9 @@ export function ChangesDiffPanel({
       onDiscardLines={(patch) => discardSelectedLines(patch, diff?.staged ?? diffMode === 'staged')}
       onLoadContext={loadDiffContext}
       onExpandContext={() => setDiffExpanded(true)}
+      onUpdateCssColor={updateCssColor}
+      onOpenLine={onOpenDiffLineInEditor}
+      onOpenContextMenu={(target) => selectedChange && onOpenContextMenu(target.x, target.y, selectedChange, target)}
     />
   )
   const relatedDiffPreview = showRelatedDiff && relatedDiff ? (
@@ -161,6 +172,9 @@ export function ChangesDiffPanel({
       onDiscardLines={(patch) => discardSelectedLines(patch, relatedDiff.staged)}
       onLoadContext={loadDiffContext}
       onExpandContext={() => setDiffExpanded(true)}
+      onUpdateCssColor={updateCssColor}
+      onOpenLine={onOpenDiffLineInEditor}
+      onOpenContextMenu={(target) => selectedChange && onOpenContextMenu(target.x, target.y, selectedChange, target)}
     />
   ) : null
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { Code2, Copy, FolderOpen, MinusSquare, PlusSquare, Terminal, Trash2 } from 'lucide-react'
+import { Code2, Copy, Eye, FolderOpen, MinusSquare, PlusSquare, Terminal, Trash2 } from 'lucide-react'
 import type {
   ApiResult, AssistantPolicyStatus, BranchPilotApi, DiffHunk, DiffResult, ImagePreview,
   FileChange, GitConfigSnapshot, GitHubAccountSummary, GitHubCliStatus, PatchScope, RepositorySnapshot
@@ -13,7 +13,9 @@ import { useVirtualList } from '../../hooks/useVirtualList'
 import { useWorkflowPaneResize } from '../../hooks/useWorkflowPaneResize'
 import { CommitComposer } from '../changes/CommitComposer'
 import { ChangesDiffPanel } from '../changes/ChangesDiffPanel'
+import { ChangesInternalEditor } from '../changes/ChangesInternalEditor'
 import { ChangeListPanel, type ChangeSearchMode } from '../changes/ChangeListPanel'
+import type { DiffLineContextMenuTarget, DiffLineEditorTarget } from '../DiffView'
 
 function buildRepoFilePath(repoPath: string, filePath: string): string {
   const separator = repoPath.includes('\\') ? '\\' : '/'
@@ -26,6 +28,16 @@ function buildRepoFileDirectory(repoPath: string, filePath: string): string {
   const targetPath = buildRepoFilePath(repoPath, filePath)
   const lastSlash = Math.max(targetPath.lastIndexOf('/'), targetPath.lastIndexOf('\\'))
   return lastSlash > 0 ? targetPath.slice(0, lastSlash) : repoPath
+}
+
+function editorRequestFromDiffTarget(repoPath: string, fallbackPath: string, target?: DiffLineEditorTarget) {
+  const filePath = target?.filePath ?? fallbackPath
+  return {
+    targetPath: buildRepoFilePath(repoPath, filePath),
+    line: target?.line,
+    column: target?.column,
+    selectionText: target?.selectionText
+  }
 }
 
 export function ChangesView({
@@ -138,7 +150,8 @@ export function ChangesView({
   } = useWorkflowPaneResize()
   const changesPanelRef = useRef<HTMLDivElement>(null)
   const patchActionsMenuRef = useRef<HTMLDetailsElement>(null)
-  const [diffMenu, setDiffMenu] = useState<{ x: number; y: number; change: FileChange | null } | null>(null)
+  const [diffMenu, setDiffMenu] = useState<{ x: number; y: number; change: FileChange | null; target?: DiffLineContextMenuTarget } | null>(null)
+  const [internalEditorPath, setInternalEditorPath] = useState<string | null>(null)
 
   useEffect(() => {
     if (!diffMenu) return
@@ -190,9 +203,29 @@ export function ChangesView({
 
   const openInEditorFromMenu = () => {
     const change = diffMenu?.change ?? selectedChange
+    const target = diffMenu?.target
     setDiffMenu(null)
     if (!change || !currentRepoPath || !api) return
-    void api.openInEditor({ targetPath: buildRepoFilePath(currentRepoPath, change.path) }).then((result) => {
+    void api.openInEditor(editorRequestFromDiffTarget(currentRepoPath, change.path, target)).then((result) => {
+      setNotice(result.ok ? result.data.message || 'File opened in editor.' : result.error.message)
+    })
+  }
+
+  const openInternalEditorFromMenu = () => {
+    const change = diffMenu?.change ?? selectedChange
+    setDiffMenu(null)
+    if (!change) return
+    setInternalEditorPath(change.path)
+  }
+
+  const openDiffLineInEditor = (target: DiffLineEditorTarget) => {
+    if (!currentRepoPath || !api) return
+    void api.openInEditor({
+      targetPath: buildRepoFilePath(currentRepoPath, target.filePath),
+      line: target.line,
+      column: target.column,
+      selectionText: target.selectionText
+    }).then((result) => {
       setNotice(result.ok ? result.data.message || 'File opened in editor.' : result.error.message)
     })
   }
@@ -330,34 +363,47 @@ export function ChangesView({
         <span />
       </div>
 
-      <ChangesDiffPanel
-        noChanges={noChanges}
-        selectedChange={selectedChange}
-        selectedDiffStats={selectedDiffStats}
-        selectedRelatedDiffStats={selectedRelatedDiffStats}
-        currentRepoPath={currentRepoPath}
-        busy={busy}
-        api={api}
-        canDiscardSelectedFile={canDiscardSelectedFile}
-        onDiscardSelected={discardFromMenu}
-        onOpenContextMenu={(x, y, change) => setDiffMenu({ x, y, change })}
-        diffMode={diffMode}
-        diffDisplayMode={diffDisplayMode}
-        setDiffDisplayMode={setDiffDisplayMode}
-        diffIgnoreWhitespace={diffIgnoreWhitespace}
-        setDiffIgnoreWhitespace={setDiffIgnoreWhitespace}
-        diffExpanded={diffExpanded}
-        setDiffExpanded={setDiffExpanded}
-        diff={diff}
-        relatedDiff={relatedDiff}
-        imagePreview={imagePreview}
-        stageSelectedHunk={stageSelectedHunk}
-        unstageSelectedHunk={unstageSelectedHunk}
-        discardSelectedHunk={discardSelectedHunk}
-        discardSelectedLines={discardSelectedLines}
-        loadDiffContext={loadDiffContext}
-        runSnapshotAction={runSnapshotAction}
-      />
+      {internalEditorPath ? (
+        <ChangesInternalEditor
+          api={api}
+          currentRepoPath={currentRepoPath}
+          snapshot={snapshot}
+          initialFilePath={internalEditorPath}
+          onBack={() => setInternalEditorPath(null)}
+          setNotice={setNotice}
+          runSnapshotAction={runSnapshotAction}
+        />
+      ) : (
+        <ChangesDiffPanel
+          noChanges={noChanges}
+          selectedChange={selectedChange}
+          selectedDiffStats={selectedDiffStats}
+          selectedRelatedDiffStats={selectedRelatedDiffStats}
+          currentRepoPath={currentRepoPath}
+          busy={busy}
+          api={api}
+          canDiscardSelectedFile={canDiscardSelectedFile}
+          onDiscardSelected={discardFromMenu}
+          onOpenContextMenu={(x, y, change, target) => setDiffMenu({ x, y, change, target })}
+          onOpenDiffLineInEditor={openDiffLineInEditor}
+          diffMode={diffMode}
+          diffDisplayMode={diffDisplayMode}
+          setDiffDisplayMode={setDiffDisplayMode}
+          diffIgnoreWhitespace={diffIgnoreWhitespace}
+          setDiffIgnoreWhitespace={setDiffIgnoreWhitespace}
+          diffExpanded={diffExpanded}
+          setDiffExpanded={setDiffExpanded}
+          diff={diff}
+          relatedDiff={relatedDiff}
+          imagePreview={imagePreview}
+          stageSelectedHunk={stageSelectedHunk}
+          unstageSelectedHunk={unstageSelectedHunk}
+          discardSelectedHunk={discardSelectedHunk}
+          discardSelectedLines={discardSelectedLines}
+          loadDiffContext={loadDiffContext}
+          runSnapshotAction={runSnapshotAction}
+        />
+      )}
 
       {diffMenu && contextMenuChange && (
           <div className="context-menu" role="menu" style={{ top: diffMenu.y, left: diffMenu.x }}>
@@ -395,7 +441,11 @@ export function ChangesView({
             <div className="context-menu-separator" role="separator" />
             <button type="button" role="menuitem" title="Open this file in your editor" onClick={openInEditorFromMenu} disabled={busy || !api}>
               <Code2 size={15} />
-              Open in editor
+              {diffMenu.target?.selectionText ? 'Open selection in editor' : diffMenu.target?.line ? 'Open line in editor' : 'Open in editor'}
+            </button>
+            <button type="button" role="menuitem" title="Preview and edit this file inside BranchPilot" onClick={openInternalEditorFromMenu} disabled={busy || !contextMenuChange}>
+              <Eye size={15} />
+              Preview in BranchPilot
             </button>
             <button type="button" role="menuitem" title="Open a terminal in this file's folder" onClick={openTerminalFromMenu} disabled={busy || !api}>
               <Terminal size={15} />

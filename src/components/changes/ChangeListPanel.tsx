@@ -249,6 +249,7 @@ export function ChangeListPanel({
                     aria-selected={isSelected}
                     onContextMenu={(event) => {
                       event.preventDefault()
+                      event.stopPropagation()
                       setDiffMenu({ x: event.clientX, y: event.clientY, change })
                     }}
                   >

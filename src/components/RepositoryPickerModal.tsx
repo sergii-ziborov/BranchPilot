@@ -186,11 +186,24 @@ export function RepositoryPickerModal({
                   <span className="repository-picker-entry-text">
                     <strong>{entry.name}</strong>
                     <small>{shortPath(entry.path)}</small>
+                    {entry.tech && (
+                      <span className="repository-picker-entry-tech">
+                        {entry.tech.languages.map((language) => (
+                          <span className="repository-picker-badge tech language" key={`${entry.path}-${language}`}>{language}</span>
+                        ))}
+                        {entry.tech.extraLanguageCount > 0 && (
+                          <span className="repository-picker-badge tech more">+{entry.tech.extraLanguageCount}</span>
+                        )}
+                        {entry.tech.framework && (
+                          <span className="repository-picker-badge tech framework">{entry.tech.framework}</span>
+                        )}
+                      </span>
+                    )}
                   </span>
                   <span className="repository-picker-entry-meta">
                     {active && <span className="repository-picker-badge active"><Check size={12} /> Current</span>}
                     {recent && !active && <span className="repository-picker-badge recent"><Star size={12} /> Recent</span>}
-            {entry.isGitRepository && <span className="repository-picker-badge git">git</span>}
+                    {entry.isGitRepository && <span className="repository-picker-badge git">git</span>}
                   </span>
                 </button>
               )

@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
-import { Code2, Copy, ExternalLink, GitCommitHorizontal, ListFilter, RotateCcw, Search, Trash2, X } from 'lucide-react'
+import { Code2, Copy, ExternalLink, Eye, GitCommitHorizontal, ListFilter, RotateCcw, Search, Trash2, X } from 'lucide-react'
 import type { BranchPilotApi, CommitCard, CommitDetails, CommitSummary, DiffResult, ImagePreview, RepositorySnapshot } from '../../shared/branchPilot'
 import { getProviderCommitUrl } from '../../shared/providerRemote'
 import { formatDate } from '../../lib/format'
-import { fileStatusToken } from '../../lib/fileChangeLabels'
-import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
 import type { ViewMode } from '../../lib/viewMode'
 import { useVirtualList } from '../../hooks/useVirtualList'
 import { useHistoryContextMenus } from '../../hooks/useHistoryContextMenus'
-import { DiffPreview } from '../DiffView'
+import { useHistoryFilePreview } from '../../hooks/useHistoryFilePreview'
 import { ViewSwitch } from '../ViewSwitch'
 import { useWorkflowPaneResize } from '../../hooks/useWorkflowPaneResize'
 import { HistoryGraphCanvas } from '../HistoryGraphCanvas'
 import { CommitHoverCard, type CommitHoverCardAnchor } from '../CommitHoverCard'
+import { HistoryCommitFilesPanel } from '../history/HistoryCommitFilesPanel'
+import { HistoryCommitPreviewWorkspace } from '../history/HistoryCommitPreviewWorkspace'
 import {
   HISTORY_GRAPH_TEXT_GUTTER,
   buildHistoryGraphModel,
@@ -97,6 +97,7 @@ export function HistoryView({
   const historyGraphWidth = useMemo(() => getHistoryGraphWidth(filteredHistory), [filteredHistory])
   const historyDetailLoading = commitDetailsLoading || commitFileDiffLoading
   const historyDetailLoadingLabel = commitDetailsLoading ? 'Resolving commit' : 'Loading file diff'
+  const { filePreview, setFilePreview, openCommitFilePreview } = useHistoryFilePreview({ api, currentRepoPath, commitDetails })
   const closeHistorySearchFilter = () => {
     if (historySearchFilterRef.current) historySearchFilterRef.current.open = false
   }
@@ -244,6 +245,17 @@ export function HistoryView({
     applyCommitOperationFromMenu
   } = useHistoryContextMenus({ api, currentRepoPath, setSelectedCommitSha, applyCommitOperation })
 
+  const copySelectedCommitSha = () => {
+    if (!commitDetails) return
+    void navigator.clipboard.writeText(commitDetails.sha)
+  }
+
+  const openPreviewFromMenu = () => {
+    const path = fileMenu?.path
+    setFileMenu(null)
+    if (path) openCommitFilePreview(path)
+  }
+
   return (
     <section className="content-grid changes-workflow-grid history-grid" ref={splitGridRef} style={splitStyle}>
       <div className="changes-panel">
@@ -351,7 +363,7 @@ export function HistoryView({
                     onClick={() => setSelectedCommitSha(commit.sha)}
                     onContextMenu={(event) => {
                       event.preventDefault()
-                      setSelectedCommitSha(commit.sha)
+                      event.stopPropagation()
                       setCommitMenu({ x: event.clientX, y: event.clientY, commit })
                     }}
                   >
@@ -392,6 +404,12 @@ export function HistoryView({
                   ? `${commitDetails.shortSha} · ${commitDetails.authorName} · ${formatDate(commitDetails.authoredAt)}`
                   : 'Select a commit'}
               </p>
+              {commitDetails && (
+                <button type="button" className="history-commit-inline-copy" title="Copy full commit SHA" aria-label="Copy full commit SHA" onClick={copySelectedCommitSha}>
+                  <Copy size={13} />
+                  Copy SHA
+                </button>
+              )}
             </div>
             <div className="panel-actions">
               {selectedCommitProviderUrl && (
@@ -411,7 +429,7 @@ export function HistoryView({
                 className="secondary icon-button"
                 title="Copy full commit SHA"
                 aria-label="Copy full commit SHA"
-                onClick={() => commitDetails && navigator.clipboard.writeText(commitDetails.sha)}
+                onClick={copySelectedCommitSha}
                 disabled={!commitDetails}
               >
                 <Copy size={17} />
@@ -452,56 +470,29 @@ export function HistoryView({
           )}
         </div>
 
-        <div className="history-detail-grid">
-          <div className="commit-file-column">
-            <div className="commit-file-list-heading">
-              {commitDetails ? `${commitDetails.files.length} changed file${commitDetails.files.length === 1 ? '' : 's'}` : 'Files'}
-            </div>
-            <div className="commit-file-list">
-              {commitDetails && commitDetails.files.length === 0 && <div className="quiet-box">No changed files.</div>}
-              {commitDetails?.files.map((file) => {
-                const fileTypeIcon = fileTypeIconForPath(file.path)
-
-                return (
-                  <button
-                    className={selectedCommitFilePath === file.path ? 'commit-file-row selected' : 'commit-file-row'}
-                    type="button"
-                    key={`${file.rawStatus}-${file.path}-${file.originalPath ?? ''}`}
-                    onClick={() => commitDetails && loadCommitFileDiff(commitDetails.sha, file.path)}
-                    onContextMenu={(event) => {
-                      event.preventDefault()
-                      if (commitDetails) loadCommitFileDiff(commitDetails.sha, file.path)
-                      setFileMenu({ x: event.clientX, y: event.clientY, path: file.path })
-                    }}
-                    title={file.path}
-                  >
-                    <span className={`file-status status-${file.status}`}>{fileStatusToken(file.status)}</span>
-                    <span className="file-label">
-                      <span className={`file-type-icon file-type-${fileTypeIcon.tone}`} title={fileTypeIcon.title} aria-hidden="true">
-                        {fileTypeIcon.label}
-                      </span>
-                      <span className="file-name">{file.path}</span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          <div className="commit-diff-column">
-            <DiffPreview diff={commitFileDiff} imagePreview={commitImagePreview} />
-          </div>
-        </div>
+        {filePreview && commitDetails ? (
+          <HistoryCommitPreviewWorkspace
+            api={api}
+            currentRepoPath={currentRepoPath}
+            history={history}
+            commitDetails={commitDetails}
+            preview={filePreview}
+            onBack={() => setFilePreview(null)}
+            openCommitFilePreview={openCommitFilePreview}
+          />
+        ) : (
+          <HistoryCommitFilesPanel
+            commitDetails={commitDetails}
+            selectedCommitFilePath={selectedCommitFilePath}
+            commitFileDiff={commitFileDiff}
+            commitImagePreview={commitImagePreview}
+            loadCommitFileDiff={loadCommitFileDiff}
+            openCommitFilePreview={openCommitFilePreview}
+            setFileMenu={setFileMenu}
+          />
+        )}
         {historyDetailLoading && (
           <div className="history-detail-loading" role="status" aria-live="polite">
-            <div className="history-signal-loader" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
             <div className="history-detail-loading-copy">
               <strong>{historyDetailLoadingLabel}</strong>
               <span>{selectedCommitSha?.slice(0, 7) ?? 'history'}</span>
@@ -512,9 +503,13 @@ export function HistoryView({
 
       {fileMenu && (
         <div className="context-menu" role="menu" style={{ top: fileMenu.y, left: fileMenu.x }}>
-          <button type="button" role="menuitem" title="Open this file in your editor" onClick={openInEditorFromMenu} disabled={busy || !api}>
+          <button type="button" role="menuitem" title="Preview this file as it exists in the selected commit" onClick={openPreviewFromMenu} disabled={!api || !commitDetails}>
+            <Eye size={15} />
+            Preview at commit
+          </button>
+          <button type="button" role="menuitem" title="Open the current working-tree file in your editor" onClick={openInEditorFromMenu} disabled={busy || !api}>
             <Code2 size={15} />
-            Open in editor
+            Open current file in editor
           </button>
           <button type="button" role="menuitem" title="Copy the absolute file path" onClick={copyPathFromMenu}>
             <Copy size={15} />

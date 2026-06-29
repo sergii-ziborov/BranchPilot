@@ -1,6 +1,8 @@
 export interface EditorOpenRequest {
   targetPath: string
   line?: number
+  column?: number
+  selectionText?: string
 }
 
 export type EditorPreference = 'auto' | 'vscode' | 'cursor' | 'webstorm' | 'rider' | 'sublime' | 'custom'

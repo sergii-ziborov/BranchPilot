@@ -14,6 +14,9 @@ import type {
   CommitCard,
   CommitDetails,
   CommitDetailsRequest,
+  CommitFileCompareRequest,
+  CommitFileContentRequest,
+  CommitFileContentResult,
   CommitFileDiffRequest,
   CommitMessageGenerationRequest,
   CommitRequest,
@@ -26,6 +29,7 @@ import type {
   CreateStashRequest,
   CreateTagRequest,
   CreateWorktreeRequest,
+  CssColorEditRequest,
   DailyReviewReport,
   DailyReviewRequest,
   DeleteBranchRequest,
@@ -36,6 +40,10 @@ import type {
   ContributorStat,
   ContributorStatsRequest,
   RepositoryRhythm,
+  RepositoryFileContentRequest,
+  RepositoryFileContentResult,
+  RepositoryFileEntry,
+  RepositoryFileWriteRequest,
   DiffContextRequest,
   DiffContextResult,
   DiffRequest,
@@ -272,8 +280,12 @@ export interface BranchPilotApi {
   setRepositoryPinned: (request: RepositoryPinRequest) => Promise<ApiResult<RecentRepository[]>>
   getRepositoryDashboard: (repoPath?: string) => Promise<ApiResult<RepositoryDashboardSnapshot>>
   refreshRepository: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
+  listRepositoryFiles: (repoPath: string) => Promise<ApiResult<RepositoryFileEntry[]>>
+  getRepositoryFileContent: (request: RepositoryFileContentRequest) => Promise<ApiResult<RepositoryFileContentResult>>
+  writeRepositoryFile: (request: RepositoryFileWriteRequest) => Promise<ApiResult<RepositorySnapshot>>
   getDiff: (request: DiffRequest) => Promise<ApiResult<DiffResult>>
   getDiffContext: (request: DiffContextRequest) => Promise<ApiResult<DiffContextResult>>
+  updateCssColor: (request: CssColorEditRequest) => Promise<ApiResult<RepositorySnapshot>>
   getImagePreview: (request: ImagePreviewRequest) => Promise<ApiResult<ImagePreview>>
   getContributionGraph: (request?: string | RepositoryScopeRequest) => Promise<ApiResult<ContributionGraph>>
   getRepositoryRhythm: (repoPath?: string) => Promise<ApiResult<RepositoryRhythm>>
@@ -284,6 +296,8 @@ export interface BranchPilotApi {
   getCommitCard: (request: CommitDetailsRequest) => Promise<ApiResult<CommitCard>>
   getCommitDetails: (request: CommitDetailsRequest) => Promise<ApiResult<CommitDetails>>
   getCommitFileDiff: (request: CommitFileDiffRequest) => Promise<ApiResult<DiffResult>>
+  getCommitFileContent: (request: CommitFileContentRequest) => Promise<ApiResult<CommitFileContentResult>>
+  getCommitFileCompareDiff: (request: CommitFileCompareRequest) => Promise<ApiResult<DiffResult>>
   getProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemorySnapshot | null>>
   scanProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemoryScanResult>>
   getProjectMemoryMcpConfig: (repoPath: string) => Promise<ApiResult<ProjectMemoryMcpConfig>>

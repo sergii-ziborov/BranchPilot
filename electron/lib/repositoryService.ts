@@ -5,9 +5,11 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import type {
   CloneRepositoryRequest,
+  CssColorEditRequest,
   ImagePreview,
   ImagePreviewRequest,
   RecentRepository,
+  RepositoryFileWriteRequest,
   RepositoryPinRequest,
   RepositorySnapshot
 } from '../../src/shared/branchPilot.js'
@@ -40,6 +42,19 @@ import { RepositoryBranchService } from './repositoryService.branches.js'
 import { RepositoryMergeService } from './repositoryService.merge.js'
 import { RepositoryStagingService } from './repositoryService.staging.js'
 import { RepositoryCommitService } from './repositoryService.commits.js'
+
+const CSS_COLOR_EDIT_PATH_RE = /\.(?:css|scss|sass|less|pcss|postcss)$/i
+const CSS_COLOR_EDIT_VALUE_RE = /^(?:#[\da-f]{3,8}|rgba?\([^)]+\))$/i
+
+function normalizeCssColorEditValue(value: string, label: string): string {
+  const trimmed = value.trim()
+
+  if (!trimmed || trimmed.length > 128 || /[\0\r\n]/.test(trimmed) || !CSS_COLOR_EDIT_VALUE_RE.test(trimmed)) {
+    throw new BranchPilotUserError('invalid_css_color', `${label} is not a supported CSS color literal.`)
+  }
+
+  return trimmed
+}
 
 export class RepositoryService extends RepositoryServiceWrites {
   // Composition over inheritance: each cohesive domain lives in its own collaborator,
@@ -256,6 +271,72 @@ export class RepositoryService extends RepositoryServiceWrites {
     })
 
     return this.openRepository(targetPath)
+  }
+
+  async updateCssColor(request: CssColorEditRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const relativePath = normalizeRelativePath(request.filePath)
+
+    if (!CSS_COLOR_EDIT_PATH_RE.test(relativePath)) {
+      throw new BranchPilotUserError('not_css_file', 'Color swatches can only edit CSS-like files.')
+    }
+
+    const lineNumber = Math.trunc(Number(request.lineNumber))
+    const rawColumnStart = Math.trunc(Number(request.columnStart))
+    const oldValue = normalizeCssColorEditValue(request.oldValue, 'Original color')
+    const newValue = normalizeCssColorEditValue(request.newValue, 'New color')
+
+    if (!Number.isFinite(lineNumber) || lineNumber < 1) {
+      throw new BranchPilotUserError('invalid_css_color_location', 'Color location is not available anymore.')
+    }
+    if (!Number.isFinite(rawColumnStart) || rawColumnStart < 0) {
+      throw new BranchPilotUserError('invalid_css_color_location', 'Color location is not available anymore.')
+    }
+
+    const columnStart = rawColumnStart
+    const absolutePath = resolveRepositoryPath(rootPath, relativePath)
+    const text = await fs.readFile(absolutePath, 'utf8')
+    const chunks = text.split(/(\r\n|\n|\r)/)
+    const lineIndex = (lineNumber - 1) * 2
+    const line = chunks[lineIndex]
+
+    if (typeof line !== 'string') {
+      throw new BranchPilotUserError('invalid_css_color_location', 'Color line is not available anymore.')
+    }
+
+    let replaceIndex = line.startsWith(oldValue, columnStart)
+      ? columnStart
+      : -1
+
+    if (replaceIndex < 0) {
+      const fallbackIndex = line.indexOf(oldValue)
+      if (fallbackIndex >= 0 && fallbackIndex === line.lastIndexOf(oldValue)) {
+        replaceIndex = fallbackIndex
+      }
+    }
+
+    if (replaceIndex < 0) {
+      throw new BranchPilotUserError('css_color_changed', 'That color changed before BranchPilot could update it.')
+    }
+
+    chunks[lineIndex] = `${line.slice(0, replaceIndex)}${newValue}${line.slice(replaceIndex + oldValue.length)}`
+    await fs.writeFile(absolutePath, chunks.join(''), 'utf8')
+
+    return this.getStatusOnlySnapshot(rootPath)
+  }
+
+  async writeRepositoryFile(request: RepositoryFileWriteRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const relativePath = normalizeRelativePath(request.filePath)
+
+    if (request.text.length > 1_500_000) {
+      throw new BranchPilotUserError('file_too_large', 'Edited file is too large to save from the internal editor.')
+    }
+
+    const absolutePath = resolveRepositoryPath(rootPath, relativePath)
+    await fs.writeFile(absolutePath, request.text, 'utf8')
+
+    return this.getSnapshot(rootPath)
   }
 
   async setRepositoryPinned(request: RepositoryPinRequest): Promise<RecentRepository[]> {

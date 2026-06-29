@@ -7,6 +7,7 @@ import { highlight, langFromPath } from '../lib/highlight'
 import { renderSegs, shouldWordDiff, wordDiff } from '../lib/wordDiff'
 import { buildStagePatch, buildUnstagePatch } from '../lib/diffPatches'
 import { RawDiffPreview } from './diff/RawDiffPreview'
+import { isCssColorFile, renderCssColorizedContent, type CssColorEditDraft } from './diff/CssColorSwatch'
 import { DiffStatBadges } from './DiffStatBadges'
 
 /** Word-level highlight map for the unified view: line index → highlighted content. */
@@ -39,6 +40,19 @@ type DiffMode = ChangeDiffMode
 type DiffDisplayMode = 'unified' | 'split'
 type DiffContextDirection = 'up' | 'down'
 
+export interface DiffLineEditorTarget {
+  filePath: string
+  line?: number
+  column?: number
+  selectionText?: string
+  lineText?: string
+}
+
+export interface DiffLineContextMenuTarget extends DiffLineEditorTarget {
+  x: number
+  y: number
+}
+
 interface DiffContextLoadRequest {
   filePath: string
   staged: boolean
@@ -54,6 +68,31 @@ interface ExtraContextEntry {
 
 type ExtraContextMap = Record<string, ExtraContextEntry>
 
+function targetIsInlineControl(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('button, input, select, textarea, [role="button"]'))
+}
+
+function browserSelectionForLine(lineContent: string): Pick<DiffLineEditorTarget, 'column' | 'selectionText'> {
+  const selected = window.getSelection()?.toString().replace(/\r\n?/g, '\n').trim()
+  if (!selected) return {}
+
+  const candidates = [
+    selected,
+    ...selected.split('\n').map((line) => line.trim()).filter(Boolean)
+  ]
+  const match = candidates.find((candidate) => candidate.length > 0 && lineContent.includes(candidate))
+  if (!match) return { selectionText: selected }
+
+  return {
+    selectionText: match,
+    column: lineContent.indexOf(match) + 1
+  }
+}
+
+function hasActiveTextSelection(): boolean {
+  return Boolean(window.getSelection()?.toString().trim())
+}
+
 function diffLinePrefix(line: DiffLine): string {
   if (line.type === 'add') return '+'
   if (line.type === 'remove') return '-'
@@ -67,14 +106,18 @@ function formatLineNumber(lineNumber?: number): string {
 
 function DiffLineNumber({
   lineNumber,
+  filePath,
   openLine,
+  lineText,
   onOpenLine
 }: {
   lineNumber?: number
+  filePath: string
   // The working-tree line to open in the editor. Old-side numbers refer to the
   // previous revision, so removed lines (no openLine) are not clickable.
   openLine?: number
-  onOpenLine?: (line?: number) => void
+  lineText?: string
+  onOpenLine?: (target: DiffLineEditorTarget) => void
 }) {
   if (!lineNumber || !openLine || !onOpenLine) {
     return <span className="line-number">{formatLineNumber(lineNumber)}</span>
@@ -86,7 +129,10 @@ function DiffLineNumber({
       type="button"
       title={`Open line ${openLine} in editor`}
       aria-label={`Open line ${openLine} in editor`}
-      onClick={() => onOpenLine(openLine)}
+      onClick={(event) => {
+        event.stopPropagation()
+        onOpenLine({ filePath, line: openLine, lineText })
+      }}
     >
       {formatLineNumber(lineNumber)}
     </button>
@@ -97,18 +143,22 @@ function SplitDiffCell({
   line,
   side,
   content,
+  filePath,
   selectKey,
   selected = false,
   onLineSelect,
-  onOpenLine
+  onOpenLine,
+  onOpenContextMenu
 }: {
   line?: DiffLine
   side: 'old' | 'new'
   content: ReactNode
+  filePath: string
   selectKey?: string
   selected?: boolean
   onLineSelect?: (key: string, shift: boolean) => void
-  onOpenLine?: (line?: number) => void
+  onOpenLine?: (target: DiffLineEditorTarget) => void
+  onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
 }) {
   const lineNumber = side === 'old' ? line?.oldLineNumber : line?.newLineNumber
   const canSelect = Boolean(selectKey && onLineSelect)
@@ -116,20 +166,25 @@ function SplitDiffCell({
   return (
     <code
       className={`split-diff-cell ${line ? `line-${line.type}` : 'line-empty'}${canSelect ? ' selectable' : ''}${selected ? ' line-selected' : ''}`}
+      onClick={(event) => {
+        if (!canSelect || targetIsInlineControl(event.target) || hasActiveTextSelection()) return
+        onLineSelect!(selectKey!, event.shiftKey)
+      }}
+      onContextMenu={(event) => {
+        if (!line || !onOpenContextMenu) return
+        event.preventDefault()
+        event.stopPropagation()
+        onOpenContextMenu({
+          x: event.clientX,
+          y: event.clientY,
+          filePath,
+          line: line.newLineNumber,
+          lineText: line.content,
+          ...browserSelectionForLine(line.content)
+        })
+      }}
     >
-      {canSelect ? (
-        <button
-          type="button"
-          className={selected ? 'line-select-control selected' : 'line-select-control'}
-          title={selected ? 'Deselect this line' : 'Select this line'}
-          aria-label={selected ? 'Deselect this line' : 'Select this line'}
-          aria-pressed={selected}
-          onClick={(event) => onLineSelect!(selectKey!, event.shiftKey)}
-        />
-      ) : (
-        <span className="line-select-spacer" />
-      )}
-      <DiffLineNumber lineNumber={lineNumber} openLine={line?.newLineNumber} onOpenLine={onOpenLine} />
+      <DiffLineNumber filePath={filePath} lineNumber={lineNumber} openLine={line?.newLineNumber} lineText={line?.content} onOpenLine={onOpenLine} />
       <span className="line-marker">{line ? diffLinePrefix(line) : ''}</span>
       <span className="line-content">{content}</span>
     </code>
@@ -139,19 +194,27 @@ function SplitDiffCell({
 function SplitDiffLines({
   lines,
   lang,
+  filePath,
+  canEditCssColors,
+  onUpdateCssColor,
   onOpenLine,
   keyPrefix,
   selectable,
   selected,
-  onLineSelect
+  onLineSelect,
+  onOpenContextMenu
 }: {
   lines: DiffLine[]
   lang: string
-  onOpenLine?: (line?: number) => void
+  filePath: string
+  canEditCssColors?: boolean
+  onUpdateCssColor?: (request: CssColorEditDraft) => Promise<void> | void
+  onOpenLine?: (target: DiffLineEditorTarget) => void
   keyPrefix?: string
   selectable?: boolean
   selected?: Set<string>
   onLineSelect?: (key: string, shift: boolean) => void
+  onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
 }) {
   const lineIndexes = new Map<DiffLine, number>()
   lines.forEach((line, lineIndex) => lineIndexes.set(line, lineIndex))
@@ -169,8 +232,18 @@ function SplitDiffLines({
         const oldKey = selectableKey(oldLine)
         const newKey = selectableKey(newLine)
         let oldContent: ReactNode = oldLine ? highlight(oldLine.content, lang) : ''
-        let newContent: ReactNode = newLine ? highlight(newLine.content, lang) : ''
+        let newContent: ReactNode = newLine
+          ? renderCssColorizedContent({
+              content: newLine.content,
+              lang,
+              filePath,
+              lineNumber: newLine.newLineNumber,
+              canEditCssColors,
+              onUpdateCssColor
+            })
+          : ''
         if (
+          !canEditCssColors &&
           oldLine?.type === 'remove' &&
           newLine?.type === 'add' &&
           shouldWordDiff(oldLine.content, newLine.content)
@@ -185,19 +258,23 @@ function SplitDiffLines({
               line={oldLine}
               side="old"
               content={oldContent}
+              filePath={filePath}
               selectKey={oldKey}
               selected={Boolean(oldKey && selected?.has(oldKey))}
               onLineSelect={onLineSelect}
               onOpenLine={onOpenLine}
+              onOpenContextMenu={onOpenContextMenu}
             />
             <SplitDiffCell
               line={newLine}
               side="new"
               content={newContent}
+              filePath={filePath}
               selectKey={newKey}
               selected={Boolean(newKey && selected?.has(newKey))}
               onLineSelect={onLineSelect}
               onOpenLine={onOpenLine}
+              onOpenContextMenu={onOpenContextMenu}
             />
           </div>
         )
@@ -209,19 +286,27 @@ function SplitDiffLines({
 function UnifiedDiffLines({
   lines,
   lang,
+  filePath,
+  canEditCssColors,
+  onUpdateCssColor,
   onOpenLine,
   keyPrefix,
   selectable,
   selected,
-  onLineSelect
+  onLineSelect,
+  onOpenContextMenu
 }: {
   lines: DiffLine[]
   lang: string
-  onOpenLine?: (line?: number) => void
+  filePath: string
+  canEditCssColors?: boolean
+  onUpdateCssColor?: (request: CssColorEditDraft) => Promise<void> | void
+  onOpenLine?: (target: DiffLineEditorTarget) => void
   keyPrefix?: string
   selectable?: boolean
   selected?: Set<string>
   onLineSelect?: (key: string, shift: boolean) => void
+  onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
 }) {
   const wordContent = buildUnifiedWordDiff(lines, lang)
   return (
@@ -235,23 +320,39 @@ function UnifiedDiffLines({
           <code
             className={`diff-line line-${line.type}${canSelect ? ' selectable' : ''}${isSelected ? ' line-selected' : ''}`}
             key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}
+            onClick={(event) => {
+              if (!canSelect || targetIsInlineControl(event.target) || hasActiveTextSelection()) return
+              onLineSelect!(key, event.shiftKey)
+            }}
+            onContextMenu={(event) => {
+              if (!onOpenContextMenu) return
+              event.preventDefault()
+              event.stopPropagation()
+              onOpenContextMenu({
+                x: event.clientX,
+                y: event.clientY,
+                filePath,
+                line: line.newLineNumber,
+                lineText: line.content,
+                ...browserSelectionForLine(line.content)
+              })
+            }}
           >
-            {canSelect ? (
-              <button
-                type="button"
-                className={isSelected ? 'line-select-control selected' : 'line-select-control'}
-                title={isSelected ? 'Deselect this line' : 'Select this line for staging'}
-                aria-label={isSelected ? 'Deselect this line' : 'Select this line for staging'}
-                aria-pressed={isSelected}
-                onClick={(event) => onLineSelect!(key, event.shiftKey)}
-              />
-            ) : (
-              <span className="line-select-spacer" />
-            )}
-            <DiffLineNumber lineNumber={line.oldLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
-            <DiffLineNumber lineNumber={line.newLineNumber} openLine={line.newLineNumber} onOpenLine={onOpenLine} />
+            <DiffLineNumber filePath={filePath} lineNumber={line.oldLineNumber} openLine={line.newLineNumber} lineText={line.content} onOpenLine={onOpenLine} />
+            <DiffLineNumber filePath={filePath} lineNumber={line.newLineNumber} openLine={line.newLineNumber} lineText={line.content} onOpenLine={onOpenLine} />
             <span className="line-marker">{diffLinePrefix(line)}</span>
-            <span className="line-content">{wordContent.get(lineIndex) ?? highlight(line.content, lang)}</span>
+            <span className="line-content">
+              {canEditCssColors
+                ? renderCssColorizedContent({
+                    content: line.content,
+                    lang,
+                    filePath,
+                    lineNumber: line.newLineNumber,
+                    canEditCssColors,
+                    onUpdateCssColor
+                  })
+                : wordContent.get(lineIndex) ?? highlight(line.content, lang)}
+            </span>
           </code>
         )
       })}
@@ -417,7 +518,9 @@ export function DiffPreview({
   onDiscardLines,
   onOpenLine,
   onLoadContext,
-  onExpandContext
+  onExpandContext,
+  onUpdateCssColor,
+  onOpenContextMenu
 }: {
   diff: DiffResult | null
   imagePreview?: ImagePreview | null
@@ -436,9 +539,11 @@ export function DiffPreview({
   onStageLines?: (patch: string) => void
   onUnstageLines?: (patch: string) => void
   onDiscardLines?: (patch: string) => void
-  onOpenLine?: (line?: number) => void
+  onOpenLine?: (target: DiffLineEditorTarget) => void
   onLoadContext?: (request: DiffContextLoadRequest) => Promise<DiffContextResult | null>
   onExpandContext?: () => void
+  onUpdateCssColor?: (request: CssColorEditDraft) => Promise<void> | void
+  onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [extraContext, setExtraContext] = useState<Record<string, ExtraContextEntry>>({})
@@ -638,6 +743,7 @@ export function DiffPreview({
           )}
           {file.hunks.map((hunk, index) => {
             const lang = langFromPath(file.newPath)
+            const canEditCssColors = Boolean(onUpdateCssColor && isCssColorFile(file.newPath))
             const contextKey = hunkContextKey(file, hunk)
             const contextEntry = extraContext[contextKey]
             const canExpandBefore = canLoadMoreContext && !expanded && index === 0 && canExpandContext(file, hunk, index, contextEntry, 'up', extraContext)
@@ -670,32 +776,40 @@ export function DiffPreview({
                 </div>
                 {contextEntry?.above.length ? (
                   displayMode === 'split'
-                    ? <SplitDiffLines lines={contextEntry.above} lang={lang} onOpenLine={onOpenLine} />
-                    : <UnifiedDiffLines lines={contextEntry.above} lang={lang} onOpenLine={onOpenLine} />
+                    ? <SplitDiffLines lines={contextEntry.above} lang={lang} filePath={file.newPath} canEditCssColors={canEditCssColors} onUpdateCssColor={onUpdateCssColor} onOpenLine={onOpenLine} onOpenContextMenu={onOpenContextMenu} />
+                    : <UnifiedDiffLines lines={contextEntry.above} lang={lang} filePath={file.newPath} canEditCssColors={canEditCssColors} onUpdateCssColor={onUpdateCssColor} onOpenLine={onOpenLine} onOpenContextMenu={onOpenContextMenu} />
                 ) : null}
                 {displayMode === 'split'
                   ? <SplitDiffLines
                       lines={hunk.lines}
                       lang={lang}
+                      filePath={file.newPath}
+                      canEditCssColors={canEditCssColors}
+                      onUpdateCssColor={onUpdateCssColor}
                       onOpenLine={onOpenLine}
                       keyPrefix={`${fileIndex}:${index}`}
                       selectable={canSelectLines}
                       selected={selected}
                       onLineSelect={selectLine}
+                      onOpenContextMenu={onOpenContextMenu}
                     />
                   : <UnifiedDiffLines
                       lines={hunk.lines}
                       lang={lang}
+                      filePath={file.newPath}
+                      canEditCssColors={canEditCssColors}
+                      onUpdateCssColor={onUpdateCssColor}
                       onOpenLine={onOpenLine}
                       keyPrefix={`${fileIndex}:${index}`}
                       selectable={canSelectLines}
                       selected={selected}
                       onLineSelect={selectLine}
+                      onOpenContextMenu={onOpenContextMenu}
                     />}
                 {contextEntry?.below.length ? (
                   displayMode === 'split'
-                    ? <SplitDiffLines lines={contextEntry.below} lang={lang} onOpenLine={onOpenLine} />
-                    : <UnifiedDiffLines lines={contextEntry.below} lang={lang} onOpenLine={onOpenLine} />
+                    ? <SplitDiffLines lines={contextEntry.below} lang={lang} filePath={file.newPath} canEditCssColors={canEditCssColors} onUpdateCssColor={onUpdateCssColor} onOpenLine={onOpenLine} onOpenContextMenu={onOpenContextMenu} />
+                    : <UnifiedDiffLines lines={contextEntry.below} lang={lang} filePath={file.newPath} canEditCssColors={canEditCssColors} onUpdateCssColor={onUpdateCssColor} onOpenLine={onOpenLine} onOpenContextMenu={onOpenContextMenu} />
                 ) : null}
                 {canExpandAfter && (
                   <DiffContextExpander direction="down" onExpandContext={() => { void loadAdditionalContext(file, hunk, index, 'down') }} />

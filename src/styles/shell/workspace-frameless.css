@@ -1,0 +1,138 @@
+/* Compact GitHub-Desktop-like frame for Changes and History. */
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) {
+  padding: 0;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) > .content-grid,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-workspace-main > .content-grid {
+  min-height: 0;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-workflow-grid {
+  grid-template-columns:
+    minmax(var(--changes-pane-min-width), var(--changes-pane-width))
+    6px
+    minmax(var(--diff-pane-min-width), 1fr);
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .diff-panel,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-detail {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--panel);
+  box-shadow: none !important;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel-compact,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-grid .changes-panel {
+  padding: 8px 8px 0;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-splitter {
+  width: 6px;
+  min-width: 6px;
+  background: linear-gradient(
+    90deg,
+    transparent 0 calc(50% - 0.5px),
+    var(--border) calc(50% - 0.5px) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px) 100%
+  );
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-splitter span {
+  width: 1px;
+  background: transparent;
+  box-shadow: none;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-splitter:hover span,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-splitter:focus-visible span,
+.is-resizing-changes :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-splitter span {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .change-list-header {
+  min-height: 32px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel-compact .change-list {
+  margin-top: -8px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .commit-resize-handle {
+  flex-basis: 8px;
+  height: 8px;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .commit-resize-handle span {
+  height: 1px;
+  border-radius: 0;
+  background: var(--border);
+  box-shadow: none;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel-compact .commit-box {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel-compact .commit-actions {
+  margin-bottom: 0;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-workflow-grid .diff-panel {
+  padding: 8px 10px 0;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-workflow-grid .diff-panel .structured-diff,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-workflow-grid .diff-panel .mixed-diff-stack,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-workflow-grid .diff-panel .diff-preview,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-workflow-grid .diff-panel .diff-empty,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-workflow-grid .diff-panel .diff-image {
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-detail .commit-body {
+  max-height: none;
+  overflow: visible;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-commit-header {
+  padding: 14px 16px;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-detail-grid,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-preview-workspace {
+  border-top: 0;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .commit-file-column,
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-preview-sidebar {
+  border-right: 1px solid var(--border);
+}
+
+html[data-theme='deus-ex'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel,
+html[data-theme='cyberpunk'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel,
+html[data-theme='matrix'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel,
+html[data-theme='far-manager'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel,
+html[data-theme='pure-dark'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel,
+html[data-theme='deus-ex'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .diff-panel,
+html[data-theme='cyberpunk'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .diff-panel,
+html[data-theme='matrix'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .diff-panel,
+html[data-theme='far-manager'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .diff-panel,
+html[data-theme='pure-dark'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .diff-panel {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--panel);
+  box-shadow: none !important;
+}

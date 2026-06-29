@@ -113,6 +113,13 @@ export interface RepositoryBrowserEntry {
   path: string
   isGitRepository: boolean
   modifiedAt?: string
+  tech?: RepositoryBrowserTechSummary
+}
+
+export interface RepositoryBrowserTechSummary {
+  languages: string[]
+  extraLanguageCount: number
+  framework?: string
 }
 
 export interface RepositoryBrowserSnapshot {

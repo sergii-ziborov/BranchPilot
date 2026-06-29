@@ -5,6 +5,9 @@ import type {
   CommitCard,
   CommitDetails,
   CommitDetailsRequest,
+  CommitFileCompareRequest,
+  CommitFileContentRequest,
+  CommitFileContentResult,
   CommitFileDiffRequest,
   CommitSummary,
   DiffContextRequest,
@@ -13,6 +16,9 @@ import type {
   DiffResult,
   FileChange,
   RecentRepository,
+  RepositoryFileContentRequest,
+  RepositoryFileContentResult,
+  RepositoryFileEntry,
   RepositorySnapshot,
   RepositoryStatus,
   RepositorySummary
@@ -31,6 +37,11 @@ import {
   MAX_DIFF_OUTPUT_BYTES
 } from './repositoryService.base.js'
 import { RepositoryServiceBase } from './repositoryService.base.js'
+import { BranchPilotUserError } from './errors.js'
+
+const MAX_COMMIT_FILE_CONTENT_BYTES = 900_000
+const MAX_COMMIT_FILE_CONTENT_OUTPUT_BYTES = MAX_COMMIT_FILE_CONTENT_BYTES + 1
+const MAX_REPOSITORY_FILE_CONTENT_BYTES = 900_000
 
 export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
   async getRecentRepositories(): Promise<RecentRepository[]> {
@@ -61,6 +72,41 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       lfs,
       recentRepositories
     })
+  }
+
+  async listRepositoryFiles(repoPath: string): Promise<RepositoryFileEntry[]> {
+    const rootPath = await this.resolveRepositoryRoot(repoPath)
+    const result = await this.git(rootPath, ['ls-files', '-co', '--exclude-standard', '-z'])
+
+    return result.stdout
+      .split('\0')
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b))
+      .map((filePath) => ({ path: normalizeRelativePath(filePath) }))
+  }
+
+  async getRepositoryFileContent(request: RepositoryFileContentRequest): Promise<RepositoryFileContentResult> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const filePath = normalizeRelativePath(request.filePath)
+    const absolutePath = resolveRepositoryPath(rootPath, filePath)
+    const stats = await fs.stat(absolutePath).catch(() => undefined)
+
+    if (!stats?.isFile()) {
+      throw new BranchPilotUserError('file_not_found', 'File is not available in the working tree.')
+    }
+    if (stats.size > MAX_REPOSITORY_FILE_CONTENT_BYTES) {
+      return { filePath, text: '', binary: false, tooLarge: true }
+    }
+
+    const text = await fs.readFile(absolutePath, 'utf8')
+    const binary = text.includes('\0')
+
+    return {
+      filePath,
+      text: binary ? '' : text,
+      binary,
+      tooLarge: false
+    }
   }
 
   protected async getStatusOnlySnapshot(rootPath: string): Promise<RepositorySnapshot> {
@@ -367,6 +413,49 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
     const tooLarge = Boolean(result.stdoutTruncated) || result.stdout.length > MAX_DIFF_BYTES
 
+    const text = tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout
+
+    return {
+      filePath,
+      staged: false,
+      text,
+      binary,
+      tooLarge,
+      files: binary || tooLarge ? [] : parseUnifiedDiff(text)
+    }
+  }
+
+  async getCommitFileContent(request: CommitFileContentRequest): Promise<CommitFileContentResult> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const commitSha = normalizeCommitSha(request.commitSha)
+    const filePath = normalizeRelativePath(request.filePath)
+    const result = await this.git(rootPath, ['cat-file', 'blob', `${commitSha}:${filePath}`], {
+      maxOutputBytes: MAX_COMMIT_FILE_CONTENT_OUTPUT_BYTES
+    })
+    const tooLarge = Boolean(result.stdoutTruncated) || result.stdout.length > MAX_COMMIT_FILE_CONTENT_BYTES
+    const text = tooLarge ? result.stdout.slice(0, MAX_COMMIT_FILE_CONTENT_BYTES) : result.stdout
+    const binary = text.includes('\0')
+
+    return {
+      commitSha,
+      filePath,
+      text: binary ? '' : text,
+      binary,
+      tooLarge
+    }
+  }
+
+  async getCommitFileCompareDiff(request: CommitFileCompareRequest): Promise<DiffResult> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const commitSha = normalizeCommitSha(request.commitSha)
+    const compareCommitSha = normalizeCommitSha(request.compareCommitSha)
+    const filePath = normalizeRelativePath(request.filePath)
+    const result = await this.git(rootPath, ['diff', '--no-ext-diff', '--find-renames', compareCommitSha, commitSha, '--', filePath], {
+      allowedExitCodes: [0, 1],
+      maxOutputBytes: MAX_DIFF_OUTPUT_BYTES
+    })
+    const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
+    const tooLarge = Boolean(result.stdoutTruncated) || result.stdout.length > MAX_DIFF_BYTES
     const text = tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout
 
     return {

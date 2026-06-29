@@ -56,6 +56,40 @@ export interface CommitFileDiffRequest extends CommitDetailsRequest {
   filePath: string
 }
 
+export interface CommitFileContentRequest extends CommitFileDiffRequest {}
+
+export interface CommitFileCompareRequest extends CommitFileDiffRequest {
+  compareCommitSha: string
+}
+
+export interface CommitFileContentResult {
+  commitSha: string
+  filePath: string
+  text: string
+  binary: boolean
+  tooLarge: boolean
+}
+
+export interface RepositoryFileEntry {
+  path: string
+}
+
+export interface RepositoryFileContentRequest {
+  repoPath: string
+  filePath: string
+}
+
+export interface RepositoryFileContentResult {
+  filePath: string
+  text: string
+  binary: boolean
+  tooLarge: boolean
+}
+
+export interface RepositoryFileWriteRequest extends RepositoryFileContentRequest {
+  text: string
+}
+
 export interface RemoteSummary {
   name: string
   fetchUrl?: string
@@ -112,6 +146,15 @@ export interface DiffContextRequest {
   staged: boolean
   lineStart: number
   maxLines: number
+}
+
+export interface CssColorEditRequest {
+  repoPath: string
+  filePath: string
+  lineNumber: number
+  columnStart: number
+  oldValue: string
+  newValue: string
 }
 
 export type DiffLineType = 'context' | 'add' | 'remove' | 'meta'
