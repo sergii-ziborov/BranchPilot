@@ -11,6 +11,7 @@ import { ViewSwitch } from '../ViewSwitch'
 import { useWorkflowPaneResize } from '../../hooks/useWorkflowPaneResize'
 import { HistoryGraphCanvas } from '../HistoryGraphCanvas'
 import { CommitHoverCard, type CommitHoverCardAnchor } from '../CommitHoverCard'
+import { SignalStatus } from '../SignalStatus'
 import { HistoryCommitFilesPanel } from '../history/HistoryCommitFilesPanel'
 import { HistoryCommitPreviewWorkspace } from '../history/HistoryCommitPreviewWorkspace'
 import {
@@ -95,8 +96,7 @@ export function HistoryView({
   const [commitImagePreview, setCommitImagePreview] = useState<ImagePreview | null>(null)
   const historySearchModeLabel = historySearchMode === 'commit' ? 'Commit' : historySearchMode === 'files' ? 'Files' : 'All'
   const historyGraphWidth = useMemo(() => getHistoryGraphWidth(filteredHistory), [filteredHistory])
-  const historyDetailLoading = commitDetailsLoading || commitFileDiffLoading
-  const historyDetailLoadingLabel = commitDetailsLoading ? 'Resolving commit' : 'Loading file diff'
+  const historyDetailLoading = commitDetailsLoading
   const { filePreview, setFilePreview, openCommitFilePreview } = useHistoryFilePreview({ api, currentRepoPath, commitDetails })
   const closeHistorySearchFilter = () => {
     if (historySearchFilterRef.current) historySearchFilterRef.current.open = false
@@ -254,6 +254,23 @@ export function HistoryView({
     const path = fileMenu?.path
     setFileMenu(null)
     if (path) openCommitFilePreview(path)
+  }
+
+  if (filePreview && commitDetails) {
+    return (
+      <section className="history-preview-screen">
+        <HistoryCommitPreviewWorkspace
+          api={api}
+          currentRepoPath={currentRepoPath}
+          snapshot={snapshot}
+          history={history}
+          commitDetails={commitDetails}
+          preview={filePreview}
+          onBack={() => setFilePreview(null)}
+          openCommitFilePreview={openCommitFilePreview}
+        />
+      </section>
+    )
   }
 
   return (
@@ -474,6 +491,7 @@ export function HistoryView({
           <HistoryCommitPreviewWorkspace
             api={api}
             currentRepoPath={currentRepoPath}
+            snapshot={snapshot}
             history={history}
             commitDetails={commitDetails}
             preview={filePreview}
@@ -485,6 +503,7 @@ export function HistoryView({
             commitDetails={commitDetails}
             selectedCommitFilePath={selectedCommitFilePath}
             commitFileDiff={commitFileDiff}
+            commitFileDiffLoading={commitFileDiffLoading}
             commitImagePreview={commitImagePreview}
             loadCommitFileDiff={loadCommitFileDiff}
             openCommitFilePreview={openCommitFilePreview}
@@ -492,12 +511,11 @@ export function HistoryView({
           />
         )}
         {historyDetailLoading && (
-          <div className="history-detail-loading" role="status" aria-live="polite">
-            <div className="history-detail-loading-copy">
-              <strong>{historyDetailLoadingLabel}</strong>
-              <span>{selectedCommitSha?.slice(0, 7) ?? 'history'}</span>
-            </div>
-          </div>
+          <SignalStatus
+            className="history-detail-loading"
+            label="Resolving commit"
+            detail={selectedCommitSha?.slice(0, 7) ?? 'history'}
+          />
         )}
       </div>
 

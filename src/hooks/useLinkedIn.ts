@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AssistantId, AssistantPolicyStatus, BranchPilotApi, GeneratedLinkedInProject, InstalledAssistantId } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
-import { assistantLabel, assistantPolicyBlockedLabel } from '../lib/assistantLabels'
+import { assistantPolicyBlockedLabel } from '../lib/assistantLabels'
 
 const LINKEDIN_DRAFT_VERSION = 1
 export const DEFAULT_LINKEDIN_CUSTOM_PROMPT = [
@@ -168,7 +168,6 @@ export function useLinkedIn({
         setLinkedinHighlightsText(highlightsText)
         setLinkedinTagsText(tagsText)
         setLinkedinSkillsText(skillsText)
-        setNotice(`LinkedIn project generated with ${assistantLabel(project.assistant)}.`)
         if (project.truncated) {
           setError('LinkedIn context was truncated for assistant limits.')
         }

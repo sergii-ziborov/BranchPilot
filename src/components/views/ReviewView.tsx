@@ -3,8 +3,8 @@ import { Copy, Loader2, ShieldCheck, Wand2, X } from 'lucide-react'
 import { SegmentedControl } from '../SegmentedControl'
 import { SeverityCountStrip } from '../SeverityCountStrip'
 import { FindingCard } from '../FindingCard'
-import { Meter } from '../Meter'
 import { AssistantModelSelect } from '../AssistantModelSelect'
+import { SignalStatus } from '../SignalStatus'
 import type {
   AssistantId, AssistantPolicyStatus, AssistantStatus,
   ReviewMode, ReviewReport, ReviewScope, ReviewSeverity, RepositorySnapshot
@@ -175,13 +175,11 @@ export function ReviewView({
             </div>
           ) : reviewRunning ? (
             <div className="review-empty review-running" role="status" aria-live="polite">
-              <Loader2 className="spin" size={28} />
-              <strong>Running {reviewModeLabel(reviewMode)} review</strong>
-              <span>
-                {reviewScopeLabel(reviewScope)} context is being sent to {selectedAssistantCopy.title}
-                {selectedAssistantCopy.meta ? ` (${selectedAssistantCopy.meta})` : ''}.
-              </span>
-              <Meter indeterminate value={0} />
+              <SignalStatus
+                className="review-running-curtain"
+                label={`Running ${reviewModeLabel(reviewMode)} review`}
+                detail={`${reviewScopeLabel(reviewScope)} -> ${selectedAssistantCopy.title}${selectedAssistantCopy.meta ? ` (${selectedAssistantCopy.meta})` : ''}`}
+              />
             </div>
           ) : !reviewReport ? (
             <div className="review-empty">

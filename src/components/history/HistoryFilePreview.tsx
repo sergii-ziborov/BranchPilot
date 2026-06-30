@@ -1,6 +1,8 @@
 import { ArrowLeft, Copy, FileCode2, Hash } from 'lucide-react'
+import type { RefObject, UIEventHandler } from 'react'
 import type { CommitFileContentResult } from '../../shared/branchPilot'
 import { highlight, langFromPath } from '../../lib/highlight'
+import { SignalStatus } from '../SignalStatus'
 
 export interface HistoryFilePreviewModel {
   commitSha: string
@@ -11,6 +13,8 @@ export interface HistoryFilePreviewModel {
   content: CommitFileContentResult | null
 }
 
+export type HistoryFileLineState = 'same' | 'changed' | 'added' | 'removed'
+
 interface HistoryFilePreviewProps {
   preview: HistoryFilePreviewModel
   onBack: () => void
@@ -18,9 +22,13 @@ interface HistoryFilePreviewProps {
   onCopyPath: () => void
   onCopySha: () => void
   showBack?: boolean
+  subtitle?: string
+  codeRef?: RefObject<HTMLPreElement | null>
+  onCodeScroll?: UIEventHandler<HTMLPreElement>
+  lineStates?: HistoryFileLineState[]
 }
 
-function previewLines(text: string): string[] {
+export function historyPreviewLines(text: string): string[] {
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const trimmed = normalized.endsWith('\n') ? normalized.slice(0, -1) : normalized
 
@@ -33,10 +41,14 @@ export function HistoryFilePreview({
   onCopyContent,
   onCopyPath,
   onCopySha,
-  showBack = true
+  showBack = true,
+  subtitle,
+  codeRef,
+  onCodeScroll,
+  lineStates
 }: HistoryFilePreviewProps) {
   const content = preview.content
-  const lines = content && !content.binary ? previewLines(content.text) : []
+  const lines = content && !content.binary ? historyPreviewLines(content.text) : []
   const lang = langFromPath(preview.filePath)
 
   return (
@@ -53,7 +65,7 @@ export function HistoryFilePreview({
           <div>
             <strong title={preview.filePath}>{preview.filePath}</strong>
             <span title={preview.commitSha}>
-              {preview.shortSha} at selected commit
+              {subtitle ?? `${preview.shortSha} at selected commit`}
             </span>
           </div>
         </div>
@@ -73,7 +85,11 @@ export function HistoryFilePreview({
 
       <div className="history-file-preview-body">
         {preview.loading ? (
-          <div className="quiet-box">Loading file from commit.</div>
+          <SignalStatus
+            className="history-file-preview-loading"
+            label="Loading file"
+            detail={preview.shortSha}
+          />
         ) : preview.error ? (
           <div className="quiet-box danger-text">{preview.error}</div>
         ) : content?.binary ? (
@@ -81,13 +97,18 @@ export function HistoryFilePreview({
         ) : content ? (
           <>
             {content.tooLarge && <div className="history-file-preview-note">Preview truncated for performance.</div>}
-            <pre className="history-file-code diff-preview">
-              {lines.map((line, index) => (
-                <code className="history-file-code-line" key={`${index}-${line.slice(0, 20)}`}>
-                  <span className="history-file-line-number">{index + 1}</span>
-                  <span className="history-file-line-source">{highlight(line, lang)}</span>
-                </code>
-              ))}
+            <pre className="history-file-code diff-preview" ref={codeRef} onScroll={onCodeScroll}>
+              {lines.map((line, index) => {
+                const lineState = lineStates?.[index] ?? 'same'
+                const stateClass = lineState === 'same' ? '' : ` line-${lineState}`
+
+                return (
+                  <code className={`history-file-code-line${stateClass}`} key={`${index}-${line.slice(0, 20)}`}>
+                    <span className="history-file-line-number">{index + 1}</span>
+                    <span className="history-file-line-source">{highlight(line, lang)}</span>
+                  </code>
+                )
+              })}
             </pre>
           </>
         ) : (

@@ -42,6 +42,7 @@ function editorRequestFromDiffTarget(repoPath: string, fallbackPath: string, tar
 
 export function ChangesView({
   snapshot, counts, busy, itemHeight,
+  operationLabel,
   changeFilter, setChangeFilter,
   changeSearchMode, setChangeSearchMode, changeContentIndexing,
   filteredChanges, virtualChanges,
@@ -67,6 +68,7 @@ export function ChangesView({
   snapshot: RepositorySnapshot | null
   counts: RepositorySnapshot['status']['counts'] | undefined
   busy: boolean
+  operationLabel: string | null
   itemHeight: number
   changeFilter: string
   setChangeFilter: (value: string) => void
@@ -273,7 +275,23 @@ export function ChangesView({
 
   const noChanges = totalChanges === 0
   const contextMenuChange = diffMenu?.change ?? selectedChange
-  const canDiscardSelectedFile = Boolean(selectedChange && (selectedChange.unstaged || selectedChange.untracked))
+  const inlineDiffOperationLabel = operationLabel && isDiffInlineOperation(operationLabel) ? operationLabel : null
+
+  if (internalEditorPath !== null) {
+    return (
+      <section className="changes-editor-workspace">
+        <ChangesInternalEditor
+          api={api}
+          currentRepoPath={currentRepoPath}
+          snapshot={snapshot}
+          initialFilePath={internalEditorPath || null}
+          onBack={() => setInternalEditorPath(null)}
+          setNotice={setNotice}
+          runSnapshotAction={runSnapshotAction}
+        />
+      </section>
+    )
+  }
 
   return (
     <section className="content-grid changes-workflow-grid" ref={splitGridRef} style={splitStyle}>
@@ -363,47 +381,35 @@ export function ChangesView({
         <span />
       </div>
 
-      {internalEditorPath ? (
-        <ChangesInternalEditor
-          api={api}
-          currentRepoPath={currentRepoPath}
-          snapshot={snapshot}
-          initialFilePath={internalEditorPath}
-          onBack={() => setInternalEditorPath(null)}
-          setNotice={setNotice}
-          runSnapshotAction={runSnapshotAction}
-        />
-      ) : (
-        <ChangesDiffPanel
-          noChanges={noChanges}
-          selectedChange={selectedChange}
-          selectedDiffStats={selectedDiffStats}
-          selectedRelatedDiffStats={selectedRelatedDiffStats}
-          currentRepoPath={currentRepoPath}
-          busy={busy}
-          api={api}
-          canDiscardSelectedFile={canDiscardSelectedFile}
-          onDiscardSelected={discardFromMenu}
-          onOpenContextMenu={(x, y, change, target) => setDiffMenu({ x, y, change, target })}
-          onOpenDiffLineInEditor={openDiffLineInEditor}
-          diffMode={diffMode}
-          diffDisplayMode={diffDisplayMode}
-          setDiffDisplayMode={setDiffDisplayMode}
-          diffIgnoreWhitespace={diffIgnoreWhitespace}
-          setDiffIgnoreWhitespace={setDiffIgnoreWhitespace}
-          diffExpanded={diffExpanded}
-          setDiffExpanded={setDiffExpanded}
-          diff={diff}
-          relatedDiff={relatedDiff}
-          imagePreview={imagePreview}
-          stageSelectedHunk={stageSelectedHunk}
-          unstageSelectedHunk={unstageSelectedHunk}
-          discardSelectedHunk={discardSelectedHunk}
-          discardSelectedLines={discardSelectedLines}
-          loadDiffContext={loadDiffContext}
-          runSnapshotAction={runSnapshotAction}
-        />
-      )}
+      <ChangesDiffPanel
+        noChanges={noChanges}
+        selectedChange={selectedChange}
+        selectedDiffStats={selectedDiffStats}
+        selectedRelatedDiffStats={selectedRelatedDiffStats}
+        currentRepoPath={currentRepoPath}
+        busy={busy}
+        api={api}
+        inlineOperationLabel={inlineDiffOperationLabel}
+        onOpenInternalPreview={(filePath) => setInternalEditorPath(filePath ?? '')}
+        onOpenContextMenu={(x, y, change, target) => setDiffMenu({ x, y, change, target })}
+        onOpenDiffLineInEditor={openDiffLineInEditor}
+        diffMode={diffMode}
+        diffDisplayMode={diffDisplayMode}
+        setDiffDisplayMode={setDiffDisplayMode}
+        diffIgnoreWhitespace={diffIgnoreWhitespace}
+        setDiffIgnoreWhitespace={setDiffIgnoreWhitespace}
+        diffExpanded={diffExpanded}
+        setDiffExpanded={setDiffExpanded}
+        diff={diff}
+        relatedDiff={relatedDiff}
+        imagePreview={imagePreview}
+        stageSelectedHunk={stageSelectedHunk}
+        unstageSelectedHunk={unstageSelectedHunk}
+        discardSelectedHunk={discardSelectedHunk}
+        discardSelectedLines={discardSelectedLines}
+        loadDiffContext={loadDiffContext}
+        runSnapshotAction={runSnapshotAction}
+      />
 
       {diffMenu && contextMenuChange && (
           <div className="context-menu" role="menu" style={{ top: diffMenu.y, left: diffMenu.x }}>
@@ -468,4 +474,8 @@ export function ChangesView({
       )}
     </section>
   )
+}
+
+function isDiffInlineOperation(label: string): boolean {
+  return /^Generating commit text\b/i.test(label)
 }

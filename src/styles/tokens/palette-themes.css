@@ -1,5 +1,51 @@
 ﻿/* â”€â”€ Popular VS Code color themes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
+:root[data-theme='cisco-light'] {
+  --text: #243746;
+  --text-strong: #07182a;
+  --muted: #5c7184;
+  --surface: #eef5f8;
+  --border: #c7d8e2;
+  --sidebar: #0a2535;
+  --sidebar-text: #eaf7fb;
+  --sidebar-muted: #91b3c3;
+  --panel: #ffffff;
+  --panel-2: #f3f9fb;
+  --accent: #049fd9;
+  --accent-strong: #0076a8;
+  --accent-soft: #00bceb;
+  --accent-contrast: #ffffff;
+  --shell-bar: rgba(255, 255, 255, 0.94);
+  --app-grad-top: #f7fbfd;
+  --sel-bg: #e5f7fc;
+  --sel-border: #69c8e7;
+  --scrollbar-thumb: rgba(4, 159, 217, 0.36);
+  --scrollbar-thumb-hover: rgba(0, 118, 168, 0.62);
+}
+
+:root[data-theme='cisco-dark'] {
+  --text: #d8edf5;
+  --text-strong: #f7fdff;
+  --muted: #7eaabc;
+  --surface: #061722;
+  --border: #17475c;
+  --sidebar: #04111a;
+  --sidebar-text: #e7f9ff;
+  --sidebar-muted: #6c9aac;
+  --panel: #092131;
+  --panel-2: #0c2b3f;
+  --accent: #00bceb;
+  --accent-strong: #049fd9;
+  --accent-soft: #62cbc9;
+  --accent-contrast: #031018;
+  --shell-bar: rgba(4, 17, 26, 0.94);
+  --app-grad-top: #071c29;
+  --sel-bg: rgba(0, 188, 235, 0.16);
+  --sel-border: #00bceb;
+  --scrollbar-thumb: rgba(0, 188, 235, 0.34);
+  --scrollbar-thumb-hover: rgba(98, 203, 201, 0.60);
+}
+
 :root[data-theme='github-dark'] {
   --text: #c9d1d9;
   --text-strong: #f0f6fc;
@@ -193,6 +239,29 @@
   --sel-border: #ffd400;
   --scrollbar-thumb: rgba(255, 48, 73, 0.38);
   --scrollbar-thumb-hover: rgba(0, 234, 255, 0.60);
+}
+
+:root[data-theme='cyberboard'] {
+  --text: #e8e5ff;
+  --text-strong: #fff9ff;
+  --muted: #9187bd;
+  --surface: #080816;
+  --border: rgba(124, 58, 237, 0.38);
+  --sidebar: #070617;
+  --sidebar-text: #f4f0ff;
+  --sidebar-muted: #8c7bb7;
+  --panel: rgba(15, 14, 34, 0.90);
+  --panel-2: rgba(23, 20, 48, 0.84);
+  --accent: #7c3aed;
+  --accent-strong: #00eaff;
+  --accent-soft: #ff4fd8;
+  --accent-contrast: #080816;
+  --shell-bar: rgba(9, 8, 24, 0.92);
+  --app-grad-top: #0d0b25;
+  --sel-bg: rgba(124, 58, 237, 0.18);
+  --sel-border: #00eaff;
+  --scrollbar-thumb: rgba(124, 58, 237, 0.36);
+  --scrollbar-thumb-hover: rgba(0, 234, 255, 0.62);
 }
 
 :root[data-theme='matrix'] {

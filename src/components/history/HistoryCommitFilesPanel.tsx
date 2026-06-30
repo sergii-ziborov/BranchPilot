@@ -2,6 +2,7 @@ import type { CommitDetails, DiffResult, ImagePreview } from '../../shared/branc
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
 import { DiffPreview } from '../DiffView'
+import { SignalStatus } from '../SignalStatus'
 
 interface HistoryFileMenu {
   x: number
@@ -13,6 +14,7 @@ interface HistoryCommitFilesPanelProps {
   commitDetails: CommitDetails | null
   selectedCommitFilePath: string | null
   commitFileDiff: DiffResult | null
+  commitFileDiffLoading: boolean
   commitImagePreview: ImagePreview | null
   loadCommitFileDiff: (commitSha: string, filePath: string) => void | Promise<void>
   openCommitFilePreview: (filePath: string) => void
@@ -23,6 +25,7 @@ export function HistoryCommitFilesPanel({
   commitDetails,
   selectedCommitFilePath,
   commitFileDiff,
+  commitFileDiffLoading,
   commitImagePreview,
   loadCommitFileDiff,
   openCommitFilePreview,
@@ -65,8 +68,15 @@ export function HistoryCommitFilesPanel({
           })}
         </div>
       </div>
-      <div className="commit-diff-column">
+      <div className={commitFileDiffLoading ? 'commit-diff-column has-file-diff-loading' : 'commit-diff-column'} aria-busy={commitFileDiffLoading}>
         <DiffPreview diff={commitFileDiff} imagePreview={commitImagePreview} />
+        {commitFileDiffLoading && (
+          <SignalStatus
+            className="history-file-diff-loading"
+            label="Loading file diff"
+            detail={selectedCommitFilePath ?? commitDetails?.shortSha ?? 'history'}
+          />
+        )}
       </div>
     </div>
   )

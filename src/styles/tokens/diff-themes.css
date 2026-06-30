@@ -182,6 +182,39 @@
   --syntax-punctuation: #00eaff;
 }
 
+:root[data-theme='cyberboard'] {
+  --diff-bg: #070717;
+  --diff-text: #ebe7ff;
+  --diff-muted: #9187bd;
+  --diff-border: rgba(124, 58, 237, 0.32);
+  --diff-file-bg: rgba(10, 9, 25, 0.96);
+  --diff-file-text: #fff9ff;
+  --diff-hunk-bg: rgba(0, 234, 255, 0.10);
+  --diff-hunk-text: #00eaff;
+  --diff-button-bg: rgba(13, 10, 28, 0.80);
+  --diff-add-text: #b9ffe7;
+  --diff-add-bg: rgba(0, 255, 177, 0.18);
+  --diff-remove-text: #ffbddf;
+  --diff-remove-bg: rgba(255, 79, 216, 0.19);
+  --diff-empty-bg: rgba(12, 10, 28, 0.70);
+  --diff-word-add-bg: rgba(0, 234, 255, 0.24);
+  --diff-word-add-border: rgba(0, 234, 255, 0.26);
+  --diff-word-del-bg: rgba(255, 79, 216, 0.24);
+  --diff-word-del-border: rgba(255, 79, 216, 0.25);
+  --diff-selected-accent: #00eaff;
+  --diff-selection-bg: #0b0922;
+  --diff-selection-text: #fff9ff;
+  --syntax-keyword: #ff4fd8;
+  --syntax-string: #f9f871;
+  --syntax-comment: #8c7bb7;
+  --syntax-number: #00eaff;
+  --syntax-type: #00ffb1;
+  --syntax-function: #a78bfa;
+  --syntax-variable: #fff9ff;
+  --syntax-operator: #ff4fd8;
+  --syntax-punctuation: #00eaff;
+}
+
 :root[data-theme='matrix'] {
   --sel-bg: rgba(0, 255, 106, 0.16);
   --sel-border: #00ff6a;
@@ -278,3 +311,68 @@
   --syntax-punctuation: #657b83;
 }
 
+:root[data-theme='cisco-light'] {
+  --diff-bg: #ffffff;
+  --diff-text: #07182a;
+  --diff-muted: #5c7184;
+  --diff-border: rgba(0, 118, 168, 0.18);
+  --diff-file-bg: #edf7fb;
+  --diff-file-text: #07182a;
+  --diff-hunk-bg: #dff5fb;
+  --diff-hunk-text: #0076a8;
+  --diff-button-bg: rgba(243, 249, 251, 0.88);
+  --diff-add-text: #0f766e;
+  --diff-add-bg: #d7f6ec;
+  --diff-remove-text: #b42318;
+  --diff-remove-bg: #ffe7e3;
+  --diff-empty-bg: #f3f9fb;
+  --diff-word-add-bg: rgba(15, 118, 110, 0.22);
+  --diff-word-add-border: rgba(15, 118, 110, 0.22);
+  --diff-word-del-bg: rgba(180, 35, 24, 0.20);
+  --diff-word-del-border: rgba(180, 35, 24, 0.22);
+  --diff-selected-accent: #049fd9;
+  --diff-selection-bg: #edf7fb;
+  --diff-selection-text: #07182a;
+  --syntax-keyword: #0076a8;
+  --syntax-string: #007f5f;
+  --syntax-comment: #6b7f8d;
+  --syntax-number: #8a5a00;
+  --syntax-type: #005c83;
+  --syntax-function: #005e9c;
+  --syntax-variable: #07182a;
+  --syntax-operator: #b42318;
+  --syntax-punctuation: #5c7184;
+}
+
+:root[data-theme='cisco-dark'] {
+  --diff-bg: #04111a;
+  --diff-text: #d8edf5;
+  --diff-muted: #7eaabc;
+  --diff-border: rgba(0, 188, 235, 0.22);
+  --diff-file-bg: #061722;
+  --diff-file-text: #f7fdff;
+  --diff-hunk-bg: rgba(0, 188, 235, 0.12);
+  --diff-hunk-text: #62cbc9;
+  --diff-button-bg: rgba(4, 17, 26, 0.82);
+  --diff-add-text: #b7fff0;
+  --diff-add-bg: rgba(15, 118, 110, 0.24);
+  --diff-remove-text: #ffd1cc;
+  --diff-remove-bg: rgba(180, 35, 24, 0.23);
+  --diff-empty-bg: rgba(6, 23, 34, 0.72);
+  --diff-word-add-bg: rgba(98, 203, 201, 0.24);
+  --diff-word-add-border: rgba(98, 203, 201, 0.25);
+  --diff-word-del-bg: rgba(255, 110, 94, 0.24);
+  --diff-word-del-border: rgba(255, 110, 94, 0.25);
+  --diff-selected-accent: #00bceb;
+  --diff-selection-bg: #071c29;
+  --diff-selection-text: #f7fdff;
+  --syntax-keyword: #62cbc9;
+  --syntax-string: #8fffdc;
+  --syntax-comment: #6c9aac;
+  --syntax-number: #7dd3fc;
+  --syntax-type: #00bceb;
+  --syntax-function: #f7fdff;
+  --syntax-variable: #d8edf5;
+  --syntax-operator: #ffb86b;
+  --syntax-punctuation: #7eaabc;
+}

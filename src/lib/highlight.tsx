@@ -50,7 +50,14 @@ function tokenRe(lang: string): RegExp {
 }
 
 export function langFromPath(path: string): string {
-  return path.split('.').pop()?.toLowerCase() ?? ''
+  const normalized = path.replace(/\\/g, '/').toLowerCase()
+  const fileName = normalized.split('/').pop() ?? normalized
+
+  if (/^(bun|composer|deno)\.lock$/.test(fileName)) return 'json'
+  if (/^(tsconfig|jsconfig|package-lock)\.json$/.test(fileName)) return 'json'
+  if (fileName.endsWith('.lock.json')) return 'json'
+
+  return fileName.split('.').pop()?.toLowerCase() ?? ''
 }
 
 export function highlight(code: string, lang = ''): ReactNode {

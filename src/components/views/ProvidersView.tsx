@@ -71,6 +71,7 @@ export function ProvidersView({
   const browsePrState = getPullRequestBrowseState(snapshot, githubCliStatus)
   const needsGitHubAuth = Boolean(githubCliStatus && !githubCliStatus.authenticated)
   const prBaseBranchOptions = pullRequestBaseBranchOptions(snapshot, prBaseBranch, pullRequests)
+  const prBaseBranchGroups = groupPullRequestBaseBranchOptions(prBaseBranchOptions)
   const selectedPrBaseBranch = normalizePullRequestBaseBranch(prBaseBranch, snapshot?.summary.remoteName)
   const selectedPrBaseBranchKey = selectedPrBaseBranch.trim().toLowerCase()
 
@@ -106,9 +107,9 @@ export function ProvidersView({
       <div className="panel-heading">
         <div className="panel-heading-main">
           <BackToChanges onClick={onBack} />
-          <div>
+          <div className="pr-page-title">
             <h2>Pull requests</h2>
-            <p>GitHub uses authenticated gh when available, with Git credentials as a PR creation fallback.</p>
+            <span>GitHub uses authenticated gh when available, with Git credentials as a PR creation fallback.</span>
           </div>
         </div>
         <button type="button" onClick={refreshProvidersPanel} disabled={busy}>
@@ -280,25 +281,30 @@ export function ProvidersView({
                 </div>
                 {prBaseBranchMenuOpen && (
                   <div className="pr-base-menu" id="pr-base-options" role="listbox" aria-label="Base branches">
-                    {prBaseBranchOptions.length > 0 ? prBaseBranchOptions.map((branch) => {
-                      const selected = branch.value.toLowerCase() === selectedPrBaseBranchKey
+                    {prBaseBranchGroups.length > 0 ? prBaseBranchGroups.map((group) => (
+                      <div className="pr-base-option-group" key={group.kind}>
+                        <div className="pr-base-option-group-label">{group.label}</div>
+                        {group.options.map((branch) => {
+                          const selected = branch.value.toLowerCase() === selectedPrBaseBranchKey
 
-                      return (
-                        <button
-                          type="button"
-                          className={selected ? 'pr-base-option selected' : 'pr-base-option'}
-                          key={`${branch.kind}-${branch.value}`}
-                          role="option"
-                          aria-selected={selected}
-                          title={branch.label}
-                          onClick={() => selectPrBaseBranch(branch.value)}
-                        >
-                          <span className="pr-base-option-name">{branch.value}</span>
-                          <span className="pr-base-option-kind">{pullRequestBranchKindLabel(branch.kind)}</span>
-                          {selected && <Check size={14} />}
-                        </button>
-                      )
-                    }) : (
+                          return (
+                            <button
+                              type="button"
+                              className={selected ? 'pr-base-option selected' : 'pr-base-option'}
+                              key={`${branch.kind}-${branch.value}`}
+                              role="option"
+                              aria-selected={selected}
+                              title={branch.label}
+                              onClick={() => selectPrBaseBranch(branch.value)}
+                            >
+                              <span className="pr-base-option-name">{branch.value}</span>
+                              {selected && <span className="pr-base-option-kind">Selected</span>}
+                              {selected && <Check size={14} />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )) : (
                       <div className="pr-base-option-empty">No target branches found.</div>
                     )}
                   </div>
@@ -474,4 +480,16 @@ function pullRequestBranchKindLabel(kind: PullRequestBaseBranchOption['kind']): 
   if (kind === 'local') return 'Local'
   if (kind === 'remote') return 'Remote'
   return 'Pull request'
+}
+
+function groupPullRequestBaseBranchOptions(options: PullRequestBaseBranchOption[]) {
+  const order: PullRequestBaseBranchOption['kind'][] = ['selected', 'local', 'remote', 'pull-request']
+
+  return order
+    .map((kind) => ({
+      kind,
+      label: pullRequestBranchKindLabel(kind),
+      options: options.filter((option) => option.kind === kind)
+    }))
+    .filter((group) => group.options.length > 0)
 }

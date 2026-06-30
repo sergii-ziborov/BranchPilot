@@ -121,7 +121,9 @@
 }
 
 .daily-review-card {
+  position: relative;
   min-width: 0;
+  overflow: hidden;
 }
 
 .daily-review-card > .review-empty {
@@ -131,6 +133,52 @@
 
 .daily-review-card .daily-workspace {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+}
+
+.signal-status.daily-review-curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  min-height: 0;
+  padding: 24px;
+  border: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 72% 26%, color-mix(in srgb, var(--signal-alt) 18%, transparent), transparent 32%),
+    radial-gradient(circle at 20% 78%, color-mix(in srgb, var(--signal-hot) 10%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 70%, transparent), color-mix(in srgb, var(--panel) 88%, transparent));
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+}
+
+.signal-status.daily-review-curtain .signal-status-copy strong {
+  font-size: 13px;
+  letter-spacing: 0.09em;
+}
+
+.signal-status.daily-review-curtain .signal-status-copy span {
+  max-width: min(520px, 100%);
+  color: var(--signal-alt);
+  letter-spacing: 0.08em;
+}
+
+html[data-theme='cyberpunk'] .signal-status.daily-review-curtain {
+  background:
+    radial-gradient(circle at 76% 25%, rgba(0, 234, 255, 0.17), transparent 34%),
+    radial-gradient(circle at 18% 76%, rgba(255, 43, 214, 0.16), transparent 33%),
+    rgba(10, 1, 7, 0.84);
+}
+
+html[data-theme='deus-ex'] .signal-status.daily-review-curtain {
+  background:
+    radial-gradient(circle at 70% 24%, rgba(104, 226, 189, 0.14), transparent 31%),
+    linear-gradient(180deg, rgba(2, 4, 2, 0.80), rgba(7, 8, 3, 0.90));
+}
+
+html[data-theme='cisco-light'] .signal-status.daily-review-curtain {
+  background:
+    radial-gradient(circle at 72% 24%, rgba(0, 188, 235, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(245, 250, 252, 0.82), rgba(230, 242, 247, 0.90));
 }
 
 .heatmap-interactive .heatmap-grid {

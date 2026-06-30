@@ -186,6 +186,8 @@ export function RepositoryPickerModal({
                   <span className="repository-picker-entry-text">
                     <strong>{entry.name}</strong>
                     <small>{shortPath(entry.path)}</small>
+                  </span>
+                  <span className="repository-picker-entry-meta">
                     {entry.tech && (
                       <span className="repository-picker-entry-tech">
                         {entry.tech.languages.map((language) => (
@@ -199,8 +201,6 @@ export function RepositoryPickerModal({
                         )}
                       </span>
                     )}
-                  </span>
-                  <span className="repository-picker-entry-meta">
                     {active && <span className="repository-picker-badge active"><Check size={12} /> Current</span>}
                     {recent && !active && <span className="repository-picker-badge recent"><Star size={12} /> Recent</span>}
                     {entry.isGitRepository && <span className="repository-picker-badge git">git</span>}

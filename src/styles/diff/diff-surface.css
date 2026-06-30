@@ -443,6 +443,245 @@
   to { opacity: 1; }
 }
 
+.signal-status {
+  --signal-main: var(--accent);
+  --signal-alt: var(--diff-hunk-text, var(--accent));
+  --signal-hot: var(--diff-selected-accent, var(--accent));
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--text-strong);
+}
+
+.signal-status:not(.history-detail-loading) {
+  position: relative;
+  background:
+    radial-gradient(circle at 72% 18%, color-mix(in srgb, var(--signal-alt) 16%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 82%, transparent), color-mix(in srgb, var(--panel) 92%, transparent));
+}
+
+.signal-status::before,
+.signal-status::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.signal-status::before {
+  z-index: 0;
+  opacity: 0.66;
+  background:
+    linear-gradient(90deg, transparent 0 18%, color-mix(in srgb, var(--signal-alt) 28%, transparent) 42%, transparent 64% 100%),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 10px,
+      color-mix(in srgb, var(--signal-main) 22%, transparent) 10px 11px,
+      transparent 11px 18px
+    );
+  background-size: 190% 100%, 100% 18px;
+  animation: signal-loading-scan 1.1s linear infinite;
+}
+
+.signal-status::after {
+  z-index: 0;
+  inset: -28% -38%;
+  background:
+    linear-gradient(105deg, transparent 0 34%, color-mix(in srgb, var(--signal-alt) 34%, transparent) 47%, color-mix(in srgb, var(--signal-hot) 22%, transparent) 51%, transparent 66% 100%),
+    linear-gradient(180deg, transparent 0 43%, color-mix(in srgb, var(--signal-hot) 24%, transparent) 48%, transparent 56% 100%);
+  mix-blend-mode: screen;
+  animation: signal-loading-sweep 1.25s ease-in-out infinite;
+}
+
+.signal-status-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  min-width: 0;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.signal-status-copy strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signal-status-copy span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--signal-alt);
+  font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signal-status.diff-operation-curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 24;
+  min-height: 0;
+  padding: 28px;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 72% 26%, color-mix(in srgb, var(--signal-alt) 18%, transparent), transparent 32%),
+    radial-gradient(circle at 20% 78%, color-mix(in srgb, var(--signal-hot) 10%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 70%, transparent), color-mix(in srgb, var(--panel) 88%, transparent));
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+}
+
+.signal-status.diff-operation-curtain .signal-status-copy strong {
+  font-size: 13px;
+  letter-spacing: 0.09em;
+}
+
+.signal-status.diff-operation-curtain .signal-status-copy span {
+  color: var(--signal-alt);
+  letter-spacing: 0.12em;
+}
+
+html[data-theme='cyberpunk'] .signal-status.diff-operation-curtain {
+  --signal-main: #ff3049;
+  --signal-alt: #00eaff;
+  --signal-hot: #ffd400;
+  background:
+    linear-gradient(105deg, rgba(255, 0, 92, 0.14), transparent 32%, rgba(0, 234, 255, 0.13) 64%, transparent),
+    repeating-linear-gradient(180deg, rgba(255, 0, 92, 0.14) 0 1px, transparent 1px 19px),
+    repeating-linear-gradient(90deg, rgba(0, 234, 255, 0.08) 0 1px, transparent 1px 34px),
+    rgba(12, 0, 11, 0.48);
+  backdrop-filter: saturate(1.35);
+}
+
+html[data-theme='deus-ex'] .signal-status.diff-operation-curtain {
+  --signal-main: #d8c93c;
+  --signal-alt: #68e2bd;
+  --signal-hot: #fff176;
+  background:
+    radial-gradient(circle at 70% 24%, rgba(104, 226, 189, 0.14), transparent 31%),
+    linear-gradient(180deg, rgba(2, 4, 2, 0.80), rgba(7, 8, 3, 0.90));
+}
+
+html[data-theme='cisco-light'] .signal-status.diff-operation-curtain {
+  --signal-main: #049fd9;
+  --signal-alt: #005073;
+  --signal-hot: #00bceb;
+  background:
+    radial-gradient(circle at 72% 24%, rgba(0, 188, 235, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(245, 250, 252, 0.82), rgba(230, 242, 247, 0.90));
+}
+
+.signal-status-info {
+  --signal-main: var(--good, #16a34a);
+  --signal-alt: color-mix(in srgb, var(--good, #16a34a) 80%, var(--accent));
+  --signal-hot: var(--good, #16a34a);
+}
+
+.signal-status-warning {
+  --signal-main: var(--warning, #f59e0b);
+  --signal-alt: color-mix(in srgb, var(--warning, #f59e0b) 70%, var(--accent));
+  --signal-hot: var(--warning, #f59e0b);
+}
+
+.signal-status-error {
+  --signal-main: var(--danger, #ef4444);
+  --signal-alt: color-mix(in srgb, var(--danger, #ef4444) 82%, var(--accent));
+  --signal-hot: var(--danger, #ef4444);
+}
+
+html[data-theme='cyberpunk'] .signal-status {
+  --signal-main: #ff3049;
+  --signal-alt: #00eaff;
+  --signal-hot: #ffd400;
+}
+
+html[data-theme='cisco-light'] .signal-status {
+  --signal-main: #049fd9;
+  --signal-alt: #00bceb;
+  --signal-hot: #62cbc9;
+}
+
+html[data-theme='cisco-light'] .signal-status::before {
+  background:
+    linear-gradient(90deg, transparent 0 12%, rgba(0, 188, 235, 0.28) 42%, transparent 70% 100%),
+    repeating-linear-gradient(90deg, rgba(4, 159, 217, 0.10) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(180deg, rgba(4, 159, 217, 0.08) 0 1px, transparent 1px 28px);
+  background-size: 190% 100%, 28px 28px, 28px 28px;
+  animation: cisco-signal-flow 1.8s linear infinite;
+}
+
+html[data-theme='cisco-light'] .signal-status::after {
+  background:
+    radial-gradient(circle at 28% 50%, rgba(0, 188, 235, 0.30), transparent 12%),
+    radial-gradient(circle at 50% 50%, rgba(98, 203, 201, 0.30), transparent 12%),
+    radial-gradient(circle at 72% 50%, rgba(4, 159, 217, 0.28), transparent 12%);
+  animation: cisco-signal-nodes 1.55s ease-in-out infinite;
+}
+
+html[data-theme='deus-ex'] .signal-status {
+  --signal-main: #d8c93c;
+  --signal-alt: #68e2bd;
+  --signal-hot: #fff176;
+}
+
+@keyframes signal-loading-scan {
+  from {
+    background-position: -90% 0, 0 -18px;
+  }
+
+  to {
+    background-position: 90% 0, 0 18px;
+  }
+}
+
+@keyframes signal-loading-sweep {
+  0% {
+    opacity: 0.22;
+    transform: translateX(-42%) skewX(-8deg);
+  }
+
+  50% {
+    opacity: 0.88;
+  }
+
+  100% {
+    opacity: 0.22;
+    transform: translateX(42%) skewX(-8deg);
+  }
+}
+
+@keyframes cisco-signal-flow {
+  from {
+    background-position: -90% 0, 0 0, 0 0;
+  }
+
+  to {
+    background-position: 90% 0, 28px 0, 0 28px;
+  }
+}
+
+@keyframes cisco-signal-nodes {
+  0%, 100% {
+    opacity: 0.38;
+    transform: scaleX(0.96);
+  }
+
+  50% {
+    opacity: 0.88;
+    transform: scaleX(1.04);
+  }
+}
+
 .toast-stack {
   position: fixed;
   right: 18px;
@@ -456,70 +695,86 @@
 }
 
 .toast {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 420px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--panel);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
-  color: var(--text);
-  font-size: 13px;
+  width: min(440px, calc(100vw - 36px));
+  min-height: 58px;
+  padding: 10px 42px 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--signal-main) 46%, var(--border));
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 86% 0%, color-mix(in srgb, var(--signal-alt) 17%, transparent), transparent 36%),
+    color-mix(in srgb, var(--panel) 88%, transparent);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px color-mix(in srgb, var(--signal-main) 16%, transparent);
   pointer-events: auto;
   animation: toast-in 0.18s ease-out;
+  backdrop-filter: blur(8px);
 }
 
-.toast span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.toast.signal-status-compact {
+  justify-items: start;
+  place-items: center start;
+}
+
+.toast .signal-status-copy {
+  width: 100%;
+  justify-items: start;
+  text-align: left;
+}
+
+.toast .signal-status-copy strong {
+  max-width: 100%;
+  font-size: 11px;
+  letter-spacing: 0.11em;
+}
+
+.toast .signal-status-copy span {
+  max-width: 100%;
+  color: var(--text);
+  font: 13px/1.35 var(--font-sans, inherit);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .toast-info {
-  border-color: #bbf7d0;
-}
-
-.toast-info svg {
-  color: #16a34a;
-}
-
-.toast-warning {
-  border-color: color-mix(in srgb, var(--warning, #f59e0b) 62%, var(--border));
-  background: color-mix(in srgb, var(--warning, #f59e0b) 12%, var(--panel));
-  color: var(--text);
-}
-
-.toast-warning svg {
-  color: var(--warning, #f59e0b);
+  --signal-main: var(--good, #16a34a);
+  --signal-alt: color-mix(in srgb, var(--good, #16a34a) 75%, var(--accent));
+  --signal-hot: var(--good, #16a34a);
 }
 
 .toast-busy {
-  border-color: #bfdbfe;
+  --signal-main: var(--accent);
+  --signal-alt: var(--diff-hunk-text, var(--accent));
+  --signal-hot: var(--diff-selected-accent, var(--accent));
 }
 
-.toast-busy svg {
-  color: var(--accent);
+.toast-warning {
+  --signal-main: var(--warning, #f59e0b);
+  --signal-alt: color-mix(in srgb, var(--warning, #f59e0b) 72%, var(--accent));
+  --signal-hot: var(--warning, #f59e0b);
 }
 
 .toast-error {
-  border-color: #fecaca;
-  background: #fff5f5;
-  color: #b91c1c;
+  --signal-main: var(--danger, #ef4444);
+  --signal-alt: color-mix(in srgb, var(--danger, #ef4444) 80%, var(--accent));
+  --signal-hot: var(--danger, #ef4444);
 }
 
 .toast-error button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   display: inline-flex;
   padding: 2px;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: inherit;
+  color: var(--signal-alt);
   cursor: pointer;
 }
 
 .toast-error button:hover {
-  background: rgba(185, 28, 28, 0.12);
+  background: color-mix(in srgb, var(--signal-main) 16%, transparent);
 }
 
 @keyframes toast-in {
@@ -540,6 +795,8 @@
 }
 
 .diff-image {
+  --diff-image-check-a: color-mix(in srgb, var(--panel) 82%, var(--text) 8%);
+  --diff-image-check-b: color-mix(in srgb, var(--surface) 86%, var(--accent) 7%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -548,12 +805,19 @@
   min-height: 280px;
   padding: 24px;
   background:
-    linear-gradient(45deg, #eef2f7 25%, transparent 25%),
-    linear-gradient(-45deg, #eef2f7 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #eef2f7 75%),
-    linear-gradient(-45deg, transparent 75%, #eef2f7 75%);
+    linear-gradient(45deg, var(--diff-image-check-a) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--diff-image-check-a) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--diff-image-check-a) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--diff-image-check-a) 75%),
+    var(--diff-image-check-b);
   background-size: 18px 18px;
-  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0, 0 0;
+}
+
+html[data-theme='cyberpunk'] .diff-image {
+  --diff-image-check-a: rgba(0, 234, 255, 0.18);
+  --diff-image-check-b: rgba(22, 0, 20, 0.94);
+  box-shadow: inset 0 0 0 1px rgba(255, 0, 92, 0.34);
 }
 
 .diff-image img {

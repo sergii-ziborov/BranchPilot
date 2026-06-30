@@ -47,6 +47,24 @@
   gap: 10px;
 }
 
+.pr-page-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pr-page-title h2 {
+  flex: 0 0 auto;
+}
+
+.pr-page-title span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .providers-pr-layout {
   display: grid;
   grid-template-columns: minmax(320px, 0.58fr) minmax(620px, 1.42fr);

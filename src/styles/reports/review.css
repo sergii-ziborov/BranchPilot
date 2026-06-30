@@ -73,7 +73,7 @@
 }
 
 .tool-modal.review-modal .assistant-select-row {
-  grid-template-columns: minmax(0, 1fr) 38px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .tool-modal.review-modal .assistant-select {
@@ -101,9 +101,10 @@
 }
 
 .tool-modal.review-modal .review-main > .review-running {
-  align-content: center;
-  min-height: 260px;
-  padding: 28px;
+  align-content: stretch;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
 }
 
 .review-summary {

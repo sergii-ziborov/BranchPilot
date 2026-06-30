@@ -141,7 +141,7 @@
 
 .repository-picker-entry {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) minmax(280px, max-content);
   align-items: center;
   gap: 10px;
   min-height: 56px;
@@ -205,18 +205,25 @@
 
 .repository-picker-entry-tech {
   display: flex;
+  align-items: center;
   min-width: 0;
-  flex-wrap: wrap;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
   gap: 4px;
-  padding-top: 2px;
+  max-width: min(340px, 36vw);
+  overflow: hidden;
 }
 
 .repository-picker-entry-meta {
   display: inline-flex;
-  flex-wrap: wrap;
+  align-items: center;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 5px;
-  max-width: min(250px, 32vw);
+  min-width: 0;
+  justify-self: end;
+  max-width: min(540px, 52vw);
+  overflow: hidden;
 }
 
 .repository-picker-badge {
@@ -235,25 +242,29 @@
 }
 
 .repository-picker-badge.git {
+  flex: 0 0 auto;
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
   color: var(--accent-contrast);
   background: var(--accent);
 }
 
 .repository-picker-badge.active {
+  flex: 0 0 auto;
   color: var(--text-strong);
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, var(--panel));
 }
 
 .repository-picker-badge.recent {
+  flex: 0 0 auto;
   color: var(--accent-strong);
   border-color: color-mix(in srgb, var(--accent-strong) 40%, var(--border));
   background: color-mix(in srgb, var(--accent-strong) 10%, var(--panel));
 }
 
 .repository-picker-badge.tech {
-  max-width: 118px;
+  max-width: 104px;
+  flex: 0 1 auto;
   min-height: 20px;
   padding: 0 7px;
   overflow: hidden;

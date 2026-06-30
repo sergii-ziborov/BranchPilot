@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Bot, Clipboard, Loader2, RotateCcw, Settings2, Star } from 'lucide-react'
 import type { GeneratedLinkedInProject, RepositorySnapshot } from '../../shared/branchPilot'
 import { IconButton } from '../IconButton'
+import { SignalStatus } from '../SignalStatus'
 
 export function LinkedInView({
   generateLinkedInProject,
@@ -79,7 +80,7 @@ export function LinkedInView({
   }
 
   return (
-    <section className="single-panel linkedin-panel">
+    <section className={`single-panel linkedin-panel${linkedinLoading ? ' has-linkedin-generation-curtain' : ''}`} aria-busy={linkedinLoading}>
       <div className="panel-heading linkedin-heading">
         <div>
           <h2>LinkedIn Project</h2>
@@ -154,7 +155,7 @@ export function LinkedInView({
       {!linkedinProject ? (
         <section className="review-empty linkedin-empty linkedin-card">
           <Star size={24} />
-          <strong>{linkedinLoading ? 'Generating LinkedIn project' : 'No LinkedIn draft yet'}</strong>
+          <strong>{linkedinLoading ? 'Preparing LinkedIn draft' : 'No LinkedIn draft yet'}</strong>
           <span>{snapshot ? 'Generate a saved project entry from commits, tracked files, README, and package metadata.' : 'Open a repository before generating LinkedIn content.'}</span>
         </section>
       ) : (
@@ -271,6 +272,13 @@ export function LinkedInView({
             </section>
           </aside>
         </div>
+      )}
+      {linkedinLoading && (
+        <SignalStatus
+          className="linkedin-generation-curtain"
+          label="Generating LinkedIn project"
+          detail={snapshot?.summary.name ?? 'BranchPilot'}
+        />
       )}
     </section>
   )

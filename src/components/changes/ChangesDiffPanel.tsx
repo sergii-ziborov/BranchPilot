@@ -1,4 +1,4 @@
-import { Code2, Columns2, FolderOpen, GitCommitHorizontal, Maximize2, Minimize2, Pilcrow, Rows3, Terminal, Trash2 } from 'lucide-react'
+import { Code2, Columns2, Eye, FolderOpen, GitCommitHorizontal, Maximize2, Minimize2, Pilcrow, Rows3, Terminal } from 'lucide-react'
 import type {
   ApiResult,
   BranchPilotApi,
@@ -16,6 +16,7 @@ import { DiffPreview, type DiffLineContextMenuTarget, type DiffLineEditorTarget 
 import { DiffStatBadges } from '../DiffStatBadges'
 import { IconButton } from '../IconButton'
 import { SegmentedControl } from '../SegmentedControl'
+import { SignalStatus } from '../SignalStatus'
 
 function diffSectionLabel(mode: ChangeDiffMode): string {
   return mode === 'staged' ? 'Staged for commit' : 'Unstaged in working tree'
@@ -35,8 +36,8 @@ interface ChangesDiffPanelProps {
   currentRepoPath: string | undefined
   busy: boolean
   api: BranchPilotApi | undefined
-  canDiscardSelectedFile: boolean
-  onDiscardSelected: () => void
+  inlineOperationLabel?: string | null
+  onOpenInternalPreview: (filePath: string | null) => void
   onOpenContextMenu: (x: number, y: number, change: FileChange, target?: DiffLineContextMenuTarget) => void
   onOpenDiffLineInEditor: (target: DiffLineEditorTarget) => void
   diffMode: ChangeDiffMode
@@ -65,8 +66,8 @@ export function ChangesDiffPanel({
   currentRepoPath,
   busy,
   api,
-  canDiscardSelectedFile,
-  onDiscardSelected,
+  inlineOperationLabel = null,
+  onOpenInternalPreview,
   onOpenContextMenu,
   onOpenDiffLineInEditor,
   diffMode,
@@ -86,6 +87,7 @@ export function ChangesDiffPanel({
   loadDiffContext,
   runSnapshotAction
 }: ChangesDiffPanelProps) {
+  const operationStatusLabel = inlineOperationLabel?.replace(/\.\.\.$/, '').trim() || null
   const primaryDiffMode: ChangeDiffMode = diff?.staged ? 'staged' : 'unstaged'
   const relatedDiffMode: ChangeDiffMode = relatedDiff?.staged ? 'staged' : 'unstaged'
   const showRelatedDiff = Boolean(
@@ -180,7 +182,7 @@ export function ChangesDiffPanel({
 
   return (
     <div
-      className="diff-panel"
+      className={`diff-panel${operationStatusLabel ? ' has-diff-operation-curtain' : ''}`}
       onContextMenu={(event) => {
         if (!selectedChange) return
         event.preventDefault()
@@ -201,6 +203,13 @@ export function ChangesDiffPanel({
               description="Edit files in your configured editor."
               disabled={!currentRepoPath || busy || !api}
               onClick={() => currentRepoPath && api && void api.openInEditor({ targetPath: currentRepoPath })}
+            />
+            <ActionCard
+              icon={<Eye size={18} />}
+              title="Preview in BranchPilot"
+              description="Browse and edit files inside this window."
+              disabled={!currentRepoPath || busy || !api}
+              onClick={() => onOpenInternalPreview(null)}
             />
             <ActionCard
               icon={<FolderOpen size={18} />}
@@ -237,13 +246,13 @@ export function ChangesDiffPanel({
                 <div className="diff-file-actions" aria-label="Selected file actions">
                   <button
                     type="button"
-                    className="danger"
-                    title={canDiscardSelectedFile ? (selectedChange.untracked ? 'Delete this untracked file' : 'Discard unstaged changes in this file') : 'Unstage this file before discarding staged-only changes'}
-                    onClick={onDiscardSelected}
-                    disabled={busy || !api || !currentRepoPath || !canDiscardSelectedFile}
+                    className="preview"
+                    title="Open this file in BranchPilot preview"
+                    onClick={() => onOpenInternalPreview(selectedChange.path)}
+                    disabled={busy || !api || !currentRepoPath}
                   >
-                    <Trash2 size={15} />
-                    {selectedChange.untracked ? 'Delete' : 'Discard'}
+                    <Eye size={15} />
+                    Preview
                   </button>
                 </div>
               )}
@@ -285,6 +294,13 @@ export function ChangesDiffPanel({
             </div>
           ) : primaryDiffPreview}
         </>
+      )}
+      {operationStatusLabel && (
+        <SignalStatus
+          className="diff-operation-curtain"
+          label={operationStatusLabel}
+          detail="BranchPilot"
+        />
       )}
     </div>
   )

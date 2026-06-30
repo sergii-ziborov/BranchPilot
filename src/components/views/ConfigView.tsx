@@ -60,7 +60,7 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
   }
 
   return (
-    <section className="single-panel">
+    <section className="single-panel settings-page">
       <div className="panel-heading settings-panel-heading">
         <div className="panel-heading-main">
           <BackToChanges onClick={onBack} />

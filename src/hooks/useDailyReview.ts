@@ -58,7 +58,6 @@ export function useDailyReview({
 
       if (result.ok) {
         setDailyReview(result.data)
-        setNotice(`Daily review generated for ${result.data.date}.`)
       } else {
         setDailyReview(null)
         setError(result.error.message)

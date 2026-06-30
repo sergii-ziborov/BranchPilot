@@ -334,9 +334,24 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     return parseCommitHistory(result.stdout)
   }
 
+  private async resolveCommitRevision(rootPath: string, revision: string): Promise<string> {
+    const trimmed = revision.trim()
+
+    if (/^[a-fA-F0-9]{7,40}$/.test(trimmed)) {
+      return normalizeCommitSha(trimmed)
+    }
+
+    if (!trimmed || trimmed.includes('\0') || trimmed.startsWith('-') || trimmed.includes('..')) {
+      throw new BranchPilotUserError('invalid_commit', 'Invalid commit identifier.')
+    }
+
+    const result = await this.git(rootPath, ['rev-parse', '--verify', `${trimmed}^{commit}`])
+    return normalizeCommitSha(result.stdout.trim().split(/\s+/)[0] ?? '')
+  }
+
   async getCommitDetails(request: CommitDetailsRequest): Promise<CommitDetails> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const commitSha = normalizeCommitSha(request.commitSha)
+    const commitSha = await this.resolveCommitRevision(rootPath, request.commitSha)
     const metadata = await this.git(rootPath, [
       'show',
       '-s',
@@ -364,7 +379,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
 
   async getCommitCard(request: CommitDetailsRequest): Promise<CommitCard> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const commitSha = normalizeCommitSha(request.commitSha)
+    const commitSha = await this.resolveCommitRevision(rootPath, request.commitSha)
     const metadata = await this.git(rootPath, [
       'show',
       '-s',
@@ -400,7 +415,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
 
   async getCommitFileDiff(request: CommitFileDiffRequest): Promise<DiffResult> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const commitSha = normalizeCommitSha(request.commitSha)
+    const commitSha = await this.resolveCommitRevision(rootPath, request.commitSha)
     const filePath = normalizeRelativePath(request.filePath)
     const parentShas = await this.getCommitParentShas(rootPath, commitSha)
     const args = parentShas.length === 0
@@ -427,7 +442,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
 
   async getCommitFileContent(request: CommitFileContentRequest): Promise<CommitFileContentResult> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const commitSha = normalizeCommitSha(request.commitSha)
+    const commitSha = await this.resolveCommitRevision(rootPath, request.commitSha)
     const filePath = normalizeRelativePath(request.filePath)
     const result = await this.git(rootPath, ['cat-file', 'blob', `${commitSha}:${filePath}`], {
       maxOutputBytes: MAX_COMMIT_FILE_CONTENT_OUTPUT_BYTES
@@ -447,8 +462,8 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
 
   async getCommitFileCompareDiff(request: CommitFileCompareRequest): Promise<DiffResult> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
-    const commitSha = normalizeCommitSha(request.commitSha)
-    const compareCommitSha = normalizeCommitSha(request.compareCommitSha)
+    const commitSha = await this.resolveCommitRevision(rootPath, request.commitSha)
+    const compareCommitSha = await this.resolveCommitRevision(rootPath, request.compareCommitSha)
     const filePath = normalizeRelativePath(request.filePath)
     const result = await this.git(rootPath, ['diff', '--no-ext-diff', '--find-renames', compareCommitSha, commitSha, '--', filePath], {
       allowedExitCodes: [0, 1],

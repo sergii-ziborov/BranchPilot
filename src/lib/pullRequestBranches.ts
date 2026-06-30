@@ -70,10 +70,16 @@ function addOption(
 }
 
 function sortPullRequestBaseBranchOptions(options: PullRequestBaseBranchOption[]): PullRequestBaseBranchOption[] {
+  const kindOrder: Record<PullRequestBaseBranchOption['kind'], number> = {
+    selected: 0,
+    local: 1,
+    remote: 2,
+    'pull-request': 3
+  }
+
   return [...options].sort((left, right) => {
-    if (left.kind === 'selected' || right.kind === 'selected') {
-      return left.kind === right.kind ? 0 : left.kind === 'selected' ? -1 : 1
-    }
+    const kindDelta = kindOrder[left.kind] - kindOrder[right.kind]
+    if (kindDelta !== 0) return kindDelta
 
     const priorityDelta = baseBranchRank(left.value) - baseBranchRank(right.value)
     if (priorityDelta !== 0) return priorityDelta

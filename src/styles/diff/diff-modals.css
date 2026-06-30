@@ -65,6 +65,19 @@
   background: var(--sel-bg) !important;
 }
 
+.diff-file-actions button.preview {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border)) !important;
+  color: var(--accent-strong) !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, var(--panel)), var(--panel-2)) !important;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.diff-file-actions button.preview:hover:not(:disabled) {
+  color: var(--accent-contrast) !important;
+  background: var(--accent) !important;
+}
+
 .diff-file-actions button.danger {
   color: var(--danger) !important;
 }
@@ -151,23 +164,41 @@
 
 /* Syntax highlighting tokens inside diff lines. */
 .structured-diff .tok-keyword,
-.diff-preview .tok-keyword { color: var(--syntax-keyword); }
+.diff-preview .tok-keyword,
+.changes-editor-highlight .tok-keyword,
+.changes-editor-live-diff .tok-keyword { color: var(--syntax-keyword); }
 .structured-diff .tok-string,
-.diff-preview .tok-string { color: var(--syntax-string); }
+.diff-preview .tok-string,
+.changes-editor-highlight .tok-string,
+.changes-editor-live-diff .tok-string { color: var(--syntax-string); }
 .structured-diff .tok-comment,
-.diff-preview .tok-comment { color: var(--syntax-comment); font-style: italic; }
+.diff-preview .tok-comment,
+.changes-editor-highlight .tok-comment,
+.changes-editor-live-diff .tok-comment { color: var(--syntax-comment); font-style: italic; }
 .structured-diff .tok-number,
-.diff-preview .tok-number { color: var(--syntax-number); }
+.diff-preview .tok-number,
+.changes-editor-highlight .tok-number,
+.changes-editor-live-diff .tok-number { color: var(--syntax-number); }
 .structured-diff .tok-type,
-.diff-preview .tok-type { color: var(--syntax-type); }
+.diff-preview .tok-type,
+.changes-editor-highlight .tok-type,
+.changes-editor-live-diff .tok-type { color: var(--syntax-type); }
 .structured-diff .tok-function,
-.diff-preview .tok-function { color: var(--syntax-function); }
+.diff-preview .tok-function,
+.changes-editor-highlight .tok-function,
+.changes-editor-live-diff .tok-function { color: var(--syntax-function); }
 .structured-diff .tok-variable,
-.diff-preview .tok-variable { color: var(--syntax-variable); }
+.diff-preview .tok-variable,
+.changes-editor-highlight .tok-variable,
+.changes-editor-live-diff .tok-variable { color: var(--syntax-variable); }
 .structured-diff .tok-operator,
-.diff-preview .tok-operator { color: var(--syntax-operator); }
+.diff-preview .tok-operator,
+.changes-editor-highlight .tok-operator,
+.changes-editor-live-diff .tok-operator { color: var(--syntax-operator); }
 .structured-diff .tok-punctuation,
-.diff-preview .tok-punctuation { color: var(--syntax-punctuation); }
+.diff-preview .tok-punctuation,
+.changes-editor-highlight .tok-punctuation,
+.changes-editor-live-diff .tok-punctuation { color: var(--syntax-punctuation); }
 
 .context-menu-separator {
   height: 1px;

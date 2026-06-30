@@ -59,19 +59,19 @@ export function AppTopbar({
         <IconButton
           icon={<ArrowDownToLine size={17} />}
           label="Fetch"
-          onClick={() => currentRepoPath && runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath))}
+          onClick={() => currentRepoPath && runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath), 'Fetching origin...')}
           disabled={!canFetch || busy}
         />
         <IconButton
           icon={<DownloadCloud size={17} />}
           label="Pull"
-          onClick={() => currentRepoPath && runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath))}
+          onClick={() => currentRepoPath && runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath), 'Pulling origin...')}
           disabled={!canPull || busy}
         />
         <IconButton
           icon={<ArrowUpFromLine size={17} />}
           label="Push"
-          onClick={() => currentRepoPath && runSnapshotAction('Push complete.', () => api!.push(currentRepoPath))}
+          onClick={() => currentRepoPath && runSnapshotAction('Push complete.', () => api!.push(currentRepoPath), 'Pushing origin...')}
           disabled={!canPush || busy}
         />
         {canPublishBranch && snapshot && (

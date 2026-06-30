@@ -5,6 +5,7 @@ import { formatDate } from '../../lib/format'
 import { ContributionHeatmap } from '../ContributionHeatmap'
 import { Meter } from '../Meter'
 import { PanelHeading } from '../PanelHeading'
+import { SignalStatus } from '../SignalStatus'
 
 const RANK_MEDAL = ['🥇', '🥈', '🥉']
 
@@ -195,6 +196,7 @@ export function DailyView({
     : allReposMode
       ? `${recentRepositories.length || 'All'} recent repositories`
       : 'Current repository'
+  const dailyReviewLoadingDetail = `${formatDailyDateLabel(dailyReviewDate)} | ${scopeLabel}`
 
   function selectDailyDate(date: string) {
     setDailyReviewDate(date)
@@ -336,7 +338,7 @@ export function DailyView({
           )}
           </section>
 
-          <section className="daily-review-card">
+          <section className={`daily-review-card${dailyReviewLoading ? ' has-daily-review-curtain' : ''}`} aria-busy={dailyReviewLoading}>
             <div className="daily-review-card-heading">
               <div>
                 <CalendarDays size={16} />
@@ -406,6 +408,13 @@ export function DailyView({
                   </section>
                 </aside>
               </div>
+            )}
+            {dailyReviewLoading && (
+              <SignalStatus
+                className="daily-review-curtain"
+                label="Generating daily review"
+                detail={dailyReviewLoadingDetail}
+              />
             )}
           </section>
         </div>

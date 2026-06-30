@@ -386,9 +386,9 @@ export function AppShellBar({
         {(() => {
           const ahead = snapshot?.summary.ahead ?? 0
           const behind = snapshot?.summary.behind ?? 0
-          const doFetch = () => { if (currentRepoPath) void runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath)) }
-          const doPull = () => { if (currentRepoPath) void runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath)) }
-          const doPush = () => { if (currentRepoPath) void runSnapshotAction('Push complete.', () => api!.push(currentRepoPath)) }
+          const doFetch = () => { if (currentRepoPath) void runSnapshotAction('Fetch complete.', () => api!.fetch(currentRepoPath), 'Fetching origin...') }
+          const doPull = () => { if (currentRepoPath) void runSnapshotAction('Pull complete.', () => api!.pull(currentRepoPath), 'Pulling origin...') }
+          const doPush = () => { if (currentRepoPath) void runSnapshotAction('Push complete.', () => api!.push(currentRepoPath), 'Pushing origin...') }
           const doForcePush = async () => {
             if (!currentRepoPath) return
             const confirmed = await requestConfirmation(
@@ -396,7 +396,7 @@ export function AppShellBar({
               { title: 'Force Push', confirmLabel: 'Force push with lease', variant: 'danger' }
             )
             if (!confirmed) return
-            void runSnapshotAction('Force push complete.', () => api!.forcePush({ repoPath: currentRepoPath, confirmed }))
+            void runSnapshotAction('Force push complete.', () => api!.forcePush({ repoPath: currentRepoPath, confirmed }), 'Force pushing with lease...')
           }
           const doPublishRepository = () => { if (snapshot) onOpenPublishRepository() }
           // GitHub-Desktop priority: pull what's behind first, then push what's ahead, else fetch.
@@ -503,7 +503,10 @@ export function AppShellBar({
                   onClick={(event) => { closeMenu(event); setTheme(t.id) }}
                 >
                   <span className="shell-theme-dot" style={{ background: t.dot }} />
-                  <span>{t.label}</span>
+                  <span>
+                    <strong>{t.label}</strong>
+                    <small>{t.description}</small>
+                  </span>
                   {theme === t.id && <Check size={14} />}
                 </button>
               ))}

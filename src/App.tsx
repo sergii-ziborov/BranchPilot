@@ -11,6 +11,7 @@ import { Toaster } from './components/Toaster'
 import { GlobalTooltip } from './components/GlobalTooltip'
 import { ConflictBanner } from './components/ConflictBanner'
 import { EmptyState, RepositoryLoadingState } from './components/EmptyState'
+import { SignalStatus } from './components/SignalStatus'
 import { GitHubRepositoryBrowser, PullRequestDetailsPanel } from './components/ProvidersPanels'
 import { assistantPolicyModes, editorPreferences, terminalPreferences } from './lib/appOptions'
 import { CHANGE_LIST_ITEM_HEIGHT, HISTORY_LIST_ITEM_HEIGHT } from './lib/listMetrics'
@@ -52,6 +53,7 @@ function App() {
   const [showPublishRepository, setShowPublishRepository] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const showRepositoryLoading = busy && isRepositoryTransitionOperation(operationLabel)
+  const showRepositorySync = busy && !showRepositoryLoading && isRepositorySyncOperation(operationLabel)
 
   useEffect(() => {
     if (!api?.onMenuAction) return
@@ -94,7 +96,15 @@ function App() {
           <RepositoryLoadingState operationLabel={operationLabel} />
         </div>
       )}
-
+      {showRepositorySync && (
+        <div className="repository-refresh-curtain" role="presentation">
+          <SignalStatus
+            className="repository-refresh-signal"
+            label={repositorySyncOperationLabel(operationLabel)}
+            detail={snapshot?.summary.name ?? 'repository'}
+          />
+        </div>
+      )}
       <section className="workspace">
 
         {snapshot && snapshot.status.merge.operation !== 'none' && viewMode !== 'merge' && (
@@ -148,6 +158,7 @@ function App() {
                 snapshot={snapshot}
                 counts={counts}
                 busy={busy}
+                operationLabel={operationLabel}
                 changeFilter={changeFilter}
                 setChangeFilter={setChangeFilter}
                 changeSearchMode={changeSearchMode}
@@ -628,6 +639,29 @@ function isRepositoryTransitionOperation(operationLabel: string | null): boolean
     operationLabel === 'Opening submodule...' ||
     operationLabel.startsWith('Cloning ')
   )
+}
+
+function isRepositorySyncOperation(operationLabel: string | null): boolean {
+  if (!operationLabel) return false
+  return [
+    'Fetching origin...',
+    'Pulling origin...',
+    'Pushing origin...',
+    'Force pushing with lease...',
+    'Fetch complete...',
+    'Pull complete...',
+    'Push complete...',
+    'Force push complete...'
+  ].includes(operationLabel)
+}
+
+function repositorySyncOperationLabel(operationLabel: string | null): string {
+  if (!operationLabel) return 'Syncing repository'
+  if (operationLabel.startsWith('Fetch')) return 'Fetching origin'
+  if (operationLabel.startsWith('Pull')) return 'Pulling origin'
+  if (operationLabel.startsWith('Push')) return 'Pushing origin'
+  if (operationLabel.startsWith('Force')) return 'Force pushing'
+  return operationLabel.replace(/\.\.\.$/, '')
 }
 
 export default App

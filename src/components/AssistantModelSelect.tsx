@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
 import type { AssistantId, AssistantStatus, InstalledAssistantId } from '../shared/branchPilot'
+import { SignalStatus } from './SignalStatus'
 import {
   assistantBaseId,
   assistantStatusLabel,
@@ -98,61 +99,73 @@ export function AssistantModelSelect({
             </small>
             <ChevronDown size={16} />
           </button>
+          <button
+            className="assistant-check-button assistant-model-refresh-button"
+            type="button"
+            title="Check assistants"
+            aria-label="Check assistants"
+            onClick={checkAssistants}
+            disabled={assistantsChecking}
+          >
+            {assistantsChecking ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
+          </button>
           {assistantMenuOpen && (
-            <div className="assistant-model-popover" role="listbox" aria-label="Assistant and model">
-              <AssistantModelOption
-                title="Auto"
-                meta={autoAssistantLabel(readyAssistant, assistants)}
-                selected={selectedAssistant === 'auto'}
-                state={assistantSelectState}
-                onSelect={() => {
-                  setSelectedAssistant('auto')
-                  setAssistantMenuOpen(false)
-                }}
-              />
-              {ASSISTANT_MODEL_GROUPS.map((group) => {
-                const status = assistantStatuses.get(group.id)
-                const state = assistantVisualState(status)
+            <div className="assistant-model-popover">
+              <div className="assistant-model-list-shell">
+                <div className="assistant-model-list" role="listbox" aria-label="Assistant and model">
+                  <AssistantModelOption
+                    title="Auto"
+                    meta={autoAssistantLabel(readyAssistant, assistants)}
+                    selected={selectedAssistant === 'auto'}
+                    state={assistantSelectState}
+                    onSelect={() => {
+                      setSelectedAssistant('auto')
+                      setAssistantMenuOpen(false)
+                    }}
+                  />
+                  {ASSISTANT_MODEL_GROUPS.map((group) => {
+                    const status = assistantStatuses.get(group.id)
+                    const state = assistantVisualState(status)
 
-                return (
-                  <section className="assistant-model-group" key={group.id}>
-                    <div className="assistant-model-group-heading">
-                      <span>{group.label}</span>
-                      <small className={`assistant-model-status state-${state}`}>
-                        {status ? assistantStatusLabel(status) : 'not loaded'}
-                      </small>
-                    </div>
-                    <div className="assistant-model-options">
-                      {group.options.map((option) => (
-                        <AssistantModelOption
-                          title={option.label}
-                          meta={option.description}
-                          key={option.id}
-                          selected={selectedAssistant === option.id}
-                          state={state}
-                          onSelect={() => {
-                            setSelectedAssistant(option.id)
-                            setAssistantMenuOpen(false)
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )
-              })}
+                    return (
+                      <section className="assistant-model-group" key={group.id}>
+                        <div className="assistant-model-group-heading">
+                          <span>{group.label}</span>
+                          <small className={`assistant-model-status state-${state}`}>
+                            {status ? assistantStatusLabel(status) : 'not loaded'}
+                          </small>
+                        </div>
+                        <div className="assistant-model-options">
+                          {group.options.map((option) => (
+                            <AssistantModelOption
+                              title={option.label}
+                              meta={option.description}
+                              key={option.id}
+                              selected={selectedAssistant === option.id}
+                              state={state}
+                              onSelect={() => {
+                                setSelectedAssistant(option.id)
+                                setAssistantMenuOpen(false)
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    )
+                  })}
+                </div>
+                {assistantsChecking && (
+                  <SignalStatus
+                    compact
+                    className="assistant-model-list-curtain"
+                    label="Checking assistants"
+                    detail="BranchPilot"
+                  />
+                )}
+              </div>
             </div>
           )}
         </div>
-        <button
-          className="assistant-check-button"
-          type="button"
-          title="Check assistants"
-          aria-label="Check assistants"
-          onClick={checkAssistants}
-          disabled={assistantsChecking}
-        >
-          {assistantsChecking ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
-        </button>
       </div>
     </>
   )

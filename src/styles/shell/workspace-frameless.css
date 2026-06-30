@@ -136,3 +136,52 @@ html[data-theme='pure-dark'] :is(.workspace-frameless, .workspace:has(> .changes
   background: var(--panel);
   box-shadow: none !important;
 }
+
+/* Secondary workspaces should not sit inside a giant page frame. */
+:is(
+  .workspace:has(> .providers-page),
+  .workspace:has(> .reports-stack),
+  .workspace:has(> .settings-page),
+  .workspace:has(> .changes-editor-workspace),
+  .workspace:has(> .history-preview-screen)
+) {
+  padding: 0;
+}
+
+.workspace > .providers-page,
+.workspace > .settings-page,
+.workspace > .reports-stack > .single-panel {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.workspace > .reports-stack > .reports-topbar {
+  margin-bottom: 0;
+  padding: 10px 18px 0;
+}
+
+.workspace > .reports-stack > .single-panel {
+  padding-top: 14px;
+}
+
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel-compact .change-list {
+  border-bottom: 0;
+}
+
+html[data-theme='far-manager'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel,
+html[data-theme='far-manager'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .diff-panel,
+html[data-theme='far-manager'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-detail {
+  background: #000080 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .change-list-header,
+html[data-theme='far-manager'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-panel-compact .change-list,
+html[data-theme='far-manager'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .commit-resize-handle span,
+html[data-theme='far-manager'] :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .changes-splitter {
+  border-color: #00ffff;
+  background: #000080;
+  box-shadow: none;
+}

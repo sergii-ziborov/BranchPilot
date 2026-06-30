@@ -1,20 +1,15 @@
 import { useEffect, useState } from 'react'
 
-export const APP_THEMES: { id: string; label: string; dot: string }[] = [
-  { id: 'github-light', label: 'GitHub Light', dot: '#2563eb' },
-  { id: 'github-dark', label: 'GitHub Dark', dot: '#2f81f7' },
-  { id: 'pure-dark', label: 'Pure Dark', dot: '#050505' },
-  { id: 'one-dark-pro', label: 'One Dark Pro', dot: '#61afef' },
-  { id: 'dracula', label: 'Dracula', dot: '#bd93f9' },
-  { id: 'monokai', label: 'Monokai', dot: '#a6e22e' },
-  { id: 'nord', label: 'Nord', dot: '#88c0d0' },
-  { id: 'night-owl', label: 'Night Owl', dot: '#82aaff' },
-  { id: 'tokyo-night', label: 'Tokyo Night', dot: '#7aa2f7' },
-  { id: 'deus-ex', label: 'Deus Ex', dot: '#f2c94c' },
-  { id: 'cyberpunk', label: 'Cyberpunk', dot: '#fcee0a' },
-  { id: 'matrix', label: 'Matrix', dot: '#00ff6a' },
-  { id: 'far-manager', label: 'FAR Manager', dot: '#00a2ff' },
-  { id: 'solarized-light', label: 'Solarized Light', dot: '#268bd2' }
+export const APP_THEMES: { id: string; label: string; dot: string; description: string }[] = [
+  { id: 'github-light', label: 'GitHub Light', dot: '#2563eb', description: 'Clean light' },
+  { id: 'github-dark', label: 'GitHub Dark', dot: '#2f81f7', description: 'Clean dark' },
+  { id: 'cisco-light', label: 'Cisco Light', dot: '#049fd9', description: 'Network lab light' },
+  { id: 'cisco-dark', label: 'Cisco Dark', dot: '#00bceb', description: 'Network lab dark' },
+  { id: 'cyberboard', label: 'Cyberboard', dot: '#7c3aed', description: 'BranchPilot cyberboard' },
+  { id: 'cyberpunk', label: 'Cyberpunk', dot: '#fcee0a', description: 'Chrome neon' },
+  { id: 'deus-ex', label: 'Deus Ex', dot: '#f2c94c', description: 'Amber HUD' },
+  { id: 'matrix', label: 'Matrix', dot: '#00ff6a', description: 'Code rain' },
+  { id: 'far-manager', label: 'FAR Manager', dot: '#00a2ff', description: 'Pascal console' }
 ]
 
 const THEME_KEY = 'bp-theme'
