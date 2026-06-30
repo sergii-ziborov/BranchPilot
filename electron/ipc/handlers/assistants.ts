@@ -2,6 +2,7 @@ import type {
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
   CommitMessageGenerationRequest,
+  FileBeautifyRequest,
   LinkedInProjectGenerationRequest,
   PullRequestTextGenerationRequest,
   RepositoryStarterGenerationRequest,
@@ -11,6 +12,7 @@ import {
   checkAssistantStatuses,
   generateBranchDescription,
   generateBranchDraft,
+  beautifyFileWithAssistant,
   generateCommitMessage,
   generateLinkedInProject,
   generatePullRequestText,
@@ -44,6 +46,21 @@ export function registerAssistantHandlers(
     })
   }, (request: CommitMessageGenerationRequest) =>
     generateCommitMessage(commandRunner, request)
+  )
+  handleAssistantAction('assistants:beautifyFile', 'file_beautify', {
+    type: 'assistant_file_beautified',
+    actor: 'assistant',
+    title: 'Assistant file beautified',
+    repoPath: requestRepoPath,
+    metadata: ([request], generated) => ({
+      requested_assistant: request.assistant,
+      assistant: generated?.assistant ?? 'unknown',
+      file_path: request.filePath,
+      input_length: request.text.length,
+      output_length: generated?.content.length ?? 0
+    })
+  }, (request: FileBeautifyRequest) =>
+    beautifyFileWithAssistant(commandRunner, request)
   )
   handleAssistantAction('assistants:generateBranchDraft', 'branch_draft', {
     type: 'assistant_branch_generated',

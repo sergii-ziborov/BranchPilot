@@ -227,6 +227,27 @@ export function buildRepositoryStarterPrompt(context: {
   ].join('\n')
 }
 
+export function buildFileBeautifyPrompt(context: {
+  filePath: string
+  content: string
+}): string {
+  return [
+    'Beautify the file content below without changing behavior, values, comments, strings, or data meaning.',
+    'Return JSON only with this exact shape: {"content":"..."}',
+    'Rules:',
+    '- preserve the same file format and language;',
+    '- improve indentation, spacing, line breaks, and readability only;',
+    '- do not add explanations, markdown fences, comments, or metadata;',
+    '- do not fix bugs, rename identifiers, reorder semantic code, or remove content;',
+    '- keep the output complete; do not omit unchanged sections.',
+    '',
+    `File: ${context.filePath}`,
+    '',
+    'Content:',
+    context.content
+  ].join('\n')
+}
+
 export function buildPullRequestPrompt(context: {
   baseBranch: string
   headBranch: string

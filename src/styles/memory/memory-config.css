@@ -260,6 +260,29 @@
   stroke: currentColor;
 }
 
+.config-save-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.config-save-row > button {
+  flex: 1 1 auto;
+  min-width: 180px;
+}
+
+.config-updated-note {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .config-card button.secondary-button,
 .remote-row-actions button:not(.danger-button) {
   border-color: var(--border);

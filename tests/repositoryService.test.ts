@@ -123,6 +123,39 @@ describe('RepositoryService', () => {
     expect(git(repoPath, ['diff', '--', 'tracked.txt'])).toContain('line 10 changed')
   })
 
+  it('reads repository file content in bounded chunks', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+    writeFileSync(path.join(repoPath, 'large.txt'), [
+      'first line',
+      'second line',
+      'third line',
+      ''
+    ].join('\n'))
+
+    const first = await service.getRepositoryFileChunk({
+      repoPath,
+      filePath: 'large.txt',
+      offset: 0,
+      maxBytes: 24
+    })
+
+    expect(first.text).toBe('first line\nsecond line\n')
+    expect(first.hasMore).toBe(true)
+    expect(first.endOffset).toBe(Buffer.byteLength(first.text, 'utf8'))
+
+    const second = await service.getRepositoryFileChunk({
+      repoPath,
+      filePath: 'large.txt',
+      offset: first.endOffset,
+      maxBytes: 24
+    })
+
+    expect(second.text).toBe('third line\n')
+    expect(second.hasMore).toBe(false)
+    expect(second.startOffset).toBe(first.endOffset)
+  })
+
   it('can unstage a selected-line patch without removing the rest of the file from the index', async () => {
     const repoPath = createTempRepository()
     const service = createService()

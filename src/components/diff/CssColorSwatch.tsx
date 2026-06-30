@@ -11,7 +11,7 @@ export interface CssColorEditDraft {
 
 export type CssColorUpdateHandler = (request: CssColorEditDraft) => Promise<void> | void
 
-interface CssColorToken {
+export interface CssColorToken {
   value: string
   columnStart: number
   inputValue: string
@@ -100,7 +100,7 @@ function parseCssColorToken(value: string): Pick<CssColorToken, 'inputValue' | '
   return value.startsWith('#') ? expandHexColor(value) : parseRgbColor(value)
 }
 
-function findCssColorTokens(content: string): CssColorToken[] {
+export function findCssColorTokens(content: string): CssColorToken[] {
   const tokens: CssColorToken[] = []
   const re = new RegExp(CSS_COLOR_LITERAL_RE)
   let match: RegExpExecArray | null
@@ -128,7 +128,7 @@ function rgbFromHex(inputValue: string): [number, number, number] {
   ]
 }
 
-function rewriteCssColorValue(oldValue: string, inputValue: string): string {
+export function rewriteCssColorValue(oldValue: string, inputValue: string): string {
   const normalizedHex = inputValue.toLowerCase()
   const [red, green, blue] = rgbFromHex(normalizedHex)
 

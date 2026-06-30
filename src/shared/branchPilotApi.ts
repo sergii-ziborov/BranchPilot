@@ -40,9 +40,15 @@ import type {
   ContributorStat,
   ContributorStatsRequest,
   RepositoryRhythm,
+  RepositoryFileBytesResult,
+  RepositoryFileBytesWriteRequest,
+  RepositoryFileChunkRequest,
+  RepositoryFileChunkResult,
   RepositoryFileContentRequest,
   RepositoryFileContentResult,
+  RepositoryFileDeleteRequest,
   RepositoryFileEntry,
+  RepositoryFileRenameRequest,
   RepositoryFileWriteRequest,
   DiffContextRequest,
   DiffContextResult,
@@ -57,6 +63,8 @@ import type {
   TerminalSettingsUpdate,
   ExportPatchRequest,
   ExportedPatch,
+  BeautifiedFile,
+  FileBeautifyRequest,
   FileActionRequest,
   FileChangeStatus,
   ForcePushRequest,
@@ -282,7 +290,12 @@ export interface BranchPilotApi {
   refreshRepository: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   listRepositoryFiles: (repoPath: string) => Promise<ApiResult<RepositoryFileEntry[]>>
   getRepositoryFileContent: (request: RepositoryFileContentRequest) => Promise<ApiResult<RepositoryFileContentResult>>
+  getRepositoryFileChunk: (request: RepositoryFileChunkRequest) => Promise<ApiResult<RepositoryFileChunkResult>>
   writeRepositoryFile: (request: RepositoryFileWriteRequest) => Promise<ApiResult<RepositorySnapshot>>
+  getRepositoryFileBytes: (request: RepositoryFileContentRequest) => Promise<ApiResult<RepositoryFileBytesResult>>
+  writeRepositoryFileBytes: (request: RepositoryFileBytesWriteRequest) => Promise<ApiResult<RepositorySnapshot>>
+  renameRepositoryFile: (request: RepositoryFileRenameRequest) => Promise<ApiResult<RepositorySnapshot>>
+  deleteRepositoryFile: (request: RepositoryFileDeleteRequest) => Promise<ApiResult<RepositorySnapshot>>
   getDiff: (request: DiffRequest) => Promise<ApiResult<DiffResult>>
   getDiffContext: (request: DiffContextRequest) => Promise<ApiResult<DiffContextResult>>
   updateCssColor: (request: CssColorEditRequest) => Promise<ApiResult<RepositorySnapshot>>
@@ -377,6 +390,7 @@ export interface BranchPilotApi {
   generateBranchDescription: (request: BranchDescriptionGenerationRequest) => Promise<ApiResult<GeneratedBranchDescription>>
   generateLinkedInProject: (request: LinkedInProjectGenerationRequest) => Promise<ApiResult<GeneratedLinkedInProject>>
   generateRepositoryStarter: (request: RepositoryStarterGenerationRequest) => Promise<ApiResult<GeneratedRepositoryStarter>>
+  beautifyFileWithAssistant: (request: FileBeautifyRequest) => Promise<ApiResult<BeautifiedFile>>
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   connectGitHub: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>

@@ -293,6 +293,7 @@ const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
   '.bmp': 'image/bmp',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.icns': 'image/icns',
   '.avif': 'image/avif'
 }
 

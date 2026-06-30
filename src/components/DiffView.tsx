@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { CheckSquare, ChevronDown, ChevronUp, FileImage, FileText, Plus, Trash2, X } from 'lucide-react'
 import type { DiffContextResult, DiffFile, DiffHunk, DiffLine, DiffResult, ImagePreview } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
@@ -51,6 +51,9 @@ export interface DiffLineEditorTarget {
 export interface DiffLineContextMenuTarget extends DiffLineEditorTarget {
   x: number
   y: number
+  selectedLineCount?: number
+  selectedLinePatch?: string
+  selectedLineStaged?: boolean
 }
 
 interface DiffContextLoadRequest {
@@ -70,6 +73,11 @@ type ExtraContextMap = Record<string, ExtraContextEntry>
 
 function targetIsInlineControl(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('button, input, select, textarea, [role="button"]'))
+}
+
+function eventIsInLineSelectGutter(event: ReactMouseEvent<HTMLElement>): boolean {
+  const content = event.currentTarget.querySelector('.line-content')
+  return content instanceof HTMLElement && event.clientX < content.getBoundingClientRect().left
 }
 
 function browserSelectionForLine(lineContent: string): Pick<DiffLineEditorTarget, 'column' | 'selectionText'> {
@@ -109,6 +117,7 @@ function DiffLineNumber({
   filePath,
   openLine,
   lineText,
+  selectable,
   onOpenLine
 }: {
   lineNumber?: number
@@ -117,9 +126,10 @@ function DiffLineNumber({
   // previous revision, so removed lines (no openLine) are not clickable.
   openLine?: number
   lineText?: string
+  selectable?: boolean
   onOpenLine?: (target: DiffLineEditorTarget) => void
 }) {
-  if (!lineNumber || !openLine || !onOpenLine) {
+  if (selectable || !lineNumber || !openLine || !onOpenLine) {
     return <span className="line-number">{formatLineNumber(lineNumber)}</span>
   }
 
@@ -146,6 +156,9 @@ function SplitDiffCell({
   filePath,
   selectKey,
   selected = false,
+  selectedLineCount = 0,
+  selectedDiscardPatch,
+  selectedLineStaged,
   onLineSelect,
   onOpenLine,
   onOpenContextMenu
@@ -156,6 +169,9 @@ function SplitDiffCell({
   filePath: string
   selectKey?: string
   selected?: boolean
+  selectedLineCount?: number
+  selectedDiscardPatch?: string
+  selectedLineStaged?: boolean
   onLineSelect?: (key: string, shift: boolean) => void
   onOpenLine?: (target: DiffLineEditorTarget) => void
   onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
@@ -167,7 +183,7 @@ function SplitDiffCell({
     <code
       className={`split-diff-cell ${line ? `line-${line.type}` : 'line-empty'}${canSelect ? ' selectable' : ''}${selected ? ' line-selected' : ''}`}
       onClick={(event) => {
-        if (!canSelect || targetIsInlineControl(event.target) || hasActiveTextSelection()) return
+        if (!canSelect || !eventIsInLineSelectGutter(event) || targetIsInlineControl(event.target) || hasActiveTextSelection()) return
         onLineSelect!(selectKey!, event.shiftKey)
       }}
       onContextMenu={(event) => {
@@ -180,11 +196,18 @@ function SplitDiffCell({
           filePath,
           line: line.newLineNumber,
           lineText: line.content,
+          ...(selected && selectedDiscardPatch?.trim()
+            ? {
+                selectedLineCount,
+                selectedLinePatch: selectedDiscardPatch,
+                selectedLineStaged
+              }
+            : {}),
           ...browserSelectionForLine(line.content)
         })
       }}
     >
-      <DiffLineNumber filePath={filePath} lineNumber={lineNumber} openLine={line?.newLineNumber} lineText={line?.content} onOpenLine={onOpenLine} />
+      <DiffLineNumber filePath={filePath} lineNumber={lineNumber} openLine={line?.newLineNumber} lineText={line?.content} selectable={canSelect} onOpenLine={onOpenLine} />
       <span className="line-marker">{line ? diffLinePrefix(line) : ''}</span>
       <span className="line-content">{content}</span>
     </code>
@@ -201,6 +224,8 @@ function SplitDiffLines({
   keyPrefix,
   selectable,
   selected,
+  selectedDiscardPatch,
+  selectedLineStaged,
   onLineSelect,
   onOpenContextMenu
 }: {
@@ -213,6 +238,8 @@ function SplitDiffLines({
   keyPrefix?: string
   selectable?: boolean
   selected?: Set<string>
+  selectedDiscardPatch?: string
+  selectedLineStaged?: boolean
   onLineSelect?: (key: string, shift: boolean) => void
   onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
 }) {
@@ -261,6 +288,9 @@ function SplitDiffLines({
               filePath={filePath}
               selectKey={oldKey}
               selected={Boolean(oldKey && selected?.has(oldKey))}
+              selectedLineCount={selected?.size ?? 0}
+              selectedDiscardPatch={selectedDiscardPatch}
+              selectedLineStaged={selectedLineStaged}
               onLineSelect={onLineSelect}
               onOpenLine={onOpenLine}
               onOpenContextMenu={onOpenContextMenu}
@@ -272,6 +302,9 @@ function SplitDiffLines({
               filePath={filePath}
               selectKey={newKey}
               selected={Boolean(newKey && selected?.has(newKey))}
+              selectedLineCount={selected?.size ?? 0}
+              selectedDiscardPatch={selectedDiscardPatch}
+              selectedLineStaged={selectedLineStaged}
               onLineSelect={onLineSelect}
               onOpenLine={onOpenLine}
               onOpenContextMenu={onOpenContextMenu}
@@ -293,6 +326,8 @@ function UnifiedDiffLines({
   keyPrefix,
   selectable,
   selected,
+  selectedDiscardPatch,
+  selectedLineStaged,
   onLineSelect,
   onOpenContextMenu
 }: {
@@ -305,6 +340,8 @@ function UnifiedDiffLines({
   keyPrefix?: string
   selectable?: boolean
   selected?: Set<string>
+  selectedDiscardPatch?: string
+  selectedLineStaged?: boolean
   onLineSelect?: (key: string, shift: boolean) => void
   onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
 }) {
@@ -321,7 +358,7 @@ function UnifiedDiffLines({
             className={`diff-line line-${line.type}${canSelect ? ' selectable' : ''}${isSelected ? ' line-selected' : ''}`}
             key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}
             onClick={(event) => {
-              if (!canSelect || targetIsInlineControl(event.target) || hasActiveTextSelection()) return
+              if (!canSelect || !eventIsInLineSelectGutter(event) || targetIsInlineControl(event.target) || hasActiveTextSelection()) return
               onLineSelect!(key, event.shiftKey)
             }}
             onContextMenu={(event) => {
@@ -334,12 +371,19 @@ function UnifiedDiffLines({
                 filePath,
                 line: line.newLineNumber,
                 lineText: line.content,
+                ...(isSelected && selectedDiscardPatch?.trim()
+                  ? {
+                      selectedLineCount: selected?.size ?? 0,
+                      selectedLinePatch: selectedDiscardPatch,
+                      selectedLineStaged
+                    }
+                  : {}),
                 ...browserSelectionForLine(line.content)
               })
             }}
           >
-            <DiffLineNumber filePath={filePath} lineNumber={line.oldLineNumber} openLine={line.newLineNumber} lineText={line.content} onOpenLine={onOpenLine} />
-            <DiffLineNumber filePath={filePath} lineNumber={line.newLineNumber} openLine={line.newLineNumber} lineText={line.content} onOpenLine={onOpenLine} />
+            <DiffLineNumber filePath={filePath} lineNumber={line.oldLineNumber} openLine={line.newLineNumber} lineText={line.content} selectable={canSelect} onOpenLine={onOpenLine} />
+            <DiffLineNumber filePath={filePath} lineNumber={line.newLineNumber} openLine={line.newLineNumber} lineText={line.content} selectable={canSelect} onOpenLine={onOpenLine} />
             <span className="line-marker">{diffLinePrefix(line)}</span>
             <span className="line-content">
               {canEditCssColors
@@ -548,6 +592,8 @@ export function DiffPreview({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [extraContext, setExtraContext] = useState<Record<string, ExtraContextEntry>>({})
   const anchorRef = useRef<string | null>(null)
+  const selectedDiscardPatch = diff && selected.size > 0 ? buildStagePatch(diff.files, selected) : ''
+  const selectedLineStaged = mode === 'staged'
   // Selection is per-file; clear it when the viewed file (or staged side) changes.
   useEffect(() => {
     setSelected(new Set())
@@ -790,6 +836,8 @@ export function DiffPreview({
                       keyPrefix={`${fileIndex}:${index}`}
                       selectable={canSelectLines}
                       selected={selected}
+                      selectedDiscardPatch={selectedDiscardPatch}
+                      selectedLineStaged={selectedLineStaged}
                       onLineSelect={selectLine}
                       onOpenContextMenu={onOpenContextMenu}
                     />
@@ -803,6 +851,8 @@ export function DiffPreview({
                       keyPrefix={`${fileIndex}:${index}`}
                       selectable={canSelectLines}
                       selected={selected}
+                      selectedDiscardPatch={selectedDiscardPatch}
+                      selectedLineStaged={selectedLineStaged}
                       onLineSelect={selectLine}
                       onOpenContextMenu={onOpenContextMenu}
                     />}

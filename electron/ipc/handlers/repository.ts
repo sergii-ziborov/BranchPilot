@@ -25,7 +25,11 @@ import type {
   ProjectMemoryScanResult,
   RepositoryBrowserRequest,
   RepositoryBrowserSnapshot,
+  RepositoryFileBytesWriteRequest,
+  RepositoryFileChunkRequest,
+  RepositoryFileDeleteRequest,
   RepositoryFileContentRequest,
+  RepositoryFileRenameRequest,
   RepositoryFileWriteRequest,
   RepositoryPinRequest
 } from '../../../src/shared/branchPilot.js'
@@ -142,8 +146,19 @@ export function registerRepositoryHandlers(
   handle('repository:dashboard', (repoPath?: string) => repositoryService.dashboard.getRepositoryDashboard(repoPath))
   handle('repository:files', (repoPath: string) => repositoryService.listRepositoryFiles(repoPath))
   handle('repository:fileContent', (request: RepositoryFileContentRequest) => repositoryService.getRepositoryFileContent(request))
+  handle('repository:fileChunk', (request: RepositoryFileChunkRequest) => repositoryService.getRepositoryFileChunk(request))
   handle('repository:writeFile', async (request: RepositoryFileWriteRequest) =>
     withProjectMemoryRefresh(await repositoryService.writeRepositoryFile(request))
+  )
+  handle('repository:fileBytes', (request: RepositoryFileContentRequest) => repositoryService.getRepositoryFileBytes(request))
+  handle('repository:writeFileBytes', async (request: RepositoryFileBytesWriteRequest) =>
+    withProjectMemoryRefresh(await repositoryService.writeRepositoryFileBytes(request))
+  )
+  handle('repository:renameFile', async (request: RepositoryFileRenameRequest) =>
+    withProjectMemoryRefresh(await repositoryService.renameRepositoryFile(request))
+  )
+  handle('repository:deleteFile', async (request: RepositoryFileDeleteRequest) =>
+    withProjectMemoryRefresh(await repositoryService.deleteRepositoryFile(request))
   )
   // A status refresh is not a meaningful user action — don't spam the activity log
   // (auto-refresh polls it, and the log feeds AI generation).

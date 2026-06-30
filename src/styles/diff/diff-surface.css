@@ -194,20 +194,22 @@
    the selection persists (highlight + accent bar) until you act on it or clear it. */
 .diff-line.selectable,
 .split-diff-cell.selectable {
-  cursor: pointer;
+  cursor: default;
 }
 
-.diff-line.selectable:hover,
-.split-diff-cell.selectable:hover {
+.diff-line.selectable:has(.line-number:hover),
+.diff-line.selectable:has(.line-marker:hover),
+.split-diff-cell.selectable:has(.line-number:hover),
+.split-diff-cell.selectable:has(.line-marker:hover) {
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--diff-selected-accent) 58%, transparent);
 }
 
-.diff-line.selectable:hover .line-number,
-.diff-line.selectable:hover .line-marker,
-.split-diff-cell.selectable:hover .line-number,
-.split-diff-cell.selectable:hover .line-marker {
+.diff-line.selectable .line-number:hover,
+.diff-line.selectable .line-marker:hover,
+.split-diff-cell.selectable .line-number:hover,
+.split-diff-cell.selectable .line-marker:hover {
   color: var(--diff-selected-accent);
-  background: color-mix(in srgb, var(--diff-selected-accent) 14%, transparent);
+  background: transparent;
 }
 
 .diff-line.selectable .line-number,
@@ -233,8 +235,17 @@
 }
 
 .diff-line.line-selected .line-number,
-.split-diff-cell.line-selected .line-number {
+.diff-line.line-selected .line-marker,
+.split-diff-cell.line-selected .line-number,
+.split-diff-cell.line-selected .line-marker {
   color: var(--diff-selected-accent);
+  background: transparent;
+}
+
+.diff-line.selectable .line-number-button:hover,
+.split-diff-cell.selectable .line-number-button:hover {
+  color: var(--diff-selected-accent);
+  background: transparent;
 }
 
 .diff-context-expander {

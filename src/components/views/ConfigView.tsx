@@ -210,17 +210,19 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
           <p className="muted-text">
             BranchPilot also checks standard install locations on Windows, macOS, and Linux. Use <code>%TARGET_PATH%</code> only for custom commands.
           </p>
-          <button
-            type="button"
-            onClick={saveEditorSettings}
-            disabled={editorSettingsLoading || busy || (editorPreference === 'custom' && !editorCustomCommand.trim())}
-          >
-            <Save size={17} />
-            Save editor settings
-          </button>
-          {editorSettings?.updatedAt && (
-            <p className="muted-text">Updated {formatDate(editorSettings.updatedAt)}</p>
-          )}
+          <div className="config-save-row">
+            <button
+              type="button"
+              onClick={saveEditorSettings}
+              disabled={editorSettingsLoading || busy || (editorPreference === 'custom' && !editorCustomCommand.trim())}
+            >
+              <Save size={17} />
+              Save editor settings
+            </button>
+            {editorSettings?.updatedAt && (
+              <span className="config-updated-note">Updated {formatDate(editorSettings.updatedAt)}</span>
+            )}
+          </div>
         </section>
 
         <section className="config-card terminal-settings-card">
@@ -249,17 +251,19 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
           <p className="muted-text">
             BranchPilot opens the selected terminal in the repository or file folder. Use <code>%TARGET_PATH%</code> only for custom commands.
           </p>
-          <button
-            type="button"
-            onClick={saveTerminalSettings}
-            disabled={editorSettingsLoading || busy || (terminalPreference === 'custom' && !terminalCustomCommand.trim())}
-          >
-            <Save size={17} />
-            Save terminal settings
-          </button>
-          {terminalSettings?.updatedAt && (
-            <p className="muted-text">Updated {formatDate(terminalSettings.updatedAt)}</p>
-          )}
+          <div className="config-save-row">
+            <button
+              type="button"
+              onClick={saveTerminalSettings}
+              disabled={editorSettingsLoading || busy || (terminalPreference === 'custom' && !terminalCustomCommand.trim())}
+            >
+              <Save size={17} />
+              Save terminal settings
+            </button>
+            {terminalSettings?.updatedAt && (
+              <span className="config-updated-note">Updated {formatDate(terminalSettings.updatedAt)}</span>
+            )}
+          </div>
         </section>
           </>
         )}

@@ -130,6 +130,21 @@ export function parseRepositoryStarter(output: string): Omit<GeneratedRepository
   }
 }
 
+export function parseBeautifiedFile(output: string): string {
+  const parsed = normalizeAssistantPayload(parseJsonLike(output))
+  const content = typeof parsed.content === 'string' ? parsed.content : ''
+
+  if (typeof parsed.content !== 'string') {
+    throw new BranchPilotUserError(
+      'assistant_parse_failed',
+      'Assistant did not return beautified file content.',
+      output.slice(0, 2_000)
+    )
+  }
+
+  return content
+}
+
 export function stringField(parsed: Record<string, unknown>, key: string, required = true): string {
   const value = typeof parsed[key] === 'string' ? parsed[key].trim() : ''
 

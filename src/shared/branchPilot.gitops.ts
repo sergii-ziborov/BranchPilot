@@ -86,8 +86,43 @@ export interface RepositoryFileContentResult {
   tooLarge: boolean
 }
 
+export interface RepositoryFileChunkRequest extends RepositoryFileContentRequest {
+  offset: number
+  maxBytes?: number
+}
+
+export interface RepositoryFileChunkResult {
+  filePath: string
+  text: string
+  binary: boolean
+  byteSize: number
+  startOffset: number
+  endOffset: number
+  hasMore: boolean
+}
+
 export interface RepositoryFileWriteRequest extends RepositoryFileContentRequest {
   text: string
+}
+
+export interface RepositoryFileBytesResult {
+  filePath: string
+  base64: string
+  byteSize: number
+  tooLarge: boolean
+  maxBytes: number
+}
+
+export interface RepositoryFileBytesWriteRequest extends RepositoryFileContentRequest {
+  base64: string
+}
+
+export interface RepositoryFileRenameRequest extends RepositoryFileContentRequest {
+  newFilePath: string
+}
+
+export interface RepositoryFileDeleteRequest extends RepositoryFileContentRequest {
+  confirmed: boolean
 }
 
 export interface RemoteSummary {
@@ -468,6 +503,13 @@ export interface RepositoryStarterGenerationRequest {
   repositoryName?: string
 }
 
+export interface FileBeautifyRequest {
+  repoPath: string
+  assistant: AssistantId
+  filePath: string
+  text: string
+}
+
 export interface GeneratedLinkedInProject {
   projectName: string
   headline: string
@@ -488,6 +530,12 @@ export interface GeneratedRepositoryStarter {
   description: string
   readme: string
   gitignore: string
+  assistant: InstalledAssistantId
+  truncated: boolean
+}
+
+export interface BeautifiedFile {
+  content: string
   assistant: InstalledAssistantId
   truncated: boolean
 }

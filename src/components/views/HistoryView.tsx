@@ -256,6 +256,15 @@ export function HistoryView({
     if (path) openCommitFilePreview(path)
   }
 
+  const openSelectedCommitPreview = () => {
+    if (!commitDetails) return
+    const path =
+      selectedCommitFilePath ??
+      commitDetails.files.find((file) => file.status !== 'deleted')?.path ??
+      commitDetails.files[0]?.path
+    if (path) openCommitFilePreview(path)
+  }
+
   if (filePreview && commitDetails) {
     return (
       <section className="history-preview-screen">
@@ -429,6 +438,20 @@ export function HistoryView({
               )}
             </div>
             <div className="panel-actions">
+              {commitDetails && commitDetails.files.length > 0 && (
+                <div className="diff-file-actions" aria-label="History commit preview actions">
+                  <button
+                    type="button"
+                    className="preview"
+                    title="Open this commit in BranchPilot preview"
+                    onClick={openSelectedCommitPreview}
+                    disabled={!api || !currentRepoPath}
+                  >
+                    <Eye size={15} />
+                    Preview
+                  </button>
+                </div>
+              )}
               {selectedCommitProviderUrl && (
                 <button
                   type="button"

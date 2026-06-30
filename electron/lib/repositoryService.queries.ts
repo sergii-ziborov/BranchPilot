@@ -16,6 +16,8 @@ import type {
   DiffResult,
   FileChange,
   RecentRepository,
+  RepositoryFileChunkRequest,
+  RepositoryFileChunkResult,
   RepositoryFileContentRequest,
   RepositoryFileContentResult,
   RepositoryFileEntry,
@@ -42,6 +44,8 @@ import { BranchPilotUserError } from './errors.js'
 const MAX_COMMIT_FILE_CONTENT_BYTES = 900_000
 const MAX_COMMIT_FILE_CONTENT_OUTPUT_BYTES = MAX_COMMIT_FILE_CONTENT_BYTES + 1
 const MAX_REPOSITORY_FILE_CONTENT_BYTES = 900_000
+const DEFAULT_REPOSITORY_FILE_CHUNK_BYTES = 96_000
+const MAX_REPOSITORY_FILE_CHUNK_BYTES = 192_000
 
 export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
   async getRecentRepositories(): Promise<RecentRepository[]> {
@@ -106,6 +110,80 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       text: binary ? '' : text,
       binary,
       tooLarge: false
+    }
+  }
+
+  async getRepositoryFileChunk(request: RepositoryFileChunkRequest): Promise<RepositoryFileChunkResult> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const filePath = normalizeRelativePath(request.filePath)
+    const absolutePath = resolveRepositoryPath(rootPath, filePath)
+    const stats = await fs.stat(absolutePath).catch(() => undefined)
+
+    if (!stats?.isFile()) {
+      throw new BranchPilotUserError('file_not_found', 'File is not available in the working tree.')
+    }
+
+    const requestedOffset = Number.isFinite(request.offset) ? Math.max(0, Math.floor(request.offset)) : 0
+    const startOffset = Math.min(requestedOffset, stats.size)
+    const requestedMaxBytes = request.maxBytes && Number.isFinite(request.maxBytes)
+      ? Math.floor(request.maxBytes)
+      : DEFAULT_REPOSITORY_FILE_CHUNK_BYTES
+    const maxBytes = Math.min(
+      MAX_REPOSITORY_FILE_CHUNK_BYTES,
+      Math.max(1, requestedMaxBytes)
+    )
+    const bytesToRead = Math.min(maxBytes, Math.max(0, stats.size - startOffset))
+
+    if (bytesToRead === 0) {
+      return {
+        filePath,
+        text: '',
+        binary: false,
+        byteSize: stats.size,
+        startOffset,
+        endOffset: startOffset,
+        hasMore: false
+      }
+    }
+
+    const file = await fs.open(absolutePath, 'r')
+    try {
+      const buffer = Buffer.alloc(bytesToRead)
+      const { bytesRead } = await file.read(buffer, 0, bytesToRead, startOffset)
+      let chunk = buffer.subarray(0, bytesRead)
+      let endOffset = startOffset + bytesRead
+
+      if (chunk.includes(0)) {
+        return {
+          filePath,
+          text: '',
+          binary: true,
+          byteSize: stats.size,
+          startOffset,
+          endOffset,
+          hasMore: endOffset < stats.size
+        }
+      }
+
+      if (endOffset < stats.size) {
+        const lastLineBreak = chunk.lastIndexOf(0x0a)
+        if (lastLineBreak > 0) {
+          chunk = chunk.subarray(0, lastLineBreak + 1)
+          endOffset = startOffset + lastLineBreak + 1
+        }
+      }
+
+      return {
+        filePath,
+        text: chunk.toString('utf8'),
+        binary: false,
+        byteSize: stats.size,
+        startOffset,
+        endOffset,
+        hasMore: endOffset < stats.size
+      }
+    } finally {
+      await file.close()
     }
   }
 
@@ -218,7 +296,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       allowedExitCodes: [0, 1],
       maxOutputBytes: MAX_DIFF_OUTPUT_BYTES
     })
-    const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
+    const binary = diffContainsBinaryMarker(result.stdout)
     const tooLarge = Boolean(result.stdoutTruncated) || result.stdout.length > MAX_DIFF_BYTES
 
     const text = tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout
@@ -425,7 +503,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       allowedExitCodes: [0, 1],
       maxOutputBytes: MAX_DIFF_OUTPUT_BYTES
     })
-    const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
+    const binary = diffContainsBinaryMarker(result.stdout)
     const tooLarge = Boolean(result.stdoutTruncated) || result.stdout.length > MAX_DIFF_BYTES
 
     const text = tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout
@@ -469,7 +547,7 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       allowedExitCodes: [0, 1],
       maxOutputBytes: MAX_DIFF_OUTPUT_BYTES
     })
-    const binary = result.stdout.includes('Binary files') || result.stdout.includes('GIT binary patch')
+    const binary = diffContainsBinaryMarker(result.stdout)
     const tooLarge = Boolean(result.stdoutTruncated) || result.stdout.length > MAX_DIFF_BYTES
     const text = tooLarge ? result.stdout.slice(0, MAX_DIFF_BYTES) : result.stdout
 
@@ -493,6 +571,10 @@ function splitTextLines(text: string): string[] {
   if (!trimmed) return []
 
   return trimmed.split('\n')
+}
+
+function diffContainsBinaryMarker(text: string): boolean {
+  return /(?:^|\n)(?:Binary files .+ differ|GIT binary patch)(?:\n|$)/.test(text)
 }
 
 function parseShortStat(output: string): { filesChanged: number; insertions: number; deletions: number } {

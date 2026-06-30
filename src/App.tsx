@@ -196,6 +196,7 @@ function App() {
                 githubAccounts={githubAccounts}
                 githubCliStatus={githubCliStatus}
                 assistantPolicy={assistantPolicy}
+                selectedAssistant={selectedAssistant}
                 setNotice={setNotice}
                 generateCommitText={generateCommitText}
                 canGenerateCommitText={canGenerateCommitText}

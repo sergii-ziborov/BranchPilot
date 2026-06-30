@@ -267,6 +267,11 @@
 
 .heatmap {
   margin-top: 12px;
+  --heatmap-empty: #ebedf0;
+  --heatmap-level-1: #9be9a8;
+  --heatmap-level-2: #40c463;
+  --heatmap-level-3: #30a14e;
+  --heatmap-level-4: #216e39;
 }
 
 .heatmap-grid {
@@ -283,13 +288,13 @@
   width: 12px;
   height: 12px;
   border-radius: 3px;
-  background: #ebedf0;
+  background: var(--heatmap-empty);
 }
 
-.heatmap-cell.level-1 { background: #9be9a8; }
-.heatmap-cell.level-2 { background: #40c463; }
-.heatmap-cell.level-3 { background: #30a14e; }
-.heatmap-cell.level-4 { background: #216e39; }
+.heatmap-cell.level-1 { background: var(--heatmap-level-1); }
+.heatmap-cell.level-2 { background: var(--heatmap-level-2); }
+.heatmap-cell.level-3 { background: var(--heatmap-level-3); }
+.heatmap-cell.level-4 { background: var(--heatmap-level-4); }
 
 .heatmap-legend {
   display: flex;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Code2, Copy, Eye, FolderOpen, MinusSquare, PlusSquare, Terminal, Trash2 } from 'lucide-react'
 import type {
-  ApiResult, AssistantPolicyStatus, BranchPilotApi, DiffHunk, DiffResult, ImagePreview,
+  ApiResult, AssistantId, AssistantPolicyStatus, BranchPilotApi, DiffHunk, DiffResult, ImagePreview,
   FileChange, GitConfigSnapshot, GitHubAccountSummary, GitHubCliStatus, PatchScope, RepositorySnapshot
 } from '../../shared/branchPilot'
 import type { ChangeDiffMode } from '../../shared/changeStaging'
@@ -55,6 +55,7 @@ export function ChangesView({
   commitCoAuthors, setCommitCoAuthors,
   gitConfig, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail,
   githubAccounts, githubCliStatus, assistantPolicy,
+  selectedAssistant,
   setNotice, onOpenReview, onOpenStash, stashCount,
   generateCommitText, canGenerateCommitText,
   commitActionState, commitAndPushActionState, amendCommitActionState,
@@ -107,6 +108,7 @@ export function ChangesView({
   githubAccounts: GitHubAccountSummary[]
   githubCliStatus: GitHubCliStatus | null
   assistantPolicy: AssistantPolicyStatus | null
+  selectedAssistant: AssistantId
   setNotice: (message: string) => void
   onOpenReview: () => void
   onOpenStash: () => void
@@ -203,6 +205,13 @@ export function ChangesView({
     void discardSelected(change)
   }
 
+  const discardSelectedLinesFromMenu = () => {
+    const target = diffMenu?.target
+    setDiffMenu(null)
+    if (!target?.selectedLinePatch) return
+    void discardSelectedLines(target.selectedLinePatch, target.selectedLineStaged)
+  }
+
   const openInEditorFromMenu = () => {
     const change = diffMenu?.change ?? selectedChange
     const target = diffMenu?.target
@@ -275,6 +284,7 @@ export function ChangesView({
 
   const noChanges = totalChanges === 0
   const contextMenuChange = diffMenu?.change ?? selectedChange
+  const contextMenuSelectedLines = diffMenu?.target?.selectedLinePatch ? diffMenu.target.selectedLineCount ?? 0 : 0
   const inlineDiffOperationLabel = operationLabel && isDiffInlineOperation(operationLabel) ? operationLabel : null
 
   if (internalEditorPath !== null) {
@@ -285,6 +295,7 @@ export function ChangesView({
           currentRepoPath={currentRepoPath}
           snapshot={snapshot}
           initialFilePath={internalEditorPath || null}
+          selectedAssistant={selectedAssistant}
           onBack={() => setInternalEditorPath(null)}
           setNotice={setNotice}
           runSnapshotAction={runSnapshotAction}
@@ -437,12 +448,14 @@ export function ChangesView({
               type="button"
               role="menuitem"
               className="danger"
-              title={contextMenuChange.untracked ? 'Delete this untracked file' : 'Discard changes to this file'}
-              onClick={discardFromMenu}
-              disabled={busy || (!contextMenuChange.unstaged && !contextMenuChange.untracked)}
+              title={contextMenuSelectedLines > 0
+                ? `Discard ${contextMenuSelectedLines} selected line${contextMenuSelectedLines === 1 ? '' : 's'}`
+                : contextMenuChange.untracked ? 'Delete this untracked file' : 'Discard changes to this file'}
+              onClick={contextMenuSelectedLines > 0 ? discardSelectedLinesFromMenu : discardFromMenu}
+              disabled={busy || (contextMenuSelectedLines === 0 && !contextMenuChange.unstaged && !contextMenuChange.untracked)}
             >
               <Trash2 size={15} />
-              {contextMenuChange.untracked ? 'Delete file' : 'Discard changes'}
+              {contextMenuSelectedLines > 0 ? 'Discard selected lines' : contextMenuChange.untracked ? 'Delete file' : 'Discard changes'}
             </button>
             <div className="context-menu-separator" role="separator" />
             <button type="button" role="menuitem" title="Open this file in your editor" onClick={openInEditorFromMenu} disabled={busy || !api}>

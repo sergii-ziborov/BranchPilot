@@ -51,6 +51,7 @@ const EXTENSION_ICONS: Record<string, FileTypeIconInfo> = {
   gif: { label: 'GIF', tone: 'image', title: 'GIF image' },
   webp: { label: 'IMG', tone: 'image', title: 'Image' },
   ico: { label: 'ICO', tone: 'image', title: 'Icon image' },
+  icns: { label: 'ICNS', tone: 'image', title: 'Apple icon image' },
   sh: { label: 'SH', tone: 'shell', title: 'Shell script' },
   bash: { label: 'SH', tone: 'shell', title: 'Shell script' },
   zsh: { label: 'SH', tone: 'shell', title: 'Shell script' },

@@ -5,7 +5,14 @@ export type AssistantPolicyMode =
   | 'allow-local-commands'
   | 'allow-file-edits'
 
-export type AssistantActionKind = 'commit_message' | 'pull_request_text' | 'review_report' | 'branch_draft' | 'linkedin_project' | 'repository_starter'
+export type AssistantActionKind =
+  | 'commit_message'
+  | 'pull_request_text'
+  | 'review_report'
+  | 'branch_draft'
+  | 'linkedin_project'
+  | 'repository_starter'
+  | 'file_beautify'
 
 export interface AssistantPolicySettings {
   repoPath: string
@@ -72,6 +79,7 @@ export type ActivityLogEventType =
   | 'assistant_pr_generated'
   | 'assistant_linkedin_generated'
   | 'assistant_repository_starter_generated'
+  | 'assistant_file_beautified'
   | 'assistant_review_generated'
   | 'daily_review_generated'
   | 'github_pr_created'

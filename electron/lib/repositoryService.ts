@@ -9,6 +9,11 @@ import type {
   ImagePreview,
   ImagePreviewRequest,
   RecentRepository,
+  RepositoryFileBytesResult,
+  RepositoryFileBytesWriteRequest,
+  RepositoryFileContentRequest,
+  RepositoryFileDeleteRequest,
+  RepositoryFileRenameRequest,
   RepositoryFileWriteRequest,
   RepositoryPinRequest,
   RepositorySnapshot
@@ -45,6 +50,8 @@ import { RepositoryCommitService } from './repositoryService.commits.js'
 
 const CSS_COLOR_EDIT_PATH_RE = /\.(?:css|scss|sass|less|pcss|postcss)$/i
 const CSS_COLOR_EDIT_VALUE_RE = /^(?:#[\da-f]{3,8}|rgba?\([^)]+\))$/i
+const MAX_REPOSITORY_FILE_BYTES = 1_500_000
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
 function normalizeCssColorEditValue(value: string, label: string): string {
   const trimmed = value.trim()
@@ -54,6 +61,27 @@ function normalizeCssColorEditValue(value: string, label: string): string {
   }
 
   return trimmed
+}
+
+function extractLargestIcnsPng(buffer: Buffer): Buffer | null {
+  if (buffer.length < 8 || buffer.subarray(0, 4).toString('ascii') !== 'icns') {
+    return null
+  }
+
+  let cursor = 8
+  let best: Buffer | null = null
+  while (cursor + 8 <= buffer.length) {
+    const chunkLength = buffer.readUInt32BE(cursor + 4)
+    if (chunkLength < 8 || cursor + chunkLength > buffer.length) break
+
+    const payload = buffer.subarray(cursor + 8, cursor + chunkLength)
+    if (payload.length >= PNG_SIGNATURE.length && payload.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+      if (!best || payload.length > best.length) best = payload
+    }
+    cursor += chunkLength
+  }
+
+  return best
 }
 
 export class RepositoryService extends RepositoryServiceWrites {
@@ -164,6 +192,14 @@ export class RepositoryService extends RepositoryServiceWrites {
     const buffer = request.commitSha
       ? await this.readGitBlob(rootPath, `${normalizeCommitSha(request.commitSha)}:${relativePath}`)
       : await this.readWorkingTreeImage(rootPath, relativePath)
+    const icnsPng = relativePath.toLowerCase().endsWith('.icns') ? extractLargestIcnsPng(buffer) : null
+    if (icnsPng) {
+      return {
+        dataUrl: `data:image/png;base64,${icnsPng.toString('base64')}`,
+        mimeType: 'image/png from ICNS',
+        byteSize: buffer.length
+      }
+    }
 
     return {
       dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
@@ -335,6 +371,92 @@ export class RepositoryService extends RepositoryServiceWrites {
 
     const absolutePath = resolveRepositoryPath(rootPath, relativePath)
     await fs.writeFile(absolutePath, request.text, 'utf8')
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async getRepositoryFileBytes(request: RepositoryFileContentRequest): Promise<RepositoryFileBytesResult> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const relativePath = normalizeRelativePath(request.filePath)
+    const absolutePath = resolveRepositoryPath(rootPath, relativePath)
+    const stats = await fs.stat(absolutePath).catch(() => undefined)
+
+    if (!stats?.isFile()) {
+      throw new BranchPilotUserError('file_not_found', 'File is not available in the working tree.')
+    }
+    if (stats.size > MAX_REPOSITORY_FILE_BYTES) {
+      return {
+        filePath: relativePath,
+        base64: '',
+        byteSize: stats.size,
+        tooLarge: true,
+        maxBytes: MAX_REPOSITORY_FILE_BYTES
+      }
+    }
+
+    const buffer = await fs.readFile(absolutePath)
+    return {
+      filePath: relativePath,
+      base64: buffer.toString('base64'),
+      byteSize: buffer.length,
+      tooLarge: false,
+      maxBytes: MAX_REPOSITORY_FILE_BYTES
+    }
+  }
+
+  async writeRepositoryFileBytes(request: RepositoryFileBytesWriteRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const relativePath = normalizeRelativePath(request.filePath)
+    const absolutePath = resolveRepositoryPath(rootPath, relativePath)
+    const buffer = Buffer.from(request.base64, 'base64')
+
+    if (buffer.length > MAX_REPOSITORY_FILE_BYTES) {
+      throw new BranchPilotUserError('file_too_large', 'Edited binary file is too large to save from the hex editor.')
+    }
+
+    await fs.writeFile(absolutePath, buffer)
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async renameRepositoryFile(request: RepositoryFileRenameRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const oldRelativePath = normalizeRelativePath(request.filePath)
+    const newRelativePath = normalizeRelativePath(request.newFilePath.trim())
+    const oldAbsolutePath = resolveRepositoryPath(rootPath, oldRelativePath)
+    const newAbsolutePath = resolveRepositoryPath(rootPath, newRelativePath)
+
+    if (oldRelativePath === newRelativePath) {
+      return this.getStatusOnlySnapshot(rootPath)
+    }
+    if (!await pathExists(oldAbsolutePath)) {
+      throw new BranchPilotUserError('file_not_found', 'File is not available in the working tree.')
+    }
+    if (await pathExists(newAbsolutePath)) {
+      throw new BranchPilotUserError('file_exists', 'A file already exists at the target path.')
+    }
+
+    await fs.mkdir(path.dirname(newAbsolutePath), { recursive: true })
+    await fs.rename(oldAbsolutePath, newAbsolutePath)
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async deleteRepositoryFile(request: RepositoryFileDeleteRequest): Promise<RepositorySnapshot> {
+    if (!request.confirmed) {
+      throw new BranchPilotUserError('confirmation_required', 'Confirm file deletion before deleting.')
+    }
+
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const relativePath = normalizeRelativePath(request.filePath)
+    const absolutePath = resolveRepositoryPath(rootPath, relativePath)
+    const stats = await fs.stat(absolutePath).catch(() => undefined)
+
+    if (!stats?.isFile()) {
+      throw new BranchPilotUserError('file_not_found', 'File is not available in the working tree.')
+    }
+
+    await fs.unlink(absolutePath)
 
     return this.getSnapshot(rootPath)
   }

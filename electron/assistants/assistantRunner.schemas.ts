@@ -6,6 +6,7 @@ export const MAX_ASSISTANT_LINKEDIN_CONTEXT_BYTES = 100_000
 export const MAX_ASSISTANT_PR_DIFF_BYTES = 120_000
 export const MAX_ASSISTANT_REVIEW_DIFF_BYTES = 120_000
 export const MAX_ASSISTANT_STARTER_CONTEXT_BYTES = 100_000
+export const MAX_ASSISTANT_BEAUTIFY_BYTES = 120_000
 
 export const GENERATED_TEXT_SCHEMA: Record<string, unknown> = {
   type: 'object',
@@ -116,6 +117,17 @@ export const REPOSITORY_STARTER_SCHEMA: Record<string, unknown> = {
     description: { type: 'string', minLength: 1 },
     readme: { type: 'string', minLength: 1 },
     gitignore: { type: 'string' }
+  }
+}
+
+export const FILE_BEAUTIFY_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['content'],
+  properties: {
+    content: {
+      type: 'string'
+    }
   }
 }
 

@@ -147,6 +147,7 @@ export function HistoryCommitPreviewWorkspace({
   const primaryCodeRef = useRef<HTMLPreElement | null>(null)
   const compareCodeRef = useRef<HTMLPreElement | null>(null)
   const syncingPreviewScrollRef = useRef(false)
+  const [syncedCodeWidth, setSyncedCodeWidth] = useState(0)
   const [sidebarWidth, setSidebarWidth] = useState(() => (
     readStoredWidth(PREVIEW_SIDEBAR_STORAGE_KEY, PREVIEW_SIDEBAR_DEFAULT_WIDTH, PREVIEW_SIDEBAR_MIN_WIDTH, PREVIEW_SIDEBAR_MAX_WIDTH, PREVIEW_MAIN_MIN_WIDTH)
   ))
@@ -168,7 +169,8 @@ export function HistoryCommitPreviewWorkspace({
     '--history-preview-sidebar-width': `${sidebarWidth}px`
   } as CSSProperties
   const stageStyle = {
-    '--history-preview-primary-width': `${primaryPaneWidth}px`
+    '--history-preview-primary-width': `${primaryPaneWidth}px`,
+    '--history-preview-code-width': syncedCodeWidth > 0 ? `${syncedCodeWidth}px` : '100%'
   } as CSSProperties
   const compareFilePaths = useMemo(
     () => new Set((compareDetails?.files ?? []).map((file) => file.path)),
@@ -374,6 +376,32 @@ export function HistoryCommitPreviewWorkspace({
     })
   }
 
+  const syncPreviewCodeWidth = () => {
+    if (!compareSha) {
+      setSyncedCodeWidth(0)
+      return
+    }
+
+    const measureCodeWidth = (element: HTMLPreElement | null): number => {
+      if (!element) return 0
+
+      let maxWidth = element.clientWidth
+      const rows = element.querySelectorAll<HTMLElement>('.history-file-code-line')
+      rows.forEach((row) => {
+        const source = row.querySelector<HTMLElement>('.history-file-line-source')
+        maxWidth = Math.max(maxWidth, 58 + (source?.scrollWidth ?? row.scrollWidth))
+      })
+      return Math.ceil(maxWidth)
+    }
+
+    const nextWidth = Math.max(
+      measureCodeWidth(primaryCodeRef.current),
+      measureCodeWidth(compareCodeRef.current)
+    )
+
+    setSyncedCodeWidth((current) => (Math.abs(current - nextWidth) > 1 ? nextWidth : current))
+  }
+
   useEffect(() => {
     const clampToLayout = () => {
       const workspaceWidth = workspaceRef.current?.getBoundingClientRect().width
@@ -421,7 +449,69 @@ export function HistoryCommitPreviewWorkspace({
       compareCodeRef.current.scrollTop = 0
       compareCodeRef.current.scrollLeft = 0
     }
+    setSyncedCodeWidth(0)
   }, [compareSha, preview.filePath])
+
+  useEffect(() => {
+    if (!compareSha) {
+      setSyncedCodeWidth(0)
+      return
+    }
+
+    let secondFrame = 0
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        syncPreviewCodeWidth()
+
+        if (primaryCodeRef.current && compareCodeRef.current) {
+          compareCodeRef.current.scrollTop = primaryCodeRef.current.scrollTop
+          compareCodeRef.current.scrollLeft = primaryCodeRef.current.scrollLeft
+        }
+      })
+    })
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [
+    compareFileContent?.binary,
+    compareFileContent?.text,
+    compareSha,
+    preview.content?.binary,
+    preview.content?.text,
+    preview.filePath
+  ])
+
+  useEffect(() => {
+    if (!compareSha) return
+
+    let frame = 0
+    const scheduleSync = () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(syncPreviewCodeWidth)
+    }
+
+    scheduleSync()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', scheduleSync)
+      return () => {
+        if (frame) window.cancelAnimationFrame(frame)
+        window.removeEventListener('resize', scheduleSync)
+      }
+    }
+
+    const observer = new ResizeObserver(scheduleSync)
+    if (stageRef.current) observer.observe(stageRef.current)
+    if (primaryCodeRef.current) observer.observe(primaryCodeRef.current)
+    if (compareCodeRef.current) observer.observe(compareCodeRef.current)
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [compareSha, primaryPaneWidth, sidebarWidth, preview.filePath])
 
   useEffect(() => {
     if (!compareSha || !compareDetails || compareLoading || compareError) return

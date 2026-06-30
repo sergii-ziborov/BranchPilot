@@ -1,9 +1,11 @@
 import path from 'node:path'
 import type {
   AssistantStatus,
+  BeautifiedFile,
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
   CommitMessageGenerationRequest,
+  FileBeautifyRequest,
   GeneratedBranchDescription,
   GeneratedBranchDraft,
   GeneratedCommitMessage,
@@ -20,13 +22,13 @@ import { CommandRunner } from '../lib/commandRunner.js'
 import { BranchPilotUserError } from '../lib/errors.js'
 import { GIT_EXECUTABLE } from '../lib/platformExecutables.js'
 import {
-  BRANCH_DESCRIPTION_SCHEMA, BRANCH_DRAFT_SCHEMA, GENERATED_TEXT_SCHEMA, LINKEDIN_PROJECT_SCHEMA, MAX_ASSISTANT_BRANCH_CONTEXT_BYTES, MAX_ASSISTANT_DIFF_BYTES, MAX_ASSISTANT_LINKEDIN_CONTEXT_BYTES, MAX_ASSISTANT_PR_DIFF_BYTES, MAX_ASSISTANT_STARTER_CONTEXT_BYTES, REPOSITORY_STARTER_SCHEMA, REVIEW_REPORT_SCHEMA
+  BRANCH_DESCRIPTION_SCHEMA, BRANCH_DRAFT_SCHEMA, FILE_BEAUTIFY_SCHEMA, GENERATED_TEXT_SCHEMA, LINKEDIN_PROJECT_SCHEMA, MAX_ASSISTANT_BEAUTIFY_BYTES, MAX_ASSISTANT_BRANCH_CONTEXT_BYTES, MAX_ASSISTANT_DIFF_BYTES, MAX_ASSISTANT_LINKEDIN_CONTEXT_BYTES, MAX_ASSISTANT_PR_DIFF_BYTES, MAX_ASSISTANT_STARTER_CONTEXT_BYTES, REPOSITORY_STARTER_SCHEMA, REVIEW_REPORT_SCHEMA
 } from './assistantRunner.schemas.js'
 import {
-  buildBranchDescriptionPrompt, buildBranchDraftPrompt, buildCommitPrompt, buildLinkedInProjectPrompt, buildPullRequestPrompt, buildRepositoryStarterPrompt, buildReviewPrompt, truncateText
+  buildBranchDescriptionPrompt, buildBranchDraftPrompt, buildCommitPrompt, buildFileBeautifyPrompt, buildLinkedInProjectPrompt, buildPullRequestPrompt, buildRepositoryStarterPrompt, buildReviewPrompt, truncateText
 } from './assistantRunner.prompts.js'
 import {
-  normalizeBranchName, parseBranchDescription, parseBranchDraft, parseGeneratedText, parseLinkedInProject, parseRepositoryStarter, parseReviewReport
+  normalizeBranchName, parseBeautifiedFile, parseBranchDescription, parseBranchDraft, parseGeneratedText, parseLinkedInProject, parseRepositoryStarter, parseReviewReport
 } from './assistantRunner.parsers.js'
 import {
   ASSISTANT_RUNNERS
@@ -218,6 +220,34 @@ export async function generatePullRequestText(
     baseBranch: base.baseBranch,
     headBranch,
     commitCount: commits.stdout.trim() ? commits.stdout.trim().split('\n').length : 0
+  }
+}
+
+export async function beautifyFileWithAssistant(
+  runner: CommandRunner,
+  request: FileBeautifyRequest
+): Promise<BeautifiedFile> {
+  await resolveRepositoryRoot(runner, request.repoPath)
+  const textBytes = Buffer.byteLength(request.text, 'utf8')
+
+  if (textBytes > MAX_ASSISTANT_BEAUTIFY_BYTES) {
+    throw new BranchPilotUserError(
+      'assistant_input_too_large',
+      'File is too large for AI beautify.',
+      'Use local Beautify or format a smaller file section.'
+    )
+  }
+
+  const prompt = buildFileBeautifyPrompt({
+    filePath: request.filePath,
+    content: request.text
+  })
+  const { assistant, output } = await runAssistantForRequest(runner, request.assistant, prompt, FILE_BEAUTIFY_SCHEMA)
+
+  return {
+    content: parseBeautifiedFile(output),
+    assistant: assistant.id,
+    truncated: false
   }
 }
 
