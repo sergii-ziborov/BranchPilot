@@ -37,7 +37,6 @@
 @import "./themes/index.css";
 @import "./shell/workspace-frameless.css";
 @import "./themes/active-overrides.css";
-@import "./themes/matrix/operators.css";
 @import "./themes/deus-ex/human-revolution.css";
 @import "./themes/far-manager/orthodox.css";
 @import "./themes/far-manager/flat-console.css";

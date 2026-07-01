@@ -50,9 +50,7 @@ const EDITOR_RENDER_BATCH_SIZE = 560
 const EDITOR_RENDER_LOOKAHEAD = 160
 const EDITOR_SEARCH_MATCH_LIMIT = 5000
 const EDITOR_FILE_CONTENT_SEARCH_MIN_LENGTH = 2
-const EDITOR_FILE_CONTENT_SEARCH_FILE_LIMIT = 120
-const EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT = 80
-const EDITOR_FILE_CONTENT_SEARCH_BATCH_SIZE = 6
+const EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT = 250
 const EDITOR_FILE_CONTENT_SEARCH_DEBOUNCE_MS = 260
 const EDITOR_LINE_HEIGHT = 20.4
 const EDITOR_FILE_CHUNK_BYTES = 48_000
@@ -209,6 +207,12 @@ interface FileSearchMatch {
   lineNumber: number
   column: number
   length: number
+}
+
+interface EditorLineDecoration {
+  start: number
+  end: number
+  className: string
 }
 
 interface FileLineSearchTarget {
@@ -1353,6 +1357,40 @@ function selectedTextRange(text: string, start: number, end: number): EditorText
   return wordStart === wordEnd ? null : { start: wordStart, end: wordEnd }
 }
 
+function selectedSearchText(text: string, start: number, end: number): string {
+  const safeStart = clamp(Math.min(start, end), 0, text.length)
+  const safeEnd = clamp(Math.max(start, end), 0, text.length)
+  if (safeStart === safeEnd) return ''
+
+  return text
+    .slice(safeStart, safeEnd)
+    .replace(/\r\n/g, '\n')
+    .split('\n')[0]
+    .trim()
+    .slice(0, 160)
+}
+
+function shortcutKey(event: Pick<KeyboardEvent, 'code' | 'key'>): string {
+  if (event.code === 'KeyD') return 'd'
+  if (event.code === 'KeyF') return 'f'
+  if (event.code === 'KeyY') return 'y'
+  if (event.code === 'KeyZ') return 'z'
+  return event.key.toLowerCase()
+}
+
+function isEditorNavigationKey(key: string): boolean {
+  return (
+    key === 'ArrowLeft' ||
+    key === 'ArrowRight' ||
+    key === 'ArrowUp' ||
+    key === 'ArrowDown' ||
+    key === 'Home' ||
+    key === 'End' ||
+    key === 'PageUp' ||
+    key === 'PageDown'
+  )
+}
+
 function rangesOverlap(a: EditorTextRange, b: EditorTextRange): boolean {
   return a.start < b.end && b.start < a.end
 }
@@ -1361,6 +1399,29 @@ function normalizeTextRanges(ranges: EditorTextRange[]): EditorTextRange[] {
   return [...ranges]
     .map((range) => ({ start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) }))
     .sort((a, b) => a.start - b.start || a.end - b.end)
+}
+
+function textRangesForLine(lineStartOffset: number, line: string, ranges: EditorTextRange[]): EditorTextRange[] {
+  const lineEndOffset = lineStartOffset + line.length
+  const result: EditorTextRange[] = []
+
+  for (const range of normalizeTextRanges(ranges)) {
+    if (range.start === range.end) {
+      if (range.start >= lineStartOffset && range.start <= lineEndOffset) {
+        const cursor = range.start - lineStartOffset
+        result.push({ start: cursor, end: cursor })
+      }
+      continue
+    }
+
+    if (range.start > lineEndOffset || range.end < lineStartOffset) continue
+    const start = clamp(range.start - lineStartOffset, 0, line.length)
+    const end = clamp(range.end - lineStartOffset, 0, line.length)
+    if (start === end) continue
+    result.push({ start, end })
+  }
+
+  return result
 }
 
 function bytesForHexSearch(rawQuery: string): Uint8Array | null {
@@ -1744,72 +1805,78 @@ function parseFileLineSearchQuery(query: string): FileLineSearchTarget | null {
   return { lineNumber, column: column - 1 }
 }
 
-function isLikelyContentSearchFile(filePath: string): boolean {
-  return !/\.(?:png|jpe?g|gif|webp|bmp|ico|icns|avif|pdf|zip|7z|rar|gz|tgz|bz2|xz|exe|dll|so|dylib|bin|lockb|woff2?|ttf|otf)$/i.test(filePath)
-}
+function decoratedHighlightedLineContent(
+  line: string,
+  lang: string,
+  searchQuery: string,
+  activeMatch: FileSearchMatch | null,
+  lineNumber: number,
+  multiEditSelections: EditorTextRange[]
+) {
+  const query = searchQuery.trim()
+  const decorations: EditorLineDecoration[] = []
 
-function findRepositoryContentMatch(filePath: string, text: string, query: string): RepositoryContentSearchMatch | null {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return null
+  if (query) {
+    const lowerLine = line.toLowerCase()
+    const lowerQuery = query.toLowerCase()
+    let column = lowerLine.indexOf(lowerQuery)
 
-  const lines = textLines(text)
-  let lineStartOffset = 0
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]
-    const column = line.toLowerCase().indexOf(needle)
-    if (column < 0) {
-      lineStartOffset += line.length + 1
+    while (column !== -1) {
+      const active = activeMatch?.lineNumber === lineNumber && activeMatch.column === column
+      decorations.push({
+        start: column,
+        end: column + query.length,
+        className: active ? 'changes-editor-search-hit active' : 'changes-editor-search-hit'
+      })
+      column = lowerLine.indexOf(lowerQuery, column + Math.max(1, lowerQuery.length))
+    }
+  }
+
+  for (const range of multiEditSelections) {
+    decorations.push({
+      start: clamp(range.start, 0, line.length),
+      end: clamp(range.end, 0, line.length),
+      className: range.start === range.end ? 'changes-editor-multi-cursor' : 'changes-editor-multi-edit-hit'
+    })
+  }
+
+  if (decorations.length === 0) return highlight(line || ' ', lang)
+
+  const points = new Set<number>([0, line.length])
+  for (const decoration of decorations) {
+    points.add(decoration.start)
+    points.add(decoration.end)
+  }
+
+  const sortedPoints = [...points].sort((a, b) => a - b)
+  const chunks: ReactNode[] = []
+  let key = 0
+
+  for (let index = 0; index < sortedPoints.length; index += 1) {
+    const point = sortedPoints[index]
+    const cursors = decorations.filter((decoration) => decoration.start === decoration.end && decoration.start === point)
+    for (const cursor of cursors) {
+      chunks.push(<span aria-hidden="true" className={cursor.className} key={`cursor-${key++}`} />)
+    }
+
+    const nextPoint = sortedPoints[index + 1]
+    if (nextPoint === undefined || nextPoint <= point) continue
+
+    const token = line.slice(point, nextPoint)
+    const classes = decorations
+      .filter((decoration) => decoration.start < nextPoint && point < decoration.end)
+      .map((decoration) => decoration.className)
+
+    if (classes.length === 0) {
+      chunks.push(<span key={`plain-${key++}`}>{highlight(token, lang)}</span>)
       continue
     }
 
-    const previewStart = Math.max(0, column - 36)
-    const previewEnd = Math.min(line.length, column + query.length + 72)
-    const prefix = previewStart > 0 ? '...' : ''
-    const suffix = previewEnd < line.length ? '...' : ''
-    return {
-      filePath,
-      lineNumber: index + 1,
-      column,
-      length: query.length,
-      byteOffset: utf8ByteOffset(text, lineStartOffset),
-      preview: `${prefix}${line.slice(previewStart, previewEnd).trim()}${suffix}`
-    }
-  }
-
-  return null
-}
-
-function highlightedLineContent(line: string, lang: string, searchQuery: string, activeMatch: FileSearchMatch | null, lineNumber: number) {
-  const query = searchQuery.trim()
-  if (!query) return highlight(line || ' ', lang)
-
-  const lowerLine = line.toLowerCase()
-  const lowerQuery = query.toLowerCase()
-  const chunks = []
-  let last = 0
-  let key = 0
-  let column = lowerLine.indexOf(lowerQuery)
-
-  while (column !== -1) {
-    if (column > last) {
-      const plain = line.slice(last, column)
-      chunks.push(<span key={`plain-${key++}`}>{highlight(plain, lang)}</span>)
-    }
-
-    const token = line.slice(column, column + query.length)
-    const active = activeMatch?.lineNumber === lineNumber && activeMatch.column === column
     chunks.push(
-      <mark className={active ? 'changes-editor-search-hit active' : 'changes-editor-search-hit'} key={`match-${key++}`}>
+      <mark className={[...new Set(classes)].join(' ')} key={`decorated-${key++}`}>
         {highlight(token, lang)}
       </mark>
     )
-
-    last = column + query.length
-    column = lowerLine.indexOf(lowerQuery, last)
-  }
-
-  if (last < line.length) {
-    chunks.push(<span key={`tail-${key}`}>{highlight(line.slice(last), lang)}</span>)
   }
 
   return chunks.length ? chunks : highlight(line || ' ', lang)
@@ -2310,6 +2377,7 @@ export function ChangesInternalEditor({
   const hexStartOffset = hexBytes?.startOffset ?? 0
   const hexEndOffset = hexBytes?.endOffset ?? hexStartOffset
   const hexFullFileLoaded = Boolean(hexBytes?.fullFileLoaded)
+  const hexChunkEditable = Boolean(hexBytes)
   const hexPreviewRows = useMemo(
     () => (parsedHexDraft.bytes ? hexEditorRows(parsedHexDraft.bytes, hexStartOffset) : []),
     [hexStartOffset, parsedHexDraft.bytes]
@@ -2326,8 +2394,8 @@ export function ChangesInternalEditor({
   const activeHexByteDraftValue = normalizedActiveHexByteDraft
     ? Number.parseInt(normalizedActiveHexByteDraft.padStart(2, '0'), 16)
     : null
-  const activeHexByteDraftDirty = hexFullFileLoaded && activeHexByte !== null && activeHexByteDraftValue !== null && activeHexByteDraftValue !== activeHexByte
-  const hexDirty = hexFullFileLoaded && (hexDraftText !== hexOriginalText || activeHexByteDraftDirty)
+  const activeHexByteDraftDirty = hexChunkEditable && activeHexByte !== null && activeHexByteDraftValue !== null && activeHexByteDraftValue !== activeHexByte
+  const hexDirty = hexChunkEditable && (hexDraftText !== hexOriginalText || activeHexByteDraftDirty)
   const dirty = textDirty || hexDirty
   const diagnosticByLine = useMemo(() => new Map(diagnostics.map((diagnostic) => [diagnostic.lineNumber, diagnostic])), [diagnostics])
   const fileSearchOverflow = fileSearchMatches.length >= EDITOR_SEARCH_MATCH_LIMIT
@@ -2448,7 +2516,7 @@ export function ChangesInternalEditor({
   const editorStatusText = hexDirty
     ? `${parsedHexDraft.bytes?.length ?? 0} edited byte${parsedHexDraft.bytes?.length === 1 ? '' : 's'} since load`
     : viewMode === 'hex' && hexBytes && !hexFullFileLoaded
-      ? `Read-only hex chunk ${formatBytes(hexBytes.startOffset)}-${formatBytes(hexBytes.endOffset)} of ${formatBytes(hexBytes.byteSize)}`
+      ? `Editable hex chunk ${formatBytes(hexBytes.startOffset)}-${formatBytes(hexBytes.endOffset)} of ${formatBytes(hexBytes.byteSize)}`
       : chunkedTextPreview
         ? `Editable chunk ${formatBytes(chunkedTextPreview.startOffset)}-${formatBytes(chunkedTextPreview.endOffset)} of ${formatBytes(chunkedTextPreview.byteSize)}`
         : textUnavailableMessage
@@ -2867,10 +2935,15 @@ export function ChangesInternalEditor({
   }
 
   const handleEditorTextKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    const key = event.key.toLowerCase()
+    const key = shortcutKey(event)
     if ((event.ctrlKey || event.metaKey) && !event.altKey && key === 'd') {
       event.preventDefault()
       activateNextMultiEditOccurrence()
+      return
+    }
+
+    if (multiEditRanges.length > 0 && isEditorNavigationKey(event.key)) {
+      setMultiEditRanges([])
       return
     }
 
@@ -3030,9 +3103,20 @@ export function ChangesInternalEditor({
     activateSearchMatch(activeSearchIndex < 0 ? (event.shiftKey ? -1 : 0) : activeSearchIndex + (event.shiftKey ? -1 : 1))
   }
 
-  const focusFileSearchInput = () => {
+  const focusFileSearchInput = (copyEditorSelection = false) => {
     if (!selectedPath || fileLoading || fileError || textUnavailableMessage) return false
     if (viewMode === 'hex' || viewMode === 'image') setViewMode('code')
+
+    if (copyEditorSelection) {
+      const textarea = textareaRef.current
+      const query = textarea
+        ? selectedSearchText(textarea.value, textarea.selectionStart, textarea.selectionEnd)
+        : ''
+      if (query) {
+        setFileSearchQuery(query)
+        setActiveSearchIndex(-1)
+      }
+    }
 
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
@@ -3198,21 +3282,22 @@ export function ChangesInternalEditor({
           <div className="changes-editor-highlight-inner" ref={highlightInnerRef}>
             {visibleDraftLines.map((line, index) => {
               const lineNumber = activeEditorLineBase + editorLineWindow.start + index
+              const lineStartOffset = lineOffsets[lineNumber - activeEditorLineBase] ?? 0
               const changeKind = changeKindByLine.get(lineNumber)
               const diagnostic = diagnosticByLine.get(lineNumber)
+              const multiEditSelections = textRangesForLine(lineStartOffset, line, multiEditRanges)
 
               return (
                 <code
                   className={[
                     'changes-editor-highlight-line',
                     changeKind ? `line-${changeKind}` : '',
-                    diagnostic ? 'line-diagnostic-error' : '',
-                    multiEditLineNumbers.has(lineNumber) ? 'line-multi-edit' : ''
+                    diagnostic ? 'line-diagnostic-error' : ''
                   ].filter(Boolean).join(' ')}
                   key={`${lineNumber}-${line.slice(0, 20)}`}
                   title={diagnostic ? `${diagnostic.source}: ${diagnostic.message}` : undefined}
                 >
-                  {highlightedLineContent(line || ' ', selectedLang, effectiveFileSearchQuery, activeSearchMatch, lineNumber)}
+                  {decoratedHighlightedLineContent(line || ' ', selectedLang, effectiveFileSearchQuery, activeSearchMatch, lineNumber, multiEditSelections)}
                 </code>
               )
             })}
@@ -3229,6 +3314,9 @@ export function ChangesInternalEditor({
           onKeyDown={handleEditorTextKeyDown}
           onPaste={handleEditorPaste}
           onScroll={syncHighlightScroll}
+          onMouseDown={() => {
+            if (multiEditRanges.length > 0) setMultiEditRanges([])
+          }}
           readOnly={false}
           disabled={fileLoading}
         />
@@ -3455,7 +3543,7 @@ export function ChangesInternalEditor({
 
   const updateHexByteAt = (index: number, value: number) => {
     const bytes = parsedHexDraft.bytes
-    if (!hexFullFileLoaded || !bytes) return
+    if (!hexChunkEditable || !bytes) return
     const localIndex = index - hexStartOffset
     if (localIndex < 0 || localIndex >= bytes.length) return
 
@@ -3467,7 +3555,7 @@ export function ChangesInternalEditor({
   const commitHexByteDraft = (index: number, rawDraft: string): boolean => {
     const normalized = normalizeHexByteDraft(rawDraft)
     const currentByte = parsedHexDraft.bytes?.[index - hexStartOffset]
-    if (!hexFullFileLoaded || !normalized) {
+    if (!hexChunkEditable || !normalized) {
       if (currentByte !== undefined) setHexByteDraft(byteToHex(currentByte))
       return false
     }
@@ -3482,14 +3570,14 @@ export function ChangesInternalEditor({
     const normalized = normalizeHexByteDraft(rawDraft)
     setHexByteDraft(normalized)
 
-    if (!hexFullFileLoaded || normalized.length !== 2) return
+    if (!hexChunkEditable || normalized.length !== 2) return
 
     const value = Number.parseInt(normalized, 16)
     updateHexByteAt(index, value)
     const bytes = parsedHexDraft.bytes
     if (!bytes) return
 
-    if (hexFullFileLoaded && index < hexEndOffset - 1) {
+    if (hexChunkEditable && index < hexEndOffset - 1) {
       setActiveHexByteIndex(index + 1)
     } else {
       setHexByteDraft(byteToHex(value))
@@ -3555,13 +3643,13 @@ export function ChangesInternalEditor({
 
   const hexByteChanged = (index: number, byte: number): boolean => {
     const originalBytes = parsedHexOriginal.bytes
-    if (!hexFullFileLoaded || !originalBytes) return false
+    if (!hexChunkEditable || !originalBytes) return false
     const localIndex = index - hexStartOffset
     return localIndex >= 0 && originalBytes[localIndex] !== byte
   }
 
   const hexDraftTextForSave = (): string => {
-    if (!hexFullFileLoaded || !activeHexByteDraftDirty || activeHexByteDraftValue === null || !parsedHexDraft.bytes) return hexDraftText
+    if (!hexChunkEditable || !activeHexByteDraftDirty || activeHexByteDraftValue === null || !parsedHexDraft.bytes) return hexDraftText
     const localIndex = activeHexByteIndex - hexStartOffset
     if (localIndex < 0 || localIndex >= parsedHexDraft.bytes.length) return hexDraftText
 
@@ -3623,7 +3711,7 @@ export function ChangesInternalEditor({
             </span>
           )}
           {parsedHexDraft.bytes && (
-            <em>{hexLoading ? 'loading chunk...' : hexFullFileLoaded ? `${parsedHexDraft.bytes.length} bytes in draft` : 'read-only chunk'}</em>
+            <em>{hexLoading ? 'loading chunk...' : hexFullFileLoaded ? `${parsedHexDraft.bytes.length} bytes in draft` : 'editable chunk'}</em>
           )}
         </div>
         <div className="changes-editor-hex-controls">
@@ -3734,7 +3822,7 @@ export function ChangesInternalEditor({
                         changed ? 'changed' : ''
                       ].filter(Boolean).join(' ')
 
-                      if (active && hexFullFileLoaded) {
+                      if (active && hexChunkEditable) {
                         return (
                           <input
                             className={className}
@@ -3801,7 +3889,7 @@ export function ChangesInternalEditor({
           {hexBytes && !hexFullFileLoaded && (
             <p>
               Viewing {formatBytes(hexBytes.startOffset)}-{formatBytes(hexBytes.endOffset)} of {formatBytes(hexBytes.byteSize)}.
-              Jump by offset or load adjacent chunks.
+              Edit bytes in this chunk, jump by offset, or load adjacent chunks.
             </p>
           )}
         </div>
@@ -4253,70 +4341,48 @@ export function ChangesInternalEditor({
 
     let cancelled = false
     const handle = window.setTimeout(() => {
-      const eligibleFiles = files.filter((file) => isLikelyContentSearchFile(file.path))
-      const searchFiles = eligibleFiles.slice(0, EDITOR_FILE_CONTENT_SEARCH_FILE_LIMIT)
-      const truncatedByFileLimit = eligibleFiles.length > searchFiles.length
-      const matches: Record<string, RepositoryContentSearchMatch> = {}
-      let scanned = 0
-
       setFileContentMatches({})
-      setFileContentSearchState({ status: 'searching', scanned: 0, truncated: truncatedByFileLimit, error: null })
+      setFileContentSearchState({ status: 'searching', scanned: 0, truncated: false, error: null })
 
-      const run = async () => {
-        try {
-          for (let index = 0; index < searchFiles.length; index += EDITOR_FILE_CONTENT_SEARCH_BATCH_SIZE) {
-            if (cancelled || fileContentSearchRequestRef.current !== requestId) return
-
-            const batch = searchFiles.slice(index, index + EDITOR_FILE_CONTENT_SEARCH_BATCH_SIZE)
-            const results = await Promise.all(batch.map(async (file) => {
-              try {
-                const result = await api.getRepositoryFileContent({
-                  repoPath: currentRepoPath,
-                  filePath: file.path
-                })
-                if (!result.ok || result.data.binary || result.data.tooLarge || !result.data.text) return null
-                return findRepositoryContentMatch(file.path, result.data.text, searchText)
-              } catch {
-                return null
-              }
-            }))
-
-            if (cancelled || fileContentSearchRequestRef.current !== requestId) return
-
-            scanned += batch.length
-            for (const match of results) {
-              if (!match) continue
-              matches[match.filePath] = match
-              if (Object.keys(matches).length >= EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT) break
-            }
-
-            const truncated = truncatedByFileLimit || Object.keys(matches).length >= EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT
-            setFileContentMatches({ ...matches })
-            setFileContentSearchState({ status: 'searching', scanned, truncated, error: null })
-
-            if (Object.keys(matches).length >= EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT) break
+      void api.searchRepositoryContent({
+        repoPath: currentRepoPath,
+        query: searchText,
+        maxResults: EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT
+      })
+        .then((result) => {
+          if (cancelled || fileContentSearchRequestRef.current !== requestId) return
+          if (!result.ok) {
+            setFileContentSearchState({
+              status: 'done',
+              scanned: 0,
+              truncated: false,
+              error: friendlyIpcErrorMessage(result.error.message, 'Content search failed.')
+            })
+            return
           }
 
-          if (cancelled || fileContentSearchRequestRef.current !== requestId) return
-          setFileContentMatches({ ...matches })
+          const matches: Record<string, RepositoryContentSearchMatch> = {}
+          for (const match of result.data.matches) {
+            matches[match.filePath] = match
+          }
+
+          setFileContentMatches(matches)
           setFileContentSearchState({
             status: 'done',
-            scanned,
-            truncated: truncatedByFileLimit || Object.keys(matches).length >= EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT,
+            scanned: result.data.matches.length,
+            truncated: result.data.truncated,
             error: null
           })
-        } catch (error) {
+        })
+        .catch((error) => {
           if (cancelled || fileContentSearchRequestRef.current !== requestId) return
           setFileContentSearchState({
             status: 'done',
-            scanned,
-            truncated: truncatedByFileLimit,
+            scanned: 0,
+            truncated: false,
             error: friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Content search failed.')
           })
-        }
-      }
-
-      void run()
+        })
     }, EDITOR_FILE_CONTENT_SEARCH_DEBOUNCE_MS)
 
     return () => {
@@ -4500,9 +4566,9 @@ export function ChangesInternalEditor({
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return
 
-      const key = event.key.toLowerCase()
+      const key = shortcutKey(event)
       if (key === 'f') {
-        if (focusFileSearchInput()) {
+        if (focusFileSearchInput(true)) {
           event.preventDefault()
           event.stopPropagation()
         }
@@ -4897,33 +4963,58 @@ export function ChangesInternalEditor({
     setSaving(true)
     try {
       if (hexDirty) {
-        if (!hexFullFileLoaded) {
-          setNotice('Chunked hex preview is read-only. Load a small file fully before saving byte edits.')
-          return
-        }
         const parsed = parseHexText(hexDraftTextForSave())
         if (!parsed.bytes || parsed.error) {
           setNotice(parsed.error || 'Hex byte stream is invalid.')
           return
         }
         const bytes = parsed.bytes
-        const result = await runSnapshotAction('File saved.', () => api.writeRepositoryFileBytes({
+        const nextHexText = bytesToHexText(bytes)
+
+        if (hexFullFileLoaded) {
+          const result = await runSnapshotAction('File saved.', () => api.writeRepositoryFileBytes({
+            repoPath: currentRepoPath,
+            filePath: selectedPath,
+            base64: base64FromBytes(bytes)
+          }))
+          if (result !== false) {
+            setHexOriginalText(nextHexText)
+            setHexDraftText(nextHexText)
+            setActiveHexByteIndex((current) => clamp(current, hexStartOffset, Math.max(hexStartOffset, hexStartOffset + bytes.length - 1)))
+            setHexBytes((current) => current ? {
+              ...current,
+              byteSize: bytes.length,
+              startOffset: 0,
+              endOffset: bytes.length,
+              hasMore: false,
+              fullFileLoaded: true
+            } : current)
+          }
+          return
+        }
+
+        if (!hexBytes) return
+        const originalBytes = Math.max(0, hexEndOffset - hexStartOffset)
+        if (bytes.length !== originalBytes) {
+          setNotice('Hex chunk edits must keep the same byte count.')
+          return
+        }
+
+        const result = await runSnapshotAction('Hex chunk saved.', () => api.writeRepositoryFileChunk({
           repoPath: currentRepoPath,
           filePath: selectedPath,
+          startOffset: hexStartOffset,
+          endOffset: hexEndOffset,
+          text: '',
           base64: base64FromBytes(bytes)
         }))
         if (result !== false) {
-          const nextHexText = bytesToHexText(bytes)
           setHexOriginalText(nextHexText)
           setHexDraftText(nextHexText)
           setActiveHexByteIndex((current) => clamp(current, hexStartOffset, Math.max(hexStartOffset, hexStartOffset + bytes.length - 1)))
           setHexBytes((current) => current ? {
             ...current,
-            byteSize: bytes.length,
-            startOffset: 0,
-            endOffset: bytes.length,
-            hasMore: false,
-            fullFileLoaded: true
+            endOffset: current.startOffset + bytes.length
           } : current)
         }
         return
@@ -5100,7 +5191,7 @@ export function ChangesInternalEditor({
             {fileContentSearchState.error ? (
               <span className="danger-text">{fileContentSearchState.error}</span>
             ) : fileContentSearchState.status === 'searching' ? (
-              <span>Searching content... {fileContentSearchState.scanned}/{Math.min(files.length, EDITOR_FILE_CONTENT_SEARCH_FILE_LIMIT)}</span>
+              <span>Searching content...</span>
             ) : fileContentMatchCount > 0 ? (
               <span>{fileContentMatchCount} content match{fileContentMatchCount === 1 ? '' : 'es'}{fileContentSearchState.truncated ? ' (limited)' : ''}</span>
             ) : (

@@ -399,7 +399,9 @@ export class RepositoryService extends RepositoryServiceWrites {
       throw new BranchPilotUserError('invalid_file_chunk', 'Edited file chunk no longer matches the working tree.')
     }
 
-    const replacement = Buffer.from(request.text, 'utf8')
+    const replacement = typeof request.base64 === 'string'
+      ? Buffer.from(request.base64, 'base64')
+      : Buffer.from(request.text ?? '', 'utf8')
     if (replacement.length > MAX_REPOSITORY_FILE_CHUNK_WRITE_BYTES) {
       throw new BranchPilotUserError('file_chunk_too_large', 'Edited chunk is too large to save from the internal editor.')
     }

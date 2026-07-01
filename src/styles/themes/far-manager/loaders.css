@@ -1,0 +1,58 @@
+html[data-theme='far-manager'] :is(
+  .signal-status,
+  .signal-status.diff-operation-curtain,
+  .signal-status.history-detail-loading,
+  .signal-status.history-file-diff-loading,
+  .signal-status.history-preview-list-curtain,
+  .signal-status.linkedin-generation-curtain,
+  .signal-status.daily-review-curtain,
+  .signal-status.review-running-curtain,
+  .signal-status.assistant-model-list-curtain,
+  .signal-status.changes-editor-file-curtain,
+  .signal-status.changes-editor-body-curtain,
+  .signal-status.changes-editor-hex-loading,
+  .repository-refresh-curtain
+) {
+  --signal-main: #00ffff;
+  --signal-alt: #ffff00;
+  --signal-hot: #ffffff;
+  color: #ffffff !important;
+  background: rgba(0, 0, 128, 0.94) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+}
+
+html[data-theme='far-manager'] :is(.signal-status, .repository-refresh-curtain)::before,
+html[data-theme='far-manager'] :is(.signal-status, .repository-refresh-curtain)::after {
+  content: none !important;
+  display: none !important;
+  animation: none !important;
+  background: none !important;
+}
+
+html[data-theme='far-manager'] .signal-status-copy {
+  min-width: min(420px, 84vw);
+  padding: 14px 18px;
+  border: 1px solid #ffffff !important;
+  border-radius: 0 !important;
+  color: #ffffff !important;
+  background: #008c8c !important;
+  box-shadow:
+    inset 0 0 0 1px #00ffff,
+    8px 8px 0 rgba(0, 0, 0, 0.38) !important;
+  text-align: center;
+  text-shadow: none !important;
+}
+
+html[data-theme='far-manager'] .signal-status-copy strong {
+  color: #ffff00 !important;
+  font-family: var(--far-font);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+html[data-theme='far-manager'] .signal-status-copy span {
+  color: #ffffff !important;
+  font-family: var(--far-font);
+}

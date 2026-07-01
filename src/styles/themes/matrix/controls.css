@@ -1,0 +1,242 @@
+html[data-theme='matrix'] :is(
+  button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button),
+  input,
+  textarea,
+  select,
+  .shell-segments,
+  .shell-menu > summary,
+  .shell-dropdown,
+  .shell-dropdown-item,
+  .shell-dropdown-primary,
+  .shell-branch-pick,
+  .shell-theme-item,
+  .changes-actions-popover,
+  .commit-identity-popover,
+  .assistant-model-popover,
+  .report-scope-popover,
+  .github-repo-filter-panel
+) {
+  border-color: var(--matrix-line-soft) !important;
+  border-radius: 0 !important;
+  color: var(--matrix-white) !important;
+  background: rgba(0, 10, 4, 0.90) !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  text-shadow: 0 0 7px rgba(0, 255, 102, 0.22) !important;
+}
+
+html[data-theme='matrix'] :is(input, textarea, select)::placeholder {
+  color: rgba(180, 255, 205, 0.48) !important;
+}
+
+html[data-theme='matrix'] :is(
+  button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
+  .shell-dropdown-item:hover,
+  .shell-dropdown-primary:hover,
+  .shell-branch-pick:hover,
+  .shell-theme-item:hover,
+  .change-row:hover,
+  .history-row:hover,
+  .history-preview-file-row:hover,
+  .changes-editor-file-row:hover,
+  .commit-file-row:hover
+) {
+  border-color: var(--matrix-line) !important;
+  color: var(--matrix-white) !important;
+  background: rgba(0, 255, 102, 0.14) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 102, 0.18) !important;
+}
+
+html[data-theme='matrix'] :is(
+  .segmented:not(.diff-display-toggle) button.active,
+  .segmented:not(.diff-display-toggle) button[aria-pressed='true'],
+  .review-mode-segmented button.active,
+  .review-mode-segmented button[aria-pressed='true'],
+  .assistant-policy-modes button.active,
+  .assistant-policy-modes button[aria-pressed='true'],
+  .precommit-modes button.active,
+  .precommit-modes button[aria-pressed='true'],
+  .reports-switch button.active,
+  .settings-switch button.active,
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  .changes-editor-view-tabs button.active,
+  .changes-drawer-tabs button.active,
+  .shell-dropdown-item.active,
+  .shell-theme-item.active,
+  .shell-branch-row.active .shell-branch-pick,
+  button[aria-selected='true']
+) {
+  border-color: var(--matrix-white) !important;
+  color: #001306 !important;
+  background: var(--matrix-code) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(235, 255, 241, 0.64),
+    0 0 18px rgba(0, 255, 102, 0.28) !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='matrix'] :is(
+  .segmented button.active,
+  .segmented button[aria-pressed='true'],
+  .view-switch-tab.active,
+  .shell-tab.active,
+  .shell-dropdown-item.active,
+  .shell-theme-item.active,
+  .shell-branch-row.active .shell-branch-pick,
+  button[aria-selected='true']
+) :is(strong, span, small, svg) {
+  color: inherit !important;
+  stroke: currentColor !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html[data-theme='matrix'] :is(.change-row.selected .change-select, .change-row[aria-selected='true'] .change-select),
+html[data-theme='matrix'] :is(.history-row.selected, .history-row[aria-selected='true']),
+html[data-theme='matrix'] :is(.history-preview-file-row.selected, .changes-editor-file-row.selected, .commit-file-row.selected, .repository-picker-entry.selected) {
+  border-color: var(--matrix-line) !important;
+  color: var(--matrix-white) !important;
+  background:
+    linear-gradient(90deg, rgba(0, 255, 102, 0.32) 0 4px, rgba(0, 255, 102, 0.18) 4px 100%) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='matrix'] :is(
+  .change-row.selected .change-select,
+  .change-row[aria-selected='true'] .change-select,
+  .history-row.selected,
+  .history-row[aria-selected='true'],
+  .history-preview-file-row.selected,
+  .changes-editor-file-row.selected,
+  .commit-file-row.selected,
+  .repository-picker-entry.selected
+) :is(.file-name, .file-path, strong, span, small, svg) {
+  color: inherit !important;
+  stroke: currentColor !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html[data-theme='matrix'] .shell-dropdown::before,
+html[data-theme='matrix'] .changes-actions-popover::before,
+html[data-theme='matrix'] .commit-identity-popover::before,
+html[data-theme='matrix'] .assistant-model-popover::before,
+html[data-theme='matrix'] .report-scope-popover::before,
+html[data-theme='matrix'] .github-repo-filter-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 18px, rgba(0, 255, 102, 0.09) 18px 19px, transparent 19px 42px),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.24) 0 2px, transparent 2px 6px);
+  opacity: 0.46;
+  mix-blend-mode: screen;
+}
+
+html[data-theme='matrix'] input[type='checkbox'] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  margin: 0;
+  place-content: center;
+  border: 1px solid rgba(109, 255, 161, 0.82) !important;
+  border-radius: 0 !important;
+  background-color: #001006 !important;
+  box-shadow:
+    inset 0 0 0 2px #000302,
+    0 0 0 1px rgba(0, 255, 102, 0.18) !important;
+  color: #001306 !important;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+html[data-theme='matrix'] input[type='checkbox']::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  transform: scale(0);
+  transform-origin: center;
+  background: #001306;
+  clip-path: polygon(12% 48%, 36% 72%, 88% 18%, 88% 42%, 36% 94%, 12% 70%);
+}
+
+html[data-theme='matrix'] input[type='checkbox']:checked,
+html[data-theme='matrix'] input[type='checkbox'][aria-checked='true'],
+html[data-theme='matrix'] .change-row[data-stage-state='staged'] .change-stage-toggle input[type='checkbox'] {
+  background-color: var(--matrix-code) !important;
+  background-image: none !important;
+  border-color: #ebfff1 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(235, 255, 241, 0.72),
+    0 0 0 1px rgba(0, 255, 102, 0.36),
+    0 0 12px rgba(0, 255, 102, 0.28) !important;
+}
+
+html[data-theme='matrix'] input[type='checkbox']:checked::after,
+html[data-theme='matrix'] input[type='checkbox'][aria-checked='true']::after,
+html[data-theme='matrix'] .change-row[data-stage-state='staged'] .change-stage-toggle input[type='checkbox']::after {
+  transform: scale(1);
+}
+
+html[data-theme='matrix'] input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+html[data-theme='matrix'] input[type='checkbox']:indeterminate,
+html[data-theme='matrix'] input[type='checkbox'][aria-checked='mixed'],
+html[data-theme='matrix'] .change-row[data-stage-state='partial'] .change-stage-toggle input[type='checkbox'] {
+  background: var(--matrix-code) !important;
+  border-color: #ebfff1 !important;
+}
+
+html[data-theme='matrix'] input[type='checkbox']:indeterminate::after,
+html[data-theme='matrix'] input[type='checkbox'][aria-checked='mixed']::after,
+html[data-theme='matrix'] .change-row[data-stage-state='partial'] .change-stage-toggle input[type='checkbox']::after {
+  width: 9px;
+  height: 2px;
+  transform: scale(1);
+  background: #001306;
+  clip-path: none;
+}
+
+html[data-theme='matrix'] :is(.bulk-stage-toggle, .change-stage-toggle) input[type='checkbox'] {
+  flex: 0 0 16px;
+  place-self: center;
+  transform: none !important;
+}
+
+html[data-theme='matrix'] :is(.change-row.selected, .change-row[aria-selected='true']) input[type='checkbox'] {
+  border-color: #ebfff1 !important;
+  background-color: #001306 !important;
+  box-shadow:
+    inset 0 0 0 2px #000302,
+    0 0 0 1px rgba(235, 255, 241, 0.72) !important;
+}
+
+html[data-theme='matrix'] :is(.change-row.selected, .change-row[aria-selected='true']) input[type='checkbox']:checked,
+html[data-theme='matrix'] :is(.change-row.selected, .change-row[aria-selected='true']) input[type='checkbox'][aria-checked='true'],
+html[data-theme='matrix'] :is(.change-row.selected, .change-row[aria-selected='true'])[data-stage-state='staged'] .change-stage-toggle input[type='checkbox'] {
+  background-color: var(--matrix-code) !important;
+  border-color: #ebfff1 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(235, 255, 241, 0.82),
+    0 0 0 1px rgba(235, 255, 241, 0.72),
+    0 0 14px rgba(0, 255, 102, 0.34) !important;
+}
+
+html[data-theme='matrix'] :is(.change-row.selected, .change-row[aria-selected='true']) input[type='checkbox']:indeterminate,
+html[data-theme='matrix'] :is(.change-row.selected, .change-row[aria-selected='true']) input[type='checkbox'][aria-checked='mixed'],
+html[data-theme='matrix'] :is(.change-row.selected, .change-row[aria-selected='true'])[data-stage-state='partial'] .change-stage-toggle input[type='checkbox'] {
+  background: var(--matrix-code) !important;
+  border-color: #ebfff1 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(235, 255, 241, 0.82),
+    0 0 0 1px rgba(235, 255, 241, 0.72),
+    0 0 14px rgba(0, 255, 102, 0.34) !important;
+}

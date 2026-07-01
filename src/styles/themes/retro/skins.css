@@ -21,22 +21,10 @@ html[data-theme='pure-dark'] .changes-actions-popover {
   box-shadow: none;
 }
 
-html[data-theme='matrix'],
 html[data-theme='far-manager'] {
   --retro-radius: 2px;
   --retro-line: color-mix(in srgb, var(--accent) 42%, transparent);
   --retro-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-html[data-theme='matrix'] {
-  --retro-panel-bg:
-    radial-gradient(circle at 22% 12%, rgba(0, 255, 106, 0.08), transparent 30%),
-    rgba(0, 14, 7, 0.84);
-  --retro-panel-bg-2:
-    linear-gradient(180deg, rgba(0, 255, 106, 0.10), rgba(0, 12, 6, 0.82)),
-    rgba(0, 20, 9, 0.86);
-  --retro-grid: rgba(0, 255, 106, 0.045);
-  --retro-scanline: rgba(0, 255, 106, 0.055);
 }
 
 html[data-theme='far-manager'] {
@@ -50,14 +38,12 @@ html[data-theme='far-manager'] {
   --retro-scanline: rgba(255, 255, 255, 0.045);
 }
 
-html[data-theme='matrix'] body,
 html[data-theme='far-manager'] body {
   background:
     radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
     var(--surface);
 }
 
-html[data-theme='matrix'] .app-shell,
 html[data-theme='far-manager'] .app-shell {
   position: relative;
   isolation: isolate;
@@ -68,7 +54,6 @@ html[data-theme='far-manager'] .app-shell {
   background-size: 24px 24px, 24px 24px, auto;
 }
 
-html[data-theme='matrix'] .app-shell::before,
 html[data-theme='far-manager'] .app-shell::before {
   content: '';
   position: fixed;
@@ -79,36 +64,23 @@ html[data-theme='far-manager'] .app-shell::before {
   background-size: auto 6px;
 }
 
-html[data-theme='matrix'] .shell-bar,
 html[data-theme='far-manager'] .shell-bar {
   border-bottom-color: var(--retro-line);
   background: var(--shell-bar);
   box-shadow: var(--retro-glow);
 }
 
-html[data-theme='matrix'] .single-panel,
 html[data-theme='far-manager'] .single-panel,
-html[data-theme='matrix'] .changes-panel,
 html[data-theme='far-manager'] .changes-panel,
-html[data-theme='matrix'] .diff-panel,
 html[data-theme='far-manager'] .diff-panel,
-html[data-theme='matrix'] .dashboard-section,
 html[data-theme='far-manager'] .dashboard-section,
-html[data-theme='matrix'] .config-card,
 html[data-theme='far-manager'] .config-card,
-html[data-theme='matrix'] .tool-modal,
 html[data-theme='far-manager'] .tool-modal,
-html[data-theme='matrix'] .review-fix-prompt-modal,
 html[data-theme='far-manager'] .review-fix-prompt-modal,
-html[data-theme='matrix'] .review-empty,
 html[data-theme='far-manager'] .review-empty,
-html[data-theme='matrix'] .review-results,
 html[data-theme='far-manager'] .review-results,
-html[data-theme='matrix'] .linkedin-card,
 html[data-theme='far-manager'] .linkedin-card,
-html[data-theme='matrix'] .pr-panel,
 html[data-theme='far-manager'] .pr-panel,
-html[data-theme='matrix'] .quiet-box,
 html[data-theme='far-manager'] .quiet-box {
   border-color: var(--retro-line);
   border-radius: var(--retro-radius);
@@ -116,13 +88,9 @@ html[data-theme='far-manager'] .quiet-box {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
-html[data-theme='matrix'] .shell-segments,
 html[data-theme='far-manager'] .shell-segments,
-html[data-theme='matrix'] .shell-menu > summary,
 html[data-theme='far-manager'] .shell-menu > summary,
-html[data-theme='matrix'] .shell-dropdown,
 html[data-theme='far-manager'] .shell-dropdown,
-html[data-theme='matrix'] .changes-actions-popover,
 html[data-theme='far-manager'] .changes-actions-popover {
   border-color: var(--retro-line);
   border-radius: var(--retro-radius);
@@ -130,23 +98,11 @@ html[data-theme='far-manager'] .changes-actions-popover {
   box-shadow: var(--retro-glow);
 }
 
-html[data-theme='matrix'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled),
 html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled),
-html[data-theme='matrix'] input,
 html[data-theme='far-manager'] input,
-html[data-theme='matrix'] textarea,
 html[data-theme='far-manager'] textarea,
-html[data-theme='matrix'] select,
 html[data-theme='far-manager'] select {
   border-radius: var(--retro-radius);
-}
-
-html[data-theme='matrix'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 52%, #001005);
-  color: var(--text-strong);
-  background:
-    linear-gradient(180deg, rgba(0, 255, 106, 0.12), rgba(0, 12, 6, 0.78));
-  text-shadow: 0 0 8px rgba(0, 255, 106, 0.32);
 }
 
 html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled) {
@@ -157,15 +113,6 @@ html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number
   box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.20), inset -1px -1px 0 rgba(0, 0, 0, 0.36);
 }
 
-html[data-theme='matrix'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
-html[data-theme='matrix'] .shell-dropdown-item:hover,
-html[data-theme='matrix'] .change-row:hover,
-html[data-theme='matrix'] .history-row:hover {
-  border-color: var(--accent);
-  background: rgba(0, 255, 106, 0.14);
-  box-shadow: 0 0 18px rgba(0, 255, 106, 0.16);
-}
-
 html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
 html[data-theme='far-manager'] .shell-dropdown-item:hover,
 html[data-theme='far-manager'] .change-row:hover,
@@ -173,15 +120,6 @@ html[data-theme='far-manager'] .history-row:hover {
   border-color: #ffff00;
   color: #ffff00;
   background: #0052d6;
-}
-
-html[data-theme='matrix'] .shell-theme-item.active,
-html[data-theme='matrix'] .segmented button.active,
-html[data-theme='matrix'] .search-scope-toggle button.active,
-html[data-theme='matrix'] .github-filter-segment button.active {
-  color: var(--accent-contrast);
-  background: linear-gradient(90deg, #00ff6a, #51ff9e);
-  box-shadow: 0 0 22px rgba(0, 255, 106, 0.20);
 }
 
 html[data-theme='far-manager'] .shell-theme-item.active,
@@ -194,7 +132,6 @@ html[data-theme='far-manager'] .github-filter-segment button.active {
   box-shadow: none;
 }
 
-html[data-theme='matrix'] .shell-theme-dot,
 html[data-theme='far-manager'] .shell-theme-dot {
   box-shadow: 0 0 14px currentColor;
 }
@@ -318,39 +255,6 @@ html[data-theme='far-manager'] .signal-status-copy span {
   text-shadow: none;
 }
 
-html[data-theme='matrix'] :is(
-  .view-switch-tab.active,
-  .tool-view-switch .view-switch-tab.active,
-  .shell-tab.active,
-  .changes-editor-view-tabs button.active,
-  .changes-drawer-tabs button.active,
-  .reports-switch button.active,
-  .settings-switch button.active,
-  button[aria-selected='true']
-) {
-  border-color: #d8ffe6 !important;
-  color: #001707 !important;
-  background:
-    linear-gradient(90deg, #ffffff 0 4px, transparent 4px 100%),
-    linear-gradient(180deg, #d8ffe6 0%, #00ff6a 42%, #008f3c 100%) !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(216, 255, 230, 0.72),
-    0 0 0 1px rgba(0, 255, 106, 0.56),
-    0 0 22px rgba(0, 255, 106, 0.42) !important;
-  text-shadow: none !important;
-}
-
-html[data-theme='matrix'] :is(
-  .view-switch-tab.active,
-  .tool-view-switch .view-switch-tab.active,
-  .shell-tab.active,
-  button[aria-selected='true']
-) .view-switch-badge,
-html[data-theme='matrix'] .shell-tab.active .shell-tab-badge {
-  color: #d8ffe6 !important;
-  background: #001707 !important;
-}
-
 html[data-theme='far-manager'] :is(
   .view-switch-tab.active,
   .tool-view-switch .view-switch-tab.active,
@@ -379,53 +283,6 @@ html[data-theme='far-manager'] :is(
 html[data-theme='far-manager'] .shell-tab.active .shell-tab-badge {
   color: #ffff00 !important;
   background: #000080 !important;
-}
-
-html[data-theme='matrix'] .signal-status,
-html[data-theme='matrix'] .signal-status.diff-operation-curtain,
-html[data-theme='matrix'] .signal-status.history-detail-loading,
-html[data-theme='matrix'] .signal-status.history-file-diff-loading,
-html[data-theme='matrix'] .signal-status.history-preview-list-curtain,
-html[data-theme='matrix'] .signal-status.linkedin-generation-curtain,
-html[data-theme='matrix'] .signal-status.daily-review-curtain,
-html[data-theme='matrix'] .signal-status.review-running-curtain,
-html[data-theme='matrix'] .signal-status.assistant-model-list-curtain,
-html[data-theme='matrix'] .signal-status.changes-editor-file-curtain {
-  --signal-main: #00ff6a;
-  --signal-alt: #7cffb5;
-  --signal-hot: #d8ffe6;
-  background:
-    radial-gradient(circle at 50% 48%, rgba(0, 255, 106, 0.18), transparent 34%),
-    linear-gradient(180deg, rgba(0, 10, 3, 0.94), rgba(0, 0, 0, 0.98));
-  backdrop-filter: none;
-}
-
-html[data-theme='matrix'] .signal-status::before {
-  display: block;
-  padding: 10px 16px;
-  color: rgba(0, 255, 106, 0.28);
-  content: "010110100101101001011010010110100101101001011010010110100101101001011010010110100101101001011010010110100101101001011010010110100101101001011010010110100101101001011010010110100101101001011010010110100101101001011010010110100101101001011010";
-  font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: 0.58em;
-  text-align: left;
-  text-shadow: 0 0 8px rgba(0, 255, 106, 0.72);
-  white-space: normal;
-  word-break: break-all;
-  background:
-    linear-gradient(180deg, transparent 0 8%, rgba(216, 255, 230, 0.26) 10%, rgba(0, 255, 106, 0.20) 13%, transparent 20% 100%),
-    repeating-linear-gradient(90deg, transparent 0 19px, rgba(0, 255, 106, 0.13) 19px 20px, transparent 20px 38px);
-  background-size: 100% 190px, 38px 100%;
-  animation: matrix-code-rain 1.05s linear infinite;
-  mix-blend-mode: screen;
-  opacity: 0.82;
-}
-
-html[data-theme='matrix'] .signal-status::after {
-  background:
-    radial-gradient(circle at 50% 50%, rgba(124, 255, 181, 0.28), transparent 30%),
-    repeating-linear-gradient(180deg, transparent 0 16px, rgba(0, 255, 106, 0.18) 16px 17px, transparent 17px 28px);
-  animation: matrix-signal-pulse 1.6s ease-in-out infinite;
-  mix-blend-mode: screen;
 }
 
 html[data-theme='cyberpunk'] .signal-status,
@@ -476,28 +333,6 @@ html[data-theme='cyberpunk'] .signal-status::after {
 @keyframes far-signal-cursor {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0.2; }
-}
-
-@keyframes matrix-signal-rain {
-  from { background-position: 0 -24px, 0 0; }
-  to { background-position: 0 24px, 36px 0; }
-}
-
-@keyframes matrix-code-rain {
-  from {
-    background-position: 0 -190px, 0 0;
-    transform: translateY(-18px);
-  }
-
-  to {
-    background-position: 0 190px, 38px 0;
-    transform: translateY(18px);
-  }
-}
-
-@keyframes matrix-signal-pulse {
-  0%, 100% { opacity: 0.26; transform: scale(0.94); }
-  50% { opacity: 0.72; transform: scale(1.08); }
 }
 
 @keyframes cyberpunk-black-curtain-rain {
@@ -892,61 +727,6 @@ html[data-theme='cyberpunk'] :is(
   opacity: 0.70;
 }
 
-html[data-theme='matrix'] :is(
-  .signal-status,
-  .signal-status.diff-operation-curtain,
-  .signal-status.history-detail-loading,
-  .signal-status.history-file-diff-loading,
-  .signal-status.history-preview-list-curtain,
-  .signal-status.linkedin-generation-curtain,
-  .signal-status.daily-review-curtain,
-  .signal-status.review-running-curtain,
-  .signal-status.assistant-model-list-curtain,
-  .signal-status.changes-editor-file-curtain
-)::before {
-  display: block;
-  padding: 8px 0;
-  overflow: hidden;
-  color: rgba(216, 255, 230, 0.72);
-  content: "アカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝアカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝ";
-  background:
-    linear-gradient(180deg, rgba(216, 255, 230, 0.42), rgba(0, 255, 106, 0.16) 16%, transparent 44%),
-    repeating-linear-gradient(90deg, transparent 0 13px, rgba(0, 255, 106, 0.18) 13px 15px, transparent 15px 27px),
-    repeating-linear-gradient(180deg, rgba(0, 255, 106, 0.08) 0 1px, transparent 1px 18px);
-  background-size: 100% 210px, 27px 100%, 100% 18px;
-  animation: matrix-glyph-rain 1.08s linear infinite;
-  font: 13px/1.16 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: 0.22em;
-  mix-blend-mode: screen;
-  opacity: 0.84;
-  text-align: left;
-  text-orientation: upright;
-  text-shadow: none;
-  white-space: normal;
-  word-break: break-all;
-  writing-mode: vertical-rl;
-}
-
-html[data-theme='matrix'] :is(
-  .signal-status,
-  .signal-status.diff-operation-curtain,
-  .signal-status.history-detail-loading,
-  .signal-status.history-file-diff-loading,
-  .signal-status.history-preview-list-curtain,
-  .signal-status.linkedin-generation-curtain,
-  .signal-status.daily-review-curtain,
-  .signal-status.review-running-curtain,
-  .signal-status.assistant-model-list-curtain,
-  .signal-status.changes-editor-file-curtain
-)::after {
-  background:
-    radial-gradient(circle at 50% 50%, rgba(216, 255, 230, 0.18), transparent 26%),
-    linear-gradient(180deg, transparent 0 24%, rgba(216, 255, 230, 0.42) 31%, rgba(0, 255, 106, 0.32) 38%, transparent 55% 100%),
-    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.34) 0 2px, transparent 2px 5px);
-  animation: matrix-terminal-pulse 1.3s ease-in-out infinite;
-  mix-blend-mode: screen;
-}
-
 html[data-theme='far-manager'] :is(
   .signal-status,
   .signal-status.diff-operation-curtain,
@@ -1017,53 +797,6 @@ html[data-theme='cyberpunk'] .repository-refresh-curtain {
   backdrop-filter: saturate(1.35) contrast(1.1);
 }
 
-html[data-theme='matrix'] .repository-refresh-curtain {
-  --refresh-main: #00ff6a;
-  --refresh-alt: #d8ffe6;
-  --refresh-hot: #7cffb5;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(0, 255, 106, 0.12), transparent 34%),
-    linear-gradient(180deg, rgba(0, 10, 3, 0.90), rgba(0, 0, 0, 0.97));
-  backdrop-filter: none;
-}
-
-html[data-theme='matrix'] .repository-refresh-curtain::before {
-  padding: 10px 0;
-  color: rgba(216, 255, 230, 0.58);
-  content: "アカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝアカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝアカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝ";
-  background:
-    linear-gradient(180deg, rgba(216, 255, 230, 0.48), rgba(0, 255, 106, 0.22) 16%, transparent 46%),
-    repeating-linear-gradient(90deg, transparent 0 14px, rgba(0, 255, 106, 0.22) 14px 16px, transparent 16px 28px);
-  background-size: 100% 230px, 28px 100%;
-  animation: matrix-refresh-rain 1.12s linear infinite;
-  font: 15px/1.12 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: 0.28em;
-  mix-blend-mode: screen;
-  opacity: 0.68;
-  text-orientation: upright;
-  text-shadow: 0 0 10px rgba(0, 255, 106, 0.86);
-  white-space: normal;
-  word-break: break-all;
-  writing-mode: vertical-rl;
-}
-
-html[data-theme='matrix'] .repository-refresh-curtain::after {
-  opacity: 0.82;
-  background:
-    linear-gradient(180deg, transparent 0 20%, rgba(216, 255, 230, 0.36) 29%, rgba(0, 255, 106, 0.30) 38%, transparent 52% 100%),
-    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.38) 0 2px, transparent 2px 5px);
-  mix-blend-mode: screen;
-  animation: matrix-refresh-head 1.42s ease-in-out infinite;
-}
-
-html[data-theme='matrix'] .repository-refresh-signal {
-  border-color: rgba(0, 255, 106, 0.62);
-  background: rgba(0, 12, 5, 0.88);
-  box-shadow:
-    0 0 0 1px rgba(216, 255, 230, 0.14),
-    0 0 42px rgba(0, 255, 106, 0.22);
-}
-
 @keyframes github-light-graph-flow {
   0%, 100% { background-position: 0 0, 0 0, 0 0, -18% 0, 18% 0, 0 0; opacity: 0.58; }
   50% { background-position: 0 0, 0 0, 0 0, 22% 0, -18% 0, 0 14px; opacity: 0.92; }
@@ -1112,52 +845,6 @@ html[data-theme='matrix'] .repository-refresh-signal {
   34% { opacity: 0.38; transform: translate(-6%, -3%) skewX(-4deg); filter: brightness(1.05); }
   57% { opacity: 0.90; transform: translate(9%, 2%) skewX(11deg); filter: brightness(1.42); }
   100% { opacity: 0.24; transform: translate(18%, 3%) skewX(10deg); filter: brightness(0.92); }
-}
-
-@keyframes matrix-column-rain {
-  from { background-position: 0 -190px, 0 0, 0 -24px, 0 0; transform: translateY(-10px); }
-  to { background-position: 0 190px, 24px 0, 0 24px, 36px 0; transform: translateY(10px); }
-}
-
-@keyframes matrix-glyph-rain {
-  from {
-    background-position: 0 -210px, 0 0, 0 -18px;
-    transform: translateY(-18px);
-  }
-
-  to {
-    background-position: 0 210px, 27px 0, 0 18px;
-    transform: translateY(18px);
-  }
-}
-
-@keyframes matrix-refresh-rain {
-  from {
-    background-position: 0 -230px, 0 0;
-    transform: translateY(-24px);
-  }
-
-  to {
-    background-position: 0 230px, 28px 0;
-    transform: translateY(24px);
-  }
-}
-
-@keyframes matrix-refresh-head {
-  0%, 100% {
-    opacity: 0.24;
-    transform: translateY(-18%);
-  }
-
-  50% {
-    opacity: 0.86;
-    transform: translateY(18%);
-  }
-}
-
-@keyframes matrix-terminal-pulse {
-  0%, 100% { opacity: 0.24; transform: scale(0.96); }
-  50% { opacity: 0.78; transform: scale(1.05); }
 }
 
 @keyframes far-console-scan {

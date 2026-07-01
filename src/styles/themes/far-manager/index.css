@@ -3,3 +3,6 @@
 @import "../active-overrides.css";
 @import "./orthodox.css";
 @import "./flat-console.css";
+@import "./editor.css";
+@import "./controls.css";
+@import "./loaders.css";

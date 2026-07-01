@@ -1,0 +1,65 @@
+html[data-theme='far-manager'] :is(.change-stage-toggle, .bulk-stage-toggle) {
+  display: grid !important;
+  align-items: center !important;
+  justify-items: center !important;
+}
+
+html[data-theme='far-manager'] .change-stage-toggle {
+  width: 40px;
+  min-width: 40px;
+  min-height: 42px;
+}
+
+html[data-theme='far-manager'] .bulk-stage-toggle {
+  grid-template-columns: 40px minmax(0, 1fr);
+}
+
+html[data-theme='far-manager'] input[type='checkbox'] {
+  appearance: none;
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  margin: 0 !important;
+  place-content: center;
+  border: 1px solid #ffffff !important;
+  border-radius: 0 !important;
+  background: #000080 !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transform: none !important;
+  vertical-align: middle;
+}
+
+html[data-theme='far-manager'] input[type='checkbox']:checked {
+  background:
+    linear-gradient(135deg, transparent 0 34%, #ffffff 34% 45%, transparent 45% 100%),
+    linear-gradient(45deg, transparent 0 52%, #ffffff 52% 63%, transparent 63% 100%),
+    #008c8c !important;
+}
+
+html[data-theme='far-manager'] input[type='checkbox']:indeterminate {
+  background:
+    linear-gradient(180deg, transparent 0 42%, #ffffff 42% 58%, transparent 58% 100%),
+    #008c8c !important;
+}
+
+html[data-theme='far-manager'] input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+html[data-theme='far-manager'] .change-row.selected input[type='checkbox'],
+html[data-theme='far-manager'] .change-row[aria-selected='true'] input[type='checkbox'] {
+  border-color: #ffff00 !important;
+  background-color: #000040 !important;
+  box-shadow: 0 0 0 1px #000080 !important;
+}
+
+html[data-theme='far-manager'] .change-row.selected input[type='checkbox']:checked,
+html[data-theme='far-manager'] .change-row[aria-selected='true'] input[type='checkbox']:checked {
+  background:
+    linear-gradient(135deg, transparent 0 34%, #000080 34% 45%, transparent 45% 100%),
+    linear-gradient(45deg, transparent 0 52%, #000080 52% 63%, transparent 63% 100%),
+    #ffff00 !important;
+}

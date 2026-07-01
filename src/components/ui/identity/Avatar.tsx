@@ -29,7 +29,8 @@ function computeInitials(name: string): string {
 export function Avatar({
   src,
   name,
-  size = 'md'
+  size = 'md',
+  showInitials = true
 }: {
   /** Avatar image URL; when omitted or it fails to load, the initials/icon fallback is shown. */
   src?: string
@@ -37,6 +38,8 @@ export function Avatar({
   name: string
   /** Visual size variant. Defaults to `'md'`. */
   size?: AvatarSize
+  /** When false, use the icon fallback instead of rendering letters. */
+  showInitials?: boolean
 }) {
   const [failed, setFailed] = useState(false)
   const showImage = Boolean(src) && !failed
@@ -53,7 +56,7 @@ export function Avatar({
             setFailed(true)
           }}
         />
-      ) : initials ? (
+      ) : showInitials && initials ? (
         <span aria-hidden="true">{initials}</span>
       ) : (
         <FallbackIcon

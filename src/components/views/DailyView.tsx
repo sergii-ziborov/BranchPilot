@@ -1,8 +1,9 @@
-import { CalendarDays, Check, Copy, ExternalLink, Layers3, Loader2, Search, Trophy, UserRound } from 'lucide-react'
+import { CalendarDays, Check, Copy, ExternalLink, Layers3, Loader2, Search, Trophy } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { ContributionDay, ContributionGraph, ContributorStat, ContributorStatsWindow, DailyReviewReport, GitHubAccountSummary, RecentRepository, RepositorySnapshot } from '../../shared/branchPilot'
 import { formatDate } from '../../lib/format'
 import { ContributionHeatmap } from '../ContributionHeatmap'
+import { Avatar } from '../Avatar'
 import { Meter } from '../Meter'
 import { PanelHeading } from '../PanelHeading'
 import { SignalStatus } from '../SignalStatus'
@@ -314,20 +315,7 @@ export function DailyView({
               return (
                 <article className={`contributor-row${index < 3 ? ' top' : ''}`} key={`${contributor.name}-${emails.join('|')}`} title={`${contributor.name} <${emails.join(', ')}>`}>
                   <span className="contributor-rank">{RANK_MEDAL[index] ?? index + 1}</span>
-                  <span className="contributor-avatar" aria-hidden="true">
-                    {avatarUrl
-                      ? (
-                          <img
-                            src={avatarUrl}
-                            alt=""
-                            onError={(event) => {
-                              event.currentTarget.style.display = 'none'
-                            }}
-                          />
-                        )
-                      : null}
-                    <UserRound className="contributor-avatar-placeholder" size={18} />
-                  </span>
+                  <Avatar src={avatarUrl} name={contributor.name} size="lg" showInitials={false} />
                   <div className="contributor-id">
                     <div className="contributor-title-row">
                       <strong>{contributor.name}</strong>

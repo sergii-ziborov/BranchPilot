@@ -27,6 +27,7 @@ const branchPilot: BranchPilotApi = {
   getRepositoryDashboard: (repoPath) => invoke('repository:dashboard', repoPath),
   refreshRepository: (repoPath) => invoke('repository:refresh', repoPath),
   listRepositoryFiles: (repoPath) => invoke('repository:files', repoPath),
+  searchRepositoryContent: (request) => invoke('repository:searchFiles', request),
   getRepositoryFileContent: (request) => invoke('repository:fileContent', request),
   getRepositoryFileChunk: (request) => invoke('repository:fileChunk', request),
   writeRepositoryFileChunk: (request) => invoke('repository:writeFileChunk', request),

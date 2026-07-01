@@ -53,6 +53,8 @@ import type {
   RepositoryFileEntry,
   RepositoryFileRenameRequest,
   RepositoryFileWriteRequest,
+  RepositorySearchRequest,
+  RepositorySearchResult,
   DiffContextRequest,
   DiffContextResult,
   DiffRequest,
@@ -292,6 +294,7 @@ export interface BranchPilotApi {
   getRepositoryDashboard: (repoPath?: string) => Promise<ApiResult<RepositoryDashboardSnapshot>>
   refreshRepository: (repoPath: string) => Promise<ApiResult<RepositorySnapshot>>
   listRepositoryFiles: (repoPath: string) => Promise<ApiResult<RepositoryFileEntry[]>>
+  searchRepositoryContent: (request: RepositorySearchRequest) => Promise<ApiResult<RepositorySearchResult>>
   getRepositoryFileContent: (request: RepositoryFileContentRequest) => Promise<ApiResult<RepositoryFileContentResult>>
   getRepositoryFileChunk: (request: RepositoryFileChunkRequest) => Promise<ApiResult<RepositoryFileChunkResult>>
   writeRepositoryFileChunk: (request: RepositoryFileChunkWriteRequest) => Promise<ApiResult<RepositorySnapshot>>

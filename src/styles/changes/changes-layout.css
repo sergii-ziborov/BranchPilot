@@ -2279,6 +2279,25 @@ button.changes-editor-hex-byte-cell {
     0 0 12px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 
+.changes-editor-multi-edit-hit {
+  border-radius: 2px;
+  color: inherit;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  box-shadow:
+    inset 0 -1px 0 color-mix(in srgb, var(--accent) 70%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.changes-editor-multi-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.25em;
+  margin: 0 -1px;
+  vertical-align: -0.18em;
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
 .changes-editor-diagnostics {
   position: absolute;
   left: 88px;

@@ -33,6 +33,7 @@ import type {
   RepositoryFileContentRequest,
   RepositoryFileRenameRequest,
   RepositoryFileWriteRequest,
+  RepositorySearchRequest,
   RepositoryPinRequest
 } from '../../../src/shared/branchPilot.js'
 import { createProjectMemoryMcpConfig } from '../../mcp/config.js'
@@ -147,6 +148,7 @@ export function registerRepositoryHandlers(
   handle('repository:setPinned', (request: RepositoryPinRequest) => repositoryService.setRepositoryPinned(request))
   handle('repository:dashboard', (repoPath?: string) => repositoryService.dashboard.getRepositoryDashboard(repoPath))
   handle('repository:files', (repoPath: string) => repositoryService.listRepositoryFiles(repoPath))
+  handle('repository:searchFiles', (request: RepositorySearchRequest) => repositoryService.searchRepositoryContent(request))
   handle('repository:fileContent', (request: RepositoryFileContentRequest) => repositoryService.getRepositoryFileContent(request))
   handle('repository:fileChunk', (request: RepositoryFileChunkRequest) => repositoryService.getRepositoryFileChunk(request))
   handle('repository:writeFileChunk', async (request: RepositoryFileChunkWriteRequest) =>

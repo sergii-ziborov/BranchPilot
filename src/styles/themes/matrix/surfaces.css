@@ -1,0 +1,67 @@
+html[data-theme='matrix'] body {
+  background:
+    radial-gradient(ellipse at 50% -18%, rgba(0, 255, 102, 0.11), transparent 34%),
+    radial-gradient(ellipse at 50% 112%, rgba(0, 255, 102, 0.08), transparent 38%),
+    #000302 !important;
+}
+
+html[data-theme='matrix'] .app-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(90deg, transparent 0 16px, rgba(0, 255, 102, 0.055) 16px 17px, transparent 17px 52px),
+    radial-gradient(ellipse at 50% 18%, rgba(0, 255, 102, 0.12), transparent 46%),
+    #000302 !important;
+}
+
+html[data-theme='matrix'] .app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 22px, rgba(0, 255, 102, 0.08) 22px 23px, transparent 23px 52px),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.20) 0 2px, transparent 2px 6px);
+  opacity: 0.34;
+  mix-blend-mode: screen;
+}
+
+html[data-theme='matrix'] :is(
+  .shell-bar,
+  .single-panel,
+  .changes-panel,
+  .diff-panel,
+  .dashboard-section,
+  .config-card,
+  .tool-modal,
+  .review-fix-prompt-modal,
+  .review-empty,
+  .review-results,
+  .linkedin-card,
+  .pr-panel,
+  .quiet-box,
+  .history-commit-description,
+  .history-file-preview,
+  .history-preview-sidebar,
+  .history-preview-main,
+  .history-preview-pane,
+  .history-compare-diff,
+  .repository-picker-modal,
+  .clone-panel
+) {
+  border-color: var(--matrix-line-soft) !important;
+  border-radius: 0 !important;
+  background: var(--matrix-panel) !important;
+  box-shadow: none !important;
+  text-shadow: 0 0 8px rgba(0, 255, 102, 0.14);
+  backdrop-filter: none !important;
+}
+
+html[data-theme='matrix'] .shell-bar {
+  border-bottom-color: var(--matrix-line) !important;
+}
+
+html[data-theme='matrix'] :is(.empty-state, .repository-dashboard, .reports-stack) {
+  background: transparent !important;
+}

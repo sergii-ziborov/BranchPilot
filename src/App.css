@@ -1,1 +1,6 @@
 @import './styles/application.css';
+@import '/src/styles/themes/matrix/tokens.css';
+@import '/src/styles/themes/matrix/surfaces.css';
+@import '/src/styles/themes/matrix/controls.css';
+@import '/src/styles/themes/matrix/code.css';
+@import '/src/styles/themes/matrix/loaders.css';

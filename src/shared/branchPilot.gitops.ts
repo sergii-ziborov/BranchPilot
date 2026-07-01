@@ -83,6 +83,29 @@ export interface RepositoryFileEntry {
   path: string
 }
 
+export interface RepositorySearchRequest {
+  repoPath: string
+  query: string
+  maxResults?: number
+}
+
+export interface RepositorySearchMatch {
+  filePath: string
+  lineNumber: number
+  column: number
+  length: number
+  byteOffset: number
+  preview: string
+}
+
+export interface RepositorySearchResult {
+  query: string
+  matches: RepositorySearchMatch[]
+  truncated: boolean
+  engine: 'rg' | 'git-grep'
+  durationMs: number
+}
+
 export interface RepositoryFileContentRequest {
   repoPath: string
   filePath: string
@@ -119,7 +142,8 @@ export interface RepositoryFileWriteRequest extends RepositoryFileContentRequest
 export interface RepositoryFileChunkWriteRequest extends RepositoryFileContentRequest {
   startOffset: number
   endOffset: number
-  text: string
+  text?: string
+  base64?: string
 }
 
 export interface RepositoryFileBytesResult {

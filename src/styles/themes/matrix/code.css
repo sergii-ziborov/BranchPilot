@@ -1,0 +1,117 @@
+html[data-theme='matrix'] :is(
+  .code-editor,
+  .editor-code,
+  .changes-editor-code-shell,
+  .changes-editor-highlight,
+  .changes-editor-highlight-line,
+  .changes-editor-line-numbers,
+  .changes-editor-color-layer,
+  .changes-editor-code,
+  .changes-editor-code-line,
+  .changes-editor-live-diff code,
+  .history-file-code,
+  .history-file-code-line,
+  .diff-code,
+  .diff-line,
+  .history-compare-diff-cell,
+  .changes-editor-hex-table,
+  .hex-byte-cell,
+  .hex-ascii-cell
+) {
+  color: var(--matrix-white) !important;
+  background-color: #000302 !important;
+  text-shadow: 0 0 5px rgba(0, 255, 102, 0.12);
+}
+
+html[data-theme='matrix'] .changes-editor-highlight {
+  color: var(--matrix-white) !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='matrix'] .changes-editor-highlight-inner,
+html[data-theme='matrix'] .changes-editor-highlight-line,
+html[data-theme='matrix'] .changes-editor-highlight-line * {
+  color: inherit;
+  opacity: 1 !important;
+}
+
+html[data-theme='matrix'] .changes-editor-code-shell textarea.changes-editor-textarea,
+html[data-theme='matrix'] .changes-editor-code-shell textarea.changes-editor-textarea:focus,
+html[data-theme='matrix'] .changes-editor-code-shell textarea.changes-editor-textarea.is-dirty {
+  color: transparent !important;
+  background: transparent !important;
+  caret-color: var(--matrix-code) !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='matrix'] :is(.token.keyword, .syntax-keyword, .hljs-keyword, .tok-keyword) {
+  color: var(--code-keyword) !important;
+}
+
+html[data-theme='matrix'] :is(.token.string, .syntax-string, .hljs-string, .tok-string) {
+  color: var(--code-string) !important;
+}
+
+html[data-theme='matrix'] :is(.token.number, .syntax-number, .hljs-number, .tok-number) {
+  color: var(--code-number) !important;
+}
+
+html[data-theme='matrix'] :is(.token.comment, .syntax-comment, .hljs-comment, .tok-comment) {
+  color: var(--code-comment) !important;
+  font-style: italic;
+}
+
+html[data-theme='matrix'] :is(.token.function, .syntax-function, .hljs-title, .tok-function) {
+  color: var(--code-function) !important;
+}
+
+html[data-theme='matrix'] :is(.token.type, .syntax-type, .hljs-type, .tok-type) {
+  color: var(--code-type) !important;
+}
+
+html[data-theme='matrix'] :is(.tok-variable) {
+  color: #caffd8 !important;
+}
+
+html[data-theme='matrix'] :is(.tok-operator) {
+  color: var(--matrix-code) !important;
+}
+
+html[data-theme='matrix'] :is(.tok-punctuation) {
+  color: #77d98f !important;
+}
+
+html[data-theme='matrix'] :is(.line-number, .line-marker, .changes-editor-line-number, .changes-editor-line-numbers, .history-file-line-number) {
+  color: rgba(160, 255, 184, 0.60) !important;
+  background: rgba(0, 10, 4, 0.78) !important;
+}
+
+html[data-theme='matrix'] :is(.line-add, .line-added, .diff-line.add, .history-file-code-line.line-added) {
+  background: rgba(0, 255, 102, 0.13) !important;
+}
+
+html[data-theme='matrix'] :is(.line-remove, .line-removed, .diff-line.remove, .history-file-code-line.line-removed) {
+  background: rgba(255, 85, 117, 0.15) !important;
+}
+
+html[data-theme='matrix'] :is(.line-changed, .diff-line.changed, .history-file-code-line.line-changed) {
+  background: rgba(190, 255, 80, 0.10) !important;
+}
+
+html[data-theme='matrix'] :is(.word-add, .word-diff-add, ins) {
+  color: var(--matrix-white) !important;
+  background: rgba(0, 255, 102, 0.30) !important;
+  text-decoration: none;
+}
+
+html[data-theme='matrix'] :is(.word-remove, .word-diff-remove, del) {
+  color: #ffdce4 !important;
+  background: rgba(255, 85, 117, 0.28) !important;
+  text-decoration: line-through;
+}
+
+html[data-theme='matrix'] ::selection {
+  color: #001306;
+  background: rgba(0, 255, 102, 0.82);
+}
