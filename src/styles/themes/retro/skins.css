@@ -318,6 +318,69 @@ html[data-theme='far-manager'] .signal-status-copy span {
   text-shadow: none;
 }
 
+html[data-theme='matrix'] :is(
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  .changes-editor-view-tabs button.active,
+  .changes-drawer-tabs button.active,
+  .reports-switch button.active,
+  .settings-switch button.active,
+  button[aria-selected='true']
+) {
+  border-color: #d8ffe6 !important;
+  color: #001707 !important;
+  background:
+    linear-gradient(90deg, #ffffff 0 4px, transparent 4px 100%),
+    linear-gradient(180deg, #d8ffe6 0%, #00ff6a 42%, #008f3c 100%) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 255, 230, 0.72),
+    0 0 0 1px rgba(0, 255, 106, 0.56),
+    0 0 22px rgba(0, 255, 106, 0.42) !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='matrix'] :is(
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  button[aria-selected='true']
+) .view-switch-badge,
+html[data-theme='matrix'] .shell-tab.active .shell-tab-badge {
+  color: #d8ffe6 !important;
+  background: #001707 !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  .changes-editor-view-tabs button.active,
+  .changes-drawer-tabs button.active,
+  .reports-switch button.active,
+  .settings-switch button.active,
+  button[aria-selected='true']
+) {
+  border-color: #ffffff !important;
+  color: #000080 !important;
+  background: #ffff00 !important;
+  box-shadow:
+    inset 0 0 0 2px #000080,
+    0 0 0 1px #ffffff !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  button[aria-selected='true']
+) .view-switch-badge,
+html[data-theme='far-manager'] .shell-tab.active .shell-tab-badge {
+  color: #ffff00 !important;
+  background: #000080 !important;
+}
+
 html[data-theme='matrix'] .signal-status,
 html[data-theme='matrix'] .signal-status.diff-operation-curtain,
 html[data-theme='matrix'] .signal-status.history-detail-loading,
@@ -403,51 +466,6 @@ html[data-theme='cyberpunk'] .signal-status::after {
   animation: cyberpunk-black-curtain-breach 0.96s steps(4, end) infinite;
   mix-blend-mode: screen;
   opacity: 0.78;
-}
-
-html[data-theme='deus-ex'] .signal-status,
-html[data-theme='deus-ex'] .signal-status.diff-operation-curtain,
-html[data-theme='deus-ex'] .signal-status.history-detail-loading,
-html[data-theme='deus-ex'] .signal-status.history-file-diff-loading,
-html[data-theme='deus-ex'] .signal-status.history-preview-list-curtain,
-html[data-theme='deus-ex'] .signal-status.linkedin-generation-curtain,
-html[data-theme='deus-ex'] .signal-status.daily-review-curtain,
-html[data-theme='deus-ex'] .signal-status.review-running-curtain,
-html[data-theme='deus-ex'] .signal-status.assistant-model-list-curtain,
-html[data-theme='deus-ex'] .signal-status.changes-editor-file-curtain {
-  --signal-main: #d8c93c;
-  --signal-alt: #ffbf2e;
-  --signal-hot: #fff6a6;
-  background:
-    radial-gradient(circle at 49% 49%, rgba(255, 191, 46, 0.24), transparent 33%),
-    radial-gradient(circle at 58% 24%, rgba(255, 246, 166, 0.13), transparent 18%),
-    linear-gradient(180deg, rgba(6, 7, 2, 0.92), rgba(0, 0, 0, 0.98));
-  backdrop-filter: none;
-}
-
-html[data-theme='deus-ex'] .signal-status::before {
-  opacity: 0.88;
-  background:
-    conic-gradient(from 22deg at 18% 34%, transparent 0 20deg, rgba(255, 191, 46, 0.50) 20deg 43deg, transparent 43deg 360deg),
-    conic-gradient(from 211deg at 34% 66%, transparent 0 26deg, rgba(216, 201, 60, 0.36) 26deg 58deg, transparent 58deg 360deg),
-    conic-gradient(from 326deg at 68% 28%, transparent 0 22deg, rgba(255, 246, 166, 0.44) 22deg 48deg, transparent 48deg 360deg),
-    conic-gradient(from 112deg at 78% 70%, transparent 0 25deg, rgba(255, 191, 46, 0.34) 25deg 54deg, transparent 54deg 360deg),
-    repeating-linear-gradient(90deg, rgba(216, 201, 60, 0.08) 0 1px, transparent 1px 23px),
-    repeating-linear-gradient(180deg, transparent 0 20px, rgba(255, 191, 46, 0.12) 20px 21px, transparent 21px 40px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 46px 100%, 100% 40px;
-  animation: deus-prism-fragments 2.4s ease-in-out infinite;
-  mix-blend-mode: screen;
-}
-
-html[data-theme='deus-ex'] .signal-status::after {
-  inset: -26% -18%;
-  background:
-    linear-gradient(112deg, transparent 0 31%, rgba(216, 201, 60, 0.22) 38%, rgba(255, 246, 166, 0.60) 44%, rgba(255, 191, 46, 0.30) 51%, transparent 62% 100%),
-    conic-gradient(from 42deg at 42% 52%, transparent 0 18deg, rgba(255, 246, 166, 0.38) 18deg 36deg, transparent 36deg 360deg),
-    conic-gradient(from 218deg at 62% 46%, transparent 0 18deg, rgba(255, 191, 46, 0.30) 18deg 39deg, transparent 39deg 360deg);
-  animation: deus-prism-breach 2.1s ease-in-out infinite;
-  mix-blend-mode: screen;
-  opacity: 0.72;
 }
 
 @keyframes far-signal-march {
@@ -536,53 +554,6 @@ html[data-theme='deus-ex'] .signal-status::after {
   35% { transform: translate(6%, 3%) skewX(7deg); opacity: 0.86; }
   62% { transform: translate(-8%, -4%) skewX(-3deg); opacity: 0.48; }
   100% { transform: translate(42%, 2%) skewX(9deg); opacity: 0.26; }
-}
-
-@keyframes deus-prism-fragments {
-  0%, 100% {
-    background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
-    filter: saturate(1.05) brightness(0.92);
-    transform: translate3d(-1%, -1%, 0) scale(0.992);
-  }
-
-  38% {
-    background-position: 4px -5px, -6px 3px, 7px 4px, -3px -4px, 14px 0, 0 -12px;
-    filter: saturate(1.35) brightness(1.22);
-    transform: translate3d(1.2%, 0.8%, 0) scale(1.006);
-  }
-
-  68% {
-    background-position: -3px 4px, 5px -4px, -6px 2px, 4px 6px, 28px 0, 0 10px;
-    filter: saturate(1.18) brightness(1.04);
-    transform: translate3d(-0.4%, 1.1%, 0) scale(0.998);
-  }
-}
-
-@keyframes deus-prism-breach {
-  0%, 100% {
-    opacity: 0.28;
-    transform: translateX(-24%) skewX(-14deg);
-  }
-
-  46% {
-    opacity: 0.86;
-    transform: translateX(4%) skewX(-10deg);
-  }
-
-  72% {
-    opacity: 0.46;
-    transform: translateX(18%) skewX(-16deg);
-  }
-}
-
-@keyframes deus-signal-grid {
-  from { background-position: 0 0, 0 -24px; }
-  to { background-position: 28px 0, 0 24px; }
-}
-
-@keyframes deus-signal-sweep {
-  0%, 100% { opacity: 0.24; transform: translateX(-18%) skewX(-12deg); }
-  50% { opacity: 0.72; transform: translateX(18%) skewX(-12deg); }
 }
 
 /* Theme-specific operation curtains. Keep these last so local diff/review/history
@@ -934,19 +905,26 @@ html[data-theme='matrix'] :is(
   .signal-status.changes-editor-file-curtain
 )::before {
   display: block;
-  padding: 0;
-  color: transparent;
-  content: "";
+  padding: 8px 0;
+  overflow: hidden;
+  color: rgba(216, 255, 230, 0.72);
+  content: "アカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝアカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝ";
   background:
-    linear-gradient(180deg, rgba(228, 255, 236, 0.58), rgba(0, 255, 106, 0.28) 18%, transparent 42%),
-    repeating-linear-gradient(90deg, transparent 0 12px, rgba(0, 255, 106, 0.36) 12px 13px, transparent 13px 24px),
-    repeating-linear-gradient(180deg, transparent 0 11px, rgba(0, 255, 106, 0.18) 11px 12px, transparent 12px 24px),
-    repeating-linear-gradient(90deg, rgba(0, 255, 106, 0.10) 0 1px, transparent 1px 36px);
-  background-size: 100% 190px, 24px 100%, 100% 24px, 36px 100%;
-  animation: matrix-column-rain 0.86s linear infinite;
+    linear-gradient(180deg, rgba(216, 255, 230, 0.42), rgba(0, 255, 106, 0.16) 16%, transparent 44%),
+    repeating-linear-gradient(90deg, transparent 0 13px, rgba(0, 255, 106, 0.18) 13px 15px, transparent 15px 27px),
+    repeating-linear-gradient(180deg, rgba(0, 255, 106, 0.08) 0 1px, transparent 1px 18px);
+  background-size: 100% 210px, 27px 100%, 100% 18px;
+  animation: matrix-glyph-rain 1.08s linear infinite;
+  font: 13px/1.16 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.22em;
   mix-blend-mode: screen;
   opacity: 0.84;
+  text-align: left;
+  text-orientation: upright;
   text-shadow: none;
+  white-space: normal;
+  word-break: break-all;
+  writing-mode: vertical-rl;
 }
 
 html[data-theme='matrix'] :is(
@@ -962,8 +940,9 @@ html[data-theme='matrix'] :is(
   .signal-status.changes-editor-file-curtain
 )::after {
   background:
-    radial-gradient(circle at 50% 50%, rgba(216, 255, 230, 0.22), transparent 26%),
-    linear-gradient(180deg, transparent 0 34%, rgba(0, 255, 106, 0.34) 43%, rgba(228, 255, 236, 0.26) 48%, transparent 58% 100%);
+    radial-gradient(circle at 50% 50%, rgba(216, 255, 230, 0.18), transparent 26%),
+    linear-gradient(180deg, transparent 0 24%, rgba(216, 255, 230, 0.42) 31%, rgba(0, 255, 106, 0.32) 38%, transparent 55% 100%),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.34) 0 2px, transparent 2px 5px);
   animation: matrix-terminal-pulse 1.3s ease-in-out infinite;
   mix-blend-mode: screen;
 }
@@ -1039,15 +1018,50 @@ html[data-theme='cyberpunk'] .repository-refresh-curtain {
 }
 
 html[data-theme='matrix'] .repository-refresh-curtain {
+  --refresh-main: #00ff6a;
+  --refresh-alt: #d8ffe6;
+  --refresh-hot: #7cffb5;
   background:
-    linear-gradient(180deg, rgba(0, 8, 4, 0.84), rgba(0, 0, 0, 0.94)),
-    repeating-linear-gradient(90deg, rgba(0, 255, 106, 0.10) 0 1px, transparent 1px 24px);
+    radial-gradient(circle at 50% 42%, rgba(0, 255, 106, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(0, 10, 3, 0.90), rgba(0, 0, 0, 0.97));
+  backdrop-filter: none;
 }
 
-html[data-theme='deus-ex'] .repository-refresh-curtain {
+html[data-theme='matrix'] .repository-refresh-curtain::before {
+  padding: 10px 0;
+  color: rgba(216, 255, 230, 0.58);
+  content: "アカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝアカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝアカサタナハマヤラワ0123456789ﾊﾐﾑﾒﾓｦﾝ";
   background:
-    radial-gradient(circle at 50% 40%, rgba(255, 191, 46, 0.18), transparent 34%),
-    linear-gradient(180deg, rgba(8, 9, 3, 0.82), rgba(0, 0, 0, 0.94));
+    linear-gradient(180deg, rgba(216, 255, 230, 0.48), rgba(0, 255, 106, 0.22) 16%, transparent 46%),
+    repeating-linear-gradient(90deg, transparent 0 14px, rgba(0, 255, 106, 0.22) 14px 16px, transparent 16px 28px);
+  background-size: 100% 230px, 28px 100%;
+  animation: matrix-refresh-rain 1.12s linear infinite;
+  font: 15px/1.12 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.28em;
+  mix-blend-mode: screen;
+  opacity: 0.68;
+  text-orientation: upright;
+  text-shadow: 0 0 10px rgba(0, 255, 106, 0.86);
+  white-space: normal;
+  word-break: break-all;
+  writing-mode: vertical-rl;
+}
+
+html[data-theme='matrix'] .repository-refresh-curtain::after {
+  opacity: 0.82;
+  background:
+    linear-gradient(180deg, transparent 0 20%, rgba(216, 255, 230, 0.36) 29%, rgba(0, 255, 106, 0.30) 38%, transparent 52% 100%),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.38) 0 2px, transparent 2px 5px);
+  mix-blend-mode: screen;
+  animation: matrix-refresh-head 1.42s ease-in-out infinite;
+}
+
+html[data-theme='matrix'] .repository-refresh-signal {
+  border-color: rgba(0, 255, 106, 0.62);
+  background: rgba(0, 12, 5, 0.88);
+  box-shadow:
+    0 0 0 1px rgba(216, 255, 230, 0.14),
+    0 0 42px rgba(0, 255, 106, 0.22);
 }
 
 @keyframes github-light-graph-flow {
@@ -1103,6 +1117,42 @@ html[data-theme='deus-ex'] .repository-refresh-curtain {
 @keyframes matrix-column-rain {
   from { background-position: 0 -190px, 0 0, 0 -24px, 0 0; transform: translateY(-10px); }
   to { background-position: 0 190px, 24px 0, 0 24px, 36px 0; transform: translateY(10px); }
+}
+
+@keyframes matrix-glyph-rain {
+  from {
+    background-position: 0 -210px, 0 0, 0 -18px;
+    transform: translateY(-18px);
+  }
+
+  to {
+    background-position: 0 210px, 27px 0, 0 18px;
+    transform: translateY(18px);
+  }
+}
+
+@keyframes matrix-refresh-rain {
+  from {
+    background-position: 0 -230px, 0 0;
+    transform: translateY(-24px);
+  }
+
+  to {
+    background-position: 0 230px, 28px 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes matrix-refresh-head {
+  0%, 100% {
+    opacity: 0.24;
+    transform: translateY(-18%);
+  }
+
+  50% {
+    opacity: 0.86;
+    transform: translateY(18%);
+  }
 }
 
 @keyframes matrix-terminal-pulse {

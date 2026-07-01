@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
-import type { AssistantId, AssistantStatus, InstalledAssistantId } from '../shared/branchPilot'
+import { Check, ChevronDown, ScrollText } from 'lucide-react'
+import { reviewPromptPreview, type AssistantId, type AssistantStatus, type InstalledAssistantId } from '../shared/branchPilot'
 import { SignalStatus } from './SignalStatus'
 import {
   assistantBaseId,
@@ -9,6 +9,7 @@ import {
   CODEX_MODEL_OPTIONS
 } from '../lib/assistantLabels'
 import { autoAssistantLabel, selectedAssistantDescription } from '../lib/assistantSelection'
+import { reviewModeLabel, reviewModes } from '../lib/reviewLabels'
 
 const ASSISTANT_MODEL_GROUPS: Array<{
   id: InstalledAssistantId
@@ -37,6 +38,7 @@ export function AssistantModelSelect({
   checkAssistants: () => void | Promise<void>
 }) {
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
+  const [promptsOpen, setPromptsOpen] = useState(false)
   const assistantMenuRef = useRef<HTMLDivElement | null>(null)
   const assistantStatuses = new Map<InstalledAssistantId, AssistantStatus>(assistants.map((assistant) => [assistant.id, assistant]))
   const readyAssistant = assistants.find((assistant) => assistant.state === 'ready')
@@ -49,7 +51,7 @@ export function AssistantModelSelect({
   const selectedAssistantStatusLabel = selectedAssistantStatus ? assistantStatusLabel(selectedAssistantStatus) : 'not loaded'
 
   useEffect(() => {
-    if (!assistantMenuOpen) {
+    if (!assistantMenuOpen && !promptsOpen) {
       return undefined
     }
 
@@ -59,11 +61,13 @@ export function AssistantModelSelect({
       }
 
       setAssistantMenuOpen(false)
+      setPromptsOpen(false)
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setAssistantMenuOpen(false)
+        setPromptsOpen(false)
       }
     }
 
@@ -74,7 +78,25 @@ export function AssistantModelSelect({
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [assistantMenuOpen])
+  }, [assistantMenuOpen, promptsOpen])
+
+  const toggleAssistantMenu = () => {
+    setAssistantMenuOpen((open) => {
+      const nextOpen = !open
+      if (nextOpen) {
+        setPromptsOpen(false)
+        if (!assistantsChecking) {
+          void checkAssistants()
+        }
+      }
+      return nextOpen
+    })
+  }
+
+  const togglePrompts = () => {
+    setPromptsOpen((open) => !open)
+    setAssistantMenuOpen(false)
+  }
 
   return (
     <>
@@ -87,7 +109,7 @@ export function AssistantModelSelect({
             aria-haspopup="listbox"
             className={`assistant-select assistant-model-trigger assistant-select-${assistantSelectState}`}
             type="button"
-            onClick={() => setAssistantMenuOpen((open) => !open)}
+            onClick={toggleAssistantMenu}
           >
             <span className={`assistant-model-dot state-${assistantSelectState}`} />
             <span className="assistant-model-trigger-copy">
@@ -100,14 +122,16 @@ export function AssistantModelSelect({
             <ChevronDown size={16} />
           </button>
           <button
-            className="assistant-check-button assistant-model-refresh-button"
+            className="assistant-check-button assistant-model-prompts-button"
             type="button"
-            title="Check assistants"
-            aria-label="Check assistants"
-            onClick={checkAssistants}
-            disabled={assistantsChecking}
+            title="Review prompts"
+            aria-label="Review prompts"
+            aria-expanded={promptsOpen}
+            aria-haspopup="dialog"
+            onClick={togglePrompts}
           >
-            {assistantsChecking ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
+            <ScrollText size={15} />
+            <span>Prompts</span>
           </button>
           {assistantMenuOpen && (
             <div className="assistant-model-popover">
@@ -162,6 +186,21 @@ export function AssistantModelSelect({
                     detail="BranchPilot"
                   />
                 )}
+              </div>
+            </div>
+          )}
+          {promptsOpen && (
+            <div className="assistant-model-popover assistant-prompts-popover" role="dialog" aria-label="Review prompts">
+              <div className="assistant-prompts-list">
+                {reviewModes.map((mode) => (
+                  <article className="assistant-prompt-card" key={mode}>
+                    <header>
+                      <strong>{reviewModeLabel(mode)}</strong>
+                      <span>{mode}</span>
+                    </header>
+                    <pre>{reviewPromptPreview(mode)}</pre>
+                  </article>
+                ))}
               </div>
             </div>
           )}

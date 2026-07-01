@@ -1,5 +1,2 @@
-﻿@import "./styles/tokens/base.css";
-@import "./styles/tokens/palette-themes.css";
-@import "./styles/tokens/dark-overrides.css";
-@import "./styles/tokens/diff-themes.css";
+@import "./styles/tokens/base.css";
 @import "./styles/tokens/reset-scrollbars.css";

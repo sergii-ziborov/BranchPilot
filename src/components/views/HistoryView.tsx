@@ -12,6 +12,7 @@ import { useWorkflowPaneResize } from '../../hooks/useWorkflowPaneResize'
 import { HistoryGraphCanvas } from '../HistoryGraphCanvas'
 import { CommitHoverCard, type CommitHoverCardAnchor } from '../CommitHoverCard'
 import { SignalStatus } from '../SignalStatus'
+import { HistoryCommitDescription } from '../history/HistoryCommitDescription'
 import { HistoryCommitFilesPanel } from '../history/HistoryCommitFilesPanel'
 import { HistoryCommitPreviewWorkspace } from '../history/HistoryCommitPreviewWorkspace'
 import {
@@ -22,7 +23,7 @@ import {
   hitHistoryGraphNode
 } from '../../lib/historyGraph'
 
-type HistorySearchMode = 'commit' | 'files' | 'all'
+type HistorySearchMode = 'commit' | 'files' | 'changes' | 'all'
 
 
 export function HistoryView({
@@ -94,7 +95,13 @@ export function HistoryView({
   } = useWorkflowPaneResize()
 
   const [commitImagePreview, setCommitImagePreview] = useState<ImagePreview | null>(null)
-  const historySearchModeLabel = historySearchMode === 'commit' ? 'Commit' : historySearchMode === 'files' ? 'Files' : 'All'
+  const historySearchModeLabel =
+    historySearchMode === 'commit' ? 'Commit' :
+      historySearchMode === 'files' ? 'Files' :
+        historySearchMode === 'changes' ? 'Changes' : 'All'
+  const historyIndexingLabel =
+    historySearchMode === 'changes' ? 'Indexing changes...' :
+      historySearchMode === 'all' ? 'Indexing history...' : 'Indexing files...'
   const historyGraphWidth = useMemo(() => getHistoryGraphWidth(filteredHistory), [filteredHistory])
   const historyDetailLoading = commitDetailsLoading
   const { filePreview, setFilePreview, openCommitFilePreview } = useHistoryFilePreview({ api, currentRepoPath, commitDetails })
@@ -318,8 +325,19 @@ export function HistoryView({
               </button>
               <button
                 type="button"
+                className={historySearchMode === 'changes' ? 'active' : undefined}
+                title="Search added and removed lines in commit diffs"
+                onClick={() => {
+                  setHistorySearchMode('changes')
+                  closeHistorySearchFilter()
+                }}
+              >
+                Changes
+              </button>
+              <button
+                type="button"
                 className={historySearchMode === 'all' ? 'active' : undefined}
-                title="Search commits and changed files"
+                title="Search commits, changed files, and changed lines"
                 onClick={() => {
                   setHistorySearchMode('all')
                   closeHistorySearchFilter()
@@ -338,7 +356,7 @@ export function HistoryView({
               placeholder="Search commits"
             />
           </label>
-          {historyFileIndexing && historySearchMode !== 'commit' && historyFilter && <span>Indexing files...</span>}
+          {historyFileIndexing && historySearchMode !== 'commit' && historyFilter && <span>{historyIndexingLabel}</span>}
           {historyFilter && (
             <button type="button" className="secondary" onClick={() => setHistoryFilter('')}>
               <X size={15} />
@@ -497,7 +515,7 @@ export function HistoryView({
             </div>
           </div>
 
-          {commitDetails?.body && <div className="commit-body">{commitDetails.body}</div>}
+          <HistoryCommitDescription commitDetails={commitDetails} />
           {commitDetails && !(commitDetails.containingBranches.length === 1 && commitDetails.containingBranches[0] === snapshot?.summary.currentBranch) && commitDetails.containingBranches.length > 0 && (
             <div className="commit-branch-strip">
               <span>Contained in</span>
@@ -599,12 +617,14 @@ export function HistoryView({
             type="button"
             role="menuitem"
             className="danger"
-            title="Move the current branch to this commit and reset the working tree"
+            title={commitMenu.commit.sha === snapshot?.summary.headOid
+              ? 'Branch is already at this commit'
+              : 'Move the current branch here and keep later commits as unstaged changes'}
             onClick={() => applyCommitOperationFromMenu('reset')}
-            disabled={busy || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
+            disabled={busy || commitMenu.commit.sha === snapshot?.summary.headOid || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
           >
             <Trash2 size={15} />
-            Reset branch to commit
+            Reset here, keep changes
           </button>
         </div>
       )}

@@ -3,6 +3,7 @@ import type { RefObject, UIEventHandler } from 'react'
 import type { CommitFileContentResult } from '../../shared/branchPilot'
 import { highlight, langFromPath } from '../../lib/highlight'
 import { SignalStatus } from '../SignalStatus'
+import { historyPreviewLines } from './historyPreviewLines'
 
 export interface HistoryFilePreviewModel {
   commitSha: string
@@ -26,13 +27,6 @@ interface HistoryFilePreviewProps {
   codeRef?: RefObject<HTMLPreElement | null>
   onCodeScroll?: UIEventHandler<HTMLPreElement>
   lineStates?: HistoryFileLineState[]
-}
-
-export function historyPreviewLines(text: string): string[] {
-  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const trimmed = normalized.endsWith('\n') ? normalized.slice(0, -1) : normalized
-
-  return trimmed ? trimmed.split('\n') : ['']
 }
 
 export function HistoryFilePreview({

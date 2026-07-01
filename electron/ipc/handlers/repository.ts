@@ -14,6 +14,7 @@ import type {
   ChromeThemeRequest,
   CloneRepositoryRequest,
   CommitDetailsRequest,
+  CommitSearchTextRequest,
   CommitFileCompareRequest,
   CommitFileContentRequest,
   CommitFileDiffRequest,
@@ -178,6 +179,7 @@ export function registerRepositoryHandlers(
   handle('repository:history', (repoPath: string) => repositoryService.getHistory(repoPath))
   handle('repository:commitCard', (request: CommitDetailsRequest) => repositoryService.getCommitCard(request))
   handle('repository:commitDetails', (request: CommitDetailsRequest) => repositoryService.getCommitDetails(request))
+  handle('repository:commitSearchText', (request: CommitSearchTextRequest) => repositoryService.getCommitSearchText(request))
   handle('repository:commitFileDiff', (request: CommitFileDiffRequest) => repositoryService.getCommitFileDiff(request))
   handle('repository:commitFileContent', (request: CommitFileContentRequest) => repositoryService.getCommitFileContent(request))
   handle('repository:commitFileCompareDiff', (request: CommitFileCompareRequest) => repositoryService.getCommitFileCompareDiff(request))

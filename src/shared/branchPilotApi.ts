@@ -14,6 +14,8 @@ import type {
   CommitCard,
   CommitDetails,
   CommitDetailsRequest,
+  CommitSearchTextRequest,
+  CommitSearchTextResult,
   CommitFileCompareRequest,
   CommitFileContentRequest,
   CommitFileContentResult,
@@ -308,6 +310,7 @@ export interface BranchPilotApi {
   getHistory: (repoPath: string) => Promise<ApiResult<CommitSummary[]>>
   getCommitCard: (request: CommitDetailsRequest) => Promise<ApiResult<CommitCard>>
   getCommitDetails: (request: CommitDetailsRequest) => Promise<ApiResult<CommitDetails>>
+  getCommitSearchText: (request: CommitSearchTextRequest) => Promise<ApiResult<CommitSearchTextResult>>
   getCommitFileDiff: (request: CommitFileDiffRequest) => Promise<ApiResult<DiffResult>>
   getCommitFileContent: (request: CommitFileContentRequest) => Promise<ApiResult<CommitFileContentResult>>
   getCommitFileCompareDiff: (request: CommitFileCompareRequest) => Promise<ApiResult<DiffResult>>

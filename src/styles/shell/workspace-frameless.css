@@ -102,9 +102,8 @@
   border-radius: 0 !important;
 }
 
-:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-detail .commit-body {
-  max-height: none;
-  overflow: visible;
+:is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-detail .history-commit-description {
+  max-height: clamp(104px, 22vh, 220px);
 }
 
 :is(.workspace-frameless, .workspace:has(> .changes-workflow-grid)) .history-commit-header {

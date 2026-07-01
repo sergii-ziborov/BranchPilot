@@ -46,6 +46,7 @@ const branchPilot: BranchPilotApi = {
   getHistory: (repoPath) => invoke('repository:history', repoPath),
   getCommitCard: (request) => invoke('repository:commitCard', request),
   getCommitDetails: (request) => invoke('repository:commitDetails', request),
+  getCommitSearchText: (request) => invoke('repository:commitSearchText', request),
   getCommitFileDiff: (request) => invoke('repository:commitFileDiff', request),
   getCommitFileContent: (request) => invoke('repository:commitFileContent', request),
   getCommitFileCompareDiff: (request) => invoke('repository:commitFileCompareDiff', request),

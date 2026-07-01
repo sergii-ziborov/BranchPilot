@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { BranchPilotApi, ContributorStat, ContributorStatsRequest, ContributorStatsWindow, DailyReviewReport, RepositoryScopeRequest } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
 import { formatDateInputValue } from '../lib/format'
@@ -26,7 +26,9 @@ export function useDailyReview({
   const [dailyReviewDate, setDailyReviewDate] = useState(() => formatDateInputValue(new Date()))
   const [dailyReviewLoading, setDailyReviewLoading] = useState(false)
   const [contributorStats, setContributorStats] = useState<ContributorStat[]>([])
+  const [contributorStatsLoading, setContributorStatsLoading] = useState(false)
   const [contributorWindow, setContributorWindow] = useState<ContributorStatsWindow>('day')
+  const contributorStatsRequestIdRef = useRef(0)
 
   function updateDailyReviewDate(date: string) {
     if (date !== dailyReviewDate) setDailyReview(null)
@@ -35,12 +37,17 @@ export function useDailyReview({
 
   async function loadContributorStats(scope: string | RepositoryScopeRequest | undefined = currentRepoPath) {
     if (!api || typeof api.getContributorStats !== 'function') return
+    const requestId = contributorStatsRequestIdRef.current + 1
+    contributorStatsRequestIdRef.current = requestId
+    setContributorStatsLoading(true)
     const request: ContributorStatsRequest = typeof scope === 'string'
       ? { repoPath: scope, window: contributorWindow }
       : { ...(scope ?? {}), window: contributorWindow }
     if (contributorWindow === 'day' && dailyReviewDate) request.date = dailyReviewDate
     const result = await api.getContributorStats(request).catch(() => null)
+    if (contributorStatsRequestIdRef.current !== requestId) return
     setContributorStats(result?.ok ? result.data : [])
+    setContributorStatsLoading(false)
   }
 
   async function runDailyReview() {
@@ -80,6 +87,7 @@ export function useDailyReview({
     setDailyReviewDate: updateDailyReviewDate,
     dailyReviewLoading,
     contributorStats,
+    contributorStatsLoading,
     contributorWindow,
     setContributorWindow,
     loadContributorStats,

@@ -196,26 +196,26 @@
 }
 
 :root[data-theme='deus-ex'] {
-  --text: #d5cfaa;
-  --text-strong: #fff4bd;
-  --muted: #8b8668;
+  --text: #d7cfa4;
+  --text-strong: #f6edb2;
+  --muted: #91855b;
   --surface: #030503;
-  --border: rgba(223, 202, 74, 0.22);
+  --border: rgba(211, 179, 35, 0.24);
   --sidebar: #020402;
-  --sidebar-text: #eee2a4;
-  --sidebar-muted: #8b8668;
-  --panel: rgba(7, 9, 5, 0.94);
-  --panel-2: rgba(15, 17, 9, 0.90);
-  --accent: #d8c93c;
-  --accent-strong: #fff176;
-  --accent-soft: #54e4c3;
+  --sidebar-text: #f0e2a4;
+  --sidebar-muted: #91855b;
+  --panel: rgba(5, 7, 4, 0.96);
+  --panel-2: rgba(12, 14, 7, 0.92);
+  --accent: #c7a018;
+  --accent-strong: #e0bd34;
+  --accent-soft: #43d8c5;
   --accent-contrast: #050602;
   --shell-bar: rgba(3, 5, 3, 0.96);
   --app-grad-top: #0b0d06;
-  --sel-bg: rgba(216, 201, 60, 0.11);
-  --sel-border: #d8c93c;
-  --scrollbar-thumb: rgba(216, 201, 60, 0.28);
-  --scrollbar-thumb-hover: rgba(216, 201, 60, 0.46);
+  --sel-bg: rgba(211, 179, 35, 0.13);
+  --sel-border: #c7a018;
+  --scrollbar-thumb: rgba(211, 179, 35, 0.30);
+  --scrollbar-thumb-hover: rgba(255, 220, 70, 0.46);
 }
 
 :root[data-theme='cyberpunk'] {

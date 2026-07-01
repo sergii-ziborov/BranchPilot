@@ -17,7 +17,9 @@ import type {
 /** Parsers: git/gh output -> structured RepositoryService models. */
 
 const GRAPH_PAYLOAD_SEPARATOR = '\x1f'
-const ANSI_PATTERN = /\x1b\[[0-9;]*m/g
+const ANSI_ESCAPE = String.fromCharCode(27)
+const ANSI_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-9;]*m`, 'g')
+const ANSI_PREFIX_PATTERN = new RegExp(`^${ANSI_ESCAPE}\\[([0-9;]*)m`)
 const ANSI_COLOR_MAP = new Map<string, string>([
   ['30', '#8b949e'],
   ['31', '#ff7b72'],
@@ -56,8 +58,8 @@ function parseGraphTokens(value: string): GitGraphToken[] {
   let index = 0
 
   while (index < value.length) {
-    if (value[index] === '\x1b') {
-      const match = /^\x1b\[([0-9;]*)m/.exec(value.slice(index))
+    if (value[index] === ANSI_ESCAPE) {
+      const match = ANSI_PREFIX_PATTERN.exec(value.slice(index))
       if (match) {
         color = ANSI_COLOR_MAP.get(match[1] || '0')
         index += match[0].length

@@ -95,7 +95,7 @@ export function highlight(code: string, lang = ''): ReactNode {
 }
 
 function highlightJson(code: string): ReactNode {
-  const re = /("(?:\\.|[^"\\])*"\s*:)|("(?:\\.|[^"\\])*")|(-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(\b(?:true|false|null)\b)|([{}\[\],:])/g
+  const re = /("(?:\\.|[^"\\])*"\s*:)|("(?:\\.|[^"\\])*")|(-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(\b(?:true|false|null)\b)|([{}[\],:])/g
   const out: ReactNode[] = []
   let last = 0
   let key = 0

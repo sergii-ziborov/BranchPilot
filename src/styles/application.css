@@ -34,7 +34,8 @@
 @import "./reports/linkedin.css";
 @import "./system/responsive.css";
 @import "./system/motion.css";
-@import "./system/themes-cinematic-panels.css";
-@import "./system/themes-cinematic-controls.css";
-@import "./system/themes-retro.css";
+@import "./themes/index.css";
 @import "./shell/workspace-frameless.css";
+@import "./themes/active-overrides.css";
+@import "./themes/deus-ex/human-revolution.css";
+@import "./themes/far-manager/orthodox.css";

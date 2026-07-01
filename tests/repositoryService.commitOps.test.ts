@@ -161,7 +161,7 @@ describe('RepositoryService commit operations', () => {
     expect(git(repoPath, ['log', '-1', '--pretty=%s'])).toBe('Add picked file')
   })
 
-  it('resets the current branch to a selected commit with confirmation', async () => {
+  it('resets the current branch to a selected commit and preserves later changes', async () => {
     const repoPath = createTempRepository()
     const service = createService()
     const initialHead = git(repoPath, ['rev-parse', 'HEAD'])
@@ -184,8 +184,10 @@ describe('RepositoryService commit operations', () => {
       confirmed: true
     })
 
-    expect(snapshot.status.counts.changed).toBe(0)
+    expect(snapshot.status.counts.changed).toBe(1)
+    expect(snapshot.status.counts.unstaged).toBe(1)
+    expect(snapshot.status.counts.staged).toBe(0)
     expect(git(repoPath, ['rev-parse', 'HEAD'])).toBe(initialHead)
-    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('initial\n')
+    expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('reset target\n')
   })
 })

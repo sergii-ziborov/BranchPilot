@@ -5,7 +5,10 @@ import type {
   CommitCard,
   CommitDetails,
   CommitDetailsRequest,
+  CommitSearchTextRequest,
+  CommitSearchTextResult,
   CommitFileCompareRequest,
+  CommitFileChange,
   CommitFileContentRequest,
   CommitFileContentResult,
   CommitFileDiffRequest,
@@ -43,6 +46,8 @@ import { BranchPilotUserError } from './errors.js'
 
 const MAX_COMMIT_FILE_CONTENT_BYTES = 900_000
 const MAX_COMMIT_FILE_CONTENT_OUTPUT_BYTES = MAX_COMMIT_FILE_CONTENT_BYTES + 1
+const MAX_COMMIT_SEARCH_DIFF_BYTES = 400_000
+const MAX_COMMIT_SEARCH_DIFF_OUTPUT_BYTES = MAX_COMMIT_SEARCH_DIFF_BYTES + 1
 const MAX_REPOSITORY_FILE_CONTENT_BYTES = 900_000
 const DEFAULT_REPOSITORY_FILE_CHUNK_BYTES = 96_000
 const MAX_REPOSITORY_FILE_CHUNK_BYTES = 192_000
@@ -138,7 +143,8 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       return {
         filePath,
         text: '',
-        binary: false,
+        base64: request.mode === 'bytes' ? '' : undefined,
+        binary: request.mode === 'bytes',
         byteSize: stats.size,
         startOffset,
         endOffset: startOffset,
@@ -152,6 +158,19 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
       const { bytesRead } = await file.read(buffer, 0, bytesToRead, startOffset)
       let chunk = buffer.subarray(0, bytesRead)
       let endOffset = startOffset + bytesRead
+
+      if (request.mode === 'bytes') {
+        return {
+          filePath,
+          text: '',
+          base64: chunk.toString('base64'),
+          binary: true,
+          byteSize: stats.size,
+          startOffset,
+          endOffset,
+          hasMore: endOffset < stats.size
+        }
+      }
 
       if (chunk.includes(0)) {
         return {
@@ -491,6 +510,30 @@ export abstract class RepositoryServiceQueries extends RepositoryServiceBase {
     }
   }
 
+  async getCommitSearchText(request: CommitSearchTextRequest): Promise<CommitSearchTextResult> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const commitSha = await this.resolveCommitRevision(rootPath, request.commitSha)
+    const parentShas = await this.getCommitParentShas(rootPath, commitSha)
+    const files = await this.getCommitFiles(rootPath, commitSha, parentShas)
+    const args = parentShas.length === 0
+      ? ['show', '--format=', '--no-ext-diff', '--find-renames', '--unified=0', '--no-color', commitSha]
+      : ['diff', '--no-ext-diff', '--find-renames', '--unified=0', '--no-color', ...this.commitDiffRefs(commitSha, parentShas)]
+    const result = await this.git(rootPath, args, {
+      allowedExitCodes: [0, 1],
+      maxOutputBytes: MAX_COMMIT_SEARCH_DIFF_OUTPUT_BYTES
+    })
+    const diffText = result.stdout.length > MAX_COMMIT_SEARCH_DIFF_BYTES
+      ? result.stdout.slice(0, MAX_COMMIT_SEARCH_DIFF_BYTES)
+      : result.stdout
+
+    return {
+      commitSha,
+      filesText: commitFilesSearchText(files),
+      changesText: commitDiffSearchText(diffText),
+      truncated: Boolean(result.stdoutTruncated) || result.stdout.length > MAX_COMMIT_SEARCH_DIFF_BYTES
+    }
+  }
+
   async getCommitFileDiff(request: CommitFileDiffRequest): Promise<DiffResult> {
     const rootPath = await this.resolveRepositoryRoot(request.repoPath)
     const commitSha = await this.resolveCommitRevision(rootPath, request.commitSha)
@@ -587,6 +630,38 @@ function parseShortStat(output: string): { filesChanged: number; insertions: num
     insertions: inserted ? Number(inserted[1]) : 0,
     deletions: deleted ? Number(deleted[1]) : 0
   }
+}
+
+function commitFilesSearchText(files: CommitFileChange[]): string {
+  return files
+    .flatMap((file) => [file.path, file.originalPath, file.status, file.rawStatus])
+    .filter((value): value is string => Boolean(value))
+    .join('\n')
+}
+
+function commitDiffSearchText(diffText: string): string {
+  const lines: string[] = []
+
+  for (const line of diffText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')) {
+    if (!line) continue
+
+    if (line.startsWith('@@')) {
+      lines.push(line)
+      continue
+    }
+
+    if (line.startsWith('Binary files ') || line.startsWith('GIT binary patch')) {
+      lines.push(line)
+      continue
+    }
+
+    if (line.startsWith('+++') || line.startsWith('---')) continue
+    if (!line.startsWith('+') && !line.startsWith('-')) continue
+
+    lines.push(line, line.slice(1))
+  }
+
+  return lines.join('\n')
 }
 
 function parseRefNames(refNames: string): { tags: string[]; branches: string[] } {

@@ -52,11 +52,20 @@ export interface CommitDetailsRequest {
   commitSha: string
 }
 
+export type CommitSearchTextRequest = CommitDetailsRequest
+
+export interface CommitSearchTextResult {
+  commitSha: string
+  filesText: string
+  changesText: string
+  truncated: boolean
+}
+
 export interface CommitFileDiffRequest extends CommitDetailsRequest {
   filePath: string
 }
 
-export interface CommitFileContentRequest extends CommitFileDiffRequest {}
+export type CommitFileContentRequest = CommitFileDiffRequest
 
 export interface CommitFileCompareRequest extends CommitFileDiffRequest {
   compareCommitSha: string
@@ -89,11 +98,13 @@ export interface RepositoryFileContentResult {
 export interface RepositoryFileChunkRequest extends RepositoryFileContentRequest {
   offset: number
   maxBytes?: number
+  mode?: 'text' | 'bytes'
 }
 
 export interface RepositoryFileChunkResult {
   filePath: string
   text: string
+  base64?: string
   binary: boolean
   byteSize: number
   startOffset: number

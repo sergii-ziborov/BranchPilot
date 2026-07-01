@@ -5,14 +5,14 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
-  type UIEvent as ReactUIEvent
+  type PointerEvent as ReactPointerEvent
 } from 'react'
 import { ArrowLeft, ChevronDown, Search } from 'lucide-react'
 import type {
   BranchPilotApi,
   CommitDetails,
   CommitFileContentResult,
+  DiffResult,
   CommitSummary,
   RepositorySnapshot
 } from '../../shared/branchPilot'
@@ -20,12 +20,8 @@ import { formatDate } from '../../lib/format'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
 import { SignalStatus } from '../SignalStatus'
-import {
-  HistoryFilePreview,
-  historyPreviewLines,
-  type HistoryFileLineState,
-  type HistoryFilePreviewModel
-} from './HistoryFilePreview'
+import { HistoryFilePreview, type HistoryFilePreviewModel } from './HistoryFilePreview'
+import { HistoryFileCompareDiff } from './HistoryFileCompareDiff'
 
 interface HistoryCommitPreviewWorkspaceProps {
   api: BranchPilotApi | undefined
@@ -94,41 +90,6 @@ function commitSearchText(commit: CommitSummary): string {
   return `${commit.shortSha} ${commit.sha} ${commit.subject} ${commit.authorName} ${commit.authorEmail} ${commit.authoredAt}`.toLowerCase()
 }
 
-function compareTextLines(
-  primaryContent: CommitFileContentResult | null | undefined,
-  compareContent: CommitFileContentResult | null | undefined
-): { primaryStates: HistoryFileLineState[]; compareStates: HistoryFileLineState[]; firstChangedIndex: number | null } {
-  if (!primaryContent || !compareContent || primaryContent.binary || compareContent.binary) {
-    return { primaryStates: [], compareStates: [], firstChangedIndex: null }
-  }
-
-  const primaryLines = historyPreviewLines(primaryContent.text)
-  const compareLines = historyPreviewLines(compareContent.text)
-  const primaryStates: HistoryFileLineState[] = primaryLines.map(() => 'same')
-  const compareStates: HistoryFileLineState[] = compareLines.map(() => 'same')
-  const lineCount = Math.max(primaryLines.length, compareLines.length)
-  let firstChangedIndex: number | null = null
-
-  for (let index = 0; index < lineCount; index += 1) {
-    const primaryLine = primaryLines[index]
-    const compareLine = compareLines[index]
-
-    if (primaryLine === compareLine) continue
-    if (firstChangedIndex === null) firstChangedIndex = index
-
-    if (primaryLine === undefined) {
-      compareStates[index] = 'added'
-    } else if (compareLine === undefined) {
-      primaryStates[index] = 'removed'
-    } else {
-      primaryStates[index] = 'changed'
-      compareStates[index] = 'changed'
-    }
-  }
-
-  return { primaryStates, compareStates, firstChangedIndex }
-}
-
 export function HistoryCommitPreviewWorkspace({
   api,
   currentRepoPath,
@@ -144,10 +105,7 @@ export function HistoryCommitPreviewWorkspace({
   const comparePickerRef = useRef<HTMLDivElement | null>(null)
   const compareDetailsRequestRef = useRef(0)
   const compareFileRequestRef = useRef(0)
-  const primaryCodeRef = useRef<HTMLPreElement | null>(null)
-  const compareCodeRef = useRef<HTMLPreElement | null>(null)
-  const syncingPreviewScrollRef = useRef(false)
-  const [syncedCodeWidth, setSyncedCodeWidth] = useState(0)
+  const compareDiffRequestRef = useRef(0)
   const [sidebarWidth, setSidebarWidth] = useState(() => (
     readStoredWidth(PREVIEW_SIDEBAR_STORAGE_KEY, PREVIEW_SIDEBAR_DEFAULT_WIDTH, PREVIEW_SIDEBAR_MIN_WIDTH, PREVIEW_SIDEBAR_MAX_WIDTH, PREVIEW_MAIN_MIN_WIDTH)
   ))
@@ -164,13 +122,15 @@ export function HistoryCommitPreviewWorkspace({
   const [compareFileContent, setCompareFileContent] = useState<CommitFileContentResult | null>(null)
   const [compareFileLoading, setCompareFileLoading] = useState(false)
   const [compareFileError, setCompareFileError] = useState<string | null>(null)
+  const [compareDiff, setCompareDiff] = useState<DiffResult | null>(null)
+  const [compareDiffLoading, setCompareDiffLoading] = useState(false)
+  const [compareDiffError, setCompareDiffError] = useState<string | null>(null)
 
   const workspaceStyle = {
     '--history-preview-sidebar-width': `${sidebarWidth}px`
   } as CSSProperties
   const stageStyle = {
-    '--history-preview-primary-width': `${primaryPaneWidth}px`,
-    '--history-preview-code-width': syncedCodeWidth > 0 ? `${syncedCodeWidth}px` : '100%'
+    '--history-preview-primary-width': `${primaryPaneWidth}px`
   } as CSSProperties
   const compareFilePaths = useMemo(
     () => new Set((compareDetails?.files ?? []).map((file) => file.path)),
@@ -214,24 +174,8 @@ export function HistoryCommitPreviewWorkspace({
   const selectedCompareSummary = history.find((commit) => commit.sha === compareSha) ?? null
   const selectedCompareBranch = allCompareBranchCandidates.find((branch) => branch.value === compareSha) ?? null
   const selectedFileChangedInCompare = Boolean(compareSha && compareFilePaths.has(preview.filePath))
-  const compareLineState = useMemo(
-    () => compareTextLines(preview.content, compareFileContent),
-    [compareFileContent, preview.content]
-  )
   const compareTargetLabel = selectedCompareSummary?.shortSha ?? selectedCompareBranch?.label ?? (compareSha ? compareSha.slice(0, 16) : 'Full file at this commit')
   const compareTargetDetail = selectedCompareSummary?.subject ?? selectedCompareBranch?.kind ?? (compareSha ? 'Git revision' : 'Selected commit')
-  const comparePreview = useMemo<HistoryFilePreviewModel | null>(() => {
-    if (!compareSha) return null
-
-    return {
-      commitSha: compareSha,
-      shortSha: compareTargetLabel,
-      filePath: preview.filePath,
-      loading: compareFileLoading,
-      error: compareFileError,
-      content: compareFileContent
-    }
-  }, [compareFileContent, compareFileError, compareFileLoading, compareSha, compareTargetLabel, preview.filePath])
 
   const resizeSidebar = (clientX: number) => {
     const workspace = workspaceRef.current
@@ -363,45 +307,6 @@ export function HistoryCommitPreviewWorkspace({
     setComparePickerOpen(false)
   }
 
-  const syncPreviewScroll = (source: 'primary' | 'compare') => (event: ReactUIEvent<HTMLPreElement>) => {
-    if (!compareSha || syncingPreviewScrollRef.current) return
-    const target = source === 'primary' ? compareCodeRef.current : primaryCodeRef.current
-    if (!target) return
-
-    syncingPreviewScrollRef.current = true
-    target.scrollTop = event.currentTarget.scrollTop
-    target.scrollLeft = event.currentTarget.scrollLeft
-    window.requestAnimationFrame(() => {
-      syncingPreviewScrollRef.current = false
-    })
-  }
-
-  const syncPreviewCodeWidth = () => {
-    if (!compareSha) {
-      setSyncedCodeWidth(0)
-      return
-    }
-
-    const measureCodeWidth = (element: HTMLPreElement | null): number => {
-      if (!element) return 0
-
-      let maxWidth = element.clientWidth
-      const rows = element.querySelectorAll<HTMLElement>('.history-file-code-line')
-      rows.forEach((row) => {
-        const source = row.querySelector<HTMLElement>('.history-file-line-source')
-        maxWidth = Math.max(maxWidth, 58 + (source?.scrollWidth ?? row.scrollWidth))
-      })
-      return Math.ceil(maxWidth)
-    }
-
-    const nextWidth = Math.max(
-      measureCodeWidth(primaryCodeRef.current),
-      measureCodeWidth(compareCodeRef.current)
-    )
-
-    setSyncedCodeWidth((current) => (Math.abs(current - nextWidth) > 1 ? nextWidth : current))
-  }
-
   useEffect(() => {
     const clampToLayout = () => {
       const workspaceWidth = workspaceRef.current?.getBoundingClientRect().width
@@ -441,79 +346,6 @@ export function HistoryCommitPreviewWorkspace({
   }, [comparePickerOpen])
 
   useEffect(() => {
-    if (primaryCodeRef.current) {
-      primaryCodeRef.current.scrollTop = 0
-      primaryCodeRef.current.scrollLeft = 0
-    }
-    if (compareCodeRef.current) {
-      compareCodeRef.current.scrollTop = 0
-      compareCodeRef.current.scrollLeft = 0
-    }
-    setSyncedCodeWidth(0)
-  }, [compareSha, preview.filePath])
-
-  useEffect(() => {
-    if (!compareSha) {
-      setSyncedCodeWidth(0)
-      return
-    }
-
-    let secondFrame = 0
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        syncPreviewCodeWidth()
-
-        if (primaryCodeRef.current && compareCodeRef.current) {
-          compareCodeRef.current.scrollTop = primaryCodeRef.current.scrollTop
-          compareCodeRef.current.scrollLeft = primaryCodeRef.current.scrollLeft
-        }
-      })
-    })
-
-    return () => {
-      window.cancelAnimationFrame(firstFrame)
-      if (secondFrame) window.cancelAnimationFrame(secondFrame)
-    }
-  }, [
-    compareFileContent?.binary,
-    compareFileContent?.text,
-    compareSha,
-    preview.content?.binary,
-    preview.content?.text,
-    preview.filePath
-  ])
-
-  useEffect(() => {
-    if (!compareSha) return
-
-    let frame = 0
-    const scheduleSync = () => {
-      if (frame) window.cancelAnimationFrame(frame)
-      frame = window.requestAnimationFrame(syncPreviewCodeWidth)
-    }
-
-    scheduleSync()
-
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', scheduleSync)
-      return () => {
-        if (frame) window.cancelAnimationFrame(frame)
-        window.removeEventListener('resize', scheduleSync)
-      }
-    }
-
-    const observer = new ResizeObserver(scheduleSync)
-    if (stageRef.current) observer.observe(stageRef.current)
-    if (primaryCodeRef.current) observer.observe(primaryCodeRef.current)
-    if (compareCodeRef.current) observer.observe(compareCodeRef.current)
-
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame)
-      observer.disconnect()
-    }
-  }, [compareSha, primaryPaneWidth, sidebarWidth, preview.filePath])
-
-  useEffect(() => {
     if (!compareSha || !compareDetails || compareLoading || compareError) return
     if (intersectingFiles.length === 0 || compareFilePaths.has(preview.filePath)) return
 
@@ -528,26 +360,6 @@ export function HistoryCommitPreviewWorkspace({
     openCommitFilePreview,
     preview.filePath
   ])
-
-  useEffect(() => {
-    if (!compareSha || compareLineState.firstChangedIndex === null) return
-
-    const frame = window.requestAnimationFrame(() => {
-      const centerPreviewOnChangedLine = (element: HTMLPreElement | null) => {
-        if (!element) return
-
-        const lineHeight = 22
-        const nextScrollTop = Math.max(0, (compareLineState.firstChangedIndex ?? 0) * lineHeight - element.clientHeight / 2)
-        element.scrollTop = nextScrollTop
-        element.scrollLeft = 0
-      }
-
-      centerPreviewOnChangedLine(primaryCodeRef.current)
-      centerPreviewOnChangedLine(compareCodeRef.current)
-    })
-
-    return () => window.cancelAnimationFrame(frame)
-  }, [compareLineState.firstChangedIndex, compareSha, preview.filePath])
 
   useEffect(() => {
     const requestId = compareDetailsRequestRef.current + 1
@@ -608,6 +420,41 @@ export function HistoryCommitPreviewWorkspace({
         setCompareFileError(error instanceof Error ? error.message : 'This file does not exist at the compare target.')
       })
   }, [api, compareSha, currentRepoPath, preview.filePath])
+
+  useEffect(() => {
+    const requestId = compareDiffRequestRef.current + 1
+    compareDiffRequestRef.current = requestId
+    setCompareDiff(null)
+    setCompareDiffError(null)
+
+    if (!compareSha || !api || !currentRepoPath) {
+      setCompareDiffLoading(false)
+      return
+    }
+
+    setCompareDiffLoading(true)
+    void api
+      .getCommitFileCompareDiff({
+        repoPath: currentRepoPath,
+        commitSha: commitDetails.sha,
+        compareCommitSha: compareSha,
+        filePath: preview.filePath
+      })
+      .then((result) => {
+        if (compareDiffRequestRef.current !== requestId) return
+        setCompareDiffLoading(false)
+        if (result.ok) {
+          setCompareDiff(result.data)
+          return
+        }
+        setCompareDiffError(result.error.message || result.error.details || 'Failed to load compare diff.')
+      })
+      .catch((error) => {
+        if (compareDiffRequestRef.current !== requestId) return
+        setCompareDiffLoading(false)
+        setCompareDiffError(error instanceof Error ? error.message : 'Failed to load compare diff.')
+      })
+  }, [api, compareSha, commitDetails.sha, currentRepoPath, preview.filePath])
 
   return (
     <section className={compareSha ? 'history-preview-workspace compare-mode' : 'history-preview-workspace'} ref={workspaceRef} style={workspaceStyle}>
@@ -775,53 +622,38 @@ export function HistoryCommitPreviewWorkspace({
           ref={stageRef}
           style={stageStyle}
         >
-          <section className="history-preview-pane">
-            <HistoryFilePreview
-              preview={preview}
-              onBack={onBack}
-              onCopyContent={() => preview.content && !preview.content.binary && navigator.clipboard.writeText(preview.content.text)}
+          {compareSha ? (
+            <HistoryFileCompareDiff
+              diff={compareDiff}
+              loading={compareDiffLoading}
+              error={compareDiffError}
+              filePath={preview.filePath}
+              selectedCommitSha={preview.commitSha}
+              selectedLabel={preview.shortSha}
+              compareCommitSha={compareSha}
+              compareLabel={compareTargetLabel}
+              primaryPaneWidth={primaryPaneWidth}
+              onCopySelectedContent={() => preview.content && !preview.content.binary && navigator.clipboard.writeText(preview.content.text)}
+              onCopyCompareContent={() => compareFileContent && !compareFileContent.binary && navigator.clipboard.writeText(compareFileContent.text)}
               onCopyPath={() => navigator.clipboard.writeText(preview.filePath)}
-              onCopySha={() => navigator.clipboard.writeText(preview.commitSha)}
-              showBack={false}
-              codeRef={primaryCodeRef}
-              onCodeScroll={syncPreviewScroll('primary')}
-              lineStates={compareSha ? compareLineState.primaryStates : undefined}
+              onCopySelectedSha={() => navigator.clipboard.writeText(preview.commitSha)}
+              onCopyCompareSha={() => navigator.clipboard.writeText(compareSha)}
+              selectedCopyDisabled={!preview.content || preview.content.binary || preview.loading}
+              compareCopyDisabled={compareFileLoading || Boolean(compareFileError) || !compareFileContent || compareFileContent.binary}
+              onResizePointerDown={startPrimaryResize}
+              onResizeKeyDown={handlePrimaryResizeKeyDown}
             />
-          </section>
-
-          {compareSha && (
-            <>
-              <div
-                className="history-preview-stage-splitter"
-                role="separator"
-                aria-label="Resize selected and compare file previews"
-                aria-orientation="vertical"
-                aria-valuemin={PREVIEW_PRIMARY_MIN_WIDTH}
-                aria-valuemax={PREVIEW_PRIMARY_MAX_WIDTH}
-                aria-valuenow={primaryPaneWidth}
-                tabIndex={0}
-                onPointerDown={startPrimaryResize}
-                onKeyDown={handlePrimaryResizeKeyDown}
-              >
-                <span />
-              </div>
-              <section className="history-preview-pane history-preview-compare-pane">
-                {comparePreview ? (
-                  <HistoryFilePreview
-                    preview={comparePreview}
-                    onBack={onBack}
-                    onCopyContent={() => compareFileContent && !compareFileContent.binary && navigator.clipboard.writeText(compareFileContent.text)}
-                    onCopyPath={() => navigator.clipboard.writeText(preview.filePath)}
-                    onCopySha={() => navigator.clipboard.writeText(compareSha)}
-                    showBack={false}
-                    subtitle={`${compareTargetLabel} at compare target`}
-                    codeRef={compareCodeRef}
-                    onCodeScroll={syncPreviewScroll('compare')}
-                    lineStates={compareLineState.compareStates}
-                  />
-                ) : null}
-              </section>
-            </>
+          ) : (
+            <section className="history-preview-pane">
+              <HistoryFilePreview
+                preview={preview}
+                onBack={onBack}
+                onCopyContent={() => preview.content && !preview.content.binary && navigator.clipboard.writeText(preview.content.text)}
+                onCopyPath={() => navigator.clipboard.writeText(preview.filePath)}
+                onCopySha={() => navigator.clipboard.writeText(preview.commitSha)}
+                showBack={false}
+              />
+            </section>
           )}
         </div>
       </div>

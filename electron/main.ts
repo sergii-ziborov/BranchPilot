@@ -19,9 +19,28 @@ const require = createRequire(import.meta.url)
 const { app, BrowserWindow, Menu, shell } = require('electron') as typeof import('electron')
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
+let mainWindow: import('electron').BrowserWindow | null = null
 
 // Branding: name shown in the menu bar + About panel (defaults to "Electron").
 app.setName('BranchPilot')
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+  process.exit(0)
+}
+
+function focusMainWindow() {
+  const window = mainWindow && !mainWindow.isDestroyed()
+    ? mainWindow
+    : BrowserWindow.getAllWindows()[0]
+
+  if (!window) return
+  if (window.isMinimized()) window.restore()
+  if (!window.isVisible()) window.show()
+  window.focus()
+}
+
+app.on('second-instance', focusMainWindow)
+
 // Resolve the app icon for the About panel + dock (dev uses the repo build/ asset).
 const brandIconPath = path.join(__dirname, '..', 'build', 'icon.png')
 app.setAboutPanelOptions({
@@ -63,6 +82,11 @@ const projectWikiService = new ProjectWikiService(
 const dailyReviewService = new DailyReviewService(repositoryService, activityLogService)
 
 function createMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    focusMainWindow()
+    return mainWindow
+  }
+
   const window = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -86,6 +110,7 @@ function createMainWindow() {
       sandbox: true
     }
   })
+  mainWindow = window
 
   if (devServerUrl) {
     void window.loadURL(devServerUrl)
@@ -116,11 +141,22 @@ function createMainWindow() {
   window.on('leave-full-screen', sendFullScreen)
   window.webContents.on('did-finish-load', sendFullScreen)
   window.webContents.on('dom-ready', sendFullScreen)
+  window.webContents.on('did-fail-load', (_event, code, description, validatedUrl) => {
+    console.error(`[BranchPilot] failed to load ${validatedUrl}: ${code} ${description}`)
+  })
+  window.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`[BranchPilot] renderer process gone: ${details.reason}`)
+  })
+  window.on('closed', () => {
+    if (mainWindow === window) mainWindow = null
+  })
 
   Menu.setApplicationMenu(buildApplicationMenu(window))
   if (process.platform !== 'darwin') {
     window.setMenuBarVisibility(false)
   }
+
+  return window
 }
 
 app.whenReady().then(() => {
@@ -135,6 +171,8 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow()
+    } else {
+      focusMainWindow()
     }
   })
 })

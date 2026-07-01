@@ -1,0 +1,87 @@
+html[data-theme='deus-ex'] .signal-status,
+html[data-theme='deus-ex'] .signal-status.diff-operation-curtain,
+html[data-theme='deus-ex'] .signal-status.history-detail-loading,
+html[data-theme='deus-ex'] .signal-status.history-file-diff-loading,
+html[data-theme='deus-ex'] .signal-status.history-preview-list-curtain,
+html[data-theme='deus-ex'] .signal-status.linkedin-generation-curtain,
+html[data-theme='deus-ex'] .signal-status.daily-review-curtain,
+html[data-theme='deus-ex'] .signal-status.review-running-curtain,
+html[data-theme='deus-ex'] .signal-status.assistant-model-list-curtain,
+html[data-theme='deus-ex'] .signal-status.changes-editor-file-curtain {
+  --signal-main: var(--dx-amber);
+  --signal-alt: #ffbf2e;
+  --signal-hot: var(--dx-cream);
+  background:
+    radial-gradient(circle at 49% 49%, rgba(255, 191, 46, 0.24), transparent 33%),
+    radial-gradient(circle at 58% 24%, rgba(255, 246, 166, 0.13), transparent 18%),
+    linear-gradient(180deg, rgba(6, 7, 2, 0.92), rgba(0, 0, 0, 0.98));
+  backdrop-filter: none;
+}
+
+html[data-theme='deus-ex'] .signal-status::before {
+  opacity: 0.88;
+  background:
+    conic-gradient(from 22deg at 18% 34%, transparent 0 20deg, rgba(255, 191, 46, 0.50) 20deg 43deg, transparent 43deg 360deg),
+    conic-gradient(from 211deg at 34% 66%, transparent 0 26deg, rgba(216, 201, 60, 0.36) 26deg 58deg, transparent 58deg 360deg),
+    conic-gradient(from 326deg at 68% 28%, transparent 0 22deg, rgba(255, 246, 166, 0.44) 22deg 48deg, transparent 48deg 360deg),
+    conic-gradient(from 112deg at 78% 70%, transparent 0 25deg, rgba(255, 191, 46, 0.34) 25deg 54deg, transparent 54deg 360deg),
+    repeating-linear-gradient(90deg, rgba(216, 201, 60, 0.08) 0 1px, transparent 1px 23px),
+    repeating-linear-gradient(180deg, transparent 0 20px, rgba(255, 191, 46, 0.12) 20px 21px, transparent 21px 40px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 46px 100%, 100% 40px;
+  animation: deus-prism-fragments 2.4s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+html[data-theme='deus-ex'] .signal-status::after {
+  inset: -26% -18%;
+  background:
+    linear-gradient(112deg, transparent 0 31%, rgba(216, 201, 60, 0.22) 38%, rgba(255, 246, 166, 0.60) 44%, rgba(255, 191, 46, 0.30) 51%, transparent 62% 100%),
+    conic-gradient(from 42deg at 42% 52%, transparent 0 18deg, rgba(255, 246, 166, 0.38) 18deg 36deg, transparent 36deg 360deg),
+    conic-gradient(from 218deg at 62% 46%, transparent 0 18deg, rgba(255, 191, 46, 0.30) 18deg 39deg, transparent 39deg 360deg);
+  animation: deus-prism-breach 2.1s ease-in-out infinite;
+  mix-blend-mode: screen;
+  opacity: 0.72;
+}
+
+html[data-theme='deus-ex'] .repository-refresh-curtain {
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 191, 46, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(8, 9, 3, 0.82), rgba(0, 0, 0, 0.94));
+}
+
+@keyframes deus-prism-fragments {
+  0%, 100% {
+    background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+    filter: saturate(1.05) brightness(0.92);
+    transform: translate3d(-1%, -1%, 0) scale(0.992);
+  }
+
+  38% {
+    background-position: 4px -5px, -6px 3px, 7px 4px, -3px -4px, 14px 0, 0 -12px;
+    filter: saturate(1.35) brightness(1.22);
+    transform: translate3d(1.2%, 0.8%, 0) scale(1.006);
+  }
+
+  68% {
+    background-position: -3px 4px, 5px -4px, -6px 2px, 4px 6px, 28px 0, 0 10px;
+    filter: saturate(1.18) brightness(1.04);
+    transform: translate3d(-0.4%, 1.1%, 0) scale(0.998);
+  }
+}
+
+@keyframes deus-prism-breach {
+  0%, 100% {
+    opacity: 0.28;
+    transform: translateX(-24%) skewX(-14deg);
+  }
+
+  46% {
+    opacity: 0.86;
+    transform: translateX(4%) skewX(-10deg);
+  }
+
+  72% {
+    opacity: 0.46;
+    transform: translateX(18%) skewX(-16deg);
+  }
+}

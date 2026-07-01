@@ -1,0 +1,431 @@
+:root[data-theme='far-manager'],
+html[data-theme='far-manager'] {
+  --far-font: "Lucida Console", "Cascadia Mono", "Consolas", "Courier New", monospace;
+  --far-blue: #130080;
+  --far-blue-deep: #07004c;
+  --far-blue-panel: #1b078f;
+  --far-blue-raised: #2410a8;
+  --far-frame: #00ffff;
+  --far-frame-soft: #00a6d8;
+  --far-text: #ffffff;
+  --far-muted: #58d8ff;
+  --far-green: #00ff00;
+  --far-yellow: #ffff00;
+  --far-red: #ff5555;
+  --far-magenta: #ff55ff;
+  --far-selection: #008c8c;
+  --far-selection-2: #33a7a7;
+  --far-selection-muted: #707070;
+  --text: var(--far-text);
+  --text-strong: #ffffff;
+  --muted: var(--far-muted);
+  --surface: var(--far-blue-deep);
+  --sidebar: var(--far-blue);
+  --sidebar-text: #ffffff;
+  --sidebar-muted: #58d8ff;
+  --panel: var(--far-blue);
+  --panel-2: var(--far-blue-panel);
+  --border: var(--far-frame);
+  --accent: var(--far-frame);
+  --accent-strong: var(--far-yellow);
+  --accent-soft: #ffffff;
+  --accent-contrast: #000080;
+  --sel-bg: var(--far-selection);
+  --sel-border: #ffffff;
+  --diff-bg: #000040;
+  --diff-text: #ffffff;
+  --diff-muted: #58d8ff;
+  --diff-border: #00ffff;
+  --diff-file-bg: #130080;
+  --diff-file-text: #ffff00;
+  --diff-hunk-bg: #2410a8;
+  --diff-hunk-text: #00ffff;
+  --diff-add-text: #00ff00;
+  --diff-add-bg: rgba(0, 128, 128, 0.46);
+  --diff-remove-text: #ff8080;
+  --diff-remove-bg: rgba(128, 0, 0, 0.42);
+  --diff-empty-bg: #07004c;
+  --diff-word-add-bg: rgba(0, 255, 0, 0.34);
+  --diff-word-add-border: rgba(0, 255, 0, 0.54);
+  --diff-word-del-bg: rgba(255, 85, 85, 0.34);
+  --diff-word-del-border: rgba(255, 85, 85, 0.54);
+  --diff-selected-accent: #ffff00;
+  --diff-selection-bg: #008c8c;
+  --diff-selection-text: #ffffff;
+  --syntax-keyword: #ffff00;
+  --syntax-string: #00ff00;
+  --syntax-comment: #58d8ff;
+  --syntax-number: #00ffff;
+  --syntax-type: #ff55ff;
+  --syntax-function: #ffffff;
+  --syntax-variable: #ffffff;
+  --syntax-operator: #ffff00;
+  --syntax-punctuation: #00ffff;
+  --theme-panel-bg: var(--far-blue);
+  --theme-panel-bg-2: var(--far-blue-panel);
+  --theme-panel-glow: none;
+  --theme-frame-shadow: none;
+}
+
+html[data-theme='far-manager'] body,
+html[data-theme='far-manager'] .app-shell {
+  color: var(--far-text);
+  background: var(--far-blue-deep) !important;
+  font-family: var(--far-font);
+}
+
+html[data-theme='far-manager'] :is(
+  .shell-bar,
+  .single-panel,
+  .changes-panel,
+  .diff-panel,
+  .dashboard-section,
+  .daily-heatmap-panel,
+  .daily-day-panel,
+  .daily-review-card,
+  .daily-ranking-card,
+  .config-card,
+  .memory-card,
+  .pr-panel,
+  .github-repo-browser,
+  .linkedin-card,
+  .review-empty,
+  .review-results,
+  .review-panel,
+  .tool-modal,
+  .confirmation-dialog,
+  .history-detail,
+  .changes-internal-editor,
+  .shell-dropdown,
+  .changes-actions-popover,
+  .commit-identity-popover,
+  .github-repo-filter-panel,
+  .report-scope-popover,
+  .assistant-model-popover,
+  .changes-editor-lint-popover
+) {
+  border-color: var(--far-frame) !important;
+  border-radius: 0 !important;
+  color: var(--far-text) !important;
+  background: var(--far-blue) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  button,
+  input,
+  textarea,
+  select,
+  .shell-dropdown-item,
+  .shell-dropdown-primary,
+  .shell-branch-row,
+  .changes-editor-file-row,
+  .history-row,
+  .change-row,
+  .pr-row,
+  .report-scope-repo
+) {
+  border-radius: 0 !important;
+  font-family: var(--far-font);
+  text-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(input, textarea, select) {
+  border-color: var(--far-frame) !important;
+  color: #ffffff !important;
+  background: #000040 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] input::placeholder,
+html[data-theme='far-manager'] textarea::placeholder {
+  color: #58d8ff !important;
+}
+
+html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled) {
+  border-color: var(--far-frame) !important;
+  color: #ffffff !important;
+  background: var(--far-blue-panel) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .view-switch,
+  .changes-editor-view-tabs,
+  .segmented:not(.diff-display-toggle),
+  .search-scope-toggle,
+  .github-filter-segment,
+  .assistant-policy-modes
+) {
+  gap: 0 !important;
+  padding: 1px !important;
+  border: 1px solid var(--far-frame) !important;
+  border-radius: 0 !important;
+  background: var(--far-blue-deep) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .view-switch-tab,
+  .tool-view-switch .view-switch-tab,
+  .shell-tab,
+  .changes-editor-view-tabs button,
+  .changes-drawer-tabs button,
+  .reports-switch button,
+  .settings-switch button,
+  .segmented:not(.diff-display-toggle) button,
+  .search-scope-toggle button,
+  .github-filter-segment button,
+  .assistant-policy-modes button,
+  .precommit-modes button
+) {
+  border-color: var(--far-frame) !important;
+  color: #ffffff !important;
+  background: var(--far-blue) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  button:hover,
+  .shell-dropdown-item:hover,
+  .shell-dropdown-primary:hover,
+  .shell-branch-row:hover,
+  .changes-editor-file-row:hover,
+  .history-row:hover,
+  .change-row:hover,
+  .pr-row:hover,
+  .report-scope-repo:hover
+):not(:disabled):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']) {
+  border-color: #ffffff !important;
+  color: var(--far-yellow) !important;
+  background: var(--far-blue-raised) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  .shell-tool.active,
+  .changes-editor-view-tabs button.active,
+  .changes-drawer-tabs button.active,
+  .reports-switch button.active,
+  .settings-switch button.active,
+  .segmented:not(.diff-display-toggle) button.active,
+  .segmented:not(.diff-display-toggle) button[aria-pressed='true'],
+  .search-scope-toggle button.active,
+  .search-scope-toggle button[aria-pressed='true'],
+  .github-filter-segment button.active,
+  .github-filter-segment button[aria-pressed='true'],
+  .assistant-policy-modes button.active,
+  .assistant-policy-modes button[aria-pressed='true'],
+  .precommit-modes button.active,
+  .precommit-modes button[aria-pressed='true'],
+  button[aria-selected='true']
+) {
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+  background: var(--far-selection) !important;
+  box-shadow: inset 0 0 0 1px #33ffff !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .shell-dropdown-item.active,
+  .shell-theme-item.active,
+  .shell-branch-row.active,
+  .changes-editor-file-row.selected,
+  .history-row.selected,
+  .change-row.selected,
+  .pr-row.selected,
+  .report-scope-repo.selected,
+  .current-pr,
+  .commit-identity-option.active
+) {
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+  background: var(--far-selection) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .shell-dropdown-item.active,
+  .shell-theme-item.active,
+  .shell-branch-row.active,
+  .changes-editor-file-row.selected,
+  .history-row.selected,
+  .change-row.selected,
+  .pr-row.selected,
+  .report-scope-repo.selected,
+  .current-pr,
+  .commit-identity-option.active
+) :is(strong, span, small, code, svg, .file-name, .file-path) {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+html[data-theme='far-manager'] .file-type-icon,
+html[data-theme='far-manager'] .file-status,
+html[data-theme='far-manager'] .dash-count,
+html[data-theme='far-manager'] .status-pill,
+html[data-theme='far-manager'] .shell-tab-badge {
+  border-color: var(--far-frame) !important;
+  border-radius: 0 !important;
+  color: var(--far-yellow) !important;
+  background: var(--far-blue-deep) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] .change-row[data-stage-state="unstaged"] .file-name,
+html[data-theme='far-manager'] .change-row[data-stage-state="untracked"] .file-name,
+html[data-theme='far-manager'] .changes-editor-file-row.edited .file-name {
+  color: var(--far-yellow) !important;
+}
+
+html[data-theme='far-manager'] .change-row[data-stage-state="staged"] .file-name,
+html[data-theme='far-manager'] .changes-editor-file-row.changed .file-name {
+  color: var(--far-green) !important;
+}
+
+html[data-theme='far-manager'] input[type='checkbox'] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  margin: 0;
+  border: 1px solid #ffffff !important;
+  border-radius: 0 !important;
+  background: var(--far-blue) !important;
+  box-shadow: none !important;
+  accent-color: var(--far-selection);
+}
+
+html[data-theme='far-manager'] input[type='checkbox']:checked {
+  background:
+    linear-gradient(135deg, transparent 0 34%, #ffffff 34% 43%, transparent 43% 100%),
+    linear-gradient(45deg, transparent 0 52%, #ffffff 52% 61%, transparent 61% 100%),
+    var(--far-selection) !important;
+}
+
+html[data-theme='far-manager'] input[type='checkbox']:indeterminate {
+  background:
+    linear-gradient(90deg, transparent 0 22%, #ffffff 22% 78%, transparent 78% 100%),
+    var(--far-selection) !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .changes-editor-header,
+  .history-commit-header,
+  .changes-editor-live-diff header,
+  .history-commit-description header,
+  .changes-editor-chunk-banner,
+  .diff-heading,
+  .diff-section-heading,
+  .diff-file-heading,
+  .mixed-diff-file-heading,
+  .diff-hunk-heading
+) {
+  border-color: var(--far-frame) !important;
+  color: var(--far-yellow) !important;
+  background: var(--far-blue) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .changes-editor-code-shell,
+  .changes-editor-preview-shell,
+  .changes-editor-hex-shell,
+  .changes-editor-json-viewer,
+  .structured-diff,
+  .diff-preview,
+  .diff-file,
+  .diff-hunk
+) {
+  color: #ffffff !important;
+  background: #000040 !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .changes-editor-highlight,
+  .changes-editor-line-numbers,
+  .changes-editor-textarea,
+  .changes-editor-color-layer,
+  .diff-line,
+  .split-diff-cell,
+  .diff-preview code
+) {
+  font-family: var(--far-font) !important;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+html[data-theme='far-manager'] .changes-editor-line-numbers {
+  border-right-color: var(--far-frame) !important;
+  color: var(--far-muted) !important;
+  background: var(--far-blue) !important;
+}
+
+html[data-theme='far-manager'] .changes-editor-highlight,
+html[data-theme='far-manager'] .changes-editor-highlight-line,
+html[data-theme='far-manager'] .diff-line,
+html[data-theme='far-manager'] .split-diff-cell,
+html[data-theme='far-manager'] .diff-preview code {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='far-manager'] .tok-comment { color: #58d8ff !important; }
+html[data-theme='far-manager'] .tok-keyword { color: #ffff00 !important; }
+html[data-theme='far-manager'] .tok-string { color: #00ff00 !important; }
+html[data-theme='far-manager'] .tok-number { color: #00ffff !important; }
+html[data-theme='far-manager'] .tok-type { color: #ff55ff !important; }
+html[data-theme='far-manager'] .tok-function { color: #ffffff !important; }
+html[data-theme='far-manager'] .tok-variable { color: #ffffff !important; }
+html[data-theme='far-manager'] .tok-operator { color: #ffff00 !important; }
+html[data-theme='far-manager'] .tok-punctuation { color: #00ffff !important; }
+
+html[data-theme='far-manager'] .diff-line.line-add,
+html[data-theme='far-manager'] .split-diff-cell.line-add,
+html[data-theme='far-manager'] .changes-editor-highlight-line.line-added,
+html[data-theme='far-manager'] .changes-editor-live-row.added {
+  color: #ffffff !important;
+  background: rgba(0, 128, 128, 0.46) !important;
+  box-shadow: inset 2px 0 0 #00ff00 !important;
+}
+
+html[data-theme='far-manager'] .diff-line.line-remove,
+html[data-theme='far-manager'] .split-diff-cell.line-remove,
+html[data-theme='far-manager'] .changes-editor-highlight-line.line-removed,
+html[data-theme='far-manager'] .changes-editor-live-row.removed {
+  color: #ffffff !important;
+  background: rgba(128, 0, 0, 0.42) !important;
+  box-shadow: inset 2px 0 0 #ff5555 !important;
+}
+
+html[data-theme='far-manager'] .changes-editor-highlight-line.line-modified,
+html[data-theme='far-manager'] .changes-editor-live-row.modified,
+html[data-theme='far-manager'] .diff-line.line-selected,
+html[data-theme='far-manager'] .split-diff-cell.line-selected {
+  background: var(--far-selection) !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='far-manager'] .commit-identity-popover::after {
+  border-color: var(--far-frame) !important;
+  background: var(--far-blue) !important;
+}
+
+html[data-theme='far-manager'] .commit-identity-current strong,
+html[data-theme='far-manager'] .commit-identity-option strong,
+html[data-theme='far-manager'] .shell-theme-item strong {
+  color: #ffffff !important;
+}
+
+html[data-theme='far-manager'] .commit-identity-current span,
+html[data-theme='far-manager'] .commit-identity-current small,
+html[data-theme='far-manager'] .commit-identity-option small,
+html[data-theme='far-manager'] .shell-theme-item small {
+  color: #58d8ff !important;
+}

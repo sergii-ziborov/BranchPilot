@@ -160,7 +160,9 @@ export function DailyView({
   dailyReviewLoading,
   dailyReview,
   contributionGraph,
+  contributionGraphLoading,
   contributorStats,
+  contributorStatsLoading,
   githubAccounts,
   contributorWindow,
   setContributorWindow,
@@ -177,7 +179,9 @@ export function DailyView({
   dailyReviewLoading: boolean
   dailyReview: DailyReviewReport | null
   contributionGraph: ContributionGraph | null
+  contributionGraphLoading: boolean
   contributorStats: ContributorStat[]
+  contributorStatsLoading: boolean
   githubAccounts: GitHubAccountSummary[]
   contributorWindow: ContributorStatsWindow
   setContributorWindow: (value: ContributorStatsWindow) => void
@@ -213,7 +217,7 @@ export function DailyView({
 
       <div className="daily-workboard">
         <div className="daily-selector-grid">
-          <section className="daily-heatmap-panel">
+          <section className={`daily-heatmap-panel${contributionGraphLoading ? ' is-loading' : ''}`} aria-busy={contributionGraphLoading}>
             <div className="daily-card-heading">
               <div>
                 <CalendarDays size={16} />
@@ -221,11 +225,28 @@ export function DailyView({
               </div>
               <span>{scopeLabel}</span>
             </div>
-            <ContributionHeatmap
-              graph={contributionGraph}
-              selectedDate={dailyReviewDate}
-              onSelectDate={selectDailyDate}
-            />
+            {contributionGraphLoading && !contributionGraph ? (
+              <SignalStatus
+                compact
+                className="daily-data-loading"
+                label="Loading activity"
+                detail={scopeLabel}
+              />
+            ) : (
+              <ContributionHeatmap
+                graph={contributionGraph}
+                selectedDate={dailyReviewDate}
+                onSelectDate={selectDailyDate}
+              />
+            )}
+            {contributionGraphLoading && contributionGraph && (
+              <SignalStatus
+                compact
+                className="daily-data-refresh"
+                label="Refreshing activity"
+                detail={scopeLabel}
+              />
+            )}
           </section>
 
           <aside className="daily-day-panel">
@@ -251,7 +272,7 @@ export function DailyView({
         </div>
 
         <div className="daily-insight-grid">
-          <section className="contributor-board daily-ranking-card">
+          <section className={`contributor-board daily-ranking-card${contributorStatsLoading ? ' is-loading' : ''}`} aria-busy={contributorStatsLoading}>
           <div className="contributor-board-heading">
             <Trophy size={16} />
             <strong>Contributor ranking</strong>
@@ -267,9 +288,16 @@ export function DailyView({
                 </button>
               ))}
             </div>
-            <span>{contributorStats.length} committers</span>
+            <span>{contributorStatsLoading ? 'Loading ranking' : `${contributorStats.length} committers`}</span>
           </div>
-          {contributorStats.length > 0 ? (
+          {contributorStatsLoading && contributorStats.length === 0 ? (
+            <SignalStatus
+              compact
+              className="daily-data-loading"
+              label="Loading ranking"
+              detail={scopeLabel}
+            />
+          ) : contributorStats.length > 0 ? (
             <div className="contributor-list">
               {contributorStats.map((contributor, index) => {
               const emails = contributor.emails?.length ? contributor.emails : [contributor.email]
@@ -335,6 +363,14 @@ export function DailyView({
             </div>
           ) : (
             <div className="quiet-box">No contributor activity found for this scope.</div>
+          )}
+          {contributorStatsLoading && contributorStats.length > 0 && (
+            <SignalStatus
+              compact
+              className="daily-data-refresh"
+              label="Refreshing ranking"
+              detail={scopeLabel}
+            />
           )}
           </section>
 

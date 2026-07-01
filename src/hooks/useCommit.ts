@@ -52,7 +52,6 @@ export function useCommit({
     activeDraftKeyRef.current = draftKey
     // Intentionally only react to branch/repo change: the title/description read
     // here are the previous branch's draft (state hasn't been swapped yet).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey])
 
   const canGenerateCommitText = assistantPolicyAllows(assistantPolicy, 'commit_message')

@@ -42,6 +42,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   const [contributionGraph, setContributionGraph] = useState<ContributionGraph | null>(null)
   const [repositoryRhythm, setRepositoryRhythm] = useState<RepositoryRhythm | null>(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [contributionGraphLoading, setContributionGraphLoading] = useState(false)
   const [dashboardRepositoryFilter, setDashboardRepositoryFilter] = useState('')
   const [cloneRemoteUrl, setCloneRemoteUrl] = useState('')
   const [cloneTargetName, setCloneTargetName] = useState('')
@@ -92,6 +93,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     const requestId = dashboardRequestIdRef.current + 1
     dashboardRequestIdRef.current = requestId
     setDashboardLoading(true)
+    setContributionGraphLoading(typeof api.getContributionGraph === 'function')
     // Dashboard scan, contribution graph and rhythm are independent: run concurrently.
     const dashboardPromise = api.getRepositoryDashboard(dashboardScopePath)
     const graphPromise = typeof api.getContributionGraph === 'function'
@@ -117,6 +119,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     if (dashboardRequestIdRef.current === requestId) {
       setContributionGraph(graph && graph.ok ? graph.data : null)
       setRepositoryRhythm(rhythm && rhythm.ok ? rhythm.data : null)
+      setContributionGraphLoading(false)
     }
   }
 
@@ -264,7 +267,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
 
   return {
     recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter,
-    filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading,
+    filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, contributionGraphLoading,
     dashboardRepositoryFilter, setDashboardRepositoryFilter, repositoryPickerOpen, setRepositoryPickerOpen,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
     loadRecentRepositories, loadRepositoryDashboard, silentRefreshDashboard, toggleRepositoryPinned,

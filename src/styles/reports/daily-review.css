@@ -62,6 +62,7 @@
 }
 
 .daily-heatmap-panel {
+  position: relative;
   overflow: hidden;
 }
 
@@ -116,8 +117,46 @@
 }
 
 .daily-ranking-card {
+  position: relative;
   min-width: 0;
   margin-bottom: 0;
+}
+
+.daily-heatmap-panel.is-loading,
+.daily-ranking-card.is-loading {
+  min-height: 188px;
+}
+
+.signal-status.daily-data-loading {
+  min-height: 150px;
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background:
+    radial-gradient(circle at 78% 20%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 30%),
+    color-mix(in srgb, var(--panel-2) 84%, transparent);
+}
+
+.signal-status.daily-data-loading .signal-status-copy strong,
+.signal-status.daily-data-refresh .signal-status-copy strong {
+  font-size: 12px;
+}
+
+.signal-status.daily-data-loading .signal-status-copy span,
+.signal-status.daily-data-refresh .signal-status-copy span {
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+
+.signal-status.daily-data-refresh {
+  position: absolute;
+  top: 50px;
+  right: 16px;
+  z-index: 5;
+  min-height: 0;
+  max-width: min(320px, calc(100% - 32px));
+  padding: 8px 10px;
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  box-shadow: var(--shadow-pop);
 }
 
 .daily-review-card {

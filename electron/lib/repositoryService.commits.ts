@@ -153,7 +153,7 @@ export class RepositoryCommitService {
 
     await this.kernel.assertNoActiveOperation(rootPath)
     await this.kernel.assertNoConflicts(rootPath, 'resetting')
-    await this.kernel.git(rootPath, ['reset', '--hard', commitSha], { timeoutMs: 120_000 })
+    await this.kernel.git(rootPath, ['reset', '--mixed', commitSha], { timeoutMs: 120_000 })
 
     return this.kernel.getSnapshot(rootPath)
   }

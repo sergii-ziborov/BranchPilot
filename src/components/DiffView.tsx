@@ -455,6 +455,31 @@ function mergeContextLines(existing: DiffLine[], incoming: DiffLine[], direction
   return [...byLine.values()].sort((a, b) => (contextLineNumber(a) ?? 0) - (contextLineNumber(b) ?? 0))
 }
 
+function hunkLineOffset(hunk: DiffHunk, direction: DiffContextDirection): number {
+  if (direction === 'up') return hunk.oldStart - hunk.newStart
+  return hunk.oldStart + hunk.oldLines - (hunk.newStart + hunk.newLines)
+}
+
+function alignLoadedContextLineNumbers(
+  lines: DiffLine[],
+  hunk: DiffHunk,
+  direction: DiffContextDirection
+): DiffLine[] {
+  const oldOffset = hunkLineOffset(hunk, direction)
+
+  return lines.map((line) => {
+    const newLineNumber = line.newLineNumber ?? line.oldLineNumber
+    if (!newLineNumber) return line
+    const oldLineNumber = newLineNumber + oldOffset
+
+    return {
+      ...line,
+      oldLineNumber: oldLineNumber > 0 ? oldLineNumber : undefined,
+      newLineNumber
+    }
+  })
+}
+
 function contextBoundaryBefore(file: DiffFile, hunkIndex: number, extraContext: ExtraContextMap = {}): number {
   const previous = file.hunks[hunkIndex - 1]
   const previousEntry = previous ? extraContext[hunkContextKey(file, previous)] : undefined
@@ -701,9 +726,12 @@ export function DiffPreview({
       if (incomingLines.length === 0) {
         return { ...current, [key]: { ...currentEntry, totalLines: result.totalLines } }
       }
+      const alignedIncomingLines = alignLoadedContextLineNumbers(incomingLines, hunk, direction)
       const nextEntry: ExtraContextEntry = {
-        above: direction === 'up' ? mergeContextLines(currentEntry.above, incomingLines, direction) : currentEntry.above,
-        below: direction === 'down' ? mergeContextLines(currentEntry.below, incomingLines, direction) : currentEntry.below,
+        above:
+          direction === 'up' ? mergeContextLines(currentEntry.above, alignedIncomingLines, direction) : currentEntry.above,
+        below:
+          direction === 'down' ? mergeContextLines(currentEntry.below, alignedIncomingLines, direction) : currentEntry.below,
         totalLines: result.totalLines
       }
 

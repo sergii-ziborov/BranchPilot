@@ -254,7 +254,9 @@ export function ReviewView({
                 <X size={18} />
               </button>
             </header>
-            <textarea readOnly value={reviewFixPrompt} aria-label="Generated fix prompt" />
+            <div className="review-fix-prompt-preview" aria-label="Generated fix prompt" aria-readonly="true" role="textbox">
+              <pre>{renderFixPromptPreview(reviewFixPrompt)}</pre>
+            </div>
             <footer className="review-fix-prompt-actions">
               <button type="button" className="secondary" onClick={() => setFixPromptOpen(false)}>
                 Close
@@ -328,4 +330,66 @@ function formatFindingForPrompt(finding: ReviewReport['findings'][number], index
     `   Details: ${finding.details}`,
     `   Recommendation: ${finding.recommendation || 'Use engineering judgment to address the risk with the smallest safe change.'}`
   ].join('\n')
+}
+
+function renderFixPromptPreview(prompt: string): ReactNode[] {
+  return prompt.split('\n').map((line, index) => (
+    <span className={fixPromptLineClass(line)} key={`${index}-${line.slice(0, 24)}`}>
+      {renderFixPromptLine(line)}
+      {'\n'}
+    </span>
+  ))
+}
+
+function fixPromptLineClass(line: string): string {
+  if (!line.trim()) return 'review-fix-prompt-line empty'
+  if (/^[A-Z][\w\s-]+:$/.test(line)) return 'review-fix-prompt-line section'
+  if (/^\d+\. \[(CRITICAL|HIGH|MEDIUM|LOW|INFO)\]/.test(line)) return 'review-fix-prompt-line finding'
+  if (/^\s+(Location|Details|Recommendation):/.test(line)) return 'review-fix-prompt-line finding-detail'
+  if (/^- /.test(line)) return 'review-fix-prompt-line bullet'
+  return 'review-fix-prompt-line'
+}
+
+function renderFixPromptLine(line: string): ReactNode {
+  const findingMatch = line.match(/^(\d+)\. \[(CRITICAL|HIGH|MEDIUM|LOW|INFO)\] (.*)$/)
+  if (findingMatch) {
+    const [, number, severity, title] = findingMatch
+    return (
+      <>
+        <span className="prompt-index">{number}.</span>{' '}
+        <span className={`prompt-severity severity-${severity.toLowerCase()}`}>{severity}</span>{' '}
+        <span className="prompt-title">{title}</span>
+      </>
+    )
+  }
+
+  const detailMatch = line.match(/^(\s+)(Location|Details|Recommendation):\s?(.*)$/)
+  if (detailMatch) {
+    const [, indent, label, value] = detailMatch
+    return (
+      <>
+        {indent}
+        <span className="prompt-label">{label}:</span>{' '}
+        <span className={label === 'Location' ? 'prompt-path' : 'prompt-value'}>{value}</span>
+      </>
+    )
+  }
+
+  const bulletMatch = line.match(/^(- )([^:]+:)?(.*)$/)
+  if (bulletMatch) {
+    const [, bullet, label, value] = bulletMatch
+    return (
+      <>
+        <span className="prompt-bullet">{bullet}</span>
+        {label ? <span className="prompt-label">{label}</span> : null}
+        {value}
+      </>
+    )
+  }
+
+  if (/^[A-Z][\w\s-]+:$/.test(line)) {
+    return <span className="prompt-section-title">{line}</span>
+  }
+
+  return line || ' '
 }

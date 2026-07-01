@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type ChangeEvent as ReactChangeEvent,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -11,7 +12,7 @@ import {
   type UIEvent as ReactUIEvent
 } from 'react'
 import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Pencil, PlusSquare, RotateCcw, Save, Search, Sparkles, Terminal, Trash2, WandSparkles, X } from 'lucide-react'
-import type { ApiResult, AssistantId, BranchPilotApi, ImagePreview, RepositoryFileBytesResult, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
+import type { ApiResult, AssistantId, BranchPilotApi, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
 import { friendlyIpcErrorMessage } from '../../lib/ipcErrorMessage'
@@ -48,7 +49,12 @@ const EDITOR_RENDER_BATCH_SIZE = 560
 const EDITOR_RENDER_LOOKAHEAD = 160
 const EDITOR_SEARCH_MATCH_LIMIT = 5000
 const EDITOR_LINE_HEIGHT = 20.4
-const EDITOR_FILE_CHUNK_BYTES = 96_000
+const EDITOR_FILE_CHUNK_BYTES = 48_000
+const EDITOR_LIVE_DIFF_LCS_CELL_LIMIT = 240_000
+const EDITOR_TEXT_HISTORY_LIMIT = 200
+const HEX_BYTES_PER_ROW = 16
+const HEX_CHUNK_BYTES = 64 * 1024
+const HEX_SEARCH_MATCH_LIMIT = 500
 const PREVIEWABLE_IMAGE_RE = /\.(png|jpe?g|gif|webp|bmp|svg|ico|icns|avif)$/i
 const SVG_RE = /\.svg$/i
 const JSON_RE = /\.(json|jsonc)$/i
@@ -124,19 +130,6 @@ function readStoredEditorSidebarWidth(): number {
   return EDITOR_SIDEBAR_DEFAULT_WIDTH
 }
 
-function changedLineCount(originalText: string, draftText: string): number {
-  const original = originalText.replace(/\r\n/g, '\n').split('\n')
-  const draft = draftText.replace(/\r\n/g, '\n').split('\n')
-  const count = Math.max(original.length, draft.length)
-  let changed = 0
-
-  for (let index = 0; index < count; index += 1) {
-    if ((original[index] ?? '') !== (draft[index] ?? '')) changed += 1
-  }
-
-  return changed
-}
-
 interface LiveLineChange {
   lineNumber: number
   kind: 'added' | 'removed' | 'modified'
@@ -155,6 +148,36 @@ interface EditorLineWindow {
   offsetTop: number
   rendered: number
   virtual: boolean
+}
+
+interface HexEditorRow {
+  offset: number
+  bytes: number[]
+}
+
+interface HexBytePreview {
+  filePath: string
+  byteSize: number
+  startOffset: number
+  endOffset: number
+  hasMore: boolean
+  fullFileLoaded: boolean
+}
+
+interface HexSearchMatch {
+  offset: number
+  length: number
+}
+
+interface EditorTextHistoryEntry {
+  text: string
+  selectionStart: number
+  selectionEnd: number
+}
+
+interface EditableTextLines {
+  lines: string[]
+  hasTrailingNewline: boolean
 }
 
 interface FileSearchMatch {
@@ -176,7 +199,8 @@ interface ChunkedTextPreview {
   endOffset: number
   startLine: number
   hasMore: boolean
-  previous: ChunkedTextMarker[]
+  markers: ChunkedTextMarker[]
+  pageIndex: number
   loading: boolean
   error: string | null
 }
@@ -212,6 +236,14 @@ interface EditorLintSettings {
   validateScripts: boolean
   validateJsxTsx: boolean
   validateRegexLiterals: boolean
+}
+
+type EditorLintRunStatus = 'idle' | 'running' | 'clean' | 'issues' | 'blocked'
+
+interface EditorLintRunState {
+  status: EditorLintRunStatus
+  message: string
+  detail: string
 }
 
 interface SvgColorTarget {
@@ -347,7 +379,7 @@ function lineBreakCount(text: string): number {
 
 function chunkedTextPreviewFromResult(
   result: RepositoryFileChunkResult,
-  options: { startLine: number; previous: ChunkedTextMarker[] }
+  options: { startLine: number; markers: ChunkedTextMarker[]; pageIndex: number }
 ): ChunkedTextPreview {
   return {
     filePath: result.filePath,
@@ -357,7 +389,8 @@ function chunkedTextPreviewFromResult(
     endOffset: result.endOffset,
     startLine: options.startLine,
     hasMore: result.hasMore,
-    previous: options.previous,
+    markers: options.markers,
+    pageIndex: options.pageIndex,
     loading: false,
     error: null
   }
@@ -698,6 +731,38 @@ function validateEditorText(filePath: string, text: string, settings: EditorLint
   return []
 }
 
+function lintRulesEnabledForFile(filePath: string, settings: EditorLintSettings): boolean {
+  if (JSON_RE.test(filePath)) return settings.validateJson
+  if (JSX_TSX_RE.test(filePath)) return settings.validateJsxTsx
+  if (PLAIN_SCRIPT_RE.test(filePath)) return settings.validateScripts
+  return false
+}
+
+function lintCheckedAt(): string {
+  return new Date().toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+function lintStateFromDiagnostics(diagnostics: EditorDiagnostic[], filePath: string, source: 'Manual' | 'Auto'): EditorLintRunState {
+  const checkedAt = lintCheckedAt()
+  if (diagnostics.length > 0) {
+    return {
+      status: 'issues',
+      message: `${source} lint found ${diagnostics.length} issue${diagnostics.length === 1 ? '' : 's'}.`,
+      detail: `${filePath} · ${checkedAt}`
+    }
+  }
+
+  return {
+    status: 'clean',
+    message: `${source} lint passed. No issues found.`,
+    detail: `${filePath} · ${checkedAt}`
+  }
+}
+
 function normalizeTextForEditor(text: string): string {
   return `${text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/[ \t]+$/gm, '').trimEnd()}\n`
 }
@@ -967,7 +1032,6 @@ function lineSyntaxDelta(line: string): { before: number; after: number } {
   let after = 0
   let quote = ''
   let escaped = false
-  let lineComment = false
   let blockComment = false
   const trimmed = line.trim()
   const leadingSyntaxClosers = trimmed.match(/^[)\]}]+/)?.[0].length ?? 0
@@ -977,8 +1041,6 @@ function lineSyntaxDelta(line: string): { before: number; after: number } {
   for (let index = 0; index < line.length; index += 1) {
     const char = line[index]
     const next = line[index + 1]
-
-    if (lineComment) break
 
     if (blockComment) {
       if (char === '*' && next === '/') {
@@ -1000,7 +1062,6 @@ function lineSyntaxDelta(line: string): { before: number; after: number } {
     }
 
     if (char === '/' && next === '/') {
-      lineComment = true
       break
     }
     if (char === '/' && next === '*') {
@@ -1161,8 +1222,8 @@ function base64FromBytes(bytes: Uint8Array): string {
 
 function bytesToHexText(bytes: Uint8Array): string {
   const rows: string[] = []
-  for (let offset = 0; offset < bytes.length; offset += 16) {
-    rows.push(Array.from(bytes.subarray(offset, offset + 16), (byte) => byte.toString(16).padStart(2, '0')).join(' '))
+  for (let offset = 0; offset < bytes.length; offset += HEX_BYTES_PER_ROW) {
+    rows.push(Array.from(bytes.subarray(offset, offset + HEX_BYTES_PER_ROW), byteToHex).join(' '))
   }
   return rows.join('\n')
 }
@@ -1180,21 +1241,89 @@ function parseHexText(hexText: string): { bytes: Uint8Array | null; error: strin
   return { bytes, error: null }
 }
 
-function asciiFromBytes(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => (byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : '.')).join('')
+function byteToHex(byte: number): string {
+  return byte.toString(16).padStart(2, '0')
 }
 
-function hexRows(bytes: Uint8Array): Array<{ offset: string; hex: string; ascii: string }> {
-  const rows: Array<{ offset: string; hex: string; ascii: string }> = []
-  for (let offset = 0; offset < bytes.length; offset += 16) {
-    const rowBytes = bytes.subarray(offset, offset + 16)
+function normalizeHexByteDraft(rawDraft: string): string {
+  return rawDraft.trim().replace(/[^0-9a-f]/gi, '').slice(0, 2).toLowerCase()
+}
+
+function asciiFromByte(byte: number): string {
+  return byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : '.'
+}
+
+function hexEditorRows(bytes: Uint8Array, startOffset = 0): HexEditorRow[] {
+  const rows: HexEditorRow[] = []
+  for (let offset = 0; offset < bytes.length; offset += HEX_BYTES_PER_ROW) {
     rows.push({
-      offset: offset.toString(16).padStart(8, '0'),
-      hex: Array.from(rowBytes, (byte) => byte.toString(16).padStart(2, '0')).join(' '),
-      ascii: asciiFromBytes(rowBytes)
+      offset: startOffset + offset,
+      bytes: Array.from(bytes.subarray(offset, offset + HEX_BYTES_PER_ROW))
     })
   }
   return rows
+}
+
+function offsetToHex(offset: number): string {
+  return Math.max(0, Math.floor(offset)).toString(16).padStart(8, '0')
+}
+
+function alignHexOffset(offset: number): number {
+  return Math.floor(Math.max(0, offset) / HEX_BYTES_PER_ROW) * HEX_BYTES_PER_ROW
+}
+
+function parseHexOffsetDraft(rawDraft: string): number | null {
+  const draft = rawDraft.trim()
+  if (!draft) return null
+  if (/^0x[0-9a-f]+$/i.test(draft)) return Number.parseInt(draft.slice(2), 16)
+  if (/[a-f]/i.test(draft) && /^[0-9a-f]+$/i.test(draft)) return Number.parseInt(draft, 16)
+  if (/^\d+$/.test(draft)) return Number.parseInt(draft, 10)
+  return null
+}
+
+function bytesForHexSearch(rawQuery: string): Uint8Array | null {
+  const query = rawQuery.trim()
+  if (!query) return null
+  const compactHex = query.replace(/(?:0x|[\s,_-])/gi, '')
+  if (compactHex.length >= 2 && compactHex.length % 2 === 0 && /^[0-9a-f]+$/i.test(compactHex)) {
+    const bytes = new Uint8Array(compactHex.length / 2)
+    for (let index = 0; index < compactHex.length; index += 2) {
+      bytes[index / 2] = Number.parseInt(compactHex.slice(index, index + 2), 16)
+    }
+    return bytes
+  }
+
+  const asciiBytes = new Uint8Array(query.length)
+  for (let index = 0; index < query.length; index += 1) {
+    const code = query.charCodeAt(index)
+    if (code > 0xff) return null
+    asciiBytes[index] = code
+  }
+  return asciiBytes
+}
+
+function findHexSearchMatches(bytes: Uint8Array | null, query: string, startOffset: number): HexSearchMatch[] {
+  const needle = bytesForHexSearch(query)
+  if (!bytes || !needle || needle.length === 0 || needle.length > bytes.length) return []
+
+  const matches: HexSearchMatch[] = []
+  for (let index = 0; index <= bytes.length - needle.length; index += 1) {
+    let matched = true
+    for (let needleIndex = 0; needleIndex < needle.length; needleIndex += 1) {
+      if (bytes[index + needleIndex] !== needle[needleIndex]) {
+        matched = false
+        break
+      }
+    }
+    if (!matched) continue
+    matches.push({ offset: startOffset + index, length: needle.length })
+    if (matches.length >= HEX_SEARCH_MATCH_LIMIT) break
+  }
+  return matches
+}
+
+function hexByteInMatch(offset: number, matches: HexSearchMatch[]): boolean {
+  return matches.some((match) => offset >= match.offset && offset < match.offset + match.length)
 }
 
 function parseSvgDocument(text: string): { document: XMLDocument | null; error: string | null } {
@@ -1553,38 +1682,166 @@ function highlightedLineContent(line: string, lang: string, searchQuery: string,
   }
 
   if (last < line.length) {
-    chunks.push(<span key={`tail-${key++}`}>{highlight(line.slice(last), lang)}</span>)
+    chunks.push(<span key={`tail-${key}`}>{highlight(line.slice(last), lang)}</span>)
   }
 
   return chunks.length ? chunks : highlight(line || ' ', lang)
 }
 
 function buildLiveLineChanges(originalText: string, draftText: string): LiveLineChange[] {
-  const original = originalText.replace(/\r\n/g, '\n').split('\n')
-  const draft = draftText.replace(/\r\n/g, '\n').split('\n')
-  const count = Math.max(original.length, draft.length)
+  const original = textLines(originalText)
+  const draft = textLines(draftText)
+  let prefixLength = 0
+
+  while (
+    prefixLength < original.length &&
+    prefixLength < draft.length &&
+    original[prefixLength] === draft[prefixLength]
+  ) {
+    prefixLength += 1
+  }
+
+  let suffixLength = 0
+  while (
+    suffixLength + prefixLength < original.length &&
+    suffixLength + prefixLength < draft.length &&
+    original[original.length - 1 - suffixLength] === draft[draft.length - 1 - suffixLength]
+  ) {
+    suffixLength += 1
+  }
+
+  const originalMiddle = original.slice(prefixLength, original.length - suffixLength)
+  const draftMiddle = draft.slice(prefixLength, draft.length - suffixLength)
+
+  return compactLiveLineChanges(
+    buildMiddleLiveLineChanges(originalMiddle, draftMiddle, prefixLength)
+  )
+}
+
+function buildMiddleLiveLineChanges(original: string[], draft: string[], startIndex: number): LiveLineChange[] {
   const changes: LiveLineChange[] = []
 
-  for (let index = 0; index < count; index += 1) {
-    const before = original[index] ?? ''
-    const after = draft[index] ?? ''
-    if (before === after) continue
+  if (original.length * draft.length > EDITOR_LIVE_DIFF_LCS_CELL_LIMIT) {
+    const pairedCount = Math.min(original.length, draft.length)
+    for (let index = 0; index < pairedCount; index += 1) {
+      if (original[index] === draft[index]) continue
+      changes.push({
+        lineNumber: startIndex + index + 1,
+        kind: 'modified',
+        before: original[index],
+        after: draft[index]
+      })
+    }
+    for (let index = pairedCount; index < draft.length; index += 1) {
+      changes.push({
+        lineNumber: startIndex + index + 1,
+        kind: 'added',
+        before: '',
+        after: draft[index]
+      })
+    }
+    for (let index = pairedCount; index < original.length; index += 1) {
+      changes.push({
+        lineNumber: startIndex + pairedCount + 1,
+        kind: 'removed',
+        before: original[index],
+        after: ''
+      })
+    }
+    return changes
+  }
 
-    changes.push({
-      lineNumber: index + 1,
-      kind: before ? (after ? 'modified' : 'removed') : 'added',
-      before,
-      after
-    })
+  const table = Array.from({ length: original.length + 1 }, () => new Uint32Array(draft.length + 1))
+  for (let left = original.length - 1; left >= 0; left -= 1) {
+    for (let right = draft.length - 1; right >= 0; right -= 1) {
+      table[left][right] = original[left] === draft[right]
+        ? table[left + 1][right + 1] + 1
+        : Math.max(table[left + 1][right], table[left][right + 1])
+    }
+  }
+
+  let left = 0
+  let right = 0
+  while (left < original.length || right < draft.length) {
+    if (left < original.length && right < draft.length && original[left] === draft[right]) {
+      left += 1
+      right += 1
+    } else if (left < original.length && (right >= draft.length || table[left + 1][right] >= table[left][right + 1])) {
+      changes.push({
+        lineNumber: startIndex + right + 1,
+        kind: 'removed',
+        before: original[left],
+        after: ''
+      })
+      left += 1
+    } else if (right < draft.length) {
+      changes.push({
+        lineNumber: startIndex + right + 1,
+        kind: 'added',
+        before: '',
+        after: draft[right]
+      })
+      right += 1
+    }
   }
 
   return changes
 }
 
-function updateLineInText(text: string, lineNumber: number, nextLine: string | null): string {
+function compactLiveLineChanges(changes: LiveLineChange[]): LiveLineChange[] {
+  const compacted: LiveLineChange[] = []
+
+  for (let index = 0; index < changes.length; index += 1) {
+    const change = changes[index]
+    const next = changes[index + 1]
+
+    if (change.kind === 'removed' && next?.kind === 'added' && change.lineNumber === next.lineNumber) {
+      compacted.push({
+        lineNumber: next.lineNumber,
+        kind: 'modified',
+        before: change.before,
+        after: next.after
+      })
+      index += 1
+      continue
+    }
+
+    compacted.push(change)
+  }
+
+  return compacted
+}
+
+function editableTextLines(text: string): EditableTextLines {
   const hasTrailingNewline = /\r?\n$/.test(text)
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
   if (hasTrailingNewline && lines[lines.length - 1] === '') lines.pop()
+
+  return { lines, hasTrailingNewline }
+}
+
+function joinEditableTextLines({ lines, hasTrailingNewline }: EditableTextLines): string {
+  return `${lines.join('\n')}${hasTrailingNewline ? '\n' : ''}`
+}
+
+function nearestLineIndex(lines: string[], targetIndex: number, expectedLine: string): number {
+  if (lines.length === 0) return -1
+  const safeTarget = clamp(targetIndex, 0, lines.length - 1)
+  if (lines[safeTarget] === expectedLine) return safeTarget
+
+  for (let distance = 1; distance < lines.length; distance += 1) {
+    const before = safeTarget - distance
+    const after = safeTarget + distance
+    if (before >= 0 && lines[before] === expectedLine) return before
+    if (after < lines.length && lines[after] === expectedLine) return after
+  }
+
+  return -1
+}
+
+function updateLineInText(text: string, lineNumber: number, nextLine: string | null): string {
+  const editable = editableTextLines(text)
+  const lines = editable.lines
   const index = lineNumber - 1
 
   if (index < 0 || index > lines.length) return text
@@ -1597,7 +1854,32 @@ function updateLineInText(text: string, lineNumber: number, nextLine: string | n
     lines[index] = nextLine
   }
 
-  return `${lines.join('\n')}${hasTrailingNewline ? '\n' : ''}`
+  return joinEditableTextLines(editable)
+}
+
+function revertLiveChangeInText(text: string, change: LiveLineChange): string {
+  const editable = editableTextLines(text)
+  const lines = editable.lines
+  const targetIndex = Math.max(0, change.lineNumber - 1)
+
+  if (change.kind === 'added') {
+    const index = nearestLineIndex(lines, targetIndex, change.after)
+    if (index === -1) return text
+    lines.splice(index, 1)
+    return joinEditableTextLines(editable)
+  }
+
+  if (change.kind === 'modified') {
+    const index = nearestLineIndex(lines, targetIndex, change.after)
+    if (index === -1) return updateLineInText(text, change.lineNumber, change.before)
+    lines[index] = change.before
+    return joinEditableTextLines(editable)
+  }
+
+  const insertIndex = Math.max(0, Math.min(targetIndex, lines.length))
+  if (lines[insertIndex] === change.before || lines[insertIndex - 1] === change.before) return text
+  lines.splice(insertIndex, 0, change.before)
+  return joinEditableTextLines(editable)
 }
 
 function EditorCssColorSwatch({
@@ -1688,8 +1970,15 @@ export function ChangesInternalEditor({
   const highlightInnerRef = useRef<HTMLDivElement | null>(null)
   const lineNumbersInnerRef = useRef<HTMLDivElement | null>(null)
   const colorSwatchesInnerRef = useRef<HTMLDivElement | null>(null)
+  const selectedFileRowRef = useRef<HTMLButtonElement | null>(null)
   const skipJsonEditBlurRef = useRef(false)
   const chunkPageRequestRef = useRef(false)
+  const hexChunkRequestRef = useRef(0)
+  const lastEditorScrollTopRef = useRef(0)
+  const suppressAutoChunkUntilRef = useRef(0)
+  const editorUndoStackRef = useRef<EditorTextHistoryEntry[]>([])
+  const editorRedoStackRef = useRef<EditorTextHistoryEntry[]>([])
+  const pendingEditorHistoryRef = useRef<EditorTextHistoryEntry | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(readStoredEditorSidebarWidth)
   const [files, setFiles] = useState<RepositoryFileEntry[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
@@ -1705,11 +1994,16 @@ export function ChangesInternalEditor({
   const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null)
   const [imagePreviewLoading, setImagePreviewLoading] = useState(false)
   const [imagePreviewError, setImagePreviewError] = useState<string | null>(null)
-  const [hexBytes, setHexBytes] = useState<RepositoryFileBytesResult | null>(null)
+  const [hexBytes, setHexBytes] = useState<HexBytePreview | null>(null)
   const [hexLoading, setHexLoading] = useState(false)
   const [hexError, setHexError] = useState<string | null>(null)
   const [hexOriginalText, setHexOriginalText] = useState('')
   const [hexDraftText, setHexDraftText] = useState('')
+  const [activeHexByteIndex, setActiveHexByteIndex] = useState(0)
+  const [hexByteDraft, setHexByteDraft] = useState('')
+  const [hexOffsetDraft, setHexOffsetDraft] = useState('')
+  const [hexSearchQuery, setHexSearchQuery] = useState('')
+  const [activeHexSearchIndex, setActiveHexSearchIndex] = useState(-1)
   const [editorScrollTop, setEditorScrollTop] = useState(0)
   const [editorViewportHeight, setEditorViewportHeight] = useState(0)
   const [collapsedJsonPaths, setCollapsedJsonPaths] = useState<Set<string>>(new Set())
@@ -1723,6 +2017,11 @@ export function ChangesInternalEditor({
   const [saving, setSaving] = useState(false)
   const [lintSettings, setLintSettings] = useState(readStoredLintSettings)
   const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([])
+  const [lintRunState, setLintRunState] = useState<EditorLintRunState>({
+    status: 'idle',
+    message: 'Lint has not run yet.',
+    detail: 'Open a supported file and run lint.'
+  })
   const changeByPath = useMemo(() => new Map((snapshot?.status.changes ?? []).map((change) => [change.path, change])), [snapshot])
   const query = fileQuery.trim().toLowerCase()
   const visibleFiles = useMemo(() => (
@@ -1733,11 +2032,9 @@ export function ChangesInternalEditor({
   const activeEditorText = chunkedTextPreview?.text ?? draftText
   const activeEditorLineBase = chunkedTextPreview?.startLine ?? 1
   const textDirty = !chunkedReadOnly && draftText !== originalText
-  const hexDirty = hexDraftText !== hexOriginalText
-  const dirty = textDirty || hexDirty
-  const editedLines = dirty ? changedLineCount(originalText, draftText) : 0
   const liveChanges = useMemo(() => (textDirty ? buildLiveLineChanges(originalText, draftText) : []), [textDirty, originalText, draftText])
-  const changeKindByLine = useMemo(() => new Map(liveChanges.map((change) => [change.lineNumber, change.kind])), [liveChanges])
+  const editedLines = liveChanges.length
+  const changeKindByLine = useMemo(() => new Map(liveChanges.filter((change) => change.kind !== 'removed').map((change) => [change.lineNumber, change.kind])), [liveChanges])
   const draftLines = useMemo(() => textLines(activeEditorText), [activeEditorText])
   const lineOffsets = useMemo(() => buildLineOffsets(draftLines), [draftLines])
   const fileSearchMatches = useMemo(() => (
@@ -1747,7 +2044,29 @@ export function ChangesInternalEditor({
     }))
   ), [activeEditorLineBase, draftLines, fileSearchQuery])
   const parsedHexDraft = useMemo(() => parseHexText(hexDraftText), [hexDraftText])
-  const hexPreviewRows = useMemo(() => (parsedHexDraft.bytes ? hexRows(parsedHexDraft.bytes).slice(0, 4000) : []), [parsedHexDraft.bytes])
+  const parsedHexOriginal = useMemo(() => parseHexText(hexOriginalText), [hexOriginalText])
+  const hexStartOffset = hexBytes?.startOffset ?? 0
+  const hexEndOffset = hexBytes?.endOffset ?? hexStartOffset
+  const hexFullFileLoaded = Boolean(hexBytes?.fullFileLoaded)
+  const hexPreviewRows = useMemo(
+    () => (parsedHexDraft.bytes ? hexEditorRows(parsedHexDraft.bytes, hexStartOffset) : []),
+    [hexStartOffset, parsedHexDraft.bytes]
+  )
+  const activeHexLocalIndex = activeHexByteIndex - hexStartOffset
+  const activeHexByte = activeHexLocalIndex >= 0 ? parsedHexDraft.bytes?.[activeHexLocalIndex] ?? null : null
+  const activeHexAscii = activeHexByte === null ? '' : asciiFromByte(activeHexByte)
+  const activeHexRowOffset = Math.floor(activeHexByteIndex / HEX_BYTES_PER_ROW) * HEX_BYTES_PER_ROW
+  const hexSearchMatches = useMemo(
+    () => findHexSearchMatches(parsedHexDraft.bytes, hexSearchQuery, hexStartOffset),
+    [hexSearchQuery, hexStartOffset, parsedHexDraft.bytes]
+  )
+  const normalizedActiveHexByteDraft = normalizeHexByteDraft(hexByteDraft)
+  const activeHexByteDraftValue = normalizedActiveHexByteDraft
+    ? Number.parseInt(normalizedActiveHexByteDraft.padStart(2, '0'), 16)
+    : null
+  const activeHexByteDraftDirty = hexFullFileLoaded && activeHexByte !== null && activeHexByteDraftValue !== null && activeHexByteDraftValue !== activeHexByte
+  const hexDirty = hexFullFileLoaded && (hexDraftText !== hexOriginalText || activeHexByteDraftDirty)
+  const dirty = textDirty || hexDirty
   const diagnosticByLine = useMemo(() => new Map(diagnostics.map((diagnostic) => [diagnostic.lineNumber, diagnostic])), [diagnostics])
   const fileSearchOverflow = fileSearchMatches.length >= EDITOR_SEARCH_MATCH_LIMIT
   const activeSearchMatch = activeSearchIndex >= 0 ? fileSearchMatches[activeSearchIndex] ?? null : null
@@ -1801,6 +2120,7 @@ export function ChangesInternalEditor({
   const selectedLintSupported = !chunkedReadOnly && (selectedIsJson || SCRIPT_RE.test(selectedPath))
   const selectedHexOnly = Boolean(textUnavailableMessage)
   const lintBlocked = !selectedPath || fileLoading || Boolean(fileError) || selectedHexOnly || chunkedReadOnly || viewMode === 'image' || viewMode === 'hex'
+  const selectedLintRulesEnabled = selectedLintSupported && lintRulesEnabledForFile(selectedPath, lintSettings)
   const textSaveBlocked = chunkedReadOnly && !hexDirty
   const contextMenuChange = fileMenu ? changeByPath.get(fileMenu.path) : null
   const availableViewModes = useMemo<Array<{ id: EditorViewMode; label: string }>>(() => {
@@ -1815,6 +2135,23 @@ export function ChangesInternalEditor({
   const editorStyle = {
     '--changes-editor-sidebar-width': `${sidebarWidth}px`
   } as CSSProperties
+  const lintBadgeLabel = diagnostics.length > 0
+    ? String(diagnostics.length)
+    : lintRunState.status === 'clean'
+      ? 'OK'
+      : lintRunState.status === 'blocked'
+        ? '!'
+        : lintRunState.status === 'running'
+          ? '...'
+          : ''
+  const lintMenuClassName = [
+    'changes-editor-lint-menu',
+    diagnostics.length > 0 ? 'has-issues' : '',
+    lintRunState.status === 'clean' ? 'is-clean' : '',
+    lintRunState.status === 'blocked' ? 'is-blocked' : '',
+    lintRunState.status === 'running' ? 'is-running' : '',
+    (!selectedLintSupported || lintBlocked) ? 'disabled' : ''
+  ].filter(Boolean).join(' ')
 
   const openFileContextMenu = (event: ReactMouseEvent, path: string) => {
     if (!path) return
@@ -1826,7 +2163,8 @@ export function ChangesInternalEditor({
   const renderFileRow = (file: RepositoryFileEntry, displayName: string) => {
     const change = changeByPath.get(file.path)
     const fileTypeIcon = fileTypeIconForPath(file.path)
-    const fileIsDirty = selectedPath === file.path && dirty
+    const selected = selectedPath === file.path
+    const fileIsDirty = selected && dirty
     const statusClassName = fileIsDirty ? 'status-edited' : change ? `status-${change.status}` : ''
     const statusLabel = fileIsDirty ? 'E' : change ? fileStatusToken(change.status) : ''
     const statusTitle = fileIsDirty ? 'Edited since load' : change ? change.status : ''
@@ -1834,9 +2172,10 @@ export function ChangesInternalEditor({
     return (
       <button
         type="button"
+        ref={selected ? selectedFileRowRef : undefined}
         className={[
           'changes-editor-file-row',
-          selectedPath === file.path ? 'selected' : '',
+          selected ? 'selected' : '',
           fileIsDirty ? 'edited' : '',
           change ? 'changed' : 'clean'
         ].filter(Boolean).join(' ')}
@@ -1990,6 +2329,106 @@ export function ChangesInternalEditor({
     })
   }
 
+  const editorTextSnapshot = (textarea = textareaRef.current): EditorTextHistoryEntry => {
+    const text = textarea?.value ?? draftText
+    const selectionStart = Math.min(text.length, textarea?.selectionStart ?? text.length)
+    const selectionEnd = Math.min(text.length, textarea?.selectionEnd ?? selectionStart)
+    return { text, selectionStart, selectionEnd }
+  }
+
+  const pushEditorHistoryEntry = (stack: EditorTextHistoryEntry[], entry: EditorTextHistoryEntry) => {
+    const last = stack[stack.length - 1]
+    if (
+      last &&
+      last.text === entry.text &&
+      last.selectionStart === entry.selectionStart &&
+      last.selectionEnd === entry.selectionEnd
+    ) {
+      return
+    }
+
+    stack.push(entry)
+    if (stack.length > EDITOR_TEXT_HISTORY_LIMIT) stack.shift()
+  }
+
+  const pushEditorUndoEntry = (entry: EditorTextHistoryEntry) => {
+    pushEditorHistoryEntry(editorUndoStackRef.current, entry)
+    editorRedoStackRef.current = []
+  }
+
+  const clearEditorTextHistory = () => {
+    editorUndoStackRef.current = []
+    editorRedoStackRef.current = []
+    pendingEditorHistoryRef.current = null
+  }
+
+  const restoreEditorTextSnapshot = (entry: EditorTextHistoryEntry) => {
+    setDraftText(entry.text)
+    setJsonEdit(null)
+    window.requestAnimationFrame(() => {
+      const textarea = textareaRef.current
+      if (!textarea) return
+      const selectionStart = Math.min(entry.selectionStart, textarea.value.length)
+      const selectionEnd = Math.min(entry.selectionEnd, textarea.value.length)
+      textarea.focus()
+      textarea.setSelectionRange(selectionStart, selectionEnd)
+      updateEditorLineWindowState(textarea.scrollTop, textarea.clientHeight)
+      syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
+    })
+  }
+
+  const undoEditorText = () => {
+    const previous = editorUndoStackRef.current.pop()
+    if (!previous) return
+
+    pushEditorHistoryEntry(editorRedoStackRef.current, editorTextSnapshot())
+    restoreEditorTextSnapshot(previous)
+  }
+
+  const redoEditorText = () => {
+    const next = editorRedoStackRef.current.pop()
+    if (!next) return
+
+    pushEditorHistoryEntry(editorUndoStackRef.current, editorTextSnapshot())
+    restoreEditorTextSnapshot(next)
+  }
+
+  const capturePendingEditorHistory = () => {
+    if (chunkedReadOnly || fileLoading) return
+    pendingEditorHistoryRef.current = editorTextSnapshot()
+  }
+
+  const handleEditorTextChange = (event: ReactChangeEvent<HTMLTextAreaElement>) => {
+    if (chunkedReadOnly) return
+
+    const nextText = event.currentTarget.value
+    const previous = pendingEditorHistoryRef.current ?? {
+      text: draftText,
+      selectionStart: Math.min(draftText.length, event.currentTarget.selectionStart),
+      selectionEnd: Math.min(draftText.length, event.currentTarget.selectionEnd)
+    }
+    pendingEditorHistoryRef.current = null
+
+    if (previous.text !== nextText) {
+      pushEditorUndoEntry(previous)
+    }
+    setDraftText(nextText)
+  }
+
+  const handleEditorTextKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return
+
+    const key = event.key.toLowerCase()
+    const undo = key === 'z' && !event.shiftKey
+    const redo = key === 'y' || (key === 'z' && event.shiftKey)
+    if (!undo && !redo) return
+
+    event.preventDefault()
+    pendingEditorHistoryRef.current = null
+    if (undo) undoEditorText()
+    else redoEditorText()
+  }
+
   const focusSearchMatch = (match: FileSearchMatch) => {
     focusEditorPosition(match.lineNumber, match.column, match.length)
   }
@@ -2000,15 +2439,48 @@ export function ChangesInternalEditor({
       persistLintSettings(next)
       return next
     })
+    setLintRunState({
+      status: 'idle',
+      message: 'Lint settings changed.',
+      detail: 'Run lint again to refresh the result.'
+    })
   }
 
   const runLint = (focusFirst = true) => {
-    if (lintBlocked || !selectedLintSupported) return
-    const nextDiagnostics = validateEditorText(selectedPath, draftText, lintSettings)
-    setDiagnostics(nextDiagnostics)
-    if (focusFirst && nextDiagnostics[0]) {
-      focusEditorPosition(nextDiagnostics[0].lineNumber, nextDiagnostics[0].column - 1, 1)
+    if (lintBlocked) {
+      const message = selectedPath ? 'Lint is unavailable for the current editor mode.' : 'Select a file before running lint.'
+      setLintRunState({ status: 'blocked', message, detail: selectedPath || 'No file selected' })
+      setNotice(message)
+      return
     }
+    if (!selectedLintSupported) {
+      const message = 'Lint supports JSON, JSONC, JS, TS, JSX, and TSX files.'
+      setLintRunState({ status: 'blocked', message, detail: selectedPath || 'Unsupported file' })
+      setNotice(message)
+      return
+    }
+    if (!selectedLintRulesEnabled) {
+      const message = 'No active lint rules for this file type.'
+      setLintRunState({ status: 'blocked', message, detail: 'Enable a matching lint rule below.' })
+      setNotice(message)
+      return
+    }
+
+    const lintFilePath = selectedPath
+    const lintText = draftText
+    const lintSettingsSnapshot = lintSettings
+    setLintRunState({ status: 'running', message: 'Running lint...', detail: lintFilePath })
+    window.requestAnimationFrame(() => {
+      const nextDiagnostics = validateEditorText(lintFilePath, lintText, lintSettingsSnapshot)
+      setDiagnostics(nextDiagnostics)
+      setLintRunState(lintStateFromDiagnostics(nextDiagnostics, lintFilePath, 'Manual'))
+      setNotice(nextDiagnostics.length > 0
+        ? `Lint found ${nextDiagnostics.length} issue${nextDiagnostics.length === 1 ? '' : 's'}.`
+        : 'Lint passed. No issues found.')
+      if (focusFirst && nextDiagnostics[0]) {
+        focusEditorPosition(nextDiagnostics[0].lineNumber, nextDiagnostics[0].column - 1, 1)
+      }
+    })
   }
 
   const activateSearchMatch = (index: number) => {
@@ -2040,22 +2512,25 @@ export function ChangesInternalEditor({
     })
   }
 
-  const loadChunkedTextPage = async (direction: 'next' | 'previous') => {
+  const loadChunkedTextPage = async (direction: 'next' | 'previous', scrollPlacement: 'start' | 'end' = 'start') => {
     const current = chunkedTextPreview
     if (!api || !currentRepoPath || !selectedPath || !current || current.loading || chunkPageRequestRef.current) return
 
-    const previous = [...current.previous]
-    let offset = current.endOffset
-    let startLine = current.startLine + lineBreakCount(current.text)
-    let nextPrevious = [...previous, { offset: current.startOffset, lineNumber: current.startLine }]
+    const markers = [...current.markers]
+    let targetIndex = direction === 'previous' ? current.pageIndex - 1 : current.pageIndex + 1
 
-    if (direction === 'previous') {
-      const marker = previous.pop()
-      if (!marker) return
-      offset = marker.offset
-      startLine = marker.lineNumber
-      nextPrevious = previous
-    } else if (!current.hasMore) {
+    if (direction === 'previous' && targetIndex < 0) return
+    if (direction === 'next' && targetIndex >= markers.length) {
+      if (!current.hasMore) return
+      markers.push({
+        offset: current.endOffset,
+        lineNumber: current.startLine + lineBreakCount(current.text)
+      })
+      targetIndex = markers.length - 1
+    }
+
+    const marker = markers[targetIndex]
+    if (!marker) {
       return
     }
 
@@ -2066,7 +2541,7 @@ export function ChangesInternalEditor({
       const result = await api.getRepositoryFileChunk({
         repoPath: currentRepoPath,
         filePath: selectedPath,
-        offset,
+        offset: marker.offset,
         maxBytes: EDITOR_FILE_CHUNK_BYTES
       })
       if (!result.ok) {
@@ -2085,17 +2560,25 @@ export function ChangesInternalEditor({
       }
 
       setChunkedTextPreview(chunkedTextPreviewFromResult(result.data, {
-        startLine,
-        previous: nextPrevious
+        startLine: marker.lineNumber,
+        markers,
+        pageIndex: targetIndex
       }))
       setOriginalText(result.data.text)
       setDraftText(result.data.text)
-      setEditorScrollTop(0)
-      if (textareaRef.current) {
-        textareaRef.current.scrollTop = 0
-        textareaRef.current.scrollLeft = 0
-      }
-      window.requestAnimationFrame(() => syncEditorOverlays(0, 0))
+      suppressAutoChunkUntilRef.current = window.performance.now() + 250
+      window.requestAnimationFrame(() => {
+        const textarea = textareaRef.current
+        if (!textarea) return
+        const nextScrollTop = scrollPlacement === 'end'
+          ? Math.max(0, textarea.scrollHeight - textarea.clientHeight - EDITOR_LINE_HEIGHT * 2)
+          : 0
+        textarea.scrollTop = nextScrollTop
+        textarea.scrollLeft = 0
+        lastEditorScrollTopRef.current = nextScrollTop
+        setEditorScrollTop(nextScrollTop)
+        syncEditorOverlays(0, nextScrollTop, textarea.clientHeight)
+      })
     } catch (error) {
       const message = friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load file chunk.')
       setChunkedTextPreview((latest) => latest ? { ...latest, loading: false, error: message } : latest)
@@ -2126,10 +2609,14 @@ export function ChangesInternalEditor({
               {formatBytes(chunkedTextPreview.startOffset)}-{formatBytes(chunkedTextPreview.endOffset)} of {formatBytes(chunkedTextPreview.byteSize)}
             </span>
             {chunkedTextPreview.error && <em>{chunkedTextPreview.error}</em>}
-            <button type="button" onClick={() => void loadChunkedTextPage('previous')} disabled={chunkedTextPreview.loading || chunkedTextPreview.previous.length === 0}>
+            <button type="button" onClick={() => void loadChunkedTextPage('previous')} disabled={chunkedTextPreview.loading || chunkedTextPreview.pageIndex === 0}>
               Previous chunk
             </button>
-            <button type="button" onClick={() => void loadChunkedTextPage('next')} disabled={chunkedTextPreview.loading || !chunkedTextPreview.hasMore}>
+            <button
+              type="button"
+              onClick={() => void loadChunkedTextPage('next')}
+              disabled={chunkedTextPreview.loading || (!chunkedTextPreview.hasMore && chunkedTextPreview.pageIndex >= chunkedTextPreview.markers.length - 1)}
+            >
               {chunkedTextPreview.loading ? 'Loading...' : 'Next chunk'}
             </button>
           </div>
@@ -2181,9 +2668,9 @@ export function ChangesInternalEditor({
           spellCheck={false}
           wrap="off"
           value={activeEditorText}
-          onChange={(event) => {
-            if (!chunkedReadOnly) setDraftText(event.target.value)
-          }}
+          onBeforeInput={capturePendingEditorHistory}
+          onChange={handleEditorTextChange}
+          onKeyDown={handleEditorTextKeyDown}
           onScroll={syncHighlightScroll}
           readOnly={chunkedReadOnly}
           disabled={fileLoading}
@@ -2258,6 +2745,229 @@ export function ChangesInternalEditor({
     </div>
   )
 
+  const loadHexChunk = async (requestedOffset: number, selectOffset = requestedOffset) => {
+    if (!api || !currentRepoPath || !selectedPath) return
+
+    const knownMaxOffset = hexBytes ? Math.max(0, hexBytes.byteSize - 1) : Number.POSITIVE_INFINITY
+    const safeOffset = Number.isFinite(requestedOffset)
+      ? alignHexOffset(clamp(Math.floor(requestedOffset), 0, knownMaxOffset))
+      : 0
+    const requestId = hexChunkRequestRef.current + 1
+    hexChunkRequestRef.current = requestId
+    setHexLoading(true)
+    setHexError(null)
+
+    try {
+      const result = await api.getRepositoryFileChunk({
+        repoPath: currentRepoPath,
+        filePath: selectedPath,
+        offset: safeOffset,
+        maxBytes: HEX_CHUNK_BYTES,
+        mode: 'bytes'
+      })
+      if (hexChunkRequestRef.current !== requestId) return
+      setHexLoading(false)
+      if (!result.ok) {
+        setHexBytes(null)
+        setHexOriginalText('')
+        setHexDraftText('')
+        setHexError(friendlyIpcErrorMessage(result.error.message, 'Failed to load hex bytes.'))
+        return
+      }
+
+      const bytes = bytesFromBase64(result.data.base64 ?? '')
+      const hexText = bytesToHexText(bytes)
+      const nextStart = result.data.startOffset
+      const nextEnd = result.data.endOffset
+      const fullFileLoaded = nextStart === 0 && nextEnd >= result.data.byteSize
+      const selectedOffset = bytes.length > 0
+        ? clamp(selectOffset, nextStart, Math.max(nextStart, nextEnd - 1))
+        : nextStart
+
+      setHexBytes({
+        filePath: result.data.filePath,
+        byteSize: result.data.byteSize,
+        startOffset: nextStart,
+        endOffset: nextEnd,
+        hasMore: result.data.hasMore,
+        fullFileLoaded
+      })
+      setHexOriginalText(hexText)
+      setHexDraftText(hexText)
+      setActiveHexByteIndex(selectedOffset)
+      setHexByteDraft(bytes.length > 0 ? byteToHex(bytes[selectedOffset - nextStart]) : '')
+      setHexOffsetDraft(bytes.length > 0 ? offsetToHex(selectedOffset) : '')
+      setActiveHexSearchIndex(-1)
+    } catch (error) {
+      if (hexChunkRequestRef.current !== requestId) return
+      setHexLoading(false)
+      setHexBytes(null)
+      setHexOriginalText('')
+      setHexDraftText('')
+      setHexError(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load hex bytes.'))
+    }
+  }
+
+  const goToHexOffset = () => {
+    const offset = parseHexOffsetDraft(hexOffsetDraft)
+    if (offset === null) {
+      setNotice('Offset must be decimal, hex, or 0x-prefixed hex.')
+      return
+    }
+
+    const safeOffset = hexBytes ? clamp(offset, 0, Math.max(0, hexBytes.byteSize - 1)) : offset
+    if (safeOffset >= hexStartOffset && safeOffset < hexEndOffset) {
+      selectHexByte(safeOffset)
+      return
+    }
+
+    void loadHexChunk(safeOffset, safeOffset)
+  }
+
+  const jumpHexChunk = (direction: 'previous' | 'next') => {
+    if (!hexBytes) return
+    const offset = direction === 'previous'
+      ? Math.max(0, hexBytes.startOffset - HEX_CHUNK_BYTES)
+      : hexBytes.endOffset
+    void loadHexChunk(offset, offset)
+  }
+
+  function selectHexByte(index: number) {
+    const bytes = parsedHexDraft.bytes
+    if (!bytes || bytes.length === 0) return
+
+    const nextIndex = clamp(index, hexStartOffset, Math.max(hexStartOffset, hexEndOffset - 1))
+    setActiveHexByteIndex(nextIndex)
+    setHexByteDraft(byteToHex(bytes[nextIndex - hexStartOffset]))
+    setHexOffsetDraft(offsetToHex(nextIndex))
+  }
+
+  const updateHexByteAt = (index: number, value: number) => {
+    const bytes = parsedHexDraft.bytes
+    if (!hexFullFileLoaded || !bytes) return
+    const localIndex = index - hexStartOffset
+    if (localIndex < 0 || localIndex >= bytes.length) return
+
+    const nextBytes = new Uint8Array(bytes)
+    nextBytes[localIndex] = value
+    setHexDraftText(bytesToHexText(nextBytes))
+  }
+
+  const commitHexByteDraft = (index: number, rawDraft: string): boolean => {
+    const normalized = normalizeHexByteDraft(rawDraft)
+    const currentByte = parsedHexDraft.bytes?.[index - hexStartOffset]
+    if (!hexFullFileLoaded || !normalized) {
+      if (currentByte !== undefined) setHexByteDraft(byteToHex(currentByte))
+      return false
+    }
+
+    const value = Number.parseInt(normalized.padStart(2, '0'), 16)
+    updateHexByteAt(index, value)
+    setHexByteDraft(byteToHex(value))
+    return true
+  }
+
+  const updateHexByteDraft = (index: number, rawDraft: string) => {
+    const normalized = normalizeHexByteDraft(rawDraft)
+    setHexByteDraft(normalized)
+
+    if (!hexFullFileLoaded || normalized.length !== 2) return
+
+    const value = Number.parseInt(normalized, 16)
+    updateHexByteAt(index, value)
+    const bytes = parsedHexDraft.bytes
+    if (!bytes) return
+
+    if (hexFullFileLoaded && index < hexEndOffset - 1) {
+      setActiveHexByteIndex(index + 1)
+    } else {
+      setHexByteDraft(byteToHex(value))
+    }
+  }
+
+  const moveHexSelection = (event: ReactKeyboardEvent<HTMLInputElement>, fromIndex: number, toIndex: number) => {
+    event.preventDefault()
+    commitHexByteDraft(fromIndex, event.currentTarget.value)
+    selectHexByte(toIndex)
+  }
+
+  const handleHexByteInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>, index: number) => {
+    if (event.key === 'ArrowRight') {
+      moveHexSelection(event, index, index + 1)
+      return
+    }
+    if (event.key === 'ArrowLeft') {
+      moveHexSelection(event, index, index - 1)
+      return
+    }
+    if (event.key === 'ArrowDown') {
+      moveHexSelection(event, index, index + HEX_BYTES_PER_ROW)
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      moveHexSelection(event, index, index - HEX_BYTES_PER_ROW)
+      return
+    }
+    if (event.key === 'Home') {
+      moveHexSelection(event, index, Math.floor(index / HEX_BYTES_PER_ROW) * HEX_BYTES_PER_ROW)
+      return
+    }
+    if (event.key === 'End') {
+      moveHexSelection(event, index, Math.floor(index / HEX_BYTES_PER_ROW) * HEX_BYTES_PER_ROW + HEX_BYTES_PER_ROW - 1)
+      return
+    }
+    if (event.key === 'PageDown') {
+      moveHexSelection(event, index, index + HEX_BYTES_PER_ROW * 16)
+      return
+    }
+    if (event.key === 'PageUp') {
+      moveHexSelection(event, index, index - HEX_BYTES_PER_ROW * 16)
+      return
+    }
+    if (event.key === 'Enter') {
+      moveHexSelection(event, index, index + 1)
+      return
+    }
+    if (event.key === 'Tab') {
+      moveHexSelection(event, index, index + (event.shiftKey ? -1 : 1))
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      const byte = parsedHexDraft.bytes?.[index - hexStartOffset]
+      if (byte !== undefined) {
+        setHexByteDraft(byteToHex(byte))
+        event.currentTarget.select()
+      }
+    }
+  }
+
+  const hexByteChanged = (index: number, byte: number): boolean => {
+    const originalBytes = parsedHexOriginal.bytes
+    if (!hexFullFileLoaded || !originalBytes) return false
+    const localIndex = index - hexStartOffset
+    return localIndex >= 0 && originalBytes[localIndex] !== byte
+  }
+
+  const hexDraftTextForSave = (): string => {
+    if (!hexFullFileLoaded || !activeHexByteDraftDirty || activeHexByteDraftValue === null || !parsedHexDraft.bytes) return hexDraftText
+    const localIndex = activeHexByteIndex - hexStartOffset
+    if (localIndex < 0 || localIndex >= parsedHexDraft.bytes.length) return hexDraftText
+
+    const nextBytes = new Uint8Array(parsedHexDraft.bytes)
+    nextBytes[localIndex] = activeHexByteDraftValue
+    return bytesToHexText(nextBytes)
+  }
+
+  const goToHexSearchMatch = (direction: 'previous' | 'next') => {
+    if (hexSearchMatches.length === 0) return
+    const nextIndex = direction === 'previous'
+      ? (activeHexSearchIndex <= 0 ? hexSearchMatches.length - 1 : activeHexSearchIndex - 1)
+      : (activeHexSearchIndex < 0 || activeHexSearchIndex >= hexSearchMatches.length - 1 ? 0 : activeHexSearchIndex + 1)
+    setActiveHexSearchIndex(nextIndex)
+    selectHexByte(hexSearchMatches[nextIndex].offset)
+  }
+
   const renderHexEditor = () => {
     if (hexLoading && !hexBytes) {
       return (
@@ -2279,57 +2989,210 @@ export function ChangesInternalEditor({
       )
     }
 
-    if (hexBytes?.tooLarge) {
-      return (
-        <div className="changes-editor-mode-message danger-text">
-          <FileCode2 size={28} />
-          <strong>Binary file is too large</strong>
-          <span>{formatBytes(hexBytes.byteSize)} exceeds the {formatBytes(hexBytes.maxBytes)} hex editor limit.</span>
-        </div>
-      )
-    }
-
     return (
       <div className="changes-editor-hex-shell">
         <div className="changes-editor-hex-meta">
-          <strong>{hexBytes ? `${formatBytes(hexBytes.byteSize)} loaded` : 'Hex bytes not loaded yet'}</strong>
-          <span>edit byte pairs, spaces and new lines are ignored</span>
-          {parsedHexDraft.bytes && <em>{parsedHexDraft.bytes.length} bytes in draft</em>}
+          <strong>
+            {hexBytes
+              ? `${formatBytes(hexBytes.startOffset)}-${formatBytes(hexBytes.endOffset)} of ${formatBytes(hexBytes.byteSize)}`
+              : 'Hex bytes not loaded yet'}
+          </strong>
+          {activeHexByte === null ? (
+            <span>No byte selected</span>
+          ) : (
+            <span className="changes-editor-hex-selection">
+              <b>Offset</b>
+              <code>{offsetToHex(activeHexByteIndex)}</code>
+              <b>Hex</b>
+              <code>{byteToHex(activeHexByte)}</code>
+              <b>Dec</b>
+              <code>{activeHexByte}</code>
+              <b>ASCII</b>
+              <code>{activeHexAscii}</code>
+            </span>
+          )}
+          {parsedHexDraft.bytes && (
+            <em>{hexFullFileLoaded ? `${parsedHexDraft.bytes.length} bytes in draft` : 'read-only chunk'}</em>
+          )}
+        </div>
+        <div className="changes-editor-hex-controls">
+          <button
+            type="button"
+            onClick={() => jumpHexChunk('previous')}
+            disabled={hexLoading || !hexBytes || hexBytes.startOffset <= 0}
+          >
+            Previous chunk
+          </button>
+          <button
+            type="button"
+            onClick={() => jumpHexChunk('next')}
+            disabled={hexLoading || !hexBytes || !hexBytes.hasMore}
+          >
+            Next chunk
+          </button>
+          <label>
+            <span>Offset</span>
+            <input
+              value={hexOffsetDraft}
+              placeholder="00000000"
+              spellCheck={false}
+              onChange={(event) => setHexOffsetDraft(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  goToHexOffset()
+                }
+              }}
+            />
+          </label>
+          <button type="button" onClick={goToHexOffset} disabled={hexLoading || !hexBytes}>
+            Go
+          </button>
+          <label className="changes-editor-hex-search">
+            <Search size={14} />
+            <input
+              value={hexSearchQuery}
+              placeholder="Search hex / ASCII"
+              spellCheck={false}
+              onChange={(event) => {
+                setHexSearchQuery(event.currentTarget.value)
+                setActiveHexSearchIndex(-1)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  goToHexSearchMatch(event.shiftKey ? 'previous' : 'next')
+                }
+              }}
+            />
+            <small>
+              {hexSearchQuery.trim()
+                ? `${activeHexSearchIndex >= 0 ? activeHexSearchIndex + 1 : 0}/${hexSearchMatches.length}${hexSearchMatches.length >= HEX_SEARCH_MATCH_LIMIT ? '+' : ''}`
+                : '0/0'}
+            </small>
+          </label>
+          <button type="button" onClick={() => goToHexSearchMatch('previous')} disabled={hexSearchMatches.length === 0}>
+            Prev
+          </button>
+          <button type="button" onClick={() => goToHexSearchMatch('next')} disabled={hexSearchMatches.length === 0}>
+            Next
+          </button>
         </div>
         {parsedHexDraft.error && (
           <div className="changes-editor-hex-error">{parsedHexDraft.error}</div>
         )}
-        <div className="changes-editor-hex-grid">
-          <section className="changes-editor-hex-input">
-            <header>
-              <strong>Editable HEX bytes</strong>
-              <span>Paste or edit byte pairs here</span>
-            </header>
-            <textarea
-              value={hexDraftText}
-              onChange={(event) => setHexDraftText(event.target.value)}
-              spellCheck={false}
-              aria-label="Editable hex bytes"
-              placeholder="00 01 02 ff"
-            />
-          </section>
-          <section className="changes-editor-hex-preview" aria-label="Decoded hex preview">
-            <header>
-              <span>offset</span>
-              <span>hex preview</span>
-              <span>ascii preview</span>
-            </header>
-            {hexPreviewRows.map((row) => (
-              <div className="changes-editor-hex-row" key={row.offset}>
-                <code>{row.offset}</code>
-                <code>{row.hex}</code>
-                <code>{row.ascii}</code>
-              </div>
-            ))}
-            {parsedHexDraft.bytes && hexPreviewRows.length * 16 < parsedHexDraft.bytes.length && (
-              <p>{parsedHexDraft.bytes.length - hexPreviewRows.length * 16} more bytes hidden for preview performance.</p>
-            )}
-          </section>
+        <div className="changes-editor-hex-table">
+          <header>
+            <span>offset</span>
+            <span>hex bytes</span>
+            <span>ascii</span>
+          </header>
+          <div className="changes-editor-hex-table-body">
+            {hexPreviewRows.length === 0 ? (
+              <div className="changes-editor-hex-empty">Empty file</div>
+            ) : hexPreviewRows.map((row) => {
+              const activeRow = row.offset === activeHexRowOffset && activeHexByteIndex < row.offset + row.bytes.length
+              return (
+                <div
+                  className={['changes-editor-hex-row', activeRow ? 'active' : ''].filter(Boolean).join(' ')}
+                  key={row.offset}
+                >
+                  <button
+                    type="button"
+                    className="changes-editor-hex-offset"
+                    onClick={() => selectHexByte(row.offset)}
+                    aria-label={`Select row at offset ${row.offset.toString(16).padStart(8, '0')}`}
+                  >
+                    {row.offset.toString(16).padStart(8, '0')}
+                  </button>
+                  <div className="changes-editor-hex-byte-grid" role="row">
+                    {Array.from({ length: HEX_BYTES_PER_ROW }, (_, column) => {
+                      const byte = row.bytes[column]
+                      const byteIndex = row.offset + column
+                      if (byte === undefined) {
+                        return <span className="changes-editor-hex-byte-cell empty" key={column} aria-hidden="true" />
+                      }
+
+                      const active = byteIndex === activeHexByteIndex
+                      const changed = hexByteChanged(byteIndex, byte)
+                      const matched = hexByteInMatch(byteIndex, hexSearchMatches)
+                      const className = [
+                        'changes-editor-hex-byte-cell',
+                        active ? 'active' : '',
+                        matched ? 'search-match' : '',
+                        changed ? 'changed' : ''
+                      ].filter(Boolean).join(' ')
+
+                      if (active && hexFullFileLoaded) {
+                        return (
+                          <input
+                            className={className}
+                            key={column}
+                            value={hexByteDraft}
+                            maxLength={2}
+                            autoFocus
+                            spellCheck={false}
+                            aria-label={`Byte ${byteIndex.toString(16).padStart(8, '0')} hex value`}
+                            onChange={(event) => updateHexByteDraft(byteIndex, event.currentTarget.value)}
+                            onBlur={(event) => commitHexByteDraft(byteIndex, event.currentTarget.value)}
+                            onFocus={(event) => event.currentTarget.select()}
+                            onKeyDown={(event) => handleHexByteInputKeyDown(event, byteIndex)}
+                          />
+                        )
+                      }
+
+                      return (
+                        <button
+                          type="button"
+                          className={className}
+                          key={column}
+                          onClick={() => selectHexByte(byteIndex)}
+                          aria-label={`Select byte ${byteIndex.toString(16).padStart(8, '0')}`}
+                        >
+                          {byteToHex(byte)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="changes-editor-hex-ascii-grid" aria-label={`ASCII row ${row.offset.toString(16).padStart(8, '0')}`}>
+                    {Array.from({ length: HEX_BYTES_PER_ROW }, (_, column) => {
+                      const byte = row.bytes[column]
+                      const byteIndex = row.offset + column
+                      if (byte === undefined) {
+                        return <span className="changes-editor-hex-ascii-cell empty" key={column} aria-hidden="true" />
+                      }
+
+                      const active = byteIndex === activeHexByteIndex
+                      const changed = hexByteChanged(byteIndex, byte)
+                      const matched = hexByteInMatch(byteIndex, hexSearchMatches)
+                      return (
+                        <button
+                          type="button"
+                          className={[
+                            'changes-editor-hex-ascii-cell',
+                            active ? 'active' : '',
+                            matched ? 'search-match' : '',
+                            changed ? 'changed' : ''
+                          ].filter(Boolean).join(' ')}
+                          key={column}
+                          onClick={() => selectHexByte(byteIndex)}
+                          aria-label={`Select ASCII byte ${byteIndex.toString(16).padStart(8, '0')}`}
+                        >
+                          {asciiFromByte(byte)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {hexBytes && !hexFullFileLoaded && (
+            <p>
+              Viewing {formatBytes(hexBytes.startOffset)}-{formatBytes(hexBytes.endOffset)} of {formatBytes(hexBytes.byteSize)}.
+              Jump by offset or load adjacent chunks.
+            </p>
+          )}
         </div>
       </div>
     )
@@ -2694,6 +3557,7 @@ export function ChangesInternalEditor({
 
   useEffect(() => {
     chunkPageRequestRef.current = false
+    clearEditorTextHistory()
     setViewMode(defaultViewModeForPath(selectedPath))
     setImagePreview(null)
     setImagePreviewError(null)
@@ -2703,13 +3567,25 @@ export function ChangesInternalEditor({
     setHexLoading(false)
     setHexOriginalText('')
     setHexDraftText('')
+    setActiveHexByteIndex(0)
+    setHexByteDraft('')
+    setHexOffsetDraft('')
+    setHexSearchQuery('')
+    setActiveHexSearchIndex(-1)
     setChunkedTextPreview(null)
     setTextUnavailableMessage(null)
     setCollapsedJsonPaths(new Set())
     setJsonEdit(null)
     setDiagnostics([])
+    setLintRunState({
+      status: 'idle',
+      message: 'Lint has not run yet.',
+      detail: selectedPath ? 'Waiting for file content.' : 'Select a file.'
+    })
     setEditorScrollTop(0)
     setEditorViewportHeight(0)
+    lastEditorScrollTopRef.current = 0
+    suppressAutoChunkUntilRef.current = 0
     if (textareaRef.current) {
       textareaRef.current.scrollTop = 0
       textareaRef.current.scrollLeft = 0
@@ -2718,13 +3594,55 @@ export function ChangesInternalEditor({
   }, [selectedPath])
 
   useEffect(() => {
-    if (!lintSettings.autoValidate || lintBlocked || !selectedLintSupported) {
+    if (!selectedPath) return
+
+    const frame = window.requestAnimationFrame(() => {
+      const row = selectedFileRowRef.current
+      const list = row?.closest('.changes-editor-file-list') as HTMLElement | null
+      if (!row || !list) return
+
+      const rowRect = row.getBoundingClientRect()
+      const listRect = list.getBoundingClientRect()
+      const rowOutsideViewport = rowRect.top < listRect.top || rowRect.bottom > listRect.bottom
+      if (rowOutsideViewport) row.scrollIntoView({ block: 'center' })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [selectedPath, fileQuery, visibleFiles.length])
+
+  useEffect(() => {
+    if (lintBlocked || !selectedLintSupported) {
       setDiagnostics([])
+      setLintRunState({
+        status: 'idle',
+        message: selectedPath ? 'Lint is unavailable here.' : 'Select a file before running lint.',
+        detail: selectedPath || 'No file selected'
+      })
+      return
+    }
+    if (!selectedLintRulesEnabled) {
+      setDiagnostics([])
+      setLintRunState({
+        status: 'blocked',
+        message: 'No active lint rules for this file type.',
+        detail: 'Enable a matching lint rule below.'
+      })
+      return
+    }
+    if (!lintSettings.autoValidate) {
+      setDiagnostics([])
+      setLintRunState({
+        status: 'idle',
+        message: 'Auto validate is off.',
+        detail: 'Run lint now to check the current draft.'
+      })
       return
     }
 
     const handle = window.setTimeout(() => {
-      setDiagnostics(validateEditorText(selectedPath, draftText, lintSettings))
+      const nextDiagnostics = validateEditorText(selectedPath, draftText, lintSettings)
+      setDiagnostics(nextDiagnostics)
+      setLintRunState(lintStateFromDiagnostics(nextDiagnostics, selectedPath, 'Auto'))
     }, 160)
 
     return () => window.clearTimeout(handle)
@@ -2732,6 +3650,7 @@ export function ChangesInternalEditor({
     draftText,
     lintBlocked,
     lintSettings,
+    selectedLintRulesEnabled,
     selectedLintSupported,
     selectedPath
   ])
@@ -2787,38 +3706,7 @@ export function ChangesInternalEditor({
     if (!api || !currentRepoPath || !selectedPath) return
     if (viewMode !== 'hex' && !textUnavailableMessage) return
 
-    let cancelled = false
-    setHexLoading(true)
-    setHexError(null)
-    void api.getRepositoryFileBytes({ repoPath: currentRepoPath, filePath: selectedPath })
-      .then((result) => {
-        if (cancelled) return
-        setHexLoading(false)
-        if (!result.ok) {
-          setHexBytes(null)
-          setHexError(friendlyIpcErrorMessage(result.error.message, 'Failed to load hex bytes.'))
-          return
-        }
-        setHexBytes(result.data)
-        if (result.data.tooLarge) {
-          setHexOriginalText('')
-          setHexDraftText('')
-          return
-        }
-        const hexText = bytesToHexText(bytesFromBase64(result.data.base64))
-        setHexOriginalText(hexText)
-        setHexDraftText(hexText)
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setHexLoading(false)
-        setHexBytes(null)
-        setHexError(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load hex bytes.'))
-      })
-
-    return () => {
-      cancelled = true
-    }
+    void loadHexChunk(0, 0)
   }, [api, currentRepoPath, selectedPath, textUnavailableMessage, viewMode])
 
   useEffect(() => {
@@ -2832,9 +3720,33 @@ export function ChangesInternalEditor({
   }, [activeSearchIndex, fileSearchMatches.length])
 
   useEffect(() => {
+    if (activeHexSearchIndex >= hexSearchMatches.length && hexSearchMatches.length > 0) {
+      setActiveHexSearchIndex(Math.max(0, hexSearchMatches.length - 1))
+    }
+  }, [activeHexSearchIndex, hexSearchMatches.length])
+
+  useEffect(() => {
+    const bytes = parsedHexDraft.bytes
+    if (!bytes || bytes.length === 0) {
+      if (activeHexByteIndex !== hexStartOffset) setActiveHexByteIndex(hexStartOffset)
+      setHexByteDraft((current) => current ? '' : current)
+      return
+    }
+
+    const nextIndex = clamp(activeHexByteIndex, hexStartOffset, Math.max(hexStartOffset, hexEndOffset - 1))
+    if (nextIndex !== activeHexByteIndex) {
+      setActiveHexByteIndex(nextIndex)
+      return
+    }
+
+    const nextDraft = byteToHex(bytes[nextIndex - hexStartOffset])
+    setHexByteDraft((current) => current === nextDraft ? current : nextDraft)
+  }, [activeHexByteIndex, hexEndOffset, hexStartOffset, parsedHexDraft.bytes])
+
+  useEffect(() => {
     if (fileLoading || fileError) return
 
-    let frame = window.requestAnimationFrame(() => {
+    const frame = window.requestAnimationFrame(() => {
       const textarea = textareaRef.current
       if (!textarea) return
 
@@ -2935,12 +3847,14 @@ export function ChangesInternalEditor({
         if (result.data.hasMore) {
           const preview = chunkedTextPreviewFromResult(result.data, {
             startLine: 1,
-            previous: []
+            markers: [{ offset: result.data.startOffset, lineNumber: 1 }],
+            pageIndex: 0
           })
           setChunkedTextPreview(preview)
           setOriginalText(result.data.text)
           setDraftText(result.data.text)
           setViewMode('code')
+          lastEditorScrollTopRef.current = 0
           return
         }
         setChunkedTextPreview(null)
@@ -3087,8 +4001,12 @@ export function ChangesInternalEditor({
     if (!api || !currentRepoPath || !selectedPath || textSaveBlocked || !dirty || fileError) return
     setSaving(true)
     try {
-      if (hexDirty || viewMode === 'hex') {
-        const parsed = parseHexText(hexDraftText)
+      if (hexDirty) {
+        if (!hexFullFileLoaded) {
+          setNotice('Chunked hex preview is read-only. Load a small file fully before saving byte edits.')
+          return
+        }
+        const parsed = parseHexText(hexDraftTextForSave())
         if (!parsed.bytes || parsed.error) {
           setNotice(parsed.error || 'Hex byte stream is invalid.')
           return
@@ -3103,11 +4021,14 @@ export function ChangesInternalEditor({
           const nextHexText = bytesToHexText(bytes)
           setHexOriginalText(nextHexText)
           setHexDraftText(nextHexText)
+          setActiveHexByteIndex((current) => clamp(current, hexStartOffset, Math.max(hexStartOffset, hexStartOffset + bytes.length - 1)))
           setHexBytes((current) => current ? {
             ...current,
-            base64: base64FromBytes(bytes),
             byteSize: bytes.length,
-            tooLarge: false
+            startOffset: 0,
+            endOffset: bytes.length,
+            hasMore: false,
+            fullFileLoaded: true
           } : current)
         }
         return
@@ -3198,17 +4119,37 @@ export function ChangesInternalEditor({
   }
 
   const revertLiveChange = (change: LiveLineChange) => {
-    const nextLine = change.kind === 'added' ? null : change.before
-    setDraftText((current) => updateLineInText(current, change.lineNumber, nextLine))
+    const snapshot = editorTextSnapshot()
+    const nextText = revertLiveChangeInText(snapshot.text, change)
+    if (nextText === snapshot.text) return
+
+    pushEditorUndoEntry(snapshot)
+    setDraftText(nextText)
     setJsonEdit(null)
   }
 
   const syncHighlightScroll = (event: ReactUIEvent<HTMLTextAreaElement>) => {
-    updateEditorLineWindowState(event.currentTarget.scrollTop, event.currentTarget.clientHeight)
-    syncEditorOverlays(event.currentTarget.scrollLeft, event.currentTarget.scrollTop, event.currentTarget.clientHeight)
-    const remainingScroll = event.currentTarget.scrollHeight - event.currentTarget.scrollTop - event.currentTarget.clientHeight
-    if (chunkedTextPreview?.hasMore && !chunkedTextPreview.loading && remainingScroll < 64) {
+    const nextScrollTop = event.currentTarget.scrollTop
+    const scrollingDown = nextScrollTop > lastEditorScrollTopRef.current
+    const scrollingUp = nextScrollTop < lastEditorScrollTopRef.current
+    lastEditorScrollTopRef.current = nextScrollTop
+
+    updateEditorLineWindowState(nextScrollTop, event.currentTarget.clientHeight)
+    syncEditorOverlays(event.currentTarget.scrollLeft, nextScrollTop, event.currentTarget.clientHeight)
+    const remainingScroll = event.currentTarget.scrollHeight - nextScrollTop - event.currentTarget.clientHeight
+    const canAutoLoadChunk = Boolean(
+      chunkedTextPreview &&
+      !chunkedTextPreview.loading &&
+      window.performance.now() >= suppressAutoChunkUntilRef.current
+    )
+
+    if (canAutoLoadChunk && scrollingDown && chunkedTextPreview?.hasMore && remainingScroll < 64) {
       void loadChunkedTextPage('next')
+      return
+    }
+
+    if (canAutoLoadChunk && scrollingUp && chunkedTextPreview && chunkedTextPreview.pageIndex > 0 && nextScrollTop < 64) {
+      void loadChunkedTextPage('previous', 'end')
     }
   }
 
@@ -3267,6 +4208,8 @@ export function ChangesInternalEditor({
               </span>
               {hexDirty
                 ? `${parsedHexDraft.bytes?.length ?? 0} edited byte${parsedHexDraft.bytes?.length === 1 ? '' : 's'} since load`
+                : viewMode === 'hex' && hexBytes && !hexFullFileLoaded
+                  ? `Read-only hex chunk ${formatBytes(hexBytes.startOffset)}-${formatBytes(hexBytes.endOffset)} of ${formatBytes(hexBytes.byteSize)}`
                 : chunkedTextPreview
                   ? `Read-only chunk ${formatBytes(chunkedTextPreview.startOffset)}-${formatBytes(chunkedTextPreview.endOffset)} of ${formatBytes(chunkedTextPreview.byteSize)}`
                 : textUnavailableMessage ? textUnavailableMessage : textDirty ? `${editedLines} edited line${editedLines === 1 ? '' : 's'} since load` : 'No edits since load'}
@@ -3300,7 +4243,7 @@ export function ChangesInternalEditor({
                 <ChevronDown size={14} />
               </button>
             </label>
-            <details className={['changes-editor-lint-menu', diagnostics.length > 0 ? 'has-issues' : '', (!selectedLintSupported || lintBlocked) ? 'disabled' : ''].filter(Boolean).join(' ')}>
+            <details className={lintMenuClassName}>
               <summary
                 title={selectedLintSupported ? 'Lint current file' : 'Lint supports JSON, JSONC, JS, TS, JSX, and TSX files'}
                 onClick={(event) => {
@@ -3309,7 +4252,7 @@ export function ChangesInternalEditor({
               >
                 <Code2 size={15} />
                 Lint
-                {diagnostics.length > 0 && <span>{diagnostics.length}</span>}
+                {lintBadgeLabel && <span>{lintBadgeLabel}</span>}
               </summary>
               <div className="changes-editor-lint-popover">
                 <button
@@ -3318,10 +4261,14 @@ export function ChangesInternalEditor({
                     event.preventDefault()
                     runLint(true)
                   }}
-                  disabled={!selectedLintSupported || lintBlocked}
+                  disabled={!selectedLintSupported || lintBlocked || lintRunState.status === 'running'}
                 >
-                  Run lint now
+                  {lintRunState.status === 'running' ? 'Running lint...' : 'Run lint now'}
                 </button>
+                <div className={`changes-editor-lint-status ${lintRunState.status}`} aria-live="polite">
+                  <strong>{lintRunState.message}</strong>
+                  <span>{lintRunState.detail}</span>
+                </div>
                 <label>
                   <input
                     type="checkbox"
@@ -3439,8 +4386,8 @@ export function ChangesInternalEditor({
                   <span>{editedLines}</span>
                 </header>
                 <div>
-                  {liveChanges.slice(0, 120).map((change) => (
-                    <article className={`changes-editor-live-row ${change.kind}`} key={`${change.lineNumber}-${change.kind}`}>
+                  {liveChanges.slice(0, 120).map((change, index) => (
+                    <article className={`changes-editor-live-row ${change.kind}`} key={`${index}-${change.lineNumber}-${change.kind}`}>
                       <span>{change.lineNumber}</span>
                       <code>{highlight(change.after || change.before || ' ', selectedLang)}</code>
                       <button

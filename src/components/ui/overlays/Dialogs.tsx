@@ -1,0 +1,5 @@
+export { ConfirmationDialog } from './branch-dialogs/ConfirmationDialog'
+export { CreateBranchDialog } from './branch-dialogs/CreateBranchDialog'
+export { MergeBranchDialog } from './branch-dialogs/MergeBranchDialog'
+export { SwitchBranchDialog } from './branch-dialogs/SwitchBranchDialog'
+export { TextPromptDialog } from './branch-dialogs/TextPromptDialog'
