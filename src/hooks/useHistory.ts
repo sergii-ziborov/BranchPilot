@@ -7,7 +7,8 @@ import { useVirtualList } from './useVirtualList'
 
 type HistorySearchMode = 'commit' | 'files' | 'changes' | 'all'
 
-const HISTORY_SEARCH_INDEX_LIMIT = 200
+const HISTORY_SEARCH_INDEX_LIMIT = 500
+const HISTORY_SEARCH_INDEX_BATCH_SIZE = 16
 
 interface HistoryCommitSearchIndexEntry {
   filesText: string
@@ -25,6 +26,24 @@ function commitSearchText(commit: CommitSummary): string {
   ]
     .filter((value): value is string => Boolean(value))
     .join('\n')
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[_./\\:-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function searchTextIncludes(text: string, query: string): boolean {
+  if (!text || !query) return false
+
+  const lowerText = text.toLowerCase()
+  if (lowerText.includes(query)) return true
+
+  const normalizedQuery = normalizeSearchText(query)
+  return Boolean(normalizedQuery && normalizeSearchText(lowerText).includes(normalizedQuery))
 }
 
 /** Owns commit history, selection, and per-commit detail/diff loading. */
@@ -64,14 +83,15 @@ export function useHistory({
     return history.filter((commit) => {
       const indexed = historySearchIndex.get(commit.sha)
       const commitMatches = (historySearchMode === 'commit' || historySearchMode === 'all') &&
-        commitSearchText(commit).toLowerCase().includes(query)
+        searchTextIncludes(commitSearchText(commit), query)
       const fileMatches = (historySearchMode === 'files' || historySearchMode === 'all') &&
-        (indexed?.filesText ?? '').toLowerCase().includes(query)
+        searchTextIncludes(indexed?.filesText ?? '', query)
       const changeMatches = (historySearchMode === 'changes' || historySearchMode === 'all') &&
-        (indexed?.changesText ?? '').toLowerCase().includes(query)
-      return commitMatches || fileMatches || changeMatches
+        searchTextIncludes(indexed?.changesText ?? '', query)
+      const waitsForIndex = historySearchMode !== 'commit' && !indexed && historyFileIndexing
+      return commitMatches || fileMatches || changeMatches || waitsForIndex
     })
-  }, [history, historySearchIndex, historyFilter, historySearchMode])
+  }, [history, historySearchIndex, historyFileIndexing, historyFilter, historySearchMode])
 
   const virtualHistory = useVirtualList(
     filteredHistory,
@@ -183,8 +203,9 @@ export function useHistory({
     }
 
     const commits = history
-      .filter((commit) => !historySearchIndex.has(commit.sha))
       .slice(0, HISTORY_SEARCH_INDEX_LIMIT)
+      .filter((commit) => !historySearchIndex.has(commit.sha))
+      .slice(0, HISTORY_SEARCH_INDEX_BATCH_SIZE)
 
     if (commits.length === 0) {
       setHistoryFileIndexing(false)
@@ -207,6 +228,11 @@ export function useHistory({
             filesText: result.data.filesText,
             changesText: result.data.changesText
           }])
+        } else {
+          entries.push([commit.sha, {
+            filesText: '',
+            changesText: ''
+          }])
         }
       }
 
@@ -225,7 +251,7 @@ export function useHistory({
     return () => {
       cancelled = true
     }
-  }, [api, currentRepoPath, history, historyFilter, historySearchMode, snapshot?.summary.rootPath, viewMode])
+  }, [api, currentRepoPath, history, historyFilter, historySearchIndex.size, historySearchMode, snapshot?.summary.rootPath, viewMode])
 
   useEffect(() => {
     if (viewMode !== 'history') return

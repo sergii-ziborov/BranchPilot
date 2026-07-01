@@ -5,6 +5,7 @@ import {
   useState,
   type ReactNode,
   type ChangeEvent as ReactChangeEvent,
+  type ClipboardEvent as ReactClipboardEvent,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -12,7 +13,7 @@ import {
   type UIEvent as ReactUIEvent
 } from 'react'
 import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Pencil, PlusSquare, RotateCcw, Save, Search, Sparkles, Terminal, Trash2, WandSparkles, X } from 'lucide-react'
-import type { ApiResult, AssistantId, BranchPilotApi, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
+import type { ApiResult, AssistantId, BranchPilotApi, DiffLine, DiffResult, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
 import { friendlyIpcErrorMessage } from '../../lib/ipcErrorMessage'
@@ -48,12 +49,17 @@ const EDITOR_INITIAL_RENDER_LINES = 720
 const EDITOR_RENDER_BATCH_SIZE = 560
 const EDITOR_RENDER_LOOKAHEAD = 160
 const EDITOR_SEARCH_MATCH_LIMIT = 5000
+const EDITOR_FILE_CONTENT_SEARCH_MIN_LENGTH = 2
+const EDITOR_FILE_CONTENT_SEARCH_FILE_LIMIT = 120
+const EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT = 80
+const EDITOR_FILE_CONTENT_SEARCH_BATCH_SIZE = 6
+const EDITOR_FILE_CONTENT_SEARCH_DEBOUNCE_MS = 260
 const EDITOR_LINE_HEIGHT = 20.4
 const EDITOR_FILE_CHUNK_BYTES = 48_000
 const EDITOR_LIVE_DIFF_LCS_CELL_LIMIT = 240_000
 const EDITOR_TEXT_HISTORY_LIMIT = 200
 const HEX_BYTES_PER_ROW = 16
-const HEX_CHUNK_BYTES = 64 * 1024
+const HEX_CHUNK_BYTES = 16 * 1024
 const HEX_SEARCH_MATCH_LIMIT = 500
 const PREVIEWABLE_IMAGE_RE = /\.(png|jpe?g|gif|webp|bmp|svg|ico|icns|avif)$/i
 const SVG_RE = /\.svg$/i
@@ -75,6 +81,14 @@ interface EditorFileMenu {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
+}
+
+function isNativeEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
 }
 
 function clampEditorSidebarWidth(width: number, containerWidth?: number): number {
@@ -137,6 +151,12 @@ interface LiveLineChange {
   after: string
 }
 
+interface EditorOverviewMarker {
+  lineNumber: number
+  kind: 'added' | 'removed' | 'modified' | 'search' | 'diagnostic'
+  title: string
+}
+
 interface EditorCssColorToken extends CssColorToken {
   lineNumber: number
   renderLineIndex: number
@@ -175,6 +195,11 @@ interface EditorTextHistoryEntry {
   selectionEnd: number
 }
 
+interface EditorTextRange {
+  start: number
+  end: number
+}
+
 interface EditableTextLines {
   lines: string[]
   hasTrailingNewline: boolean
@@ -184,6 +209,27 @@ interface FileSearchMatch {
   lineNumber: number
   column: number
   length: number
+}
+
+interface FileLineSearchTarget {
+  lineNumber: number
+  column: number
+}
+
+interface RepositoryContentSearchMatch {
+  filePath: string
+  lineNumber: number
+  column: number
+  length: number
+  byteOffset: number
+  preview: string
+}
+
+interface RepositoryContentSearchState {
+  status: 'idle' | 'searching' | 'done'
+  scanned: number
+  truncated: boolean
+  error: string | null
 }
 
 interface ChunkedTextMarker {
@@ -410,6 +456,10 @@ function lineColumnFromOffset(text: string, offset: number): { lineNumber: numbe
   }
 }
 
+function utf8ByteOffset(text: string, charOffset: number): number {
+  return new TextEncoder().encode(text.slice(0, Math.max(0, Math.min(charOffset, text.length)))).length
+}
+
 function parseJsonErrorLocation(message: string, text: string): { lineNumber: number; column: number } {
   const lineColumnMatch = message.match(/line\s+(\d+)\s+column\s+(\d+)/i)
   if (lineColumnMatch) {
@@ -565,6 +615,15 @@ function validateJsonText(filePath: string, text: string, settings: EditorLintSe
       message,
       source: prepared.source
     }]
+  }
+}
+
+function parseEditorJsonText(filePath: string, text: string, settings: EditorLintSettings): { value: unknown; preparedText: string; source: EditorDiagnostic['source'] } {
+  const prepared = jsonLintText(filePath, text, settings)
+  return {
+    value: JSON.parse(prepared.text) as unknown,
+    preparedText: prepared.text,
+    source: prepared.source
   }
 }
 
@@ -1281,6 +1340,29 @@ function parseHexOffsetDraft(rawDraft: string): number | null {
   return null
 }
 
+function selectedTextRange(text: string, start: number, end: number): EditorTextRange | null {
+  const safeStart = clamp(Math.min(start, end), 0, text.length)
+  const safeEnd = clamp(Math.max(start, end), 0, text.length)
+  if (safeStart !== safeEnd) return { start: safeStart, end: safeEnd }
+
+  const isWord = (char: string) => /[\p{L}\p{N}_$-]/u.test(char)
+  let wordStart = safeStart
+  let wordEnd = safeEnd
+  while (wordStart > 0 && isWord(text[wordStart - 1] ?? '')) wordStart -= 1
+  while (wordEnd < text.length && isWord(text[wordEnd] ?? '')) wordEnd += 1
+  return wordStart === wordEnd ? null : { start: wordStart, end: wordEnd }
+}
+
+function rangesOverlap(a: EditorTextRange, b: EditorTextRange): boolean {
+  return a.start < b.end && b.start < a.end
+}
+
+function normalizeTextRanges(ranges: EditorTextRange[]): EditorTextRange[] {
+  return [...ranges]
+    .map((range) => ({ start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) }))
+    .sort((a, b) => a.start - b.start || a.end - b.end)
+}
+
 function bytesForHexSearch(rawQuery: string): Uint8Array | null {
   const query = rawQuery.trim()
   if (!query) return null
@@ -1652,6 +1734,51 @@ function findFileSearchMatches(lines: string[], needle: string): FileSearchMatch
   return matches
 }
 
+function parseFileLineSearchQuery(query: string): FileLineSearchTarget | null {
+  const match = query.trim().match(/^(?:(?:line|ln|l)\s*)?(?:[:#])?\s*(\d+)(?::(\d+))?$/i)
+  if (!match) return null
+
+  const lineNumber = Number(match[1])
+  const column = match[2] ? Number(match[2]) : 1
+  if (!Number.isInteger(lineNumber) || lineNumber < 1 || !Number.isInteger(column) || column < 1) return null
+  return { lineNumber, column: column - 1 }
+}
+
+function isLikelyContentSearchFile(filePath: string): boolean {
+  return !/\.(?:png|jpe?g|gif|webp|bmp|ico|icns|avif|pdf|zip|7z|rar|gz|tgz|bz2|xz|exe|dll|so|dylib|bin|lockb|woff2?|ttf|otf)$/i.test(filePath)
+}
+
+function findRepositoryContentMatch(filePath: string, text: string, query: string): RepositoryContentSearchMatch | null {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return null
+
+  const lines = textLines(text)
+  let lineStartOffset = 0
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    const column = line.toLowerCase().indexOf(needle)
+    if (column < 0) {
+      lineStartOffset += line.length + 1
+      continue
+    }
+
+    const previewStart = Math.max(0, column - 36)
+    const previewEnd = Math.min(line.length, column + query.length + 72)
+    const prefix = previewStart > 0 ? '...' : ''
+    const suffix = previewEnd < line.length ? '...' : ''
+    return {
+      filePath,
+      lineNumber: index + 1,
+      column,
+      length: query.length,
+      byteOffset: utf8ByteOffset(text, lineStartOffset),
+      preview: `${prefix}${line.slice(previewStart, previewEnd).trim()}${suffix}`
+    }
+  }
+
+  return null
+}
+
 function highlightedLineContent(line: string, lang: string, searchQuery: string, activeMatch: FileSearchMatch | null, lineNumber: number) {
   const query = searchQuery.trim()
   if (!query) return highlight(line || ' ', lang)
@@ -1716,6 +1843,91 @@ function buildLiveLineChanges(originalText: string, draftText: string): LiveLine
   return compactLiveLineChanges(
     buildMiddleLiveLineChanges(originalMiddle, draftMiddle, prefixLength)
   )
+}
+
+function putLineChange(map: Map<number, LiveLineChange>, change: LiveLineChange) {
+  const current = map.get(change.lineNumber)
+  if (!current) {
+    map.set(change.lineNumber, change)
+    return
+  }
+
+  if (current.kind === 'modified' || change.kind === current.kind) return
+  map.set(change.lineNumber, { ...change, kind: 'modified' })
+}
+
+function buildGitLineChanges(diffs: DiffResult[], filePath: string): LiveLineChange[] {
+  const byLine = new Map<number, LiveLineChange>()
+
+  for (const diff of diffs) {
+    for (const file of diff.files) {
+      if (file.newPath !== filePath && file.oldPath !== filePath) continue
+
+      for (const hunk of file.hunks) {
+        for (let index = 0; index < hunk.lines.length;) {
+          const line = hunk.lines[index]
+
+          if (line.type === 'remove') {
+            const removed: DiffLine[] = []
+            while (hunk.lines[index]?.type === 'remove') {
+              removed.push(hunk.lines[index])
+              index += 1
+            }
+
+            const added: DiffLine[] = []
+            while (hunk.lines[index]?.type === 'add') {
+              added.push(hunk.lines[index])
+              index += 1
+            }
+
+            const pairCount = Math.min(removed.length, added.length)
+            for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
+              const addedLine = added[pairIndex]
+              const removedLine = removed[pairIndex]
+              putLineChange(byLine, {
+                lineNumber: addedLine.newLineNumber ?? removedLine.oldLineNumber ?? hunk.newStart,
+                kind: 'modified',
+                before: removedLine.content,
+                after: addedLine.content
+              })
+            }
+            for (let addIndex = pairCount; addIndex < added.length; addIndex += 1) {
+              const addedLine = added[addIndex]
+              putLineChange(byLine, {
+                lineNumber: addedLine.newLineNumber ?? hunk.newStart,
+                kind: 'added',
+                before: '',
+                after: addedLine.content
+              })
+            }
+            for (let removeIndex = pairCount; removeIndex < removed.length; removeIndex += 1) {
+              const removedLine = removed[removeIndex]
+              putLineChange(byLine, {
+                lineNumber: removedLine.oldLineNumber ?? hunk.newStart,
+                kind: 'removed',
+                before: removedLine.content,
+                after: ''
+              })
+            }
+            continue
+          }
+
+          if (line.type === 'add') {
+            putLineChange(byLine, {
+              lineNumber: line.newLineNumber ?? hunk.newStart,
+              kind: 'added',
+              before: '',
+              after: line.content
+            })
+          }
+
+          index += 1
+        }
+      }
+    }
+  }
+
+  return [...byLine.values()].sort((a, b) => a.lineNumber - b.lineNumber)
 }
 
 function buildMiddleLiveLineChanges(original: string[], draft: string[], startIndex: number): LiveLineChange[] {
@@ -1967,24 +2179,39 @@ export function ChangesInternalEditor({
 }: ChangesInternalEditorProps) {
   const editorRef = useRef<HTMLElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const fileSearchInputRef = useRef<HTMLInputElement | null>(null)
   const highlightInnerRef = useRef<HTMLDivElement | null>(null)
   const lineNumbersInnerRef = useRef<HTMLDivElement | null>(null)
   const colorSwatchesInnerRef = useRef<HTMLDivElement | null>(null)
+  const hexTableBodyRef = useRef<HTMLDivElement | null>(null)
   const selectedFileRowRef = useRef<HTMLButtonElement | null>(null)
   const skipJsonEditBlurRef = useRef(false)
   const chunkPageRequestRef = useRef(false)
   const hexChunkRequestRef = useRef(0)
+  const fileContentSearchRequestRef = useRef(0)
+  const pendingEditorFocusRef = useRef<{ filePath: string; lineNumber: number; column: number; length: number; byteOffset?: number } | null>(null)
   const lastEditorScrollTopRef = useRef(0)
+  const lastHexScrollTopRef = useRef(0)
   const suppressAutoChunkUntilRef = useRef(0)
+  const suppressAutoHexChunkUntilRef = useRef(0)
   const editorUndoStackRef = useRef<EditorTextHistoryEntry[]>([])
   const editorRedoStackRef = useRef<EditorTextHistoryEntry[]>([])
   const pendingEditorHistoryRef = useRef<EditorTextHistoryEntry | null>(null)
+  const pendingHexOffsetRef = useRef<number | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(readStoredEditorSidebarWidth)
   const [files, setFiles] = useState<RepositoryFileEntry[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [fileQuery, setFileQuery] = useState('')
+  const [fileContentMatches, setFileContentMatches] = useState<Record<string, RepositoryContentSearchMatch>>({})
+  const [fileContentSearchState, setFileContentSearchState] = useState<RepositoryContentSearchState>({
+    status: 'idle',
+    scanned: 0,
+    truncated: false,
+    error: null
+  })
   const [fileSearchQuery, setFileSearchQuery] = useState('')
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1)
+  const [multiEditRanges, setMultiEditRanges] = useState<EditorTextRange[]>([])
   const [fileMenu, setFileMenu] = useState<EditorFileMenu | null>(null)
   const [viewMode, setViewMode] = useState<EditorViewMode>(() => defaultViewModeForPath(initialFilePath ?? ''))
   const [selectedPath, setSelectedPath] = useState(initialFilePath ?? '')
@@ -2017,32 +2244,67 @@ export function ChangesInternalEditor({
   const [saving, setSaving] = useState(false)
   const [lintSettings, setLintSettings] = useState(readStoredLintSettings)
   const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([])
+  const [gitLineChanges, setGitLineChanges] = useState<LiveLineChange[]>([])
+  const [gitDiffLoading, setGitDiffLoading] = useState(false)
   const [lintRunState, setLintRunState] = useState<EditorLintRunState>({
     status: 'idle',
     message: 'Lint has not run yet.',
     detail: 'Open a supported file and run lint.'
   })
   const changeByPath = useMemo(() => new Map((snapshot?.status.changes ?? []).map((change) => [change.path, change])), [snapshot])
+  const selectedChange = selectedPath ? changeByPath.get(selectedPath) ?? null : null
   const query = fileQuery.trim().toLowerCase()
+  const contentMatchedPaths = useMemo(() => new Set(Object.keys(fileContentMatches)), [fileContentMatches])
+  const fileContentMatchCount = contentMatchedPaths.size
   const visibleFiles = useMemo(() => (
-    query ? files.filter((file) => file.path.toLowerCase().includes(query)) : files
-  ), [files, query])
+    query ? files.filter((file) => file.path.toLowerCase().includes(query) || contentMatchedPaths.has(file.path)) : files
+  ), [contentMatchedPaths, files, query])
   const visibleFileTree = useMemo(() => buildRepositoryFileTree(visibleFiles), [visibleFiles])
-  const chunkedReadOnly = Boolean(chunkedTextPreview)
+  const chunkedTextActive = Boolean(chunkedTextPreview)
   const activeEditorText = chunkedTextPreview?.text ?? draftText
   const activeEditorLineBase = chunkedTextPreview?.startLine ?? 1
-  const textDirty = !chunkedReadOnly && draftText !== originalText
+  const textDirty = draftText !== originalText
   const liveChanges = useMemo(() => (textDirty ? buildLiveLineChanges(originalText, draftText) : []), [textDirty, originalText, draftText])
   const editedLines = liveChanges.length
-  const changeKindByLine = useMemo(() => new Map(liveChanges.filter((change) => change.kind !== 'removed').map((change) => [change.lineNumber, change.kind])), [liveChanges])
+  const changeKindByLine = useMemo(() => {
+    const next = new Map<number, LiveLineChange['kind']>()
+    for (const change of gitLineChanges) {
+      if (change.kind !== 'removed') next.set(change.lineNumber, change.kind)
+    }
+    for (const change of liveChanges) {
+      if (change.kind !== 'removed') next.set(change.lineNumber, change.kind)
+    }
+    return next
+  }, [gitLineChanges, liveChanges])
+  const gitChangedLines = gitLineChanges.length
   const draftLines = useMemo(() => textLines(activeEditorText), [activeEditorText])
   const lineOffsets = useMemo(() => buildLineOffsets(draftLines), [draftLines])
+  const multiEditLineNumbers = useMemo(() => {
+    const lines = new Set<number>()
+    if (multiEditRanges.length === 0) return lines
+
+    for (let index = 0; index < draftLines.length; index += 1) {
+      const lineStart = lineOffsets[index] ?? 0
+      const lineEnd = lineStart + draftLines[index].length
+      if (multiEditRanges.some((range) => (
+        range.start === range.end
+          ? range.start >= lineStart && range.start <= lineEnd
+          : rangesOverlap(range, { start: lineStart, end: Math.max(lineStart + 1, lineEnd) })
+      ))) {
+        lines.add(activeEditorLineBase + index)
+      }
+    }
+
+    return lines
+  }, [activeEditorLineBase, draftLines, lineOffsets, multiEditRanges])
+  const fileLineSearchTarget = useMemo(() => parseFileLineSearchQuery(fileSearchQuery), [fileSearchQuery])
+  const effectiveFileSearchQuery = fileLineSearchTarget ? '' : fileSearchQuery
   const fileSearchMatches = useMemo(() => (
-    findFileSearchMatches(draftLines, fileSearchQuery).map((match) => ({
+    fileLineSearchTarget ? [] : findFileSearchMatches(draftLines, fileSearchQuery).map((match) => ({
       ...match,
       lineNumber: activeEditorLineBase + match.lineNumber - 1
     }))
-  ), [activeEditorLineBase, draftLines, fileSearchQuery])
+  ), [activeEditorLineBase, draftLines, fileLineSearchTarget, fileSearchQuery])
   const parsedHexDraft = useMemo(() => parseHexText(hexDraftText), [hexDraftText])
   const parsedHexOriginal = useMemo(() => parseHexText(hexOriginalText), [hexOriginalText])
   const hexStartOffset = hexBytes?.startOffset ?? 0
@@ -2070,6 +2332,34 @@ export function ChangesInternalEditor({
   const diagnosticByLine = useMemo(() => new Map(diagnostics.map((diagnostic) => [diagnostic.lineNumber, diagnostic])), [diagnostics])
   const fileSearchOverflow = fileSearchMatches.length >= EDITOR_SEARCH_MATCH_LIMIT
   const activeSearchMatch = activeSearchIndex >= 0 ? fileSearchMatches[activeSearchIndex] ?? null : null
+  const editorOverviewMarkers = useMemo<EditorOverviewMarker[]>(() => {
+    const firstLine = activeEditorLineBase
+    const lastLine = activeEditorLineBase + Math.max(0, draftLines.length - 1)
+    const markers: EditorOverviewMarker[] = []
+    const seen = new Set<string>()
+    const addMarker = (marker: EditorOverviewMarker) => {
+      if (marker.lineNumber < firstLine || marker.lineNumber > lastLine) return
+      const key = `${marker.kind}:${marker.lineNumber}`
+      if (seen.has(key)) return
+      seen.add(key)
+      markers.push(marker)
+    }
+
+    for (const change of gitLineChanges) {
+      addMarker({ lineNumber: change.lineNumber, kind: change.kind, title: `Git ${change.kind} line ${change.lineNumber}` })
+    }
+    for (const change of liveChanges) {
+      addMarker({ lineNumber: change.lineNumber, kind: change.kind, title: `Unsaved ${change.kind} line ${change.lineNumber}` })
+    }
+    for (const diagnostic of diagnostics) {
+      addMarker({ lineNumber: diagnostic.lineNumber, kind: 'diagnostic', title: `${diagnostic.source}: ${diagnostic.message}` })
+    }
+    for (const match of fileSearchMatches) {
+      addMarker({ lineNumber: match.lineNumber, kind: 'search', title: `Search match on line ${match.lineNumber}` })
+    }
+
+    return markers.sort((a, b) => a.lineNumber - b.lineNumber).slice(0, 1200)
+  }, [activeEditorLineBase, diagnostics, draftLines.length, fileSearchMatches, gitLineChanges, liveChanges])
   const editorLineWindow = useMemo(
     () => editorLineWindowForScroll(draftLines.length, editorScrollTop, editorViewportHeight),
     [draftLines.length, editorScrollTop, editorViewportHeight]
@@ -2092,19 +2382,19 @@ export function ChangesInternalEditor({
   const selectedIsSvg = SVG_RE.test(selectedPath)
   const selectedIsJson = JSON_RE.test(selectedPath)
   const selectedIsBinaryPreview = selectedIsImage && Boolean(textUnavailableMessage)
-  const svgPreviewUrl = selectedIsSvg && !chunkedReadOnly && draftText ? safeSvgDataUrl(draftText) : ''
+  const svgPreviewUrl = selectedIsSvg && !chunkedTextActive && draftText ? safeSvgDataUrl(draftText) : ''
   const activeImagePreviewUrl = selectedIsSvg ? (svgPreviewUrl || imagePreview?.dataUrl || '') : imagePreview?.dataUrl ?? ''
-  const svgAnalysis = useMemo(() => (selectedIsSvg && !chunkedReadOnly ? analyzeSvgText(draftText) : null), [chunkedReadOnly, draftText, selectedIsSvg])
+  const svgAnalysis = useMemo(() => (selectedIsSvg && !chunkedTextActive ? analyzeSvgText(draftText) : null), [chunkedTextActive, draftText, selectedIsSvg])
   const jsonParseResult = useMemo(() => {
-    if (chunkedReadOnly || !selectedIsJson || !draftText.trim()) {
+    if (chunkedTextActive || !selectedIsJson || !draftText.trim()) {
       return { rows: [] as JsonTreeNode[], expandablePaths: [] as string[], error: null as string | null }
     }
     try {
-      const parsed = JSON.parse(draftText)
-      const lineNumbers = buildJsonLineNumberMap(draftText)
+      const parsed = parseEditorJsonText(selectedPath, draftText, lintSettings)
+      const lineNumbers = buildJsonLineNumberMap(parsed.preparedText)
       return {
-        rows: flattenJsonTree(parsed, collapsedJsonPaths, lineNumbers),
-        expandablePaths: collectJsonExpandablePaths(parsed),
+        rows: flattenJsonTree(parsed.value, collapsedJsonPaths, lineNumbers),
+        expandablePaths: collectJsonExpandablePaths(parsed.value),
         error: null
       }
     } catch (error) {
@@ -2114,24 +2404,24 @@ export function ChangesInternalEditor({
         error: error instanceof Error ? error.message : 'Invalid JSON.'
       }
     }
-  }, [chunkedReadOnly, collapsedJsonPaths, draftText, selectedIsJson])
+  }, [chunkedTextActive, collapsedJsonPaths, draftText, lintSettings, selectedIsJson, selectedPath])
   const selectedIcon = fileTypeIconForPath(selectedPath)
   const selectedLang = langFromPath(selectedPath)
-  const selectedLintSupported = !chunkedReadOnly && (selectedIsJson || SCRIPT_RE.test(selectedPath))
+  const selectedLintSupported = !chunkedTextActive && (selectedIsJson || SCRIPT_RE.test(selectedPath))
   const selectedHexOnly = Boolean(textUnavailableMessage)
-  const lintBlocked = !selectedPath || fileLoading || Boolean(fileError) || selectedHexOnly || chunkedReadOnly || viewMode === 'image' || viewMode === 'hex'
+  const lintBlocked = !selectedPath || fileLoading || Boolean(fileError) || selectedHexOnly || chunkedTextActive || viewMode === 'image' || viewMode === 'hex'
   const selectedLintRulesEnabled = selectedLintSupported && lintRulesEnabledForFile(selectedPath, lintSettings)
-  const textSaveBlocked = chunkedReadOnly && !hexDirty
+  const textSaveBlocked = false
   const contextMenuChange = fileMenu ? changeByPath.get(fileMenu.path) : null
   const availableViewModes = useMemo<Array<{ id: EditorViewMode; label: string }>>(() => {
     const modes: Array<{ id: EditorViewMode; label: string }> = []
     if (selectedIsImage) modes.push({ id: 'image', label: 'Preview' })
-    if (selectedIsSvg && !selectedIsBinaryPreview && !chunkedReadOnly) modes.push({ id: 'svg-editor', label: 'Edit' })
+    if (selectedIsSvg && !selectedIsBinaryPreview && !chunkedTextActive) modes.push({ id: 'svg-editor', label: 'Edit' })
     if (!selectedIsBinaryPreview || selectedIsSvg) modes.push({ id: 'code', label: selectedIsSvg ? 'SVG' : 'Code' })
-    if (selectedIsJson && !selectedIsBinaryPreview && !chunkedReadOnly) modes.push({ id: 'json', label: 'JSON' })
+    if (selectedIsJson && !selectedIsBinaryPreview && !chunkedTextActive) modes.push({ id: 'json', label: 'JSON' })
     if (selectedPath) modes.push({ id: 'hex', label: 'Hex' })
     return modes.length ? modes : [{ id: 'code', label: 'Code' }]
-  }, [chunkedReadOnly, selectedIsBinaryPreview, selectedIsImage, selectedIsJson, selectedIsSvg, selectedPath])
+  }, [chunkedTextActive, selectedIsBinaryPreview, selectedIsImage, selectedIsJson, selectedIsSvg, selectedPath])
   const editorStyle = {
     '--changes-editor-sidebar-width': `${sidebarWidth}px`
   } as CSSProperties
@@ -2152,6 +2442,22 @@ export function ChangesInternalEditor({
     lintRunState.status === 'running' ? 'is-running' : '',
     (!selectedLintSupported || lintBlocked) ? 'disabled' : ''
   ].filter(Boolean).join(' ')
+  const gitStatusText = selectedChange
+    ? `${selectedChange.status} in git${gitChangedLines > 0 ? ` - ${gitChangedLines} marked line${gitChangedLines === 1 ? '' : 's'}` : ''}`
+    : null
+  const editorStatusText = hexDirty
+    ? `${parsedHexDraft.bytes?.length ?? 0} edited byte${parsedHexDraft.bytes?.length === 1 ? '' : 's'} since load`
+    : viewMode === 'hex' && hexBytes && !hexFullFileLoaded
+      ? `Read-only hex chunk ${formatBytes(hexBytes.startOffset)}-${formatBytes(hexBytes.endOffset)} of ${formatBytes(hexBytes.byteSize)}`
+      : chunkedTextPreview
+        ? `Editable chunk ${formatBytes(chunkedTextPreview.startOffset)}-${formatBytes(chunkedTextPreview.endOffset)} of ${formatBytes(chunkedTextPreview.byteSize)}`
+        : textUnavailableMessage
+          ? textUnavailableMessage
+          : textDirty
+            ? `${editedLines} edited line${editedLines === 1 ? '' : 's'} since load${gitStatusText ? ` - ${gitStatusText}` : ''}`
+            : gitDiffLoading
+              ? 'Loading git changes...'
+              : gitStatusText ?? 'No edits since load'
 
   const openFileContextMenu = (event: ReactMouseEvent, path: string) => {
     if (!path) return
@@ -2160,10 +2466,31 @@ export function ChangesInternalEditor({
     setFileMenu({ x: event.clientX, y: event.clientY, path })
   }
 
+  const openRepositoryFileRow = (file: RepositoryFileEntry, contentMatch?: RepositoryContentSearchMatch) => {
+    if (contentMatch) {
+      pendingEditorFocusRef.current = {
+        filePath: file.path,
+        lineNumber: contentMatch.lineNumber,
+        column: contentMatch.column,
+        length: contentMatch.length,
+        byteOffset: contentMatch.byteOffset
+      }
+      setFileSearchQuery(fileQuery.trim())
+      setViewMode('code')
+    }
+
+    setSelectedPath(file.path)
+    if (contentMatch && selectedPath === file.path && !fileLoading) {
+      pendingEditorFocusRef.current = null
+      focusCodePosition(contentMatch.lineNumber, contentMatch.column, contentMatch.length)
+    }
+  }
+
   const renderFileRow = (file: RepositoryFileEntry, displayName: string) => {
     const change = changeByPath.get(file.path)
     const fileTypeIcon = fileTypeIconForPath(file.path)
     const selected = selectedPath === file.path
+    const contentMatch = fileContentMatches[file.path]
     const fileIsDirty = selected && dirty
     const statusClassName = fileIsDirty ? 'status-edited' : change ? `status-${change.status}` : ''
     const statusLabel = fileIsDirty ? 'E' : change ? fileStatusToken(change.status) : ''
@@ -2180,9 +2507,9 @@ export function ChangesInternalEditor({
           change ? 'changed' : 'clean'
         ].filter(Boolean).join(' ')}
         key={file.path}
-        onClick={() => setSelectedPath(file.path)}
+        onClick={() => openRepositoryFileRow(file, contentMatch)}
         onContextMenu={(event) => openFileContextMenu(event, file.path)}
-        title={file.path}
+        title={contentMatch ? `${file.path}\nContent match at ${contentMatch.lineNumber}:${contentMatch.column + 1}` : file.path}
       >
         <span className={`file-type-icon file-type-${fileTypeIcon.tone}`} title={fileTypeIcon.title} aria-hidden="true">
           {fileTypeIcon.label}
@@ -2192,6 +2519,11 @@ export function ChangesInternalEditor({
           <span className={`file-status ${statusClassName}`} title={statusTitle} aria-label={statusTitle}>
             {statusLabel}
           </span>
+        )}
+        {contentMatch && (
+          <small className="changes-editor-file-content-match">
+            L{contentMatch.lineNumber}: {contentMatch.preview}
+          </small>
         )}
       </button>
     )
@@ -2362,9 +2694,43 @@ export function ChangesInternalEditor({
     pendingEditorHistoryRef.current = null
   }
 
+  const applyEditorTextChange = (
+    nextText: string,
+    options: {
+      selectionStart?: number
+      selectionEnd?: number
+      viewMode?: EditorViewMode
+      resetJsonCollapse?: boolean
+    } = {}
+  ) => {
+    const snapshot = editorTextSnapshot()
+    if (snapshot.text === nextText) return false
+
+    pushEditorUndoEntry(snapshot)
+    pendingEditorHistoryRef.current = null
+    setDraftText(nextText)
+    setJsonEdit(null)
+    setMultiEditRanges([])
+    if (options.resetJsonCollapse) setCollapsedJsonPaths(new Set())
+    if (options.viewMode) setViewMode(options.viewMode)
+
+    const selectionStart = clamp(options.selectionStart ?? snapshot.selectionStart, 0, nextText.length)
+    const selectionEnd = clamp(options.selectionEnd ?? selectionStart, 0, nextText.length)
+    window.requestAnimationFrame(() => {
+      const textarea = textareaRef.current
+      if (!textarea) return
+      textarea.focus()
+      textarea.setSelectionRange(selectionStart, selectionEnd)
+      updateEditorLineWindowState(textarea.scrollTop, textarea.clientHeight)
+      syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
+    })
+    return true
+  }
+
   const restoreEditorTextSnapshot = (entry: EditorTextHistoryEntry) => {
     setDraftText(entry.text)
     setJsonEdit(null)
+    setMultiEditRanges([])
     window.requestAnimationFrame(() => {
       const textarea = textareaRef.current
       if (!textarea) return
@@ -2394,12 +2760,97 @@ export function ChangesInternalEditor({
   }
 
   const capturePendingEditorHistory = () => {
-    if (chunkedReadOnly || fileLoading) return
+    if (fileLoading) return
     pendingEditorHistoryRef.current = editorTextSnapshot()
   }
 
+  const setEditorSelection = (start: number, end = start) => {
+    window.requestAnimationFrame(() => {
+      const textarea = textareaRef.current
+      if (!textarea) return
+      textarea.focus()
+      textarea.setSelectionRange(clamp(start, 0, textarea.value.length), clamp(end, 0, textarea.value.length))
+    })
+  }
+
+  const activateNextMultiEditOccurrence = () => {
+    const textarea = textareaRef.current
+    if (!textarea || viewMode !== 'code' || textUnavailableMessage || fileLoading) return
+
+    const text = textarea.value
+    const primaryRange = multiEditRanges[0] ?? selectedTextRange(text, textarea.selectionStart, textarea.selectionEnd)
+    if (!primaryRange) {
+      setNotice('Select text or place the caret on a word before pressing Ctrl+D.')
+      return
+    }
+
+    const queryText = text.slice(primaryRange.start, primaryRange.end)
+    if (!queryText) return
+
+    const ranges = normalizeTextRanges(multiEditRanges.length ? multiEditRanges : [primaryRange])
+    const lastRange = ranges[ranges.length - 1]
+    let nextIndex = text.indexOf(queryText, lastRange.end)
+    if (nextIndex === -1) nextIndex = text.indexOf(queryText)
+
+    while (nextIndex !== -1) {
+      const nextRange = { start: nextIndex, end: nextIndex + queryText.length }
+      if (!ranges.some((range) => rangesOverlap(range, nextRange) || (range.start === nextRange.start && range.end === nextRange.end))) {
+        const nextRanges = normalizeTextRanges([...ranges, nextRange])
+        setMultiEditRanges(nextRanges)
+        setEditorSelection(nextRange.start, nextRange.end)
+        setNotice(`${nextRanges.length} selections in this chunk.`)
+        return
+      }
+      nextIndex = text.indexOf(queryText, nextIndex + Math.max(1, queryText.length))
+    }
+
+    setNotice(`No more "${queryText}" matches in this chunk.`)
+  }
+
+  const applyTextToMultiEditRanges = (replacement: string, mode: 'replace' | 'backspace' | 'delete' = 'replace') => {
+    const textarea = textareaRef.current
+    const sourceText = textarea?.value ?? draftText
+    const sourceRanges = normalizeTextRanges(multiEditRanges)
+    if (sourceRanges.length === 0) return false
+
+    const editableRanges = sourceRanges.map((range) => {
+      if (mode === 'backspace' && range.start === range.end) {
+        return { start: Math.max(0, range.start - 1), end: range.end }
+      }
+      if (mode === 'delete' && range.start === range.end) {
+        return { start: range.start, end: Math.min(sourceText.length, range.end + 1) }
+      }
+      return range
+    })
+
+    if (editableRanges.every((range) => range.start === range.end) && replacement === '') return true
+
+    let cursor = 0
+    let nextText = ''
+    const nextRanges: EditorTextRange[] = []
+    for (const range of editableRanges) {
+      nextText += sourceText.slice(cursor, range.start)
+      const nextStart = nextText.length
+      nextText += replacement
+      const nextEnd = nextStart + replacement.length
+      nextRanges.push({ start: nextEnd, end: nextEnd })
+      cursor = range.end
+    }
+    nextText += sourceText.slice(cursor)
+
+    pushEditorUndoEntry(editorTextSnapshot(textarea))
+    pendingEditorHistoryRef.current = null
+    setDraftText(nextText)
+    setJsonEdit(null)
+    setMultiEditRanges(nextRanges)
+    setEditorSelection(nextRanges[nextRanges.length - 1].start)
+    return true
+  }
+
   const handleEditorTextChange = (event: ReactChangeEvent<HTMLTextAreaElement>) => {
-    if (chunkedReadOnly) return
+    if (multiEditRanges.length > 0) {
+      setMultiEditRanges([])
+    }
 
     const nextText = event.currentTarget.value
     const previous = pendingEditorHistoryRef.current ?? {
@@ -2416,12 +2867,64 @@ export function ChangesInternalEditor({
   }
 
   const handleEditorTextKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    if (!(event.ctrlKey || event.metaKey) || event.altKey) return
-
     const key = event.key.toLowerCase()
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && key === 'd') {
+      event.preventDefault()
+      activateNextMultiEditOccurrence()
+      return
+    }
+
+    if (multiEditRanges.length > 0 && !(event.ctrlKey || event.metaKey) && !event.altKey) {
+      if (event.key.length === 1) {
+        event.preventDefault()
+        applyTextToMultiEditRanges(event.key)
+        return
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        applyTextToMultiEditRanges('\n')
+        return
+      }
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        applyTextToMultiEditRanges('\t')
+        return
+      }
+      if (event.key === 'Backspace') {
+        event.preventDefault()
+        applyTextToMultiEditRanges('', 'backspace')
+        return
+      }
+      if (event.key === 'Delete') {
+        event.preventDefault()
+        applyTextToMultiEditRanges('', 'delete')
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setMultiEditRanges([])
+        return
+      }
+    }
+
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+      if (
+        event.key.length === 1 ||
+        event.key === 'Enter' ||
+        event.key === 'Backspace' ||
+        event.key === 'Delete' ||
+        event.key === 'Tab'
+      ) {
+        capturePendingEditorHistory()
+      }
+      return
+    }
+
     const undo = key === 'z' && !event.shiftKey
     const redo = key === 'y' || (key === 'z' && event.shiftKey)
     if (!undo && !redo) return
+    if (undo && editorUndoStackRef.current.length === 0) return
+    if (redo && editorRedoStackRef.current.length === 0) return
 
     event.preventDefault()
     pendingEditorHistoryRef.current = null
@@ -2429,8 +2932,38 @@ export function ChangesInternalEditor({
     else redoEditorText()
   }
 
+  const handleEditorPaste = (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
+    if (multiEditRanges.length === 0) return
+    event.preventDefault()
+    applyTextToMultiEditRanges(event.clipboardData.getData('text/plain'))
+  }
+
   const focusSearchMatch = (match: FileSearchMatch) => {
     focusEditorPosition(match.lineNumber, match.column, match.length)
+  }
+
+  const focusCodePosition = (lineNumber: number, column = 0, length = 0) => {
+    setViewMode('code')
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => focusEditorPosition(lineNumber, column, length))
+    })
+  }
+
+  const focusFileLineSearchTarget = () => {
+    if (!fileLineSearchTarget) return false
+    const firstLineNumber = activeEditorLineBase
+    const lastLineNumber = activeEditorLineBase + Math.max(0, draftLines.length - 1)
+    if (chunkedTextActive && (fileLineSearchTarget.lineNumber < firstLineNumber || fileLineSearchTarget.lineNumber > lastLineNumber)) {
+      setNotice(`Line ${fileLineSearchTarget.lineNumber} is outside the loaded chunk (${firstLineNumber}-${lastLineNumber}).`)
+      return true
+    }
+
+    focusCodePosition(fileLineSearchTarget.lineNumber, fileLineSearchTarget.column, 1)
+    return true
+  }
+
+  const goToDiagnostic = (diagnostic: EditorDiagnostic) => {
+    focusCodePosition(diagnostic.lineNumber, diagnostic.column - 1, 1)
   }
 
   const updateLintSettings = (patch: Partial<EditorLintSettings>) => {
@@ -2478,7 +3011,7 @@ export function ChangesInternalEditor({
         ? `Lint found ${nextDiagnostics.length} issue${nextDiagnostics.length === 1 ? '' : 's'}.`
         : 'Lint passed. No issues found.')
       if (focusFirst && nextDiagnostics[0]) {
-        focusEditorPosition(nextDiagnostics[0].lineNumber, nextDiagnostics[0].column - 1, 1)
+        goToDiagnostic(nextDiagnostics[0])
       }
     })
   }
@@ -2493,23 +3026,40 @@ export function ChangesInternalEditor({
   const handleFileSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Enter') return
     event.preventDefault()
+    if (focusFileLineSearchTarget()) return
     activateSearchMatch(activeSearchIndex < 0 ? (event.shiftKey ? -1 : 0) : activeSearchIndex + (event.shiftKey ? -1 : 1))
   }
 
-  const updateEditorCssColor = (request: CssColorEditDraft) => {
-    setDraftText((current) => {
-      const lines = current.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
-      const lineIndex = request.lineNumber - 1
-      const line = lines[lineIndex]
-      if (line === undefined) return current
+  const focusFileSearchInput = () => {
+    if (!selectedPath || fileLoading || fileError || textUnavailableMessage) return false
+    if (viewMode === 'hex' || viewMode === 'image') setViewMode('code')
 
-      const directMatch = line.slice(request.columnStart, request.columnStart + request.oldValue.length) === request.oldValue
-      const columnStart = directMatch ? request.columnStart : line.indexOf(request.oldValue)
-      if (columnStart < 0) return current
-
-      const nextLine = `${line.slice(0, columnStart)}${request.newValue}${line.slice(columnStart + request.oldValue.length)}`
-      return updateLineInText(current, request.lineNumber, nextLine)
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const input = fileSearchInputRef.current
+        if (!input || input.disabled) return
+        input.focus()
+        input.select()
+      })
     })
+    return true
+  }
+
+  const updateEditorCssColor = (request: CssColorEditDraft) => {
+    const snapshot = editorTextSnapshot()
+    const current = snapshot.text
+    const lines = current.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+    const lineIndex = request.lineNumber - 1
+    const line = lines[lineIndex]
+    if (line === undefined) return
+
+    const directMatch = line.slice(request.columnStart, request.columnStart + request.oldValue.length) === request.oldValue
+    const columnStart = directMatch ? request.columnStart : line.indexOf(request.oldValue)
+    if (columnStart < 0) return
+
+    const nextLine = `${line.slice(0, columnStart)}${request.newValue}${line.slice(columnStart + request.oldValue.length)}`
+    const nextText = updateLineInText(current, request.lineNumber, nextLine)
+    applyEditorTextChange(nextText)
   }
 
   const loadChunkedTextPage = async (direction: 'next' | 'previous', scrollPlacement: 'start' | 'end' = 'start') => {
@@ -2601,10 +3151,10 @@ export function ChangesInternalEditor({
     }
 
     return (
-      <div className={[dirty ? 'changes-editor-code-shell is-dirty' : 'changes-editor-code-shell', chunkedReadOnly ? 'is-chunked' : ''].filter(Boolean).join(' ')}>
+      <div className={[dirty ? 'changes-editor-code-shell is-dirty' : 'changes-editor-code-shell', chunkedTextActive ? 'is-chunked' : ''].filter(Boolean).join(' ')}>
         {chunkedTextPreview && (
           <div className="changes-editor-chunk-banner">
-            <strong>Chunk preview</strong>
+            <strong>Chunk editor</strong>
             <span>
               {formatBytes(chunkedTextPreview.startOffset)}-{formatBytes(chunkedTextPreview.endOffset)} of {formatBytes(chunkedTextPreview.byteSize)}
             </span>
@@ -2626,10 +3176,15 @@ export function ChangesInternalEditor({
             {visibleDraftLines.map((_, index) => {
               const lineNumber = activeEditorLineBase + editorLineWindow.start + index
               const diagnostic = diagnosticByLine.get(lineNumber)
+              const changeKind = changeKindByLine.get(lineNumber)
 
               return (
                 <span
-                  className={diagnostic ? 'line-diagnostic-error' : undefined}
+                  className={[
+                    diagnostic ? 'line-diagnostic-error' : '',
+                    changeKind ? `line-${changeKind}` : '',
+                    multiEditLineNumbers.has(lineNumber) ? 'line-multi-edit' : ''
+                  ].filter(Boolean).join(' ') || undefined}
                   key={lineNumber}
                   title={diagnostic ? `${diagnostic.source}: ${diagnostic.message}` : undefined}
                 >
@@ -2651,12 +3206,13 @@ export function ChangesInternalEditor({
                   className={[
                     'changes-editor-highlight-line',
                     changeKind ? `line-${changeKind}` : '',
-                    diagnostic ? 'line-diagnostic-error' : ''
+                    diagnostic ? 'line-diagnostic-error' : '',
+                    multiEditLineNumbers.has(lineNumber) ? 'line-multi-edit' : ''
                   ].filter(Boolean).join(' ')}
                   key={`${lineNumber}-${line.slice(0, 20)}`}
                   title={diagnostic ? `${diagnostic.source}: ${diagnostic.message}` : undefined}
                 >
-                  {highlightedLineContent(line || ' ', selectedLang, fileSearchQuery, activeSearchMatch, lineNumber)}
+                  {highlightedLineContent(line || ' ', selectedLang, effectiveFileSearchQuery, activeSearchMatch, lineNumber)}
                 </code>
               )
             })}
@@ -2671,10 +3227,31 @@ export function ChangesInternalEditor({
           onBeforeInput={capturePendingEditorHistory}
           onChange={handleEditorTextChange}
           onKeyDown={handleEditorTextKeyDown}
+          onPaste={handleEditorPaste}
           onScroll={syncHighlightScroll}
-          readOnly={chunkedReadOnly}
+          readOnly={false}
           disabled={fileLoading}
         />
+        {editorOverviewMarkers.length > 0 && (
+          <div className="changes-editor-overview" aria-label="File overview markers">
+            {editorOverviewMarkers.map((marker, index) => {
+              const denominator = Math.max(1, draftLines.length - 1)
+              const top = clamp(((marker.lineNumber - activeEditorLineBase) / denominator) * 100, 0, 100)
+
+              return (
+                <button
+                  type="button"
+                  className={`changes-editor-overview-marker marker-${marker.kind}`}
+                  style={{ top: `${top}%` } as CSSProperties}
+                  key={`${marker.kind}-${marker.lineNumber}-${index}`}
+                  title={marker.title}
+                  aria-label={marker.title}
+                  onClick={() => focusEditorPosition(marker.lineNumber)}
+                />
+              )
+            })}
+          </div>
+        )}
         {editorCssColorTokens.length > 0 && (
           <div className="changes-editor-color-layer" aria-label="CSS color controls">
             <div className="changes-editor-color-layer-inner" ref={colorSwatchesInnerRef}>
@@ -2699,7 +3276,7 @@ export function ChangesInternalEditor({
               <button
                 type="button"
                 key={`${diagnostic.lineNumber}-${diagnostic.column}-${index}`}
-                onClick={() => focusEditorPosition(diagnostic.lineNumber, diagnostic.column - 1, 1)}
+                onClick={() => goToDiagnostic(diagnostic)}
               >
                 <span>{diagnostic.source}</span>
                 <code>{diagnostic.lineNumber}:{diagnostic.column}</code>
@@ -2745,7 +3322,36 @@ export function ChangesInternalEditor({
     </div>
   )
 
-  const loadHexChunk = async (requestedOffset: number, selectOffset = requestedOffset) => {
+  const scrollHexTable = (placement: 'start' | 'end') => {
+    window.requestAnimationFrame(() => {
+      const body = hexTableBodyRef.current
+      if (!body) return
+      const nextScrollTop = placement === 'end'
+        ? Math.max(0, body.scrollHeight - body.clientHeight)
+        : 0
+      body.scrollTop = nextScrollTop
+      lastHexScrollTopRef.current = nextScrollTop
+    })
+  }
+
+  const codeViewHexOffset = () => {
+    if (chunkedTextPreview) {
+      return chunkedTextPreview.startOffset
+    }
+
+    const selectionStart = textareaRef.current?.selectionStart
+    if (selectionStart !== undefined && draftText) {
+      return utf8ByteOffset(draftText, selectionStart)
+    }
+
+    return 0
+  }
+
+  const loadHexChunk = async (
+    requestedOffset: number,
+    selectOffset = requestedOffset,
+    options: { scrollPlacement?: 'start' | 'end' } = {}
+  ) => {
     if (!api || !currentRepoPath || !selectedPath) return
 
     const knownMaxOffset = hexBytes ? Math.max(0, hexBytes.byteSize - 1) : Number.POSITIVE_INFINITY
@@ -2798,6 +3404,8 @@ export function ChangesInternalEditor({
       setHexByteDraft(bytes.length > 0 ? byteToHex(bytes[selectedOffset - nextStart]) : '')
       setHexOffsetDraft(bytes.length > 0 ? offsetToHex(selectedOffset) : '')
       setActiveHexSearchIndex(-1)
+      suppressAutoHexChunkUntilRef.current = window.performance.now() + 250
+      if (options.scrollPlacement) scrollHexTable(options.scrollPlacement)
     } catch (error) {
       if (hexChunkRequestRef.current !== requestId) return
       setHexLoading(false)
@@ -2821,7 +3429,7 @@ export function ChangesInternalEditor({
       return
     }
 
-    void loadHexChunk(safeOffset, safeOffset)
+    void loadHexChunk(safeOffset, safeOffset, { scrollPlacement: 'start' })
   }
 
   const jumpHexChunk = (direction: 'previous' | 'next') => {
@@ -2829,7 +3437,10 @@ export function ChangesInternalEditor({
     const offset = direction === 'previous'
       ? Math.max(0, hexBytes.startOffset - HEX_CHUNK_BYTES)
       : hexBytes.endOffset
-    void loadHexChunk(offset, offset)
+    const selectOffset = direction === 'previous'
+      ? Math.max(0, hexBytes.startOffset - 1)
+      : offset
+    void loadHexChunk(offset, selectOffset, { scrollPlacement: direction === 'previous' ? 'end' : 'start' })
   }
 
   function selectHexByte(index: number) {
@@ -3012,7 +3623,7 @@ export function ChangesInternalEditor({
             </span>
           )}
           {parsedHexDraft.bytes && (
-            <em>{hexFullFileLoaded ? `${parsedHexDraft.bytes.length} bytes in draft` : 'read-only chunk'}</em>
+            <em>{hexLoading ? 'loading chunk...' : hexFullFileLoaded ? `${parsedHexDraft.bytes.length} bytes in draft` : 'read-only chunk'}</em>
           )}
         </div>
         <div className="changes-editor-hex-controls">
@@ -3087,7 +3698,7 @@ export function ChangesInternalEditor({
             <span>hex bytes</span>
             <span>ascii</span>
           </header>
-          <div className="changes-editor-hex-table-body">
+          <div className="changes-editor-hex-table-body" ref={hexTableBodyRef} onScroll={syncHexScroll}>
             {hexPreviewRows.length === 0 ? (
               <div className="changes-editor-hex-empty">Empty file</div>
             ) : hexPreviewRows.map((row) => {
@@ -3194,6 +3805,14 @@ export function ChangesInternalEditor({
             </p>
           )}
         </div>
+        {hexLoading && hexBytes && (
+          <SignalStatus
+            compact
+            className="changes-editor-hex-loading"
+            label="Loading hex chunk"
+            detail={`${formatBytes(hexBytes.startOffset)}-${formatBytes(hexBytes.endOffset)} of ${formatBytes(hexBytes.byteSize)}`}
+          />
+        )}
       </div>
     )
   }
@@ -3208,7 +3827,7 @@ export function ChangesInternalEditor({
     const nextValue = value.trim()
     if (nextValue) parsed.document.documentElement.setAttribute(attr, nextValue)
     else parsed.document.documentElement.removeAttribute(attr)
-    setDraftText(serializeSvgDocument(parsed.document))
+    applyEditorTextChange(serializeSvgDocument(parsed.document))
   }
 
   const updateSvgColorAttribute = (target: SvgColorTarget, value: string) => {
@@ -3227,7 +3846,7 @@ export function ChangesInternalEditor({
     const nextValue = value.trim()
     if (nextValue) element.setAttribute(target.attr, nextValue)
     else element.removeAttribute(target.attr)
-    setDraftText(serializeSvgDocument(parsed.document))
+    applyEditorTextChange(serializeSvgDocument(parsed.document))
   }
 
   const renderSvgEditor = () => {
@@ -3347,8 +3966,10 @@ export function ChangesInternalEditor({
 
   const formatJsonDraft = () => {
     try {
-      const formatted = `${JSON.stringify(JSON.parse(draftText), null, 2)}\n`
-      setDraftText(formatted)
+      const formatted = isJsoncFilePath(selectedPath)
+        ? beautifyJsoncText(draftText)
+        : `${JSON.stringify(parseEditorJsonText(selectedPath, draftText, lintSettings).value, null, 2)}\n`
+      applyEditorTextChange(formatted, { resetJsonCollapse: true })
       setCollapsedJsonPaths(new Set())
       setJsonEdit(null)
     } catch (error) {
@@ -3375,10 +3996,10 @@ export function ChangesInternalEditor({
     if (!edit) return
 
     try {
-      const rootValue = JSON.parse(draftText)
+      const rootValue = parseEditorJsonText(selectedPath, draftText, lintSettings).value
       const nextValue = parseJsonEditValue(edit.kind, edit.value)
       const nextRootValue = updateJsonValueAtPath(rootValue, edit.path, nextValue)
-      setDraftText(`${JSON.stringify(nextRootValue, null, 2)}\n`)
+      applyEditorTextChange(`${JSON.stringify(nextRootValue, null, 2)}\n`)
       setJsonEdit(null)
     } catch (error) {
       setNotice(error instanceof Error ? `JSON edit failed: ${error.message}` : 'JSON edit failed.')
@@ -3542,7 +4163,10 @@ export function ChangesInternalEditor({
             aria-selected={viewMode === mode.id}
             className={viewMode === mode.id ? 'active' : ''}
             key={mode.id}
-            onClick={() => setViewMode(mode.id)}
+            onClick={() => {
+              if (mode.id === 'hex') pendingHexOffsetRef.current = codeViewHexOffset()
+              setViewMode(mode.id)
+            }}
           >
             {mode.label}
           </button>
@@ -3576,6 +4200,7 @@ export function ChangesInternalEditor({
     setTextUnavailableMessage(null)
     setCollapsedJsonPaths(new Set())
     setJsonEdit(null)
+    setMultiEditRanges([])
     setDiagnostics([])
     setLintRunState({
       status: 'idle',
@@ -3585,10 +4210,15 @@ export function ChangesInternalEditor({
     setEditorScrollTop(0)
     setEditorViewportHeight(0)
     lastEditorScrollTopRef.current = 0
+    lastHexScrollTopRef.current = 0
     suppressAutoChunkUntilRef.current = 0
+    suppressAutoHexChunkUntilRef.current = 0
     if (textareaRef.current) {
       textareaRef.current.scrollTop = 0
       textareaRef.current.scrollLeft = 0
+    }
+    if (hexTableBodyRef.current) {
+      hexTableBodyRef.current.scrollTop = 0
     }
     syncEditorOverlays(0, 0)
   }, [selectedPath])
@@ -3609,6 +4239,142 @@ export function ChangesInternalEditor({
 
     return () => window.cancelAnimationFrame(frame)
   }, [selectedPath, fileQuery, visibleFiles.length])
+
+  useEffect(() => {
+    const searchText = fileQuery.trim()
+    const requestId = fileContentSearchRequestRef.current + 1
+    fileContentSearchRequestRef.current = requestId
+
+    if (!api || !currentRepoPath || searchText.length < EDITOR_FILE_CONTENT_SEARCH_MIN_LENGTH || files.length === 0) {
+      setFileContentMatches({})
+      setFileContentSearchState({ status: 'idle', scanned: 0, truncated: false, error: null })
+      return
+    }
+
+    let cancelled = false
+    const handle = window.setTimeout(() => {
+      const eligibleFiles = files.filter((file) => isLikelyContentSearchFile(file.path))
+      const searchFiles = eligibleFiles.slice(0, EDITOR_FILE_CONTENT_SEARCH_FILE_LIMIT)
+      const truncatedByFileLimit = eligibleFiles.length > searchFiles.length
+      const matches: Record<string, RepositoryContentSearchMatch> = {}
+      let scanned = 0
+
+      setFileContentMatches({})
+      setFileContentSearchState({ status: 'searching', scanned: 0, truncated: truncatedByFileLimit, error: null })
+
+      const run = async () => {
+        try {
+          for (let index = 0; index < searchFiles.length; index += EDITOR_FILE_CONTENT_SEARCH_BATCH_SIZE) {
+            if (cancelled || fileContentSearchRequestRef.current !== requestId) return
+
+            const batch = searchFiles.slice(index, index + EDITOR_FILE_CONTENT_SEARCH_BATCH_SIZE)
+            const results = await Promise.all(batch.map(async (file) => {
+              try {
+                const result = await api.getRepositoryFileContent({
+                  repoPath: currentRepoPath,
+                  filePath: file.path
+                })
+                if (!result.ok || result.data.binary || result.data.tooLarge || !result.data.text) return null
+                return findRepositoryContentMatch(file.path, result.data.text, searchText)
+              } catch {
+                return null
+              }
+            }))
+
+            if (cancelled || fileContentSearchRequestRef.current !== requestId) return
+
+            scanned += batch.length
+            for (const match of results) {
+              if (!match) continue
+              matches[match.filePath] = match
+              if (Object.keys(matches).length >= EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT) break
+            }
+
+            const truncated = truncatedByFileLimit || Object.keys(matches).length >= EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT
+            setFileContentMatches({ ...matches })
+            setFileContentSearchState({ status: 'searching', scanned, truncated, error: null })
+
+            if (Object.keys(matches).length >= EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT) break
+          }
+
+          if (cancelled || fileContentSearchRequestRef.current !== requestId) return
+          setFileContentMatches({ ...matches })
+          setFileContentSearchState({
+            status: 'done',
+            scanned,
+            truncated: truncatedByFileLimit || Object.keys(matches).length >= EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT,
+            error: null
+          })
+        } catch (error) {
+          if (cancelled || fileContentSearchRequestRef.current !== requestId) return
+          setFileContentSearchState({
+            status: 'done',
+            scanned,
+            truncated: truncatedByFileLimit,
+            error: friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Content search failed.')
+          })
+        }
+      }
+
+      void run()
+    }, EDITOR_FILE_CONTENT_SEARCH_DEBOUNCE_MS)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(handle)
+    }
+  }, [api, currentRepoPath, fileQuery, files])
+
+  useEffect(() => {
+    if (!api || !currentRepoPath || !selectedPath || !selectedChange) {
+      setGitLineChanges([])
+      setGitDiffLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setGitDiffLoading(true)
+
+    const requests: Array<Promise<ApiResult<DiffResult>>> = []
+    if (selectedChange.staged) {
+      requests.push(api.getDiff({ repoPath: currentRepoPath, filePath: selectedPath, staged: true, contextLines: 0 }))
+    }
+    if (selectedChange.unstaged || selectedChange.untracked || !selectedChange.staged) {
+      requests.push(api.getDiff({ repoPath: currentRepoPath, filePath: selectedPath, staged: false, contextLines: 0 }))
+    }
+
+    void Promise.all(requests)
+      .then((results) => {
+        if (cancelled) return
+        const diffs = results.flatMap((result) => (
+          result.ok && !result.data.binary && !result.data.tooLarge ? [result.data] : []
+        ))
+        setGitLineChanges(buildGitLineChanges(diffs, selectedPath))
+        setGitDiffLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setGitLineChanges([])
+        setGitDiffLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    api,
+    currentRepoPath,
+    selectedPath,
+    selectedChange?.additions,
+    selectedChange?.deletions,
+    selectedChange?.stagedStatus,
+    selectedChange?.staged,
+    selectedChange?.status,
+    selectedChange?.unstagedStatus,
+    selectedChange?.unstaged,
+    selectedChange?.untracked,
+    snapshot?.summary.headOid
+  ])
 
   useEffect(() => {
     if (lintBlocked || !selectedLintSupported) {
@@ -3706,7 +4472,18 @@ export function ChangesInternalEditor({
     if (!api || !currentRepoPath || !selectedPath) return
     if (viewMode !== 'hex' && !textUnavailableMessage) return
 
-    void loadHexChunk(0, 0)
+    const preferredOffset = pendingHexOffsetRef.current ?? codeViewHexOffset()
+    pendingHexOffsetRef.current = null
+    if (
+      hexBytes?.filePath === selectedPath &&
+      preferredOffset >= hexBytes.startOffset &&
+      preferredOffset < hexBytes.endOffset
+    ) {
+      selectHexByte(preferredOffset)
+      return
+    }
+
+    void loadHexChunk(preferredOffset, preferredOffset, { scrollPlacement: 'start' })
   }, [api, currentRepoPath, selectedPath, textUnavailableMessage, viewMode])
 
   useEffect(() => {
@@ -3718,6 +4495,43 @@ export function ChangesInternalEditor({
       setActiveSearchIndex(Math.max(0, fileSearchMatches.length - 1))
     }
   }, [activeSearchIndex, fileSearchMatches.length])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return
+
+      const key = event.key.toLowerCase()
+      if (key === 'f') {
+        if (focusFileSearchInput()) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+        return
+      }
+
+      if (key === 'd' && event.target === textareaRef.current && !event.defaultPrevented) {
+        event.preventDefault()
+        activateNextMultiEditOccurrence()
+        return
+      }
+
+      if (event.defaultPrevented || event.target === textareaRef.current || isNativeEditableTarget(event.target)) return
+
+      const undo = key === 'z' && !event.shiftKey
+      const redo = key === 'y' || (key === 'z' && event.shiftKey)
+      if (!undo && !redo) return
+      if (undo && editorUndoStackRef.current.length === 0) return
+      if (redo && editorRedoStackRef.current.length === 0) return
+
+      event.preventDefault()
+      pendingEditorHistoryRef.current = null
+      if (undo) undoEditorText()
+      else redoEditorText()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [fileError, fileLoading, selectedPath, textUnavailableMessage, viewMode])
 
   useEffect(() => {
     if (activeHexSearchIndex >= hexSearchMatches.length && hexSearchMatches.length > 0) {
@@ -3873,6 +4687,87 @@ export function ChangesInternalEditor({
       cancelled = true
     }
   }, [api, currentRepoPath, selectedPath])
+
+  useEffect(() => {
+    const target = pendingEditorFocusRef.current
+    if (!target || target.filePath !== selectedPath || fileLoading) return
+    if (fileError || textUnavailableMessage) {
+      pendingEditorFocusRef.current = null
+      return
+    }
+
+    const firstLineNumber = activeEditorLineBase
+    const lastLineNumber = activeEditorLineBase + Math.max(0, draftLines.length - 1)
+    const lineIsLoaded = target.lineNumber >= firstLineNumber && target.lineNumber <= lastLineNumber
+
+    if (lineIsLoaded || !chunkedTextPreview || target.byteOffset === undefined || !api || !currentRepoPath) {
+      pendingEditorFocusRef.current = null
+      focusCodePosition(target.lineNumber, target.column, target.length)
+      return
+    }
+
+    pendingEditorFocusRef.current = null
+    let cancelled = false
+    setFileLoading(true)
+    setChunkedTextPreview({ ...chunkedTextPreview, loading: true, error: null })
+    void api.getRepositoryFileChunk({
+      repoPath: currentRepoPath,
+      filePath: selectedPath,
+      offset: target.byteOffset,
+      maxBytes: EDITOR_FILE_CHUNK_BYTES
+    })
+      .then((result) => {
+        if (cancelled) return
+        setFileLoading(false)
+        if (!result.ok) {
+          const message = friendlyIpcErrorMessage(result.error.message, 'Failed to load search result chunk.')
+          setChunkedTextPreview((current) => current ? { ...current, loading: false, error: message } : current)
+          setNotice(message)
+          return
+        }
+        if (result.data.binary) {
+          setNotice('Search result is in a binary chunk.')
+          return
+        }
+
+        const markers = result.data.startOffset > 0
+          ? [
+              { offset: 0, lineNumber: 1 },
+              { offset: result.data.startOffset, lineNumber: target.lineNumber }
+            ]
+          : [{ offset: result.data.startOffset, lineNumber: target.lineNumber }]
+        setChunkedTextPreview(chunkedTextPreviewFromResult(result.data, {
+          startLine: target.lineNumber,
+          markers,
+          pageIndex: markers.length - 1
+        }))
+        setOriginalText(result.data.text)
+        setDraftText(result.data.text)
+        focusCodePosition(target.lineNumber, target.column, target.length)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        setFileLoading(false)
+        const message = friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load search result chunk.')
+        setChunkedTextPreview((current) => current ? { ...current, loading: false, error: message } : current)
+        setNotice(message)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    activeEditorLineBase,
+    api,
+    chunkedTextPreview,
+    currentRepoPath,
+    draftLines.length,
+    fileError,
+    fileLoading,
+    selectedPath,
+    setNotice,
+    textUnavailableMessage
+  ])
 
   const stageFileFromMenu = () => {
     const path = fileMenu?.path
@@ -4034,6 +4929,32 @@ export function ChangesInternalEditor({
         return
       }
 
+      if (chunkedTextPreview) {
+        const currentChunk = chunkedTextPreview
+        const replacementBytes = utf8ByteOffset(draftText, draftText.length)
+        const originalBytes = Math.max(0, currentChunk.endOffset - currentChunk.startOffset)
+        const nextByteSize = Math.max(0, currentChunk.byteSize + replacementBytes - originalBytes)
+        const result = await runSnapshotAction('File chunk saved.', () => api.writeRepositoryFileChunk({
+          repoPath: currentRepoPath,
+          filePath: selectedPath,
+          startOffset: currentChunk.startOffset,
+          endOffset: currentChunk.endOffset,
+          text: draftText
+        }))
+        if (result !== false) {
+          setOriginalText(draftText)
+          setChunkedTextPreview({
+            ...currentChunk,
+            text: draftText,
+            byteSize: nextByteSize,
+            endOffset: currentChunk.startOffset + replacementBytes,
+            hasMore: currentChunk.startOffset + replacementBytes < nextByteSize,
+            markers: currentChunk.markers.slice(0, currentChunk.pageIndex + 1)
+          })
+        }
+        return
+      }
+
       const result = await runSnapshotAction('File saved.', () => api.writeRepositoryFile({
         repoPath: currentRepoPath,
         filePath: selectedPath,
@@ -4048,20 +4969,11 @@ export function ChangesInternalEditor({
   }
 
   const resetAfterBeautify = (nextText: string) => {
-    setDraftText(nextText)
-    setViewMode('code')
-    setCollapsedJsonPaths(new Set())
-    setJsonEdit(null)
-    window.requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        updateEditorLineWindowState(textareaRef.current.scrollTop, textareaRef.current.clientHeight)
-        syncEditorOverlays(textareaRef.current.scrollLeft, textareaRef.current.scrollTop, textareaRef.current.clientHeight)
-      }
-    })
+    applyEditorTextChange(nextText, { viewMode: 'code', resetJsonCollapse: true })
   }
 
   const beautifyFile = () => {
-    if (!selectedPath || chunkedReadOnly || fileLoading || fileError || textUnavailableMessage || viewMode === 'image') return
+    if (!selectedPath || chunkedTextActive || fileLoading || fileError || textUnavailableMessage || viewMode === 'image') return
     setBeautifying(true)
     try {
       const nextText = beautifyTextLocally(selectedPath, draftText)
@@ -4084,7 +4996,7 @@ export function ChangesInternalEditor({
   }
 
   const beautifyFileWithAi = async () => {
-    if (!api || !currentRepoPath || !selectedPath || chunkedReadOnly || fileLoading || fileError || textUnavailableMessage || viewMode === 'image') return
+    if (!api || !currentRepoPath || !selectedPath || chunkedTextActive || fileLoading || fileError || textUnavailableMessage || viewMode === 'image') return
     setAiBeautifying(true)
     try {
       const result = await api.beautifyFileWithAssistant({
@@ -4123,9 +5035,7 @@ export function ChangesInternalEditor({
     const nextText = revertLiveChangeInText(snapshot.text, change)
     if (nextText === snapshot.text) return
 
-    pushEditorUndoEntry(snapshot)
-    setDraftText(nextText)
-    setJsonEdit(null)
+    applyEditorTextChange(nextText)
   }
 
   const syncHighlightScroll = (event: ReactUIEvent<HTMLTextAreaElement>) => {
@@ -4153,6 +5063,27 @@ export function ChangesInternalEditor({
     }
   }
 
+  const syncHexScroll = (event: ReactUIEvent<HTMLDivElement>) => {
+    const nextScrollTop = event.currentTarget.scrollTop
+    const scrollingDown = nextScrollTop > lastHexScrollTopRef.current
+    const scrollingUp = nextScrollTop < lastHexScrollTopRef.current
+    lastHexScrollTopRef.current = nextScrollTop
+
+    if (!hexBytes || hexLoading || window.performance.now() < suppressAutoHexChunkUntilRef.current) return
+
+    const remainingScroll = event.currentTarget.scrollHeight - nextScrollTop - event.currentTarget.clientHeight
+    if (scrollingDown && hexBytes.hasMore && remainingScroll < 72) {
+      void loadHexChunk(hexBytes.endOffset, hexBytes.endOffset, { scrollPlacement: 'start' })
+      return
+    }
+
+    if (scrollingUp && hexBytes.startOffset > 0 && nextScrollTop < 72) {
+      const previousOffset = Math.max(0, hexBytes.startOffset - HEX_CHUNK_BYTES)
+      const selectOffset = Math.max(0, hexBytes.startOffset - 1)
+      void loadHexChunk(previousOffset, selectOffset, { scrollPlacement: 'end' })
+    }
+  }
+
   return (
     <section className="changes-internal-editor" ref={editorRef} style={editorStyle}>
       <aside className="changes-editor-sidebar">
@@ -4162,15 +5093,28 @@ export function ChangesInternalEditor({
         </button>
         <label className="changes-editor-search">
           <Search size={15} />
-          <input value={fileQuery} onChange={(event) => setFileQuery(event.target.value)} placeholder="Search repository files" />
+          <input value={fileQuery} onChange={(event) => setFileQuery(event.target.value)} placeholder="Search files and content" />
         </label>
+        {query && (
+          <div className="changes-editor-content-search-status">
+            {fileContentSearchState.error ? (
+              <span className="danger-text">{fileContentSearchState.error}</span>
+            ) : fileContentSearchState.status === 'searching' ? (
+              <span>Searching content... {fileContentSearchState.scanned}/{Math.min(files.length, EDITOR_FILE_CONTENT_SEARCH_FILE_LIMIT)}</span>
+            ) : fileContentMatchCount > 0 ? (
+              <span>{fileContentMatchCount} content match{fileContentMatchCount === 1 ? '' : 'es'}{fileContentSearchState.truncated ? ' (limited)' : ''}</span>
+            ) : (
+              <span>Path + content search</span>
+            )}
+          </div>
+        )}
         <div className="changes-editor-file-list">
           {filesLoading ? (
             <div className="quiet-box">Loading files.</div>
           ) : filesError ? (
             <div className="quiet-box danger-text">{filesError}</div>
           ) : visibleFiles.length === 0 ? (
-            <div className="quiet-box">No files match this search.</div>
+            <div className="quiet-box">{fileContentSearchState.status === 'searching' ? 'Searching file contents.' : 'No files match this search.'}</div>
           ) : (
             <div className="changes-editor-tree-root">
               {visibleFileTree.files.map((file) => renderFileRow(file, file.path))}
@@ -4206,13 +5150,7 @@ export function ChangesInternalEditor({
               <span className={`file-type-icon file-type-${selectedIcon.tone}`} title={selectedIcon.title} aria-hidden="true">
                 {selectedIcon.label}
               </span>
-              {hexDirty
-                ? `${parsedHexDraft.bytes?.length ?? 0} edited byte${parsedHexDraft.bytes?.length === 1 ? '' : 's'} since load`
-                : viewMode === 'hex' && hexBytes && !hexFullFileLoaded
-                  ? `Read-only hex chunk ${formatBytes(hexBytes.startOffset)}-${formatBytes(hexBytes.endOffset)} of ${formatBytes(hexBytes.byteSize)}`
-                : chunkedTextPreview
-                  ? `Read-only chunk ${formatBytes(chunkedTextPreview.startOffset)}-${formatBytes(chunkedTextPreview.endOffset)} of ${formatBytes(chunkedTextPreview.byteSize)}`
-                : textUnavailableMessage ? textUnavailableMessage : textDirty ? `${editedLines} edited line${editedLines === 1 ? '' : 's'} since load` : 'No edits since load'}
+              {editorStatusText}
             </p>
             {renderViewModeTabs()}
           </div>
@@ -4220,10 +5158,12 @@ export function ChangesInternalEditor({
             <label className="changes-editor-file-search">
               <Search size={15} />
               <input
+                ref={fileSearchInputRef}
                 value={fileSearchQuery}
                 onChange={(event) => setFileSearchQuery(event.target.value)}
                 onKeyDown={handleFileSearchKeyDown}
-                placeholder="Search in file"
+                placeholder="Search in file / :line"
+                title="Search text, or jump to a line with 120, :120, #120, or :120:5"
                 disabled={!selectedPath || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image' || viewMode === 'hex'}
               />
               {fileSearchQuery && (
@@ -4232,14 +5172,16 @@ export function ChangesInternalEditor({
                 </button>
               )}
               <span className="changes-editor-search-count">
-                {fileSearchQuery.trim()
+                {fileLineSearchTarget
+                  ? `line ${fileLineSearchTarget.lineNumber}${fileLineSearchTarget.column > 0 ? `:${fileLineSearchTarget.column + 1}` : ''}`
+                  : fileSearchQuery.trim()
                   ? `${activeSearchIndex >= 0 ? activeSearchIndex + 1 : 0}/${fileSearchMatches.length}${fileSearchOverflow ? '+' : ''}`
                   : '0/0'}
               </span>
-              <button type="button" title="Previous match" aria-label="Previous match" disabled={fileSearchMatches.length === 0} onClick={() => activateSearchMatch(activeSearchIndex < 0 ? -1 : activeSearchIndex - 1)}>
+              <button type="button" title={fileLineSearchTarget ? 'Go to line' : 'Previous match'} aria-label={fileLineSearchTarget ? 'Go to line' : 'Previous match'} disabled={!fileLineSearchTarget && fileSearchMatches.length === 0} onClick={() => (fileLineSearchTarget ? focusFileLineSearchTarget() : activateSearchMatch(activeSearchIndex < 0 ? -1 : activeSearchIndex - 1))}>
                 <ChevronUp size={14} />
               </button>
-              <button type="button" title="Next match" aria-label="Next match" disabled={fileSearchMatches.length === 0} onClick={() => activateSearchMatch(activeSearchIndex < 0 ? 0 : activeSearchIndex + 1)}>
+              <button type="button" title={fileLineSearchTarget ? 'Go to line' : 'Next match'} aria-label={fileLineSearchTarget ? 'Go to line' : 'Next match'} disabled={!fileLineSearchTarget && fileSearchMatches.length === 0} onClick={() => (fileLineSearchTarget ? focusFileLineSearchTarget() : activateSearchMatch(activeSearchIndex < 0 ? 0 : activeSearchIndex + 1))}>
                 <ChevronDown size={14} />
               </button>
             </label>
@@ -4269,6 +5211,24 @@ export function ChangesInternalEditor({
                   <strong>{lintRunState.message}</strong>
                   <span>{lintRunState.detail}</span>
                 </div>
+                {diagnostics.length > 0 && (
+                  <div className="changes-editor-lint-issues">
+                    {diagnostics.slice(0, 6).map((diagnostic, index) => (
+                      <button
+                        type="button"
+                        key={`${diagnostic.lineNumber}-${diagnostic.column}-${index}`}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          goToDiagnostic(diagnostic)
+                        }}
+                      >
+                        <code>{diagnostic.lineNumber}:{diagnostic.column}</code>
+                        <span>{diagnostic.message}</span>
+                      </button>
+                    ))}
+                    {diagnostics.length > 6 && <small>{diagnostics.length - 6} more issues below.</small>}
+                  </div>
+                )}
                 <label>
                   <input
                     type="checkbox"
@@ -4334,8 +5294,8 @@ export function ChangesInternalEditor({
               type="button"
               className="changes-editor-tool-button"
               onClick={beautifyFile}
-              disabled={!selectedPath || chunkedReadOnly || beautifying || aiBeautifying || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image'}
-              title={chunkedReadOnly ? 'Beautify is disabled for chunked previews' : 'Beautify locally'}
+              disabled={!selectedPath || chunkedTextActive || beautifying || aiBeautifying || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image'}
+              title={chunkedTextActive ? 'Beautify is disabled for file chunks' : 'Beautify locally'}
             >
               <Sparkles size={15} />
               {beautifying ? 'Beautifying...' : 'Beautify'}
@@ -4344,8 +5304,8 @@ export function ChangesInternalEditor({
               type="button"
               className="changes-editor-tool-button ai"
               onClick={beautifyFileWithAi}
-              disabled={!api || !currentRepoPath || !selectedPath || chunkedReadOnly || beautifying || aiBeautifying || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image'}
-              title={chunkedReadOnly ? 'AI Beautify is disabled for chunked previews' : 'Beautify with assistant'}
+              disabled={!api || !currentRepoPath || !selectedPath || chunkedTextActive || beautifying || aiBeautifying || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image'}
+              title={chunkedTextActive ? 'AI Beautify is disabled for file chunks' : 'Beautify with assistant'}
             >
               <WandSparkles size={15} />
               {aiBeautifying ? 'AI...' : 'AI Beautify'}

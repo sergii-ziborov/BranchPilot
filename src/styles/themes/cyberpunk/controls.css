@@ -1,0 +1,118 @@
+html[data-theme='cyberpunk'] :is(
+  button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled),
+  input,
+  textarea,
+  select
+) {
+  border-radius: var(--theme-radius);
+}
+
+html[data-theme='cyberpunk'] :is(
+  input,
+  textarea,
+  select,
+  .change-filter-input,
+  .github-repo-search input
+) {
+  border-color: var(--theme-hairline);
+  color: var(--text-strong);
+  background: var(--theme-input-bg);
+  box-shadow: inset 0 0 0 1px rgba(252, 238, 10, 0.055);
+}
+
+html[data-theme='cyberpunk'] :is(
+  button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
+  .shell-dropdown-item:hover,
+  .shell-dropdown-primary:hover,
+  .change-row:hover,
+  .history-row:hover
+) {
+  border-color: var(--cyberpunk-yellow);
+  color: var(--text-strong);
+  background: var(--theme-hover-bg);
+  box-shadow:
+    inset 0 0 0 1px rgba(252, 238, 10, 0.12),
+    0 0 18px rgba(0, 234, 255, 0.14);
+}
+
+html[data-theme='cyberpunk'] :is(
+  .view-switch-tab.active,
+  .icon-button.active,
+  .coauthor-chip.selected,
+  .contributor-filter button.active,
+  .config-email-options button.active,
+  .changes-actions-popover button.active,
+  .shell-theme-item.active,
+  .search-scope-toggle button.active,
+  .segmented button.active,
+  .github-filter-segment button.active
+) {
+  border-color: var(--cyberpunk-yellow);
+  color: var(--accent-contrast) !important;
+  background:
+    linear-gradient(180deg, var(--cyberpunk-yellow-hot), var(--cyberpunk-yellow) 54%, #c79700) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 0 20px rgba(252, 238, 10, 0.22);
+  text-shadow: none;
+}
+
+html[data-theme='cyberpunk'] :is(.icon-button.active, .view-switch-tab.active, .shell-theme-item.active) svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+  filter: none;
+}
+
+html[data-theme='cyberpunk'] :is(
+  .change-row.selected,
+  .current-pr,
+  .pr-row.selected,
+  .report-scope-repo.selected
+) {
+  border-color: var(--cyberpunk-yellow);
+  background:
+    linear-gradient(90deg, rgba(252, 238, 10, 0.18), rgba(255, 48, 73, 0.09));
+  box-shadow:
+    inset 4px 0 0 var(--cyberpunk-yellow),
+    var(--theme-panel-glow);
+}
+
+html[data-theme='cyberpunk'] button.history-row {
+  clip-path: none;
+  border-color: transparent;
+  border-radius: 0;
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+html[data-theme='cyberpunk'] button.history-row::before,
+html[data-theme='cyberpunk'] button.history-row::after {
+  display: none;
+}
+
+html[data-theme='cyberpunk'] button.history-row.selected {
+  color: var(--text-strong);
+  background:
+    linear-gradient(90deg, rgba(252, 238, 10, 0.20), rgba(255, 48, 73, 0.08));
+  box-shadow: inset 4px 0 0 var(--cyberpunk-yellow);
+}
+
+html[data-theme='cyberpunk'] .history-graph-canvas {
+  --history-graph-trunk: #ffe600;
+  --history-graph-lane-1: #00eaff;
+  --history-graph-lane-2: #ff3b30;
+  --history-graph-lane-3: #ff2bd6;
+  --history-graph-lane-4: #00ff85;
+  --history-graph-lane-5: #8a7dff;
+  --history-graph-lane-6: #22d3ee;
+  --history-graph-lane-7: #ff8a00;
+  --history-graph-lane-8: #d6ff00;
+  background: transparent;
+}
+
+html[data-theme='cyberpunk'] :is(.file-status, .dash-count, .shell-tab-badge) {
+  border-radius: 2px;
+  box-shadow: 0 0 12px color-mix(in srgb, currentColor 20%, transparent);
+}

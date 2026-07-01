@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentType } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import {
   AlignLeft, ArrowDownToLine, ArrowUpFromLine, CalendarDays, ChevronDown,
   DownloadCloud, FolderOpen, GitBranch, GitMerge, GitPullRequest,
@@ -37,13 +37,25 @@ export function AppShellBar({
   const api = window.branchPilot
   const apiReady = Boolean(api)
   const onExitAllRepos = () => setAllReposMode(false)
-  const repoStatuses: Record<string, { state: string; changed: number; ahead: number; behind: number }> =
-    Object.fromEntries(
+  const repoStatuses: Record<string, { state: string; changed: number; ahead: number; behind: number }> = useMemo(() => {
+    const statuses: Record<string, { state: string; changed: number; ahead: number; behind: number }> = Object.fromEntries(
       (repositoryDashboard?.repositories ?? []).map((r) => [
         r.path,
         { state: r.state, changed: r.changed, ahead: r.ahead, behind: r.behind }
       ])
     )
+
+    if (snapshot) {
+      statuses[snapshot.summary.rootPath] = {
+        state: snapshot.status.counts.conflicted > 0 ? 'conflicted' : snapshot.status.counts.changed > 0 ? 'dirty' : 'clean',
+        changed: snapshot.status.counts.changed,
+        ahead: snapshot.summary.ahead,
+        behind: snapshot.summary.behind
+      }
+    }
+
+    return statuses
+  }, [repositoryDashboard, snapshot])
   const branches = snapshot?.branches ?? []
   const remoteBranches = snapshot?.remoteBranches ?? []
   const mergeCandidates = mergeBranchCandidates(snapshot)

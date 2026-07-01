@@ -29,6 +29,7 @@ const branchPilot: BranchPilotApi = {
   listRepositoryFiles: (repoPath) => invoke('repository:files', repoPath),
   getRepositoryFileContent: (request) => invoke('repository:fileContent', request),
   getRepositoryFileChunk: (request) => invoke('repository:fileChunk', request),
+  writeRepositoryFileChunk: (request) => invoke('repository:writeFileChunk', request),
   writeRepositoryFile: (request) => invoke('repository:writeFile', request),
   getRepositoryFileBytes: (request) => invoke('repository:fileBytes', request),
   writeRepositoryFileBytes: (request) => invoke('repository:writeFileBytes', request),

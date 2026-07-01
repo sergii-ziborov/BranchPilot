@@ -436,6 +436,7 @@ export function useAppController() {
     setRecentRepositories(nextSnapshot.recentRepositories)
     setNotice(successMessage)
     setError(null)
+    void silentRefreshDashboard()
 
     if (viewMode === 'dashboard') {
       void loadProjectMemory(nextSnapshot.summary.rootPath)

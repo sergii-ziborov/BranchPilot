@@ -4,10 +4,14 @@ html[data-theme='deus-ex'] .signal-status.history-detail-loading,
 html[data-theme='deus-ex'] .signal-status.history-file-diff-loading,
 html[data-theme='deus-ex'] .signal-status.history-preview-list-curtain,
 html[data-theme='deus-ex'] .signal-status.linkedin-generation-curtain,
+html[data-theme='deus-ex'] .signal-status.daily-data-loading,
+html[data-theme='deus-ex'] .signal-status.daily-data-refresh,
 html[data-theme='deus-ex'] .signal-status.daily-review-curtain,
 html[data-theme='deus-ex'] .signal-status.review-running-curtain,
 html[data-theme='deus-ex'] .signal-status.assistant-model-list-curtain,
-html[data-theme='deus-ex'] .signal-status.changes-editor-file-curtain {
+html[data-theme='deus-ex'] .signal-status.changes-editor-file-curtain,
+html[data-theme='deus-ex'] .signal-status.changes-editor-body-curtain,
+html[data-theme='deus-ex'] .signal-status.changes-editor-hex-loading {
   --signal-main: var(--dx-amber);
   --signal-alt: #ffbf2e;
   --signal-hot: var(--dx-cream);
@@ -16,6 +20,25 @@ html[data-theme='deus-ex'] .signal-status.changes-editor-file-curtain {
     radial-gradient(circle at 58% 24%, rgba(255, 246, 166, 0.13), transparent 18%),
     linear-gradient(180deg, rgba(6, 7, 2, 0.92), rgba(0, 0, 0, 0.98));
   backdrop-filter: none;
+}
+
+html[data-theme='deus-ex'] .daily-heatmap-panel.is-loading,
+html[data-theme='deus-ex'] .daily-ranking-card.is-loading {
+  overflow: hidden;
+}
+
+html[data-theme='deus-ex'] .daily-heatmap-panel.is-loading .signal-status.daily-data-refresh,
+html[data-theme='deus-ex'] .daily-ranking-card.is-loading .signal-status.daily-data-refresh {
+  inset: 0;
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  place-items: center;
 }
 
 html[data-theme='deus-ex'] .signal-status::before {

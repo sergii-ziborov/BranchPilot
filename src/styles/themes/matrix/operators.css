@@ -1,0 +1,246 @@
+html[data-theme='matrix'] {
+  --matrix-black: #000302;
+  --matrix-panel: rgba(0, 10, 4, 0.96);
+  --matrix-panel-2: rgba(0, 18, 7, 0.92);
+  --matrix-green: #00ff66;
+  --matrix-green-soft: #78ff9f;
+  --matrix-white: #eafff1;
+  --matrix-dim: #2f8f4e;
+}
+
+html[data-theme='matrix'] .shell-dropdown,
+html[data-theme='matrix'] .changes-actions-popover,
+html[data-theme='matrix'] .commit-identity-popover,
+html[data-theme='matrix'] .assistant-model-popover,
+html[data-theme='matrix'] .report-scope-popover,
+html[data-theme='matrix'] .github-repo-filter-panel {
+  border: 1px solid rgba(0, 255, 102, 0.46) !important;
+  border-radius: 0 !important;
+  background:
+    linear-gradient(180deg, rgba(0, 255, 102, 0.045), transparent 38%),
+    var(--matrix-panel) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(120, 255, 159, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.92),
+    0 16px 36px rgba(0, 0, 0, 0.86) !important;
+}
+
+html[data-theme='matrix'] .shell-dropdown::before,
+html[data-theme='matrix'] .changes-actions-popover::before,
+html[data-theme='matrix'] .commit-identity-popover::before,
+html[data-theme='matrix'] .assistant-model-popover::before,
+html[data-theme='matrix'] .report-scope-popover::before,
+html[data-theme='matrix'] .github-repo-filter-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 255, 102, 0.07) 0 1px, transparent 1px 23px),
+    repeating-linear-gradient(180deg, transparent 0 16px, rgba(0, 255, 102, 0.08) 16px 17px, transparent 17px 32px);
+  opacity: 0.34;
+}
+
+html[data-theme='matrix'] :is(.shell-dropdown-item, .shell-dropdown-primary, .shell-branch-pick, .shell-theme-item) {
+  border: 1px solid transparent !important;
+  border-radius: 0 !important;
+  color: var(--matrix-green-soft) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  text-shadow: 0 0 7px rgba(0, 255, 102, 0.26) !important;
+}
+
+html[data-theme='matrix'] :is(.shell-dropdown-item, .shell-dropdown-primary, .shell-branch-pick, .shell-theme-item):hover {
+  border-color: rgba(0, 255, 102, 0.58) !important;
+  color: var(--matrix-white) !important;
+  background: rgba(0, 255, 102, 0.12) !important;
+  box-shadow: inset 3px 0 0 var(--matrix-green) !important;
+}
+
+html[data-theme='matrix'] :is(.shell-dropdown-item.active, .shell-theme-item.active, .shell-branch-row.active, .shell-branch-row.active .shell-branch-pick) {
+  border-color: rgba(234, 255, 241, 0.76) !important;
+  color: var(--matrix-white) !important;
+  background:
+    linear-gradient(90deg, rgba(234, 255, 241, 0.26) 0 2px, transparent 2px 100%),
+    rgba(0, 255, 102, 0.18) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 255, 102, 0.28),
+    0 0 18px rgba(0, 255, 102, 0.20) !important;
+}
+
+html[data-theme='matrix'] :is(.shell-dropdown-item.active, .shell-theme-item.active, .shell-branch-row.active, .shell-branch-row.active .shell-branch-pick) :is(strong, span, small, svg) {
+  color: inherit !important;
+  stroke: currentColor !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html[data-theme='matrix'] :is(
+  .segmented:not(.diff-display-toggle) button.active,
+  .segmented:not(.diff-display-toggle) button[aria-pressed='true'],
+  .review-mode-segmented button.active,
+  .review-mode-segmented button[aria-pressed='true'],
+  .assistant-policy-modes button.active,
+  .assistant-policy-modes button[aria-pressed='true'],
+  .precommit-modes button.active,
+  .precommit-modes button[aria-pressed='true'],
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  .changes-editor-view-tabs button.active,
+  .changes-drawer-tabs button.active,
+  button[aria-selected='true']
+) {
+  border-color: rgba(234, 255, 241, 0.82) !important;
+  color: var(--matrix-white) !important;
+  background:
+    linear-gradient(90deg, rgba(234, 255, 241, 0.24) 0 2px, transparent 2px 100%),
+    rgba(0, 255, 102, 0.20) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 255, 102, 0.34),
+    0 0 18px rgba(0, 255, 102, 0.22) !important;
+  text-shadow: 0 0 8px rgba(0, 255, 102, 0.38) !important;
+}
+
+html[data-theme='matrix'] .signal-status,
+html[data-theme='matrix'] .signal-status.diff-operation-curtain,
+html[data-theme='matrix'] .signal-status.history-detail-loading,
+html[data-theme='matrix'] .signal-status.history-file-diff-loading,
+html[data-theme='matrix'] .signal-status.history-preview-list-curtain,
+html[data-theme='matrix'] .signal-status.linkedin-generation-curtain,
+html[data-theme='matrix'] .signal-status.daily-data-loading,
+html[data-theme='matrix'] .signal-status.daily-data-refresh,
+html[data-theme='matrix'] .signal-status.daily-review-curtain,
+html[data-theme='matrix'] .signal-status.review-running-curtain,
+html[data-theme='matrix'] .signal-status.assistant-model-list-curtain,
+html[data-theme='matrix'] .signal-status.changes-editor-file-curtain,
+html[data-theme='matrix'] .signal-status.changes-editor-body-curtain,
+html[data-theme='matrix'] .signal-status.changes-editor-hex-loading {
+  --signal-main: var(--matrix-green);
+  --signal-alt: var(--matrix-green-soft);
+  --signal-hot: var(--matrix-white);
+  color: var(--matrix-white);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(0, 255, 102, 0.11), transparent 34%),
+    linear-gradient(180deg, rgba(0, 8, 3, 0.96), rgba(0, 0, 0, 0.99)) !important;
+  backdrop-filter: none !important;
+}
+
+html[data-theme='matrix'] .signal-status::before {
+  content: "ｱｶｻﾀﾅﾊﾏﾔﾗﾜ0123456789ﾊﾐﾑﾒﾓｦﾝABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  inset: -14% -4%;
+  padding: 0 10px;
+  color: rgba(120, 255, 159, 0.42);
+  background:
+    linear-gradient(180deg, rgba(234, 255, 241, 0.42), rgba(0, 255, 102, 0.24) 14%, transparent 42%),
+    repeating-linear-gradient(90deg, transparent 0 20px, rgba(0, 255, 102, 0.17) 20px 21px, transparent 21px 34px);
+  background-size: 100% 220px, 34px 100%;
+  font: 14px/1.05 "MS Gothic", "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0.18em;
+  mix-blend-mode: screen;
+  opacity: 0.72;
+  text-orientation: upright;
+  text-shadow: 0 0 10px rgba(0, 255, 102, 0.88);
+  white-space: normal;
+  word-break: break-all;
+  writing-mode: vertical-rl;
+  animation: matrix-glyph-rain 1.36s linear infinite !important;
+}
+
+html[data-theme='matrix'] .signal-status::after {
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 0 18%, rgba(234, 255, 241, 0.26) 25%, rgba(0, 255, 102, 0.24) 34%, transparent 48% 100%),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0 2px, transparent 2px 5px);
+  mix-blend-mode: screen;
+  opacity: 0.70;
+  animation: matrix-refresh-head 1.8s ease-in-out infinite !important;
+}
+
+html[data-theme='matrix'] .signal-status-copy {
+  padding: 9px 13px;
+  border: 1px solid rgba(0, 255, 102, 0.48);
+  background: rgba(0, 5, 2, 0.84);
+  box-shadow:
+    inset 0 0 0 1px rgba(234, 255, 241, 0.08),
+    0 0 22px rgba(0, 255, 102, 0.18);
+}
+
+html[data-theme='matrix'] .signal-status-copy strong {
+  color: var(--matrix-white);
+  letter-spacing: 0.14em;
+  text-shadow: 0 0 9px rgba(0, 255, 102, 0.48);
+}
+
+html[data-theme='matrix'] .signal-status-copy span {
+  color: var(--matrix-green-soft);
+  letter-spacing: 0.09em;
+}
+
+html[data-theme='matrix'] .daily-heatmap-panel.is-loading,
+html[data-theme='matrix'] .daily-ranking-card.is-loading {
+  overflow: hidden;
+}
+
+html[data-theme='matrix'] .daily-heatmap-panel.is-loading .signal-status.daily-data-refresh,
+html[data-theme='matrix'] .daily-ranking-card.is-loading .signal-status.daily-data-refresh {
+  inset: 0;
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  min-height: 0;
+  padding: 22px;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  place-items: center;
+}
+
+html[data-theme='matrix'] .repository-refresh-curtain {
+  --refresh-main: var(--matrix-green);
+  --refresh-alt: var(--matrix-white);
+  --refresh-hot: var(--matrix-green-soft);
+  background:
+    radial-gradient(circle at 50% 38%, rgba(0, 255, 102, 0.10), transparent 36%),
+    linear-gradient(180deg, rgba(0, 8, 3, 0.96), rgba(0, 0, 0, 0.99)) !important;
+  backdrop-filter: none !important;
+}
+
+html[data-theme='matrix'] .repository-refresh-curtain::before {
+  content: "ﾈｵﾏﾄﾘｯｸｽ0101011100101010010110ｱｶｻﾀﾅﾊﾏﾔﾗﾜ0123456789ﾊﾐﾑﾒﾓｦﾝ";
+  inset: -12% -4%;
+  padding: 0 12px;
+  color: rgba(234, 255, 241, 0.52);
+  background:
+    linear-gradient(180deg, rgba(234, 255, 241, 0.42), rgba(0, 255, 102, 0.24) 15%, transparent 48%),
+    repeating-linear-gradient(90deg, transparent 0 18px, rgba(0, 255, 102, 0.20) 18px 20px, transparent 20px 31px);
+  background-size: 100% 260px, 31px 100%;
+  font: 16px/1.06 "MS Gothic", "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0.20em;
+  mix-blend-mode: screen;
+  opacity: 0.72;
+  text-orientation: upright;
+  text-shadow: 0 0 12px rgba(0, 255, 102, 0.88);
+  white-space: normal;
+  word-break: break-all;
+  writing-mode: vertical-rl;
+  animation: matrix-refresh-rain 1.55s linear infinite !important;
+}
+
+html[data-theme='matrix'] .repository-refresh-curtain::after {
+  background:
+    linear-gradient(180deg, transparent 0 16%, rgba(234, 255, 241, 0.32) 24%, rgba(0, 255, 102, 0.28) 36%, transparent 52% 100%),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.44) 0 2px, transparent 2px 5px) !important;
+  mix-blend-mode: screen;
+  opacity: 0.76;
+  animation: matrix-refresh-head 1.9s ease-in-out infinite !important;
+}
+
+html[data-theme='matrix'] .repository-refresh-signal {
+  border-color: rgba(0, 255, 102, 0.62) !important;
+  border-radius: 0 !important;
+  background: rgba(0, 5, 2, 0.84) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(234, 255, 241, 0.12),
+    0 0 36px rgba(0, 255, 102, 0.24) !important;
+}

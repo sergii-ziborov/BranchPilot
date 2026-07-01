@@ -1,0 +1,337 @@
+﻿html[data-theme='deus-ex'] :is(
+  .changes-editor-code-shell,
+  .changes-editor-preview-shell,
+  .changes-editor-hex-shell,
+  .changes-editor-json-viewer,
+  .changes-editor-mode-message,
+  .structured-diff,
+  .diff-preview,
+  .diff-file,
+  .diff-hunk
+) {
+  color: var(--diff-text);
+  background: var(--diff-bg) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-highlight,
+  .changes-editor-line-numbers,
+  .changes-editor-textarea,
+  .changes-editor-color-layer,
+  .diff-line,
+  .split-diff-cell,
+  .diff-preview code
+) {
+  font-family: var(--dx-code-font) !important;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+html[data-theme='deus-ex'] .changes-editor-line-numbers {
+  border-right-color: var(--dx-line-soft) !important;
+  color: var(--diff-muted) !important;
+  background: #070907 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight {
+  color: var(--diff-text) !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-textarea {
+  caret-color: var(--dx-gold-hot) !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-textarea::selection {
+  background: rgba(196, 154, 19, 0.36);
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight-line.line-added,
+html[data-theme='deus-ex'] .diff-line.line-add,
+html[data-theme='deus-ex'] .split-diff-cell.line-add,
+html[data-theme='deus-ex'] .changes-editor-live-row.added {
+  background: var(--diff-add-bg) !important;
+  box-shadow: inset 4px 0 0 var(--dx-good) !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight-line.line-modified,
+html[data-theme='deus-ex'] .changes-editor-live-row.modified {
+  background: var(--diff-hunk-bg) !important;
+  box-shadow: inset 4px 0 0 var(--dx-gold-hot) !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight-line.line-removed,
+html[data-theme='deus-ex'] .diff-line.line-remove,
+html[data-theme='deus-ex'] .split-diff-cell.line-remove,
+html[data-theme='deus-ex'] .changes-editor-live-row.removed {
+  background: var(--diff-remove-bg) !important;
+  box-shadow: inset 4px 0 0 var(--dx-danger) !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-live-diff {
+  border-left-color: var(--dx-line) !important;
+  background: #070907 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-live-diff header span {
+  border-radius: 0;
+  color: var(--dx-black);
+  background: var(--dx-cyan);
+}
+
+html[data-theme='deus-ex'] .changes-editor-live-revert {
+  border-color: var(--dx-line-soft) !important;
+  border-radius: 0 !important;
+  color: var(--dx-muted) !important;
+  background: #050704 !important;
+}
+
+html[data-theme='deus-ex'] :is(.tok-comment) {
+  color: var(--syntax-comment) !important;
+  font-style: normal !important;
+}
+
+html[data-theme='deus-ex'] :is(.tok-keyword) { color: var(--syntax-keyword) !important; }
+html[data-theme='deus-ex'] :is(.tok-string) { color: var(--syntax-string) !important; }
+html[data-theme='deus-ex'] :is(.tok-number) { color: var(--syntax-number) !important; }
+html[data-theme='deus-ex'] :is(.tok-type) { color: var(--syntax-type) !important; }
+html[data-theme='deus-ex'] :is(.tok-function) { color: var(--syntax-function) !important; }
+html[data-theme='deus-ex'] :is(.tok-variable) { color: var(--syntax-variable) !important; }
+html[data-theme='deus-ex'] :is(.tok-operator) { color: var(--syntax-operator) !important; }
+html[data-theme='deus-ex'] :is(.tok-punctuation) { color: var(--syntax-punctuation) !important; }
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-search-hit.active,
+  .diff-line.line-selected,
+  .split-diff-cell.line-selected,
+  .changes-editor-hex-row.active,
+  .changes-editor-hex-byte-cell.active
+) {
+  background: rgba(196, 154, 19, 0.22) !important;
+  box-shadow: inset 4px 0 0 var(--dx-gold-hot) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-hex-table,
+  .changes-editor-hex-table > header,
+  .changes-editor-hex-meta,
+  .changes-editor-json-node,
+  .history-commit-description
+) {
+  border-color: var(--dx-line-soft) !important;
+  border-radius: 0 !important;
+  background: #050704 !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-tool-button,
+  .changes-editor-lint-menu summary,
+  .changes-editor-save-button,
+  .assistant-model-trigger,
+  .assistant-model-prompts-button,
+  .panel-heading > button
+) {
+  border-color: var(--dx-line) !important;
+  border-radius: 0 !important;
+  color: var(--dx-cream) !important;
+  background: #080b07 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-tool-button.ai,
+  .changes-editor-save-button,
+  .assistant-model-prompts-button
+) {
+  border-color: var(--dx-gold-hot) !important;
+  color: var(--dx-gold-hot) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-tool-button:hover,
+  .changes-editor-lint-menu summary:hover,
+  .changes-editor-save-button:hover,
+  .assistant-model-trigger:hover,
+  .assistant-model-prompts-button:hover,
+  .panel-heading > button:hover
+):not(:disabled) {
+  color: #ffffff !important;
+  background: rgba(196, 154, 19, 0.16) !important;
+  box-shadow: inset 4px 0 0 var(--dx-gold-hot) !important;
+}
+
+html[data-theme='deus-ex'] .toast {
+  border-color: var(--dx-line) !important;
+  border-radius: 0 !important;
+  color: var(--dx-cream) !important;
+  background: #070907 !important;
+  box-shadow:
+    inset 5px 0 0 var(--signal-main, var(--dx-gold)),
+    0 12px 28px rgba(0, 0, 0, 0.58) !important;
+  backdrop-filter: none !important;
+}
+
+html[data-theme='deus-ex'] .toast.signal-status::before,
+html[data-theme='deus-ex'] .toast.signal-status::after {
+  display: none !important;
+  content: none !important;
+}
+
+html[data-theme='deus-ex'] .toast .signal-status-copy strong {
+  color: var(--dx-gold-hot) !important;
+  letter-spacing: 0 !important;
+}
+
+html[data-theme='deus-ex'] .toast .signal-status-copy span {
+  color: var(--dx-cream) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .view-switch-tab:hover,
+  .tool-view-switch .view-switch-tab:hover,
+  .shell-tab:hover,
+  .shell-tool:hover,
+  .changes-editor-view-tabs button:hover,
+  .changes-drawer-tabs button:hover,
+  .reports-switch button:hover,
+  .settings-switch button:hover,
+  .segmented:not(.diff-display-toggle) button:hover,
+  .search-scope-toggle button:hover,
+  .github-filter-segment button:hover,
+  .assistant-policy-modes button:hover,
+  .precommit-modes button:hover,
+  .shell-menu > summary:hover,
+  .shell-segments .shell-sync-menu > summary:hover,
+  .changes-editor-tool-button:hover,
+  .changes-editor-lint-menu summary:hover,
+  .changes-editor-save-button:hover,
+  .assistant-model-trigger:hover,
+  .assistant-model-prompts-button:hover
+):not(:disabled):not(.active):not([aria-pressed='true']):not([aria-selected='true']) {
+  box-shadow: inset 0 0 0 1px rgba(232, 197, 50, 0.28) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  .shell-tool.active,
+  .changes-editor-view-tabs button.active,
+  .changes-drawer-tabs button.active,
+  .reports-switch button.active,
+  .settings-switch button.active,
+  .segmented:not(.diff-display-toggle) button.active,
+  .segmented:not(.diff-display-toggle) button[aria-pressed='true'],
+  .search-scope-toggle button.active,
+  .search-scope-toggle button[aria-pressed='true'],
+  .github-filter-segment button.active,
+  .github-filter-segment button[aria-pressed='true'],
+  .assistant-policy-modes button.active,
+  .assistant-policy-modes button[aria-pressed='true'],
+  .precommit-modes button.active,
+  .precommit-modes button[aria-pressed='true'],
+  .shell-menu[open] > summary,
+  .shell-segments .shell-sync-menu[open] > summary,
+  button[aria-selected='true']
+) {
+  border-color: #f0d44f !important;
+  color: #050602 !important;
+  background: #c49a13 !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 246, 176, 0.30) !important;
+  clip-path: none !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  .shell-tool.active,
+  .changes-editor-view-tabs button.active,
+  .changes-drawer-tabs button.active,
+  .reports-switch button.active,
+  .settings-switch button.active,
+  .segmented:not(.diff-display-toggle) button.active,
+  .segmented:not(.diff-display-toggle) button[aria-pressed='true'],
+  .search-scope-toggle button.active,
+  .search-scope-toggle button[aria-pressed='true'],
+  .github-filter-segment button.active,
+  .github-filter-segment button[aria-pressed='true'],
+  .assistant-policy-modes button.active,
+  .assistant-policy-modes button[aria-pressed='true'],
+  .precommit-modes button.active,
+  .precommit-modes button[aria-pressed='true'],
+  .shell-menu[open] > summary,
+  .shell-segments .shell-sync-menu[open] > summary,
+  button[aria-selected='true']
+) :is(span, strong, small, svg) {
+  color: #050602 !important;
+  stroke: #050602 !important;
+}
+
+html[data-theme='deus-ex'] .shell-theme-item.active,
+html[data-theme='deus-ex'] .commit-identity-option.active,
+html[data-theme='deus-ex'] .assistant-model-option.active,
+html[data-theme='deus-ex'] .assistant-choice.active,
+html[data-theme='deus-ex'] .switch-option.active,
+html[data-theme='deus-ex'] .merge-branch-item.active {
+  border-color: #f0d44f !important;
+  color: #050602 !important;
+  background: #c49a13 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 246, 176, 0.32) !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .shell-theme-item.active,
+  .commit-identity-option.active,
+  .assistant-model-option.active,
+  .assistant-choice.active,
+  .switch-option.active,
+  .merge-branch-item.active
+) :is(strong, span, small, code, svg) {
+  color: #050602 !important;
+  stroke: #050602 !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .shell-dropdown-item.active,
+  .shell-branch-row.active,
+  .changes-editor-file-row.selected,
+  .history-row.selected,
+  .change-row.selected,
+  .pr-row.selected,
+  .report-scope-repo.selected,
+  .current-pr
+) {
+  border-color: #ece3bf !important;
+  color: #050602 !important;
+  background: #d4d4c5 !important;
+  box-shadow:
+    inset 0 0 0 1px #ffffff,
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .shell-dropdown-item.active,
+  .shell-branch-row.active,
+  .changes-editor-file-row.selected,
+  .history-row.selected,
+  .change-row.selected,
+  .pr-row.selected,
+  .report-scope-repo.selected,
+  .current-pr
+) :is(.file-name, .file-path, strong, span, small, code, svg) {
+  color: #050602 !important;
+  stroke: #050602 !important;
+}
+
+html[data-theme='deus-ex'] .change-row .change-select,
+html[data-theme='deus-ex'] .change-row .change-select:not(:disabled),
+html[data-theme='deus-ex'] .change-row .change-select:hover:not(:disabled) {
+  border: 0 !important;
+  color: #f0e7bb !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+

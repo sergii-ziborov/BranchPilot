@@ -1,0 +1,64 @@
+html[data-theme='cyberpunk'] :is(
+  .changes-editor-code-shell,
+  .changes-editor-code-shell.is-dirty,
+  .changes-editor-code-shell.is-chunked,
+  .history-file-code,
+  .diff-preview,
+  .structured-diff
+) {
+  color: var(--cyberpunk-white);
+  background:
+    linear-gradient(90deg, rgba(0, 234, 255, 0.035), transparent 32%),
+    rgba(5, 2, 7, 0.94);
+}
+
+html[data-theme='cyberpunk'] .changes-editor-code-shell textarea.changes-editor-textarea,
+html[data-theme='cyberpunk'] .changes-editor-code-shell textarea.changes-editor-textarea:focus,
+html[data-theme='cyberpunk'] .changes-editor-code-shell textarea.changes-editor-textarea.is-dirty {
+  caret-color: var(--cyberpunk-yellow);
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+html[data-theme='cyberpunk'] .changes-editor-highlight {
+  color: var(--cyberpunk-white);
+}
+
+html[data-theme='cyberpunk'] .tok-comment { color: var(--syntax-comment) !important; }
+html[data-theme='cyberpunk'] .tok-keyword { color: var(--syntax-keyword) !important; }
+html[data-theme='cyberpunk'] .tok-string { color: var(--syntax-string) !important; }
+html[data-theme='cyberpunk'] .tok-number { color: var(--syntax-number) !important; }
+html[data-theme='cyberpunk'] .tok-type { color: var(--syntax-type) !important; }
+html[data-theme='cyberpunk'] .tok-function { color: var(--syntax-function) !important; }
+html[data-theme='cyberpunk'] .tok-variable { color: var(--syntax-variable) !important; }
+html[data-theme='cyberpunk'] .tok-operator { color: var(--syntax-operator) !important; }
+html[data-theme='cyberpunk'] .tok-punctuation { color: var(--syntax-punctuation) !important; }
+
+html[data-theme='cyberpunk'] .file-type-icon {
+  border-color: color-mix(in srgb, currentColor 44%, transparent);
+  color: var(--cyberpunk-yellow);
+  background: rgba(5, 2, 7, 0.78);
+}
+
+html[data-theme='cyberpunk'] .file-type-ts,
+html[data-theme='cyberpunk'] .file-type-config {
+  color: var(--cyberpunk-cyan);
+}
+
+html[data-theme='cyberpunk'] .file-type-style,
+html[data-theme='cyberpunk'] .file-type-markup,
+html[data-theme='cyberpunk'] .file-type-image {
+  color: var(--cyberpunk-pink);
+}
+
+html[data-theme='cyberpunk'] .file-type-json,
+html[data-theme='cyberpunk'] .file-type-data,
+html[data-theme='cyberpunk'] .file-type-shell {
+  color: var(--cyberpunk-green);
+}
+
+html[data-theme='cyberpunk'] .file-type-git,
+html[data-theme='cyberpunk'] .file-type-rust,
+html[data-theme='cyberpunk'] .file-type-java {
+  color: var(--cyberpunk-red);
+}

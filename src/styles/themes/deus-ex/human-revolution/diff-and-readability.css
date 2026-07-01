@@ -1,0 +1,336 @@
+﻿html[data-theme='deus-ex'] .changes-editor-highlight .tok-string,
+html[data-theme='deus-ex'] .diff-preview .tok-string,
+html[data-theme='deus-ex'] .diff-line .tok-string {
+  color: #27d7b5 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight .tok-number,
+html[data-theme='deus-ex'] .diff-preview .tok-number,
+html[data-theme='deus-ex'] .diff-line .tok-number {
+  color: #f0d76d !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight .tok-function,
+html[data-theme='deus-ex'] .diff-preview .tok-function,
+html[data-theme='deus-ex'] .diff-line .tok-function,
+html[data-theme='deus-ex'] .changes-editor-highlight .tok-type,
+html[data-theme='deus-ex'] .diff-preview .tok-type,
+html[data-theme='deus-ex'] .diff-line .tok-type {
+  color: #f0e7bb !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-file-row,
+  .commit-file-row,
+  .history-preview-file-row,
+  .pr-file-row,
+  .memory-file-row
+) {
+  color: #f0e7bb !important;
+  background-image: none !important;
+  clip-path: none !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-file-row,
+  .commit-file-row,
+  .history-preview-file-row,
+  .pr-file-row,
+  .memory-file-row
+) :is(.file-name, .file-label, strong, span, small, code, svg) {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-file-row:hover,
+  .commit-file-row:hover,
+  .history-preview-file-row:hover,
+  .pr-file-row:hover,
+  .memory-file-row:hover
+):not(.selected) {
+  border-color: #c49a13 !important;
+  color: #ffffff !important;
+  background: rgba(196, 154, 19, 0.18) !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 1px rgba(232, 197, 50, 0.28) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-file-row.selected,
+  .commit-file-row.selected,
+  .history-preview-file-row.selected,
+  .pr-file-row.selected,
+  .memory-file-row.selected
+) {
+  border-color: #ffffff !important;
+  color: #050602 !important;
+  background: #d4d4c5 !important;
+  background-image: none !important;
+  box-shadow:
+    inset 0 0 0 1px #ffffff,
+    0 0 0 1px rgba(196, 154, 19, 0.62) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-file-row.selected,
+  .commit-file-row.selected,
+  .history-preview-file-row.selected,
+  .pr-file-row.selected,
+  .memory-file-row.selected
+) :is(.file-name, .file-label, strong, span, small, code, svg) {
+  color: #050602 !important;
+  stroke: #050602 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-file-row.selected .file-status,
+html[data-theme='deus-ex'] .commit-file-row.selected .file-status,
+html[data-theme='deus-ex'] .history-preview-file-row.selected .file-status,
+html[data-theme='deus-ex'] .pr-file-row.selected .file-status {
+  border-color: #050602 !important;
+  color: #050602 !important;
+  background: transparent !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-code-shell,
+  .changes-editor-code-shell.is-chunked,
+  .changes-editor-preview-shell,
+  .history-file-code,
+  .history-file-code.diff-preview,
+  .diff-preview,
+  .structured-diff,
+  .diff-file,
+  .diff-hunk
+) {
+  color: #f0e7bb !important;
+  background: #030403 !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-highlight,
+  .changes-editor-highlight-inner,
+  .changes-editor-highlight-line,
+  .changes-editor-highlight-line *,
+  .history-file-code-line,
+  .history-file-code-line *,
+  .diff-line,
+  .diff-line *,
+  .split-diff-cell,
+  .split-diff-cell *,
+  .diff-preview code,
+  .diff-preview code *
+) {
+  color: #f0e7bb !important;
+  -webkit-text-fill-color: currentColor !important;
+  filter: none !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-line-numbers,
+  .changes-editor-line-numbers span,
+  .history-file-line-number,
+  .line-number,
+  .line-marker
+) {
+  color: #8f8a66 !important;
+  -webkit-text-fill-color: currentColor !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='deus-ex'] :is(.changes-editor-highlight, .history-file-code, .diff-preview) .tok-comment {
+  color: #9c9368 !important;
+}
+
+html[data-theme='deus-ex'] :is(.changes-editor-highlight, .history-file-code, .diff-preview) .tok-keyword {
+  color: #f0d44f !important;
+}
+
+html[data-theme='deus-ex'] :is(.changes-editor-highlight, .history-file-code, .diff-preview) .tok-string {
+  color: #33e0c2 !important;
+}
+
+html[data-theme='deus-ex'] :is(.changes-editor-highlight, .history-file-code, .diff-preview) .tok-number {
+  color: #ffe171 !important;
+}
+
+html[data-theme='deus-ex'] :is(.changes-editor-highlight, .history-file-code, .diff-preview) .tok-function,
+html[data-theme='deus-ex'] :is(.changes-editor-highlight, .history-file-code, .diff-preview) .tok-type {
+  color: #ffffff !important;
+}
+
+html[data-theme='deus-ex'] :is(.changes-editor-highlight, .history-file-code, .diff-preview) .tok-variable {
+  color: #f0e7bb !important;
+}
+
+html[data-theme='deus-ex'] :is(.changes-editor-highlight, .history-file-code, .diff-preview) .tok-operator,
+html[data-theme='deus-ex'] :is(.changes-editor-highlight, .history-file-code, .diff-preview) .tok-punctuation {
+  color: #c49a13 !important;
+}
+
+html[data-theme='deus-ex'] .change-row,
+html[data-theme='deus-ex'] .change-row:not(.selected) {
+  color: #f0e7bb !important;
+  background-image: none !important;
+}
+
+html[data-theme='deus-ex'] .change-row .change-select,
+html[data-theme='deus-ex'] .change-row .change-select:not(:disabled),
+html[data-theme='deus-ex'] .change-row .change-select:hover:not(:disabled),
+html[data-theme='deus-ex'] .change-row .change-select:focus-visible {
+  border: 0 !important;
+  color: inherit !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+
+html[data-theme='deus-ex'] .change-row .change-select :is(.file-name, .file-path, span, strong, small, svg) {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+html[data-theme='deus-ex'] .change-row[data-stage-state="unstaged"]:not(.selected),
+html[data-theme='deus-ex'] .change-row[data-stage-state="untracked"]:not(.selected) {
+  color: #f0d44f !important;
+}
+
+html[data-theme='deus-ex'] .change-row:hover:not(.selected) {
+  border-color: #c49a13 !important;
+  color: #ffffff !important;
+  background: rgba(196, 154, 19, 0.18) !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 1px rgba(232, 197, 50, 0.28) !important;
+}
+
+html[data-theme='deus-ex'] .change-row.selected,
+html[data-theme='deus-ex'] .change-row.selected:hover,
+html[data-theme='deus-ex'] .change-row[aria-selected='true'] {
+  border-color: #ffffff !important;
+  color: #050602 !important;
+  background: #d4d4c5 !important;
+  background-image: none !important;
+  box-shadow:
+    inset 0 0 0 1px #ffffff,
+    0 0 0 1px rgba(196, 154, 19, 0.72) !important;
+}
+
+html[data-theme='deus-ex'] .change-row.selected .change-select,
+html[data-theme='deus-ex'] .change-row.selected .change-select:not(:disabled),
+html[data-theme='deus-ex'] .change-row.selected .change-select:hover:not(:disabled),
+html[data-theme='deus-ex'] .change-row[aria-selected='true'] .change-select {
+  color: #050602 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='deus-ex'] .change-row.selected :is(.file-name, .file-path, span, strong, small, svg),
+html[data-theme='deus-ex'] .change-row[aria-selected='true'] :is(.file-name, .file-path, span, strong, small, svg) {
+  color: #050602 !important;
+  stroke: #050602 !important;
+}
+
+html[data-theme='deus-ex'] .change-row.selected .file-status,
+html[data-theme='deus-ex'] .change-row[aria-selected='true'] .file-status {
+  border-color: #050602 !important;
+  color: #050602 !important;
+  background: transparent !important;
+}
+
+html[data-theme='deus-ex'] input[type='checkbox'] {
+  position: relative;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  margin: 0;
+  border: 1px solid #c49a13 !important;
+  border-radius: 0 !important;
+  background: #050704 !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 1px rgba(196, 154, 19, 0.18) !important;
+  accent-color: #c49a13;
+}
+
+html[data-theme='deus-ex'] input[type='checkbox']:hover {
+  border-color: #f0d44f !important;
+  background: rgba(196, 154, 19, 0.16) !important;
+  background-image: none !important;
+}
+
+html[data-theme='deus-ex'] input[type='checkbox']:checked {
+  border-color: #f0d44f !important;
+  background-color: #c49a13 !important;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.1 8.2 6.4 11.4 13 4.4' fill='none' stroke='%23050602' stroke-width='2.2' stroke-linecap='square' stroke-linejoin='miter'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 14px 14px !important;
+}
+
+html[data-theme='deus-ex'] input[type='checkbox']:indeterminate {
+  border-color: #f0d44f !important;
+  background-color: #c49a13 !important;
+  background-image: linear-gradient(#050602, #050602) !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 10px 2px !important;
+}
+
+html[data-theme='deus-ex'] .bulk-stage-toggle input[type='checkbox']:indeterminate {
+  background-size: 11px 2px !important;
+}
+
+html[data-theme='deus-ex'] .change-row.change-row.selected[aria-selected='true'],
+html[data-theme='deus-ex'] button.commit-file-row.commit-file-row.selected,
+html[data-theme='deus-ex'] button.history-preview-file-row.history-preview-file-row.selected,
+html[data-theme='deus-ex'] button.changes-editor-file-row.changes-editor-file-row.selected,
+html[data-theme='deus-ex'] button.pr-file-row.pr-file-row.selected,
+html[data-theme='deus-ex'] button.memory-file-row.memory-file-row.selected,
+html[data-theme='deus-ex'] button.history-row.history-row.selected {
+  border-color: #ffffff !important;
+  color: #050602 !important;
+  background: #d4d4c5 !important;
+  background-image: none !important;
+  box-shadow:
+    inset 0 0 0 1px #ffffff,
+    0 0 0 1px rgba(196, 154, 19, 0.72) !important;
+}
+
+html[data-theme='deus-ex'] .change-row.change-row.selected[aria-selected='true'] > button.change-select.change-select,
+html[data-theme='deus-ex'] .change-row.change-row.selected[aria-selected='true'] > button.change-select.change-select:hover,
+html[data-theme='deus-ex'] .change-row.change-row.selected[aria-selected='true'] > button.change-select.change-select:focus-visible {
+  border: 0 !important;
+  color: #050602 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+
+html[data-theme='deus-ex'] .change-row.change-row.selected[aria-selected='true'] > button.change-select.change-select :is(.file-name, .file-path, span, strong, small, svg),
+html[data-theme='deus-ex'] button.commit-file-row.commit-file-row.selected :is(.file-name, .file-label, strong, span, small, code, svg),
+html[data-theme='deus-ex'] button.history-preview-file-row.history-preview-file-row.selected :is(.file-name, .file-label, strong, span, small, code, svg),
+html[data-theme='deus-ex'] button.changes-editor-file-row.changes-editor-file-row.selected :is(.file-name, .file-label, strong, span, small, code, svg),
+html[data-theme='deus-ex'] button.pr-file-row.pr-file-row.selected :is(.file-name, .file-label, strong, span, small, code, svg),
+html[data-theme='deus-ex'] button.memory-file-row.memory-file-row.selected :is(.file-name, .file-label, strong, span, small, code, svg),
+html[data-theme='deus-ex'] button.history-row.history-row.selected :is(strong, span, small, code, svg) {
+  color: #050602 !important;
+  stroke: #050602 !important;
+}
+
+html[data-theme='deus-ex'] .change-row.change-row:not(.selected) > button.change-select.change-select,
+html[data-theme='deus-ex'] .change-row.change-row:not(.selected) > button.change-select.change-select:hover {
+  border: 0 !important;
+  color: inherit !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+

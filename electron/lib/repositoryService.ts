@@ -11,6 +11,7 @@ import type {
   RecentRepository,
   RepositoryFileBytesResult,
   RepositoryFileBytesWriteRequest,
+  RepositoryFileChunkWriteRequest,
   RepositoryFileContentRequest,
   RepositoryFileDeleteRequest,
   RepositoryFileRenameRequest,
@@ -51,6 +52,7 @@ import { RepositoryCommitService } from './repositoryService.commits.js'
 const CSS_COLOR_EDIT_PATH_RE = /\.(?:css|scss|sass|less|pcss|postcss)$/i
 const CSS_COLOR_EDIT_VALUE_RE = /^(?:#[\da-f]{3,8}|rgba?\([^)]+\))$/i
 const MAX_REPOSITORY_FILE_BYTES = 1_500_000
+const MAX_REPOSITORY_FILE_CHUNK_WRITE_BYTES = 512_000
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
 function normalizeCssColorEditValue(value: string, label: string): string {
@@ -371,6 +373,77 @@ export class RepositoryService extends RepositoryServiceWrites {
 
     const absolutePath = resolveRepositoryPath(rootPath, relativePath)
     await fs.writeFile(absolutePath, request.text, 'utf8')
+
+    return this.getSnapshot(rootPath)
+  }
+
+  async writeRepositoryFileChunk(request: RepositoryFileChunkWriteRequest): Promise<RepositorySnapshot> {
+    const rootPath = await this.resolveRepositoryRoot(request.repoPath)
+    const relativePath = normalizeRelativePath(request.filePath)
+    const absolutePath = resolveRepositoryPath(rootPath, relativePath)
+    const stats = await fs.stat(absolutePath).catch(() => undefined)
+
+    if (!stats?.isFile()) {
+      throw new BranchPilotUserError('file_not_found', 'File is not available in the working tree.')
+    }
+
+    const startOffset = Math.trunc(Number(request.startOffset))
+    const endOffset = Math.trunc(Number(request.endOffset))
+    if (
+      !Number.isFinite(startOffset) ||
+      !Number.isFinite(endOffset) ||
+      startOffset < 0 ||
+      endOffset < startOffset ||
+      endOffset > stats.size
+    ) {
+      throw new BranchPilotUserError('invalid_file_chunk', 'Edited file chunk no longer matches the working tree.')
+    }
+
+    const replacement = Buffer.from(request.text, 'utf8')
+    if (replacement.length > MAX_REPOSITORY_FILE_CHUNK_WRITE_BYTES) {
+      throw new BranchPilotUserError('file_chunk_too_large', 'Edited chunk is too large to save from the internal editor.')
+    }
+
+    const tempPath = path.join(
+      path.dirname(absolutePath),
+      `.${path.basename(absolutePath)}.branchpilot-${process.pid}-${Date.now()}.tmp`
+    )
+    const input = await fs.open(absolutePath, 'r')
+    const output = await fs.open(tempPath, 'w')
+    const buffer = Buffer.alloc(64 * 1024)
+
+    const copyRange = async (start: number, end: number) => {
+      let position = start
+      while (position < end) {
+        const bytesToRead = Math.min(buffer.length, end - position)
+        const { bytesRead } = await input.read(buffer, 0, bytesToRead, position)
+        if (bytesRead <= 0) break
+        await output.write(buffer.subarray(0, bytesRead))
+        position += bytesRead
+      }
+    }
+
+    try {
+      await copyRange(0, startOffset)
+      if (replacement.length > 0) await output.write(replacement)
+      await copyRange(endOffset, stats.size)
+      await output.chmod(stats.mode)
+    } catch (error) {
+      await input.close().catch(() => undefined)
+      await output.close().catch(() => undefined)
+      await fs.unlink(tempPath).catch(() => undefined)
+      throw error
+    }
+
+    await input.close()
+    await output.close()
+
+    try {
+      await fs.rename(tempPath, absolutePath)
+    } catch (error) {
+      await fs.unlink(tempPath).catch(() => undefined)
+      throw error
+    }
 
     return this.getSnapshot(rootPath)
   }

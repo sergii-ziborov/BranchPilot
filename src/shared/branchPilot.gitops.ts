@@ -116,6 +116,12 @@ export interface RepositoryFileWriteRequest extends RepositoryFileContentRequest
   text: string
 }
 
+export interface RepositoryFileChunkWriteRequest extends RepositoryFileContentRequest {
+  startOffset: number
+  endOffset: number
+  text: string
+}
+
 export interface RepositoryFileBytesResult {
   filePath: string
   base64: string

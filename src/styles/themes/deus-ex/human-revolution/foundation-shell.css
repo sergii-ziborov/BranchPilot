@@ -1,0 +1,335 @@
+﻿:root[data-theme='deus-ex'],
+html[data-theme='deus-ex'] {
+  --dx-ui-font: "Rajdhani", "Eurostile", "Bank Gothic", "Segoe UI", Tahoma, sans-serif;
+  --dx-code-font: "Cascadia Code", "JetBrains Mono", Consolas, "SFMono-Regular", monospace;
+  --dx-black: #020302;
+  --dx-deep: #050704;
+  --dx-panel-flat: #090c08;
+  --dx-panel-raised: #11150e;
+  --dx-panel-fog: rgba(24, 31, 20, 0.78);
+  --dx-gold: #c49a13;
+  --dx-gold-hot: #e8c532;
+  --dx-gold-dim: #705b12;
+  --dx-cream: #ded5ad;
+  --dx-muted: #817b5b;
+  --dx-cyan: #27d7b5;
+  --dx-list-active: #d4d4c5;
+  --dx-list-active-edge: #ffffff;
+  --dx-list-active-text: #070806;
+  --dx-danger: #a45a31;
+  --dx-good: #27d7b5;
+  --dx-line: rgba(196, 154, 19, 0.42);
+  --dx-line-soft: rgba(196, 154, 19, 0.22);
+  --text: var(--dx-cream);
+  --text-strong: #f0e7bb;
+  --muted: var(--dx-muted);
+  --surface: var(--dx-black);
+  --panel: var(--dx-panel-flat);
+  --panel-2: var(--dx-panel-raised);
+  --border: var(--dx-line-soft);
+  --accent: var(--dx-gold);
+  --accent-strong: var(--dx-gold-hot);
+  --accent-soft: var(--dx-cyan);
+  --accent-contrast: var(--dx-black);
+  --sel-bg: rgba(196, 154, 19, 0.16);
+  --sel-border: var(--dx-gold-hot);
+  --good: var(--dx-good);
+  --warn: var(--dx-gold-hot);
+  --bad: var(--dx-danger);
+  --diff-bg: #030403;
+  --diff-text: #d8d2ad;
+  --diff-muted: #6e6b53;
+  --diff-border: rgba(196, 154, 19, 0.24);
+  --diff-file-bg: #070907;
+  --diff-file-text: #f0e7bb;
+  --diff-hunk-bg: rgba(196, 154, 19, 0.14);
+  --diff-hunk-text: var(--dx-gold-hot);
+  --diff-add-text: #baf2dc;
+  --diff-add-bg: rgba(39, 215, 181, 0.11);
+  --diff-remove-text: #f0b38b;
+  --diff-remove-bg: rgba(164, 90, 49, 0.16);
+  --diff-empty-bg: #070907;
+  --diff-word-add-bg: rgba(39, 215, 181, 0.20);
+  --diff-word-add-border: rgba(39, 215, 181, 0.34);
+  --diff-word-del-bg: rgba(164, 90, 49, 0.22);
+  --diff-word-del-border: rgba(164, 90, 49, 0.34);
+  --diff-selected-accent: var(--dx-gold-hot);
+  --diff-selection-bg: #101409;
+  --diff-selection-text: #f0e7bb;
+  --syntax-keyword: #d9b31d;
+  --syntax-string: #27d7b5;
+  --syntax-comment: #77745b;
+  --syntax-number: #e8c532;
+  --syntax-type: #d4d4c5;
+  --syntax-function: #f0d76d;
+  --syntax-variable: #d8d2ad;
+  --syntax-operator: #c49a13;
+  --syntax-punctuation: #8a8051;
+  --theme-panel-bg: var(--dx-panel-flat);
+  --theme-panel-bg-2: var(--dx-panel-raised);
+  --theme-panel-glow: none;
+  --theme-frame-shadow: 0 0 0 1px var(--dx-line-soft);
+}
+
+html[data-theme='deus-ex'] body,
+html[data-theme='deus-ex'] .app-shell {
+  color: var(--dx-cream);
+  background:
+    linear-gradient(90deg, rgba(196, 154, 19, 0.10), transparent 28%, rgba(39, 215, 181, 0.025) 100%),
+    linear-gradient(180deg, #11150e 0, #050704 28%, #020302 100%);
+  font-family: var(--dx-ui-font);
+}
+
+html[data-theme='deus-ex'] :is(
+  .shell-bar,
+  .single-panel,
+  .changes-panel,
+  .diff-panel,
+  .dashboard-section,
+  .daily-heatmap-panel,
+  .daily-day-panel,
+  .daily-review-card,
+  .daily-ranking-card,
+  .config-card,
+  .memory-card,
+  .pr-panel,
+  .github-repo-browser,
+  .linkedin-card,
+  .review-empty,
+  .review-results,
+  .review-panel,
+  .tool-modal,
+  .confirmation-dialog,
+  .history-detail,
+  .changes-internal-editor
+) {
+  border-color: var(--dx-line) !important;
+  border-radius: 0 !important;
+  background: var(--dx-panel-flat) !important;
+  box-shadow: 0 0 0 1px rgba(196, 154, 19, 0.12) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .panel-heading h2,
+  .tool-modal-head h2,
+  .dashboard-section h2,
+  .config-card h2,
+  .review-results h3,
+  .history-commit-description h3
+) {
+  color: var(--dx-gold-hot) !important;
+  font-family: var(--dx-ui-font);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+html[data-theme='deus-ex'] :is(.shell-seg-label, .changes-editor-sidebar-title, .review-control-label, .assistant-policy-note) {
+  color: var(--dx-muted) !important;
+  font-family: var(--dx-ui-font);
+  text-transform: uppercase;
+}
+
+html[data-theme='deus-ex'] :is(
+  button,
+  input,
+  textarea,
+  select,
+  .shell-dropdown-item,
+  .shell-dropdown-primary
+) {
+  border-radius: 0 !important;
+  font-family: var(--dx-ui-font);
+}
+
+html[data-theme='deus-ex'] :is(.shell-brand svg, .empty-state-brand svg, .repository-loading-brand svg, .brand-mark svg) {
+  filter: sepia(1) saturate(1.25) hue-rotate(354deg) brightness(0.86);
+}
+
+html[data-theme='deus-ex'] button:disabled,
+html[data-theme='deus-ex'] button:disabled:hover {
+  border-color: rgba(196, 154, 19, 0.16) !important;
+  color: #6d6a54 !important;
+  background: #10130d !important;
+  box-shadow: none !important;
+  opacity: 0.72 !important;
+  cursor: default !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .view-switch,
+  .changes-editor-view-tabs,
+  .segmented:not(.diff-display-toggle),
+  .search-scope-toggle,
+  .github-filter-segment,
+  .assistant-policy-modes
+) {
+  gap: 1px !important;
+  padding: 2px !important;
+  border: 1px solid var(--dx-line) !important;
+  border-radius: 0 !important;
+  background: var(--dx-black) !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .view-switch-tab,
+  .changes-editor-view-tabs button,
+  .segmented:not(.diff-display-toggle) button,
+  .search-scope-toggle button,
+  .github-filter-segment button,
+  .assistant-policy-modes button,
+  .precommit-modes button
+) {
+  min-height: 29px;
+  border: 1px solid transparent !important;
+  border-radius: 0 !important;
+  color: var(--dx-cream) !important;
+  background: #0b0e09 !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .view-switch-tab:hover,
+  .changes-editor-view-tabs button:hover,
+  .segmented:not(.diff-display-toggle) button:hover,
+  .search-scope-toggle button:hover,
+  .github-filter-segment button:hover,
+  .assistant-policy-modes button:hover,
+  .precommit-modes button:hover
+):not(:disabled):not(.active):not([aria-pressed='true']) {
+  border-color: var(--dx-line) !important;
+  color: #ffffff !important;
+  background: rgba(196, 154, 19, 0.18) !important;
+  box-shadow: inset 3px 0 0 var(--dx-gold-hot) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .view-switch-tab.active,
+  .changes-editor-view-tabs button.active,
+  .segmented:not(.diff-display-toggle) button.active,
+  .segmented:not(.diff-display-toggle) button[aria-pressed='true'],
+  .search-scope-toggle button.active,
+  .github-filter-segment button.active,
+  .assistant-policy-modes button.active,
+  .assistant-policy-modes button[aria-pressed='true'],
+  .precommit-modes button.active,
+  .precommit-modes button[aria-pressed='true'],
+  button[aria-selected='true']
+) {
+  border-color: var(--dx-gold-hot) !important;
+  color: var(--dx-black) !important;
+  background: var(--dx-gold) !important;
+  box-shadow: inset 5px 0 0 var(--dx-cream) !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .shell-dropdown,
+  .changes-actions-popover,
+  .commit-identity-popover,
+  .github-repo-filter-panel,
+  .report-scope-popover,
+  .assistant-model-popover,
+  .changes-editor-lint-popover
+) {
+  border: 1px solid var(--dx-line) !important;
+  border-radius: 0 !important;
+  background: #060806 !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.58) !important;
+  backdrop-filter: none !important;
+}
+
+html[data-theme='deus-ex'] :is(.shell-segments, .shell-menu > summary, .shell-sync-primary, .shell-segments .shell-sync-menu > summary) {
+  border-color: var(--dx-line) !important;
+  color: var(--dx-cream) !important;
+  background: #050704 !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+
+html[data-theme='deus-ex'] .shell-segments {
+  overflow: visible !important;
+}
+
+html[data-theme='deus-ex'] :is(.shell-menu[open] > summary, .shell-segments .shell-sync-menu[open] > summary) {
+  color: var(--dx-black) !important;
+  background: var(--dx-gold) !important;
+  box-shadow: inset 5px 0 0 var(--dx-cream) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .shell-dropdown-item,
+  .shell-dropdown-primary,
+  .shell-branch-row,
+  .changes-editor-file-row,
+  .history-row,
+  .change-row,
+  .pr-row,
+  .report-scope-repo
+) {
+  border-radius: 0 !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .shell-dropdown-item:hover,
+  .shell-dropdown-primary:hover,
+  .shell-branch-row:hover,
+  .changes-editor-file-row:hover,
+  .history-row:hover,
+  .change-row:hover,
+  .pr-row:hover,
+  .report-scope-repo:hover
+) {
+  color: #ffffff !important;
+  background: rgba(196, 154, 19, 0.16) !important;
+  box-shadow: inset 4px 0 0 var(--dx-gold-hot) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .shell-dropdown-item.active,
+  .shell-branch-row.active,
+  .changes-editor-file-row.selected,
+  .history-row.selected,
+  .change-row.selected,
+  .pr-row.selected,
+  .report-scope-repo.selected,
+  .current-pr
+) {
+  border-color: var(--dx-list-active) !important;
+  color: var(--dx-list-active-text) !important;
+  background: var(--dx-list-active) !important;
+  box-shadow: inset 7px 0 0 var(--dx-list-active-edge) !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .shell-dropdown-item.active,
+  .shell-branch-row.active,
+  .changes-editor-file-row.selected,
+  .history-row.selected,
+  .change-row.selected,
+  .pr-row.selected,
+  .report-scope-repo.selected,
+  .current-pr
+) :is(strong, span, small, code, svg) {
+  color: var(--dx-list-active-text) !important;
+  stroke: var(--dx-list-active-text) !important;
+}
+
+html[data-theme='deus-ex'] :is(.shell-dropdown-item-text span, .history-row-meta, .file-path, .changes-editor-file-row.clean) {
+  color: var(--dx-muted);
+}
+
+html[data-theme='deus-ex'] :is(
+  .changes-editor-header,
+  .history-commit-header,
+  .changes-editor-live-diff header,
+  .history-commit-description header,
+  .changes-editor-chunk-banner
+) {
+  border-color: var(--dx-line) !important;
+  background: #050704 !important;
+}
+

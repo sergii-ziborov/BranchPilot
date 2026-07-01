@@ -378,7 +378,11 @@ export function HistoryView({
           {history.length === 0 ? (
             <div className="quiet-box">{historyLoading ? 'Loading commits.' : 'No commits found.'}</div>
           ) : filteredHistory.length === 0 ? (
-            <div className="quiet-box">No commits match this search.</div>
+            <div className="quiet-box">
+              {historyFileIndexing && historySearchMode !== 'commit' && historyFilter
+                ? historyIndexingLabel
+                : 'No commits match this search.'}
+            </div>
           ) : (
             <div
               className="virtual-list-spacer history-list-spacer"

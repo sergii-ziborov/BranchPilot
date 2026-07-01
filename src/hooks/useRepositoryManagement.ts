@@ -37,6 +37,11 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   const graphScope: string | RepositoryScopeRequest | undefined = reportRepoPaths.length > 0
     ? { repoPaths: reportRepoPaths }
     : dashboardScopePath
+  const graphScopeKey = reportRepoPaths.length > 0
+    ? `repos:${reportRepoPathsKey}`
+    : dashboardScopePath
+      ? `repo:${dashboardScopePath}`
+      : 'recent'
 
   const [repositoryDashboard, setRepositoryDashboard] = useState<RepositoryDashboardSnapshot | null>(null)
   const [contributionGraph, setContributionGraph] = useState<ContributionGraph | null>(null)
@@ -50,6 +55,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
   const [repositoryPickerOpen, setRepositoryPickerOpen] = useState(false)
   const dashboardRequestIdRef = useRef(0)
+  const contributionGraphCacheRef = useRef(new Map<string, ContributionGraph>())
 
   const filteredRecentRepositories = useMemo(() => {
     const query = recentRepositoryFilter.trim().toLowerCase()
@@ -92,16 +98,39 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
 
     const requestId = dashboardRequestIdRef.current + 1
     dashboardRequestIdRef.current = requestId
+    const canLoadContributionGraph = typeof api.getContributionGraph === 'function'
+    const cachedContributionGraph = contributionGraphCacheRef.current.get(graphScopeKey) ?? null
     setDashboardLoading(true)
-    setContributionGraphLoading(typeof api.getContributionGraph === 'function')
+    if (cachedContributionGraph) {
+      setContributionGraph(cachedContributionGraph)
+      setContributionGraphLoading(false)
+    } else {
+      setContributionGraphLoading(canLoadContributionGraph)
+    }
     // Dashboard scan, contribution graph and rhythm are independent: run concurrently.
     const dashboardPromise = api.getRepositoryDashboard(dashboardScopePath)
-    const graphPromise = typeof api.getContributionGraph === 'function'
+    const graphPromise = canLoadContributionGraph
       ? api.getContributionGraph(graphScope).catch(() => null)
       : Promise.resolve(null)
     const rhythmPromise = typeof api.getRepositoryRhythm === 'function'
       ? api.getRepositoryRhythm(dashboardScopePath).catch(() => null)
       : Promise.resolve(null)
+
+    void graphPromise.then((graph) => {
+      if (dashboardRequestIdRef.current !== requestId) return
+      if (graph && graph.ok) {
+        contributionGraphCacheRef.current.set(graphScopeKey, graph.data)
+        setContributionGraph(graph.data)
+      } else if (!cachedContributionGraph) {
+        setContributionGraph(null)
+      }
+      setContributionGraphLoading(false)
+    })
+
+    void rhythmPromise.then((rhythm) => {
+      if (dashboardRequestIdRef.current !== requestId) return
+      if (rhythm && rhythm.ok) setRepositoryRhythm(rhythm.data)
+    })
 
     const result = await dashboardPromise
 
@@ -114,13 +143,6 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     }
 
     setDashboardLoading(false)
-
-    const [graph, rhythm] = await Promise.all([graphPromise, rhythmPromise])
-    if (dashboardRequestIdRef.current === requestId) {
-      setContributionGraph(graph && graph.ok ? graph.data : null)
-      setRepositoryRhythm(rhythm && rhythm.ok ? rhythm.data : null)
-      setContributionGraphLoading(false)
-    }
   }
 
   // Background-friendly dashboard scan: refreshes every repo's working-tree state

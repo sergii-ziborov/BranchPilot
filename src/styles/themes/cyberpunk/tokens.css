@@ -1,0 +1,35 @@
+html[data-theme='cyberpunk'] {
+  --cyberpunk-black: #050207;
+  --cyberpunk-ink: #0b030a;
+  --cyberpunk-panel: rgba(20, 5, 14, 0.92);
+  --cyberpunk-panel-2: rgba(34, 7, 21, 0.88);
+  --cyberpunk-yellow: #fcee0a;
+  --cyberpunk-yellow-hot: #fff45c;
+  --cyberpunk-red: #ff3049;
+  --cyberpunk-pink: #ff2bd6;
+  --cyberpunk-cyan: #00eaff;
+  --cyberpunk-green: #00ff9f;
+  --cyberpunk-white: #fff9e7;
+  --cyberpunk-muted: #a15d68;
+  --theme-radius: 2px;
+  --theme-radius-soft: 3px;
+  --theme-glass-blur: blur(10px) saturate(1.4);
+  --theme-hairline: rgba(252, 238, 10, 0.34);
+  --theme-panel-glow:
+    0 0 0 1px rgba(252, 238, 10, 0.14),
+    0 0 24px rgba(0, 234, 255, 0.10),
+    0 0 42px rgba(255, 48, 73, 0.09);
+  --theme-input-bg: rgba(5, 2, 7, 0.86);
+  --theme-hover-bg: rgba(255, 48, 73, 0.16);
+  --theme-grid: rgba(0, 234, 255, 0.045);
+  --theme-scanline: rgba(255, 48, 73, 0.040);
+  --syntax-keyword: var(--cyberpunk-red);
+  --syntax-string: var(--cyberpunk-yellow);
+  --syntax-comment: #b06b78;
+  --syntax-number: var(--cyberpunk-cyan);
+  --syntax-type: var(--cyberpunk-green);
+  --syntax-function: var(--cyberpunk-yellow-hot);
+  --syntax-variable: var(--cyberpunk-white);
+  --syntax-operator: var(--cyberpunk-pink);
+  --syntax-punctuation: var(--cyberpunk-cyan);
+}

@@ -100,6 +100,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'repository:fileChunk',
   'repository:fileContent',
   'repository:files',
+  'repository:writeFileChunk',
   'repository:writeFileBytes',
   'repository:renameFile',
   'repository:deleteFile',

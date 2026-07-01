@@ -28,6 +28,7 @@ import type {
   RepositoryBrowserSnapshot,
   RepositoryFileBytesWriteRequest,
   RepositoryFileChunkRequest,
+  RepositoryFileChunkWriteRequest,
   RepositoryFileDeleteRequest,
   RepositoryFileContentRequest,
   RepositoryFileRenameRequest,
@@ -148,6 +149,9 @@ export function registerRepositoryHandlers(
   handle('repository:files', (repoPath: string) => repositoryService.listRepositoryFiles(repoPath))
   handle('repository:fileContent', (request: RepositoryFileContentRequest) => repositoryService.getRepositoryFileContent(request))
   handle('repository:fileChunk', (request: RepositoryFileChunkRequest) => repositoryService.getRepositoryFileChunk(request))
+  handle('repository:writeFileChunk', async (request: RepositoryFileChunkWriteRequest) =>
+    withProjectMemoryRefresh(await repositoryService.writeRepositoryFileChunk(request))
+  )
   handle('repository:writeFile', async (request: RepositoryFileWriteRequest) =>
     withProjectMemoryRefresh(await repositoryService.writeRepositoryFile(request))
   )

@@ -1,0 +1,340 @@
+﻿html[data-theme='deus-ex'] .changes-editor-highlight .tok-string,
+html[data-theme='deus-ex'] .changes-editor-live-diff .tok-string,
+html[data-theme='deus-ex'] .diff-preview .tok-string,
+html[data-theme='deus-ex'] .diff-line .tok-string,
+html[data-theme='deus-ex'] .history-file-code .tok-string {
+  color: #33e0c2 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight .tok-number,
+html[data-theme='deus-ex'] .changes-editor-live-diff .tok-number,
+html[data-theme='deus-ex'] .diff-preview .tok-number,
+html[data-theme='deus-ex'] .diff-line .tok-number,
+html[data-theme='deus-ex'] .history-file-code .tok-number {
+  color: #ffdf63 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight .tok-type,
+html[data-theme='deus-ex'] .changes-editor-highlight .tok-function,
+html[data-theme='deus-ex'] .changes-editor-live-diff .tok-type,
+html[data-theme='deus-ex'] .changes-editor-live-diff .tok-function,
+html[data-theme='deus-ex'] .diff-preview .tok-type,
+html[data-theme='deus-ex'] .diff-preview .tok-function,
+html[data-theme='deus-ex'] .diff-line .tok-type,
+html[data-theme='deus-ex'] .diff-line .tok-function,
+html[data-theme='deus-ex'] .history-file-code .tok-type,
+html[data-theme='deus-ex'] .history-file-code .tok-function {
+  color: #ffffff !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight .tok-variable,
+html[data-theme='deus-ex'] .changes-editor-live-diff .tok-variable,
+html[data-theme='deus-ex'] .diff-preview .tok-variable,
+html[data-theme='deus-ex'] .diff-line .tok-variable,
+html[data-theme='deus-ex'] .history-file-code .tok-variable {
+  color: #f0e7bb !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight .tok-operator,
+html[data-theme='deus-ex'] .changes-editor-highlight .tok-punctuation,
+html[data-theme='deus-ex'] .changes-editor-live-diff .tok-operator,
+html[data-theme='deus-ex'] .changes-editor-live-diff .tok-punctuation,
+html[data-theme='deus-ex'] .diff-preview .tok-operator,
+html[data-theme='deus-ex'] .diff-preview .tok-punctuation,
+html[data-theme='deus-ex'] .diff-line .tok-operator,
+html[data-theme='deus-ex'] .diff-line .tok-punctuation,
+html[data-theme='deus-ex'] .history-file-code .tok-operator,
+html[data-theme='deus-ex'] .history-file-code .tok-punctuation {
+  color: #c8b800 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-line-numbers,
+html[data-theme='deus-ex'] .changes-editor-line-numbers span,
+html[data-theme='deus-ex'] .line-number,
+html[data-theme='deus-ex'] .line-marker,
+html[data-theme='deus-ex'] .history-file-line-number {
+  color: #9c9368 !important;
+  -webkit-text-fill-color: #9c9368 !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='deus-ex'] .review-fix-prompt-modal,
+html[data-theme='deus-ex'] .review-fix-prompt-preview {
+  color: #f0e7bb !important;
+  background: #040604 !important;
+  background-image: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='deus-ex'] .review-fix-prompt-preview pre {
+  color: #f0e7bb !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html[data-theme='deus-ex'] .review-fix-prompt-line,
+html[data-theme='deus-ex'] .review-fix-prompt-line * {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='deus-ex'] .review-fix-prompt-line.section,
+html[data-theme='deus-ex'] .prompt-section-title,
+html[data-theme='deus-ex'] .prompt-label {
+  color: #f0d44f !important;
+}
+
+html[data-theme='deus-ex'] .review-fix-prompt-line.finding,
+html[data-theme='deus-ex'] .prompt-title {
+  color: #ffffff !important;
+}
+
+html[data-theme='deus-ex'] .prompt-path,
+html[data-theme='deus-ex'] .prompt-value {
+  color: #33e0c2 !important;
+}
+
+html[data-theme='deus-ex'] .prompt-index,
+html[data-theme='deus-ex'] .prompt-bullet {
+  color: #9c9368 !important;
+}
+
+html[data-theme='deus-ex'] .prompt-severity {
+  border-color: rgba(232, 197, 50, 0.62) !important;
+  color: #050602 !important;
+  background: #c8b800 !important;
+  -webkit-text-fill-color: #050602 !important;
+}
+
+html[data-theme='deus-ex'] .assistant-prompts-popover,
+html[data-theme='deus-ex'] .assistant-prompt-card,
+html[data-theme='deus-ex'] .assistant-prompt-card pre {
+  color: #f0e7bb !important;
+  background: #040604 !important;
+  background-image: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='deus-ex'] .assistant-prompt-card pre {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html[data-theme='deus-ex'] .assistant-prompt-card :is(strong, span) {
+  color: #f0e7bb !important;
+  -webkit-text-fill-color: #f0e7bb !important;
+}
+
+html[data-theme='deus-ex'] .file-type-icon {
+  border-color: rgba(240, 231, 187, 0.72) !important;
+  color: #f0e7bb !important;
+  background: #15190f !important;
+  box-shadow: inset 0 0 0 1px rgba(196, 154, 19, 0.18) !important;
+  -webkit-text-fill-color: #f0e7bb !important;
+}
+
+html[data-theme='deus-ex'] .file-type-ts,
+html[data-theme='deus-ex'] .file-type-tsx,
+html[data-theme='deus-ex'] .file-type-js,
+html[data-theme='deus-ex'] .file-type-json {
+  border-color: #e8c532 !important;
+  color: #050602 !important;
+  background: #e8c532 !important;
+  -webkit-text-fill-color: #050602 !important;
+}
+
+html[data-theme='deus-ex'] .file-type-md,
+html[data-theme='deus-ex'] .file-type-text,
+html[data-theme='deus-ex'] .file-type-config {
+  border-color: #d4d4c5 !important;
+  color: #050602 !important;
+  background: #d4d4c5 !important;
+  -webkit-text-fill-color: #050602 !important;
+}
+
+html[data-theme='deus-ex'] .file-type-css,
+html[data-theme='deus-ex'] .file-type-html,
+html[data-theme='deus-ex'] .file-type-svg,
+html[data-theme='deus-ex'] .file-type-image {
+  border-color: #33e0c2 !important;
+  color: #050602 !important;
+  background: #33e0c2 !important;
+  -webkit-text-fill-color: #050602 !important;
+}
+
+html[data-theme='deus-ex'] :is(
+  .change-row.selected,
+  button.commit-file-row.selected,
+  button.history-preview-file-row.selected,
+  button.changes-editor-file-row.selected,
+  button.pr-file-row.selected,
+  button.memory-file-row.selected
+) .file-type-icon {
+  border-color: #050602 !important;
+  color: #f0d44f !important;
+  background: #050602 !important;
+  box-shadow: none !important;
+  -webkit-text-fill-color: #f0d44f !important;
+}
+
+html[data-theme='deus-ex'] .change-row {
+  grid-template-columns: 40px minmax(0, 1fr) !important;
+}
+
+html[data-theme='deus-ex'] .change-row .change-stage-toggle,
+html[data-theme='deus-ex'] .change-row[data-stage-state='staged'] .change-stage-toggle,
+html[data-theme='deus-ex'] .change-row[data-stage-state='partial'] .change-stage-toggle {
+  display: grid !important;
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 100% !important;
+  min-height: 42px !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border-right: 1px solid rgba(196, 154, 19, 0.34) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  line-height: 0 !important;
+}
+
+html[data-theme='deus-ex'] .change-row .change-stage-toggle input[type='checkbox'] {
+  position: static !important;
+  display: block !important;
+  flex: 0 0 16px !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
+  height: 16px !important;
+  min-height: 16px !important;
+  max-height: 16px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+  translate: none !important;
+  vertical-align: middle !important;
+}
+
+html[data-theme='deus-ex'] .change-row.selected,
+html[data-theme='deus-ex'] .change-row.selected:hover,
+html[data-theme='deus-ex'] .change-row[aria-selected='true'],
+html[data-theme='deus-ex'] .change-row.change-row.selected[aria-selected='true'],
+html[data-theme='deus-ex'] .change-row.change-row.selected[aria-selected='true']:hover {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 246, 176, 0.38),
+    0 0 0 1px rgba(196, 154, 19, 0.48) !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-code-shell,
+html[data-theme='deus-ex'] .changes-editor-code-shell.is-dirty,
+html[data-theme='deus-ex'] .changes-editor-code-shell.is-chunked {
+  color: #f6edb2 !important;
+  background: #010301 !important;
+  background-color: #010301 !important;
+  background-image: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight {
+  z-index: 2 !important;
+  color: #f6edb2 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  mix-blend-mode: normal !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight-inner,
+html[data-theme='deus-ex'] .changes-editor-highlight-line,
+html[data-theme='deus-ex'] .changes-editor-highlight-line * {
+  color: #f6edb2 !important;
+  filter: none !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight,
+html[data-theme='deus-ex'] .changes-editor-line-numbers,
+html[data-theme='deus-ex'] .changes-editor-textarea,
+html[data-theme='deus-ex'] .changes-editor-color-layer {
+  font-family: var(--dx-code-font) !important;
+  font-size: 12px !important;
+  line-height: 20.4px !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-highlight-line,
+html[data-theme='deus-ex'] .changes-editor-line-numbers span {
+  min-height: 20.4px !important;
+  line-height: 20.4px !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-textarea,
+html[data-theme='deus-ex'] .changes-editor-textarea:focus,
+html[data-theme='deus-ex'] .changes-editor-textarea.is-dirty {
+  z-index: 3 !important;
+  border: 0 !important;
+  color: transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  caret-color: #f0d44f !important;
+  filter: none !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-code-shell textarea.changes-editor-textarea,
+html[data-theme='deus-ex'] .changes-editor-code-shell textarea.changes-editor-textarea:focus,
+html[data-theme='deus-ex'] .changes-editor-code-shell textarea.changes-editor-textarea.is-dirty {
+  color: transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  caret-color: #54ffd6 !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-code-shell.is-chunked textarea.changes-editor-textarea,
+html[data-theme='deus-ex'] .changes-editor-code-shell.is-chunked textarea.changes-editor-textarea:focus {
+  caret-color: #54ffd6 !important;
+  cursor: text !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-color-layer,
+html[data-theme='deus-ex'] .changes-editor-color-layer-inner {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-line-numbers,
+html[data-theme='deus-ex'] .changes-editor-line-numbers span {
+  color: #b8ad78 !important;
+  background: #030503 !important;
+  filter: none !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #b8ad78 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-line-numbers span.line-added {
+  color: #00ffc6 !important;
+  box-shadow: inset 3px 0 #00ffc6 !important;
+  -webkit-text-fill-color: #00ffc6 !important;
+}

@@ -46,6 +46,7 @@ import type {
   RepositoryFileBytesWriteRequest,
   RepositoryFileChunkRequest,
   RepositoryFileChunkResult,
+  RepositoryFileChunkWriteRequest,
   RepositoryFileContentRequest,
   RepositoryFileContentResult,
   RepositoryFileDeleteRequest,
@@ -293,6 +294,7 @@ export interface BranchPilotApi {
   listRepositoryFiles: (repoPath: string) => Promise<ApiResult<RepositoryFileEntry[]>>
   getRepositoryFileContent: (request: RepositoryFileContentRequest) => Promise<ApiResult<RepositoryFileContentResult>>
   getRepositoryFileChunk: (request: RepositoryFileChunkRequest) => Promise<ApiResult<RepositoryFileChunkResult>>
+  writeRepositoryFileChunk: (request: RepositoryFileChunkWriteRequest) => Promise<ApiResult<RepositorySnapshot>>
   writeRepositoryFile: (request: RepositoryFileWriteRequest) => Promise<ApiResult<RepositorySnapshot>>
   getRepositoryFileBytes: (request: RepositoryFileContentRequest) => Promise<ApiResult<RepositoryFileBytesResult>>
   writeRepositoryFileBytes: (request: RepositoryFileBytesWriteRequest) => Promise<ApiResult<RepositorySnapshot>>

@@ -1,0 +1,68 @@
+html[data-theme='cyberpunk'] :is(
+  .signal-status,
+  .signal-status.diff-operation-curtain,
+  .signal-status.history-detail-loading,
+  .signal-status.history-file-diff-loading,
+  .signal-status.history-preview-list-curtain,
+  .signal-status.linkedin-generation-curtain,
+  .signal-status.daily-review-curtain,
+  .signal-status.review-running-curtain,
+  .signal-status.assistant-model-list-curtain,
+  .signal-status.changes-editor-file-curtain
+) {
+  --signal-main: #ff0048;
+  --signal-alt: #ff2f7d;
+  --signal-hot: #ffffff;
+  background:
+    radial-gradient(circle at 50% 47%, rgba(255, 0, 88, 0.18), transparent 35%),
+    linear-gradient(180deg, rgba(9, 0, 7, 0.96), rgba(0, 0, 0, 0.99));
+  backdrop-filter: none;
+}
+
+html[data-theme='cyberpunk'] .signal-status::before {
+  opacity: 0.92;
+  background:
+    linear-gradient(180deg, transparent 0 9%, rgba(255, 255, 255, 0.30) 10%, rgba(255, 0, 92, 0.72) 11%, rgba(255, 0, 92, 0.24) 14%, transparent 23% 100%),
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(255, 0, 72, 0.30) 9px 10px, transparent 10px 21px),
+    repeating-linear-gradient(180deg, rgba(255, 0, 72, 0.22) 0 1px, transparent 1px 12px);
+  background-size: 100% 210px, 31px 100%, 100% 18px;
+  animation: cyberpunk-loader-rain 0.74s steps(7, end) infinite;
+  mix-blend-mode: screen;
+}
+
+html[data-theme='cyberpunk'] .signal-status::after {
+  inset: -18% -10%;
+  background:
+    linear-gradient(90deg, transparent 0 18%, rgba(255, 0, 88, 0.18) 24%, rgba(255, 255, 255, 0.72) 49%, rgba(255, 0, 88, 0.24) 55%, transparent 78% 100%),
+    repeating-linear-gradient(90deg, rgba(255, 0, 72, 0.34) 0 1px, transparent 1px 7px, rgba(255, 0, 72, 0.18) 7px 9px, transparent 9px 21px);
+  animation: cyberpunk-loader-breach 0.96s steps(4, end) infinite;
+  mix-blend-mode: screen;
+  opacity: 0.78;
+}
+
+@keyframes cyberpunk-loader-rain {
+  0% {
+    background-position: 0 -210px, 0 0, 0 -18px;
+    filter: contrast(1.2) brightness(0.96);
+    transform: translateY(-8px);
+  }
+
+  42% {
+    background-position: 0 -70px, 12px 0, 0 4px;
+    filter: contrast(1.6) brightness(1.16);
+    transform: translateY(4px);
+  }
+
+  100% {
+    background-position: 0 210px, 31px 0, 0 18px;
+    filter: contrast(1.28) brightness(1.02);
+    transform: translateY(8px);
+  }
+}
+
+@keyframes cyberpunk-loader-breach {
+  0% { opacity: 0.24; transform: translate(-16%, -4%) skewX(-12deg); }
+  22% { opacity: 0.92; transform: translate(3%, 2%) skewX(7deg); }
+  48% { opacity: 0.44; transform: translate(-5%, -1%) skewX(-4deg); }
+  100% { opacity: 0.30; transform: translate(18%, 3%) skewX(11deg); }
+}
