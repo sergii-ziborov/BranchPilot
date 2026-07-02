@@ -12,8 +12,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type UIEvent as ReactUIEvent
 } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Pencil, PlusSquare, RotateCcw, Save, Search, Sparkles, Terminal, Trash2, WandSparkles, X } from 'lucide-react'
-import type { ApiResult, AssistantId, BranchPilotApi, DiffLine, DiffResult, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
+import { Activity, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Pencil, PlusSquare, RotateCcw, Save, Search, Sparkles, Terminal, Trash2, WandSparkles, X } from 'lucide-react'
+import type { ApiResult, AssistantId, BranchPilotApi, DiffLine, DiffResult, FileChange, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
 import { friendlyIpcErrorMessage } from '../../lib/ipcErrorMessage'
@@ -39,23 +39,29 @@ interface ChangesInternalEditorProps {
 }
 
 const EDITOR_SIDEBAR_STORAGE_KEY = 'branchpilot:changes-editor-sidebar-width'
+const EDITOR_HEALTH_STORAGE_KEY = 'branchpilot:changes-editor-health-enabled'
 const EDITOR_SIDEBAR_DEFAULT_WIDTH = 460
 const EDITOR_SIDEBAR_MIN_WIDTH = 280
 const EDITOR_SIDEBAR_MAX_WIDTH = 760
 const EDITOR_DETAIL_MIN_WIDTH = 520
 const EDITOR_SPLITTER_WIDTH = 10
-const EDITOR_LARGE_FILE_LINE_THRESHOLD = 1000
-const EDITOR_INITIAL_RENDER_LINES = 720
-const EDITOR_RENDER_BATCH_SIZE = 560
-const EDITOR_RENDER_LOOKAHEAD = 160
+const EDITOR_LARGE_FILE_LINE_THRESHOLD = 260
+const EDITOR_INITIAL_RENDER_LINES = 240
+const EDITOR_RENDER_BATCH_SIZE = 120
+const EDITOR_RENDER_LOOKAHEAD = 48
 const EDITOR_SEARCH_MATCH_LIMIT = 5000
 const EDITOR_FILE_CONTENT_SEARCH_MIN_LENGTH = 2
 const EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT = 250
 const EDITOR_FILE_CONTENT_SEARCH_DEBOUNCE_MS = 260
-const EDITOR_LINE_HEIGHT = 20.4
+const EDITOR_LINE_HEIGHT = 20
+const EDITOR_LINE_HEIGHT_EPSILON = 0.05
 const EDITOR_FILE_CHUNK_BYTES = 48_000
 const EDITOR_LIVE_DIFF_LCS_CELL_LIMIT = 240_000
+const EDITOR_TYPING_HISTORY_GROUP_MS = 900
+const EDITOR_SELECTION_STATUS_DEBOUNCE_MS = 80
+const EDITOR_LIVE_CHANGES_DEBOUNCE_MS = 1600
 const EDITOR_TEXT_HISTORY_LIMIT = 200
+const EDITOR_MINIMAP_LINE_LIMIT = 720
 const HEX_BYTES_PER_ROW = 16
 const HEX_CHUNK_BYTES = 16 * 1024
 const HEX_SEARCH_MATCH_LIMIT = 500
@@ -67,9 +73,25 @@ const TSCONFIG_JSON_RE = /(^|\/)tsconfig[^/]*\.json$/i
 const SCRIPT_RE = /\.(m?[jt]sx?|cts|mts)$/i
 const JSX_TSX_RE = /\.(jsx|tsx)$/i
 const PLAIN_SCRIPT_RE = /\.(js|mjs|cjs|ts|mts|cts)$/i
+const HEALTH_LANGUAGE_FILE_RE = /\.(m?[jt]sx?|cts|mts|css|scss|sass|less|html?|jsonc?|ya?ml|md|py|go|rs|java|cs|c|cc|cpp|h|hpp|php|rb|swift|kt|kts|vue|svelte)$/i
 const EDITOR_LINT_SETTINGS_STORAGE_KEY = 'branchpilot:changes-editor-lint-settings'
 
 type EditorViewMode = 'code' | 'image' | 'json' | 'svg-editor' | 'hex'
+
+const DEFAULT_EDITOR_HEALTH_SETTINGS: EditorHealthSettings = {
+  enabled: true,
+  rowSignals: true,
+  mainConflicts: true,
+  mainChurn: true,
+  fileChunkedRanges: true,
+  fileDiagnostics: true,
+  fileDirtyDraft: true,
+  fileLoadLimits: true,
+  fileDenseChunk: true,
+  churnWarning: 30,
+  churnCritical: 80,
+  denseChunkWarning: 1200
+}
 
 interface EditorFileMenu {
   x: number
@@ -97,7 +119,12 @@ function clampEditorSidebarWidth(width: number, containerWidth?: number): number
   return Math.round(clamp(width, EDITOR_SIDEBAR_MIN_WIDTH, Math.min(EDITOR_SIDEBAR_MAX_WIDTH, maxForContainer)))
 }
 
-function editorLineWindowForScroll(totalLines: number, scrollTop: number, viewportHeight: number): EditorLineWindow {
+function editorLineWindowForScroll(
+  totalLines: number,
+  scrollTop: number,
+  viewportHeight: number,
+  lineHeight = EDITOR_LINE_HEIGHT
+): EditorLineWindow {
   if (totalLines <= 0) {
     return { start: 0, end: 0, offsetTop: 0, rendered: 0, virtual: false }
   }
@@ -106,11 +133,12 @@ function editorLineWindowForScroll(totalLines: number, scrollTop: number, viewpo
     return { start: 0, end: totalLines, offsetTop: 0, rendered: totalLines, virtual: false }
   }
 
+  const safeLineHeight = Number.isFinite(lineHeight) && lineHeight > 4 ? lineHeight : EDITOR_LINE_HEIGHT
   const viewportLines = Math.max(
     1,
-    Math.ceil((viewportHeight || EDITOR_INITIAL_RENDER_LINES * EDITOR_LINE_HEIGHT) / EDITOR_LINE_HEIGHT)
+    Math.ceil((viewportHeight || EDITOR_INITIAL_RENDER_LINES * safeLineHeight) / safeLineHeight)
   )
-  const firstVisibleLine = Math.max(0, Math.floor(scrollTop / EDITOR_LINE_HEIGHT))
+  const firstVisibleLine = Math.max(0, Math.floor(scrollTop / safeLineHeight))
   const rawStart = Math.max(0, firstVisibleLine - EDITOR_RENDER_LOOKAHEAD)
   const rawEnd = Math.min(totalLines, firstVisibleLine + viewportLines + EDITOR_RENDER_LOOKAHEAD)
   const start = Math.floor(rawStart / EDITOR_RENDER_BATCH_SIZE) * EDITOR_RENDER_BATCH_SIZE
@@ -122,10 +150,47 @@ function editorLineWindowForScroll(totalLines: number, scrollTop: number, viewpo
   return {
     start,
     end,
-    offsetTop: start * EDITOR_LINE_HEIGHT,
+    offsetTop: start * safeLineHeight,
     rendered: Math.max(0, end - start),
     virtual: true
   }
+}
+
+function readStoredEditorHealthSettings(): EditorHealthSettings {
+  try {
+    const rawValue = window.localStorage.getItem(EDITOR_HEALTH_STORAGE_KEY)
+    if (!rawValue) return DEFAULT_EDITOR_HEALTH_SETTINGS
+    if (rawValue === 'false') return { ...DEFAULT_EDITOR_HEALTH_SETTINGS, enabled: false }
+    if (rawValue === 'true') return DEFAULT_EDITOR_HEALTH_SETTINGS
+
+    const stored = JSON.parse(rawValue) as Partial<EditorHealthSettings>
+    const legacyDefaultChurn = stored.churnWarning === 250 && stored.churnCritical === 900
+    return {
+      ...DEFAULT_EDITOR_HEALTH_SETTINGS,
+      ...stored,
+      churnWarning: clamp(Number(legacyDefaultChurn ? DEFAULT_EDITOR_HEALTH_SETTINGS.churnWarning : stored.churnWarning ?? DEFAULT_EDITOR_HEALTH_SETTINGS.churnWarning), 20, 10_000),
+      churnCritical: clamp(Number(legacyDefaultChurn ? DEFAULT_EDITOR_HEALTH_SETTINGS.churnCritical : stored.churnCritical ?? DEFAULT_EDITOR_HEALTH_SETTINGS.churnCritical), 40, 20_000),
+      denseChunkWarning: clamp(Number(stored.denseChunkWarning ?? DEFAULT_EDITOR_HEALTH_SETTINGS.denseChunkWarning), 100, 20_000)
+    }
+  } catch {
+    return DEFAULT_EDITOR_HEALTH_SETTINGS
+  }
+}
+
+function storeEditorHealthSettings(settings: EditorHealthSettings): void {
+  try {
+    window.localStorage.setItem(EDITOR_HEALTH_STORAGE_KEY, JSON.stringify(settings))
+  } catch {
+    /* ignore unavailable storage */
+  }
+}
+
+function closeOpenEditorDetails(root: HTMLElement | null, except?: Element | null): void {
+  if (!root) return
+  root.querySelectorAll<HTMLDetailsElement>('details[open]').forEach((details) => {
+    if (except && details.contains(except)) return
+    details.removeAttribute('open')
+  })
 }
 
 function readStoredEditorSidebarWidth(): number {
@@ -153,6 +218,12 @@ interface EditorOverviewMarker {
   lineNumber: number
   kind: 'added' | 'removed' | 'modified' | 'search' | 'diagnostic'
   title: string
+}
+
+interface EditorMinimapLine {
+  lineNumber: number
+  widthPercent: number
+  kind: 'added' | 'removed' | 'modified' | 'search' | 'diagnostic' | 'multi-edit' | 'plain'
 }
 
 interface EditorCssColorToken extends CssColorToken {
@@ -196,6 +267,63 @@ interface EditorTextHistoryEntry {
 interface EditorTextRange {
   start: number
   end: number
+}
+
+interface EditorSelectionStatus {
+  lineNumber: number
+  column: number
+  selectedChars: number
+  selectedLines: number
+}
+
+type EditorHealthSeverity = 'healthy' | 'warning' | 'critical'
+type EditorHealthRun = 'live' | 'opened'
+
+interface EditorHealthIssue {
+  severity: EditorHealthSeverity
+  run: EditorHealthRun
+  category: 'batch' | 'churn' | 'diagnostics' | 'dirty' | 'git' | 'load' | 'preview'
+  title: string
+  detail: string
+}
+
+interface EditorHealthReport {
+  severity: EditorHealthSeverity
+  issues: EditorHealthIssue[]
+}
+
+interface EditorHealthSettings {
+  enabled: boolean
+  rowSignals: boolean
+  mainConflicts: boolean
+  mainChurn: boolean
+  fileChunkedRanges: boolean
+  fileDiagnostics: boolean
+  fileDirtyDraft: boolean
+  fileLoadLimits: boolean
+  fileDenseChunk: boolean
+  churnWarning: number
+  churnCritical: number
+  denseChunkWarning: number
+}
+
+type EditorHealthBooleanSetting = {
+  [Key in keyof EditorHealthSettings]: EditorHealthSettings[Key] extends boolean ? Key : never
+}[keyof EditorHealthSettings]
+
+type EditorLineEnding = 'LF' | 'CRLF' | 'CR' | 'Mixed'
+type EditorIndentKind = 'spaces' | 'tabs' | 'mixed' | 'none'
+
+interface EditorLineEndingInfo {
+  kind: EditorLineEnding
+  lf: number
+  crlf: number
+  cr: number
+}
+
+interface EditorIndentInfo {
+  kind: EditorIndentKind
+  size: number
 }
 
 interface EditableTextLines {
@@ -458,6 +586,87 @@ function lineColumnFromOffset(text: string, offset: number): { lineNumber: numbe
     lineNumber: lines.length,
     column: lines[lines.length - 1].length + 1
   }
+}
+
+function editorSelectionStatusFromOffsets(text: string, selectionStart: number, selectionEnd: number, lineBase: number): EditorSelectionStatus {
+  const start = clamp(Math.min(selectionStart, selectionEnd), 0, text.length)
+  const end = clamp(Math.max(selectionStart, selectionEnd), 0, text.length)
+  const startLocation = lineColumnFromOffset(text, start)
+  const endLocation = lineColumnFromOffset(text, end)
+
+  return {
+    lineNumber: lineBase + startLocation.lineNumber - 1,
+    column: startLocation.column,
+    selectedChars: end - start,
+    selectedLines: end > start ? Math.max(1, endLocation.lineNumber - startLocation.lineNumber + 1) : 0
+  }
+}
+
+function detectEditorLineEnding(text: string): EditorLineEndingInfo {
+  const crlf = text.match(/\r\n/g)?.length ?? 0
+  const withoutCrlf = text.replace(/\r\n/g, '')
+  const lf = withoutCrlf.match(/\n/g)?.length ?? 0
+  const cr = withoutCrlf.match(/\r/g)?.length ?? 0
+  const used = [crlf > 0, lf > 0, cr > 0].filter(Boolean).length
+  const kind: EditorLineEnding = used > 1
+    ? 'Mixed'
+    : crlf > 0
+      ? 'CRLF'
+      : cr > 0
+        ? 'CR'
+        : 'LF'
+
+  return { kind, lf, crlf, cr }
+}
+
+function convertEditorLineEnding(text: string, target: Exclude<EditorLineEnding, 'Mixed'>): string {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  if (target === 'CRLF') return normalized.replace(/\n/g, '\r\n')
+  if (target === 'CR') return normalized.replace(/\n/g, '\r')
+  return normalized
+}
+
+function detectEditorIndent(text: string): EditorIndentInfo {
+  const spaceRuns = new Map<number, number>()
+  let tabLines = 0
+  let mixedLines = 0
+
+  for (const line of textLines(text)) {
+    const match = line.match(/^([ \t]+)\S/)
+    if (!match) continue
+
+    const indent = match[1]
+    const hasTabs = indent.includes('\t')
+    const hasSpaces = indent.includes(' ')
+    if (hasTabs && hasSpaces) {
+      mixedLines += 1
+      continue
+    }
+    if (hasTabs) {
+      tabLines += 1
+      continue
+    }
+
+    spaceRuns.set(indent.length, (spaceRuns.get(indent.length) ?? 0) + 1)
+  }
+
+  const sortedSpaceRuns = [...spaceRuns.entries()].sort((left, right) => right[1] - left[1] || left[0] - right[0])
+  const commonSpaceSize = sortedSpaceRuns[0]?.[0] ?? 2
+  if (mixedLines > 0 || (tabLines > 0 && spaceRuns.size > 0)) return { kind: 'mixed', size: commonSpaceSize }
+  if (tabLines > 0) return { kind: 'tabs', size: commonSpaceSize }
+  if (spaceRuns.size > 0) return { kind: 'spaces', size: commonSpaceSize }
+  return { kind: 'none', size: 2 }
+}
+
+function convertEditorIndent(text: string, target: 'tabs' | 'spaces', size: number): string {
+  const safeSize = clamp(Math.round(size), 1, 8)
+  return text.replace(/^[ \t]+/gm, (indent) => {
+    const columns = [...indent].reduce((total, char) => total + (char === '\t' ? safeSize : 1), 0)
+    if (target === 'tabs') {
+      return `${'\t'.repeat(Math.floor(columns / safeSize))}${' '.repeat(columns % safeSize)}`
+    }
+    return ' '.repeat(columns)
+  })
 }
 
 function utf8ByteOffset(text: string, charOffset: number): number {
@@ -1259,6 +1468,166 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 102.4) / 10} KB`
   return `${Math.round(bytes / (1024 * 102.4)) / 10} MB`
+}
+
+function healthSeverityRank(severity: EditorHealthSeverity): number {
+  if (severity === 'critical') return 2
+  if (severity === 'warning') return 1
+  return 0
+}
+
+function healthSeverityFromIssues(issues: EditorHealthIssue[]): EditorHealthSeverity {
+  if (issues.some((issue) => issue.severity === 'critical')) return 'critical'
+  if (issues.some((issue) => issue.severity === 'warning')) return 'warning'
+  return 'healthy'
+}
+
+function healthRunLabel(run: EditorHealthRun): string {
+  return run === 'live' ? 'Live' : 'On open'
+}
+
+function buildEditorHealthReport(
+  filePath: string,
+  change: FileChange | null | undefined,
+  options: {
+    scope?: 'main' | 'file'
+    settings?: EditorHealthSettings
+    chunkedTextPreview?: ChunkedTextPreview | null
+    diagnostics?: EditorDiagnostic[]
+    dirty?: boolean
+    draftLineCount?: number
+    fileError?: string | null
+    gitChangedLines?: number
+    hexBytes?: HexBytePreview | null
+    textUnavailableMessage?: string | null
+  } = {}
+): EditorHealthReport {
+  const settings = options.settings ?? DEFAULT_EDITOR_HEALTH_SETTINGS
+  const scope = options.scope ?? 'main'
+  const issues: EditorHealthIssue[] = []
+  const churn = (change?.additions ?? 0) + (change?.deletions ?? 0)
+
+  if (settings.mainConflicts && change?.conflicted) {
+    issues.push({
+      severity: 'critical',
+      run: 'live',
+      category: 'git',
+      title: 'Conflicted file',
+      detail: 'Git reports this file as conflicted. Resolve it before trusting edits or generated review output.'
+    })
+  }
+
+  if (settings.mainChurn && churn >= settings.churnCritical) {
+    issues.push({
+      severity: 'critical',
+      run: 'live',
+      category: 'churn',
+      title: 'Very large change set',
+      detail: `${churn} changed lines in git. Review, search, and rollback actions need extra care.`
+    })
+  } else if (settings.mainChurn && churn >= settings.churnWarning) {
+    issues.push({
+      severity: 'warning',
+      run: 'live',
+      category: 'churn',
+      title: 'Large change set',
+      detail: `${churn} changed lines in git. Prefer focused checks before saving or staging.`
+    })
+  }
+
+  if (scope !== 'file') {
+    return {
+      severity: healthSeverityFromIssues(issues),
+      issues
+    }
+  }
+
+  if (settings.fileLoadLimits && options.fileError) {
+    issues.push({
+      severity: 'critical',
+      run: 'opened',
+      category: 'load',
+      title: 'Load failed',
+      detail: options.fileError
+    })
+  }
+
+  if (settings.fileLoadLimits && options.textUnavailableMessage) {
+    issues.push({
+      severity: 'warning',
+      run: 'opened',
+      category: 'preview',
+      title: 'Limited editor mode',
+      detail: options.textUnavailableMessage
+    })
+  }
+
+  const chunk = options.chunkedTextPreview
+  if (settings.fileChunkedRanges && chunk) {
+    const languageFile = HEALTH_LANGUAGE_FILE_RE.test(filePath)
+    issues.push({
+      severity: languageFile ? 'critical' : 'warning',
+      run: 'opened',
+      category: 'batch',
+      title: languageFile ? 'Language file is chunked' : 'File is chunked',
+      detail: `Only ${formatBytes(chunk.startOffset)}-${formatBytes(chunk.endOffset)} of ${formatBytes(chunk.byteSize)} is loaded. Lint, search, live changes, and health are scoped to the current chunk.`
+    })
+  }
+
+  if (settings.fileChunkedRanges && options.hexBytes && !options.hexBytes.fullFileLoaded) {
+    issues.push({
+      severity: 'warning',
+      run: 'opened',
+      category: 'batch',
+      title: 'Hex chunk loaded',
+      detail: `Hex view is editing ${formatBytes(options.hexBytes.startOffset)}-${formatBytes(options.hexBytes.endOffset)} of ${formatBytes(options.hexBytes.byteSize)}. Save writes only the current byte range.`
+    })
+  }
+
+  if (settings.fileDiagnostics && (options.diagnostics?.length ?? 0) > 0) {
+    issues.push({
+      severity: 'critical',
+      run: 'opened',
+      category: 'diagnostics',
+      title: 'Lint issues',
+      detail: `${options.diagnostics?.length ?? 0} lint issue(s) in the active file. Click a lint issue to jump to its line.`
+    })
+  }
+
+  if (settings.mainChurn && (options.gitChangedLines ?? 0) >= Math.max(80, Math.floor(settings.churnWarning / 3))) {
+    issues.push({
+      severity: 'warning',
+      run: 'opened',
+      category: 'git',
+      title: 'Many marked git lines',
+      detail: `${options.gitChangedLines} changed lines are marked in the editor. The overview map is the safer way to navigate this file.`
+    })
+  }
+
+  if (settings.fileDenseChunk && (options.draftLineCount ?? 0) >= settings.denseChunkWarning) {
+    issues.push({
+      severity: 'warning',
+      run: 'opened',
+      category: 'batch',
+      title: 'Dense editor chunk',
+      detail: `${options.draftLineCount} lines are rendered in this loaded range. Cursor and minimap are using measured line height for this chunk.`
+    })
+  }
+
+  if (settings.fileDirtyDraft && options.dirty) {
+    issues.push({
+      severity: 'warning',
+      run: 'opened',
+      category: 'dirty',
+      title: 'Unsaved editor draft',
+      detail: 'This file has unsaved edits. Switching chunks is blocked until you save or discard them.'
+    })
+  }
+
+  return {
+    severity: healthSeverityFromIssues(issues),
+    issues
+  }
 }
 
 function safeSvgDataUrl(svgText: string): string {
@@ -2250,7 +2619,9 @@ export function ChangesInternalEditor({
   const highlightInnerRef = useRef<HTMLDivElement | null>(null)
   const lineNumbersInnerRef = useRef<HTMLDivElement | null>(null)
   const colorSwatchesInnerRef = useRef<HTMLDivElement | null>(null)
+  const overviewViewportRef = useRef<HTMLDivElement | null>(null)
   const hexTableBodyRef = useRef<HTMLDivElement | null>(null)
+  const healthMenuRef = useRef<HTMLDivElement | null>(null)
   const selectedFileRowRef = useRef<HTMLButtonElement | null>(null)
   const skipJsonEditBlurRef = useRef(false)
   const chunkPageRequestRef = useRef(false)
@@ -2264,8 +2635,15 @@ export function ChangesInternalEditor({
   const editorUndoStackRef = useRef<EditorTextHistoryEntry[]>([])
   const editorRedoStackRef = useRef<EditorTextHistoryEntry[]>([])
   const pendingEditorHistoryRef = useRef<EditorTextHistoryEntry | null>(null)
+  const editorDraftTextRef = useRef('')
+  const editorTypingHistoryActiveRef = useRef(false)
+  const editorTypingHistoryTimerRef = useRef<number | null>(null)
+  const editorSelectionStatusTimerRef = useRef<number | null>(null)
   const pendingHexOffsetRef = useRef<number | null>(null)
+  const editorLineHeightRef = useRef(EDITOR_LINE_HEIGHT)
   const [sidebarWidth, setSidebarWidth] = useState(readStoredEditorSidebarWidth)
+  const [healthSettings, setHealthSettings] = useState(readStoredEditorHealthSettings)
+  const [healthMenuOpen, setHealthMenuOpen] = useState(false)
   const [files, setFiles] = useState<RepositoryFileEntry[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [fileQuery, setFileQuery] = useState('')
@@ -2300,6 +2678,7 @@ export function ChangesInternalEditor({
   const [activeHexSearchIndex, setActiveHexSearchIndex] = useState(-1)
   const [editorScrollTop, setEditorScrollTop] = useState(0)
   const [editorViewportHeight, setEditorViewportHeight] = useState(0)
+  const [editorLineHeight, setEditorLineHeight] = useState(EDITOR_LINE_HEIGHT)
   const [collapsedJsonPaths, setCollapsedJsonPaths] = useState<Set<string>>(new Set())
   const [jsonEdit, setJsonEdit] = useState<JsonEditCell | null>(null)
   const [fileLoading, setFileLoading] = useState(false)
@@ -2313,6 +2692,14 @@ export function ChangesInternalEditor({
   const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([])
   const [gitLineChanges, setGitLineChanges] = useState<LiveLineChange[]>([])
   const [gitDiffLoading, setGitDiffLoading] = useState(false)
+  const [liveChangesOpen, setLiveChangesOpen] = useState(true)
+  const [liveChangesText, setLiveChangesText] = useState<string | null>(null)
+  const [editorSelection, setEditorSelectionState] = useState<EditorSelectionStatus>({
+    lineNumber: 1,
+    column: 1,
+    selectedChars: 0,
+    selectedLines: 0
+  })
   const [lintRunState, setLintRunState] = useState<EditorLintRunState>({
     status: 'idle',
     message: 'Lint has not run yet.',
@@ -2330,8 +2717,16 @@ export function ChangesInternalEditor({
   const chunkedTextActive = Boolean(chunkedTextPreview)
   const activeEditorText = chunkedTextPreview?.text ?? draftText
   const activeEditorLineBase = chunkedTextPreview?.startLine ?? 1
-  const textDirty = draftText !== originalText
-  const liveChanges = useMemo(() => (textDirty ? buildLiveLineChanges(originalText, draftText) : []), [textDirty, originalText, draftText])
+  const textDirty = activeEditorText !== originalText
+  const liveChangesSourceText = liveChangesText ?? activeEditorText
+  const liveChanges = useMemo(() => {
+    if (!textDirty) return []
+    const changes = buildLiveLineChanges(originalText, liveChangesSourceText)
+    return chunkedTextActive
+      ? changes.map((change) => ({ ...change, lineNumber: activeEditorLineBase + change.lineNumber - 1 }))
+      : changes
+  }, [activeEditorLineBase, chunkedTextActive, liveChangesSourceText, originalText, textDirty])
+  const liveChangesStale = textDirty && liveChangesSourceText !== activeEditorText
   const editedLines = liveChanges.length
   const changeKindByLine = useMemo(() => {
     const next = new Map<number, LiveLineChange['kind']>()
@@ -2397,9 +2792,22 @@ export function ChangesInternalEditor({
   const activeHexByteDraftDirty = hexChunkEditable && activeHexByte !== null && activeHexByteDraftValue !== null && activeHexByteDraftValue !== activeHexByte
   const hexDirty = hexChunkEditable && (hexDraftText !== hexOriginalText || activeHexByteDraftDirty)
   const dirty = textDirty || hexDirty
+  const healthEnabled = healthSettings.enabled
+  const showLiveChangesPanel = textDirty && liveChangesOpen && !fileLoading && viewMode === 'code' && !textUnavailableMessage
+  const editorLineEnding = useMemo(() => detectEditorLineEnding(activeEditorText), [activeEditorText])
+  const editorIndent = useMemo(() => detectEditorIndent(activeEditorText), [activeEditorText])
+  const editorIndentSelectValue = editorIndent.kind === 'tabs'
+    ? 'tabs'
+    : editorIndent.kind === 'spaces'
+      ? `spaces-${clamp(editorIndent.size, 1, 8)}`
+      : editorIndent.kind
   const diagnosticByLine = useMemo(() => new Map(diagnostics.map((diagnostic) => [diagnostic.lineNumber, diagnostic])), [diagnostics])
   const fileSearchOverflow = fileSearchMatches.length >= EDITOR_SEARCH_MATCH_LIMIT
   const activeSearchMatch = activeSearchIndex >= 0 ? fileSearchMatches[activeSearchIndex] ?? null : null
+  const fileSearchLineNumbers = useMemo(
+    () => new Set(fileSearchMatches.map((match) => match.lineNumber)),
+    [fileSearchMatches]
+  )
   const editorOverviewMarkers = useMemo<EditorOverviewMarker[]>(() => {
     const firstLine = activeEditorLineBase
     const lastLine = activeEditorLineBase + Math.max(0, draftLines.length - 1)
@@ -2428,9 +2836,54 @@ export function ChangesInternalEditor({
 
     return markers.sort((a, b) => a.lineNumber - b.lineNumber).slice(0, 1200)
   }, [activeEditorLineBase, diagnostics, draftLines.length, fileSearchMatches, gitLineChanges, liveChanges])
+  const editorMinimapLines = useMemo<EditorMinimapLine[]>(() => {
+    if (draftLines.length === 0) return []
+
+    const step = Math.max(1, Math.ceil(draftLines.length / EDITOR_MINIMAP_LINE_LIMIT))
+    const lines: EditorMinimapLine[] = []
+
+    for (let index = 0; index < draftLines.length; index += step) {
+      const lineNumber = activeEditorLineBase + index
+      const trimmedLength = draftLines[index].trimEnd().length
+      const changeKind = changeKindByLine.get(lineNumber)
+      const kind: EditorMinimapLine['kind'] = diagnosticByLine.has(lineNumber)
+        ? 'diagnostic'
+        : fileSearchLineNumbers.has(lineNumber)
+          ? 'search'
+          : multiEditLineNumbers.has(lineNumber)
+            ? 'multi-edit'
+            : changeKind ?? 'plain'
+
+      lines.push({
+        lineNumber,
+        kind,
+        widthPercent: clamp(10 + Math.sqrt(Math.max(1, trimmedLength)) * 7, 10, 92)
+      })
+    }
+
+    return lines
+  }, [
+    activeEditorLineBase,
+    changeKindByLine,
+    diagnosticByLine,
+    draftLines,
+    fileSearchLineNumbers,
+    multiEditLineNumbers
+  ])
+  const editorOverviewViewport = useMemo(() => {
+    const totalLines = Math.max(1, draftLines.length)
+    const contentHeight = Math.max(editorLineHeight, totalLines * editorLineHeight)
+    const viewportHeight = clamp(editorViewportHeight || editorLineHeight, editorLineHeight, contentHeight)
+    const height = clamp((viewportHeight / contentHeight) * 100, 3, 100)
+    const maxScrollTop = Math.max(1, contentHeight - viewportHeight)
+    const maxOverviewTop = Math.max(0, 100 - height)
+    const top = clamp((editorScrollTop / maxScrollTop) * maxOverviewTop, 0, maxOverviewTop)
+
+    return { top, height }
+  }, [draftLines.length, editorLineHeight, editorScrollTop, editorViewportHeight])
   const editorLineWindow = useMemo(
-    () => editorLineWindowForScroll(draftLines.length, editorScrollTop, editorViewportHeight),
-    [draftLines.length, editorScrollTop, editorViewportHeight]
+    () => editorLineWindowForScroll(draftLines.length, editorScrollTop, editorViewportHeight, editorLineHeight),
+    [draftLines.length, editorLineHeight, editorScrollTop, editorViewportHeight]
   )
   const visibleDraftLines = useMemo(
     () => draftLines.slice(editorLineWindow.start, editorLineWindow.end),
@@ -2490,6 +2943,18 @@ export function ChangesInternalEditor({
     if (selectedPath) modes.push({ id: 'hex', label: 'Hex' })
     return modes.length ? modes : [{ id: 'code', label: 'Code' }]
   }, [chunkedTextActive, selectedIsBinaryPreview, selectedIsImage, selectedIsJson, selectedIsSvg, selectedPath])
+
+  useEffect(() => {
+    editorDraftTextRef.current = activeEditorText
+  }, [activeEditorText])
+
+  useEffect(() => () => {
+    clearEditorTypingHistoryTimer()
+    if (editorSelectionStatusTimerRef.current !== null) {
+      window.clearTimeout(editorSelectionStatusTimerRef.current)
+      editorSelectionStatusTimerRef.current = null
+    }
+  }, [])
   const editorStyle = {
     '--changes-editor-sidebar-width': `${sidebarWidth}px`
   } as CSSProperties
@@ -2527,6 +2992,118 @@ export function ChangesInternalEditor({
               ? 'Loading git changes...'
               : gitStatusText ?? 'No edits since load'
 
+  const activeHealthReport = useMemo(() => buildEditorHealthReport(selectedPath, selectedChange, {
+    scope: 'file',
+    settings: healthSettings,
+    chunkedTextPreview,
+    diagnostics,
+    dirty,
+    draftLineCount: draftLines.length,
+    fileError,
+    gitChangedLines,
+    hexBytes: viewMode === 'hex' ? hexBytes : null,
+    textUnavailableMessage
+  }), [
+    chunkedTextPreview,
+    diagnostics,
+    dirty,
+    draftLines.length,
+    fileError,
+    gitChangedLines,
+    hexBytes,
+    healthSettings,
+    selectedChange,
+    selectedPath,
+    textUnavailableMessage,
+    viewMode
+  ])
+  const fileHealthByPath = useMemo(() => {
+    const reports = new Map<string, EditorHealthReport>()
+    for (const file of files) {
+      const change = changeByPath.get(file.path)
+      reports.set(file.path, file.path === selectedPath
+        ? activeHealthReport
+        : buildEditorHealthReport(file.path, change, { scope: 'main', settings: healthSettings }))
+    }
+    return reports
+  }, [activeHealthReport, changeByPath, files, healthSettings, selectedPath])
+  const visibleHealthReportEntries = useMemo(() => (
+    visibleFiles
+      .map((file) => ({ path: file.path, report: fileHealthByPath.get(file.path) }))
+      .filter((entry): entry is { path: string; report: EditorHealthReport } => Boolean(entry.report?.issues.length))
+      .sort((left, right) => healthSeverityRank(right.report.severity) - healthSeverityRank(left.report.severity))
+  ), [fileHealthByPath, visibleFiles])
+  const visibleHealthReports = useMemo(() => visibleHealthReportEntries.slice(0, 8), [visibleHealthReportEntries])
+  const healthIssueCount = activeHealthReport.issues.length
+  const visibleHealthSignalCount = visibleHealthReportEntries.filter(({ path }) => path !== selectedPath).length
+  const healthSignalCount = healthIssueCount + visibleHealthSignalCount
+  const healthPanelSeverity = visibleHealthReportEntries.reduce(
+    (severity, { report }) => healthSeverityRank(report.severity) > healthSeverityRank(severity) ? report.severity : severity,
+    activeHealthReport.severity
+  )
+  const healthSummaryTitle = healthEnabled
+    ? healthSignalCount > 0
+      ? `${healthIssueCount} opened-file issue${healthIssueCount === 1 ? '' : 's'}, ${visibleHealthSignalCount} visible live file signal${visibleHealthSignalCount === 1 ? '' : 's'}`
+      : selectedPath
+        ? 'Selected file looks healthy by lightweight checks'
+        : 'Select a file to inspect health'
+    : 'Module health is disabled'
+
+  const updateHealthSettings = (patch: Partial<EditorHealthSettings>) => {
+    setHealthSettings((settings) => {
+      const next = { ...settings, ...patch }
+      storeEditorHealthSettings(next)
+      return next
+    })
+  }
+
+  const setHealthNumberSetting = (key: 'churnWarning' | 'churnCritical' | 'denseChunkWarning', value: string) => {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) return
+    const limits = key === 'denseChunkWarning'
+      ? { min: 100, max: 20_000 }
+      : key === 'churnCritical'
+        ? { min: 40, max: 20_000 }
+        : { min: 20, max: 10_000 }
+    updateHealthSettings({ [key]: Math.round(clamp(parsed, limits.min, limits.max)) } as Partial<EditorHealthSettings>)
+  }
+
+  const renderHealthToggle = (key: EditorHealthBooleanSetting, label: string, detail: string) => (
+    <label className="changes-editor-health-setting" key={key}>
+      <input
+        type="checkbox"
+        checked={Boolean(healthSettings[key])}
+        onChange={(event) => updateHealthSettings({ [key]: event.currentTarget.checked } as Partial<EditorHealthSettings>)}
+      />
+      <span>
+        <b>{label}</b>
+        <small>{detail}</small>
+      </span>
+    </label>
+  )
+
+  const renderHealthNumber = (key: 'churnWarning' | 'churnCritical' | 'denseChunkWarning', label: string, detail: string) => (
+    <label className="changes-editor-health-number" key={key}>
+      <span>
+        <b>{label}</b>
+        <small>{detail}</small>
+      </span>
+      <input
+        type="number"
+        min={key === 'denseChunkWarning' ? 100 : 20}
+        max={key === 'churnCritical' ? 20_000 : 10_000}
+        step={key === 'denseChunkWarning' ? 100 : 10}
+        value={healthSettings[key]}
+        onChange={(event) => setHealthNumberSetting(key, event.currentTarget.value)}
+      />
+    </label>
+  )
+
+  const resetHealthSettings = () => {
+    setHealthSettings(DEFAULT_EDITOR_HEALTH_SETTINGS)
+    storeEditorHealthSettings(DEFAULT_EDITOR_HEALTH_SETTINGS)
+  }
+
   const openFileContextMenu = (event: ReactMouseEvent, path: string) => {
     if (!path) return
     event.preventDefault()
@@ -2563,6 +3140,9 @@ export function ChangesInternalEditor({
     const statusClassName = fileIsDirty ? 'status-edited' : change ? `status-${change.status}` : ''
     const statusLabel = fileIsDirty ? 'E' : change ? fileStatusToken(change.status) : ''
     const statusTitle = fileIsDirty ? 'Edited since load' : change ? change.status : ''
+    const fileHealth = healthEnabled && healthSettings.rowSignals ? fileHealthByPath.get(file.path) ?? null : null
+    const fileHealthIssues = fileHealth?.issues ?? []
+    const fileHealthTitle = fileHealthIssues.map((issue) => `[${healthRunLabel(issue.run)}] ${issue.title}: ${issue.detail}`).join('\n')
 
     return (
       <button
@@ -2586,6 +3166,15 @@ export function ChangesInternalEditor({
         {statusLabel && (
           <span className={`file-status ${statusClassName}`} title={statusTitle} aria-label={statusTitle}>
             {statusLabel}
+          </span>
+        )}
+        {fileHealth && fileHealthIssues.length > 0 && (
+          <span
+            className={`changes-editor-file-health health-${fileHealth.severity}`}
+            title={fileHealthTitle}
+            aria-label={fileHealthTitle}
+          >
+            <Activity size={12} />
           </span>
         )}
         {contentMatch && (
@@ -2680,9 +3269,37 @@ export function ChangesInternalEditor({
     }
   }
 
+  const measureEditorLineHeight = (textarea = textareaRef.current): number => {
+    if (!textarea) return editorLineHeightRef.current
+
+    const computed = window.getComputedStyle(textarea)
+    const parsedLineHeight = Number.parseFloat(computed.lineHeight)
+    const parsedFontSize = Number.parseFloat(computed.fontSize)
+    const nextLineHeight = Number.isFinite(parsedLineHeight) && parsedLineHeight > 4
+      ? parsedLineHeight
+      : Number.isFinite(parsedFontSize) && parsedFontSize > 4
+        ? parsedFontSize * (EDITOR_LINE_HEIGHT / 12)
+        : EDITOR_LINE_HEIGHT
+
+    if (Math.abs(nextLineHeight - editorLineHeightRef.current) > EDITOR_LINE_HEIGHT_EPSILON) {
+      editorLineHeightRef.current = nextLineHeight
+      setEditorLineHeight(nextLineHeight)
+    }
+
+    return nextLineHeight
+  }
+
   const syncEditorOverlays = (scrollLeft: number, scrollTop: number, viewportHeight = editorViewportHeight) => {
-    const lineWindow = editorLineWindowForScroll(draftLines.length, scrollTop, viewportHeight)
+    const lineHeight = measureEditorLineHeight()
+    const lineWindow = editorLineWindowForScroll(draftLines.length, scrollTop, viewportHeight, lineHeight)
     const translateY = lineWindow.offsetTop - scrollTop
+    const totalLines = Math.max(1, draftLines.length)
+    const contentHeight = Math.max(lineHeight, totalLines * lineHeight)
+    const safeViewportHeight = clamp(viewportHeight || lineHeight, lineHeight, contentHeight)
+    const overviewHeight = clamp((safeViewportHeight / contentHeight) * 100, 3, 100)
+    const maxScrollTop = Math.max(1, contentHeight - safeViewportHeight)
+    const maxOverviewTop = Math.max(0, 100 - overviewHeight)
+    const overviewTop = clamp((scrollTop / maxScrollTop) * maxOverviewTop, 0, maxOverviewTop)
 
     if (highlightInnerRef.current) {
       highlightInnerRef.current.style.transform = `translate(${-scrollLeft}px, ${translateY}px)`
@@ -2693,10 +3310,15 @@ export function ChangesInternalEditor({
     if (colorSwatchesInnerRef.current) {
       colorSwatchesInnerRef.current.style.transform = `translate(${-scrollLeft}px, ${translateY}px)`
     }
+    if (overviewViewportRef.current) {
+      overviewViewportRef.current.style.top = `${overviewTop}%`
+      overviewViewportRef.current.style.height = `${overviewHeight}%`
+    }
   }
 
   const updateEditorLineWindowState = (scrollTop: number, viewportHeight: number) => {
-    const nextLineWindow = editorLineWindowForScroll(draftLines.length, scrollTop, viewportHeight)
+    const lineHeight = measureEditorLineHeight()
+    const nextLineWindow = editorLineWindowForScroll(draftLines.length, scrollTop, viewportHeight, lineHeight)
     const viewportChanged = Math.abs(viewportHeight - editorViewportHeight) > 1
     if (
       viewportChanged ||
@@ -2706,6 +3328,31 @@ export function ChangesInternalEditor({
       setEditorScrollTop(scrollTop)
       setEditorViewportHeight(viewportHeight)
     }
+  }
+
+  const updateEditorSelectionStatus = (textarea = textareaRef.current, immediate = false) => {
+    if (!textarea) return
+    const nextStatus = editorSelectionStatusFromOffsets(
+      textarea.value,
+      textarea.selectionStart,
+      textarea.selectionEnd,
+      activeEditorLineBase
+    )
+
+    if (editorSelectionStatusTimerRef.current !== null) {
+      window.clearTimeout(editorSelectionStatusTimerRef.current)
+      editorSelectionStatusTimerRef.current = null
+    }
+
+    if (immediate) {
+      setEditorSelectionState(nextStatus)
+      return
+    }
+
+    editorSelectionStatusTimerRef.current = window.setTimeout(() => {
+      editorSelectionStatusTimerRef.current = null
+      setEditorSelectionState(nextStatus)
+    }, EDITOR_SELECTION_STATUS_DEBOUNCE_MS)
   }
 
   const focusEditorPosition = (lineNumber: number, column = 0, length = 0) => {
@@ -2722,15 +3369,62 @@ export function ChangesInternalEditor({
     window.requestAnimationFrame(() => {
       textarea.focus()
       textarea.setSelectionRange(offset, offset + Math.max(0, length))
-      const top = Math.max(0, relativeLineIndex * EDITOR_LINE_HEIGHT - textarea.clientHeight * 0.32)
+      updateEditorSelectionStatus(textarea, true)
+      const lineHeight = measureEditorLineHeight(textarea)
+      const top = Math.max(0, relativeLineIndex * lineHeight - textarea.clientHeight * 0.32)
       updateEditorLineWindowState(top, textarea.clientHeight)
       textarea.scrollTop = top
       syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
     })
   }
 
+  const scrollEditorToLine = (lineNumber: number) => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const firstLineNumber = activeEditorLineBase
+    const lastLineNumber = activeEditorLineBase + Math.max(0, draftLines.length - 1)
+    const safeLineNumber = Math.max(firstLineNumber, Math.min(lineNumber, Math.max(firstLineNumber, lastLineNumber)))
+    const relativeLineIndex = Math.max(0, safeLineNumber - activeEditorLineBase)
+    const lineHeight = measureEditorLineHeight(textarea)
+    const nextScrollTop = Math.max(0, relativeLineIndex * lineHeight - textarea.clientHeight * 0.5)
+
+    textarea.scrollTop = nextScrollTop
+    lastEditorScrollTopRef.current = nextScrollTop
+    updateEditorLineWindowState(nextScrollTop, textarea.clientHeight)
+    syncEditorOverlays(textarea.scrollLeft, nextScrollTop, textarea.clientHeight)
+  }
+
+  const scrollEditorOverviewAt = (clientY: number, element: HTMLDivElement) => {
+    const rect = element.getBoundingClientRect()
+    const ratio = clamp((clientY - rect.top) / Math.max(1, rect.height), 0, 1)
+    const lineNumber = activeEditorLineBase + Math.round(ratio * Math.max(0, draftLines.length - 1))
+    scrollEditorToLine(lineNumber)
+  }
+
+  const beginEditorOverviewDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    if (event.target instanceof Element && event.target.closest('.changes-editor-overview-marker')) return
+
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    scrollEditorOverviewAt(event.clientY, event.currentTarget)
+  }
+
+  const dragEditorOverview = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+    event.preventDefault()
+    scrollEditorOverviewAt(event.clientY, event.currentTarget)
+  }
+
+  const endEditorOverviewDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
   const editorTextSnapshot = (textarea = textareaRef.current): EditorTextHistoryEntry => {
-    const text = textarea?.value ?? draftText
+    const text = textarea?.value ?? activeEditorText
     const selectionStart = Math.min(text.length, textarea?.selectionStart ?? text.length)
     const selectionEnd = Math.min(text.length, textarea?.selectionEnd ?? selectionStart)
     return { text, selectionStart, selectionEnd }
@@ -2756,10 +3450,55 @@ export function ChangesInternalEditor({
     editorRedoStackRef.current = []
   }
 
+  const clearEditorTypingHistoryTimer = () => {
+    if (editorTypingHistoryTimerRef.current === null) return
+    window.clearTimeout(editorTypingHistoryTimerRef.current)
+    editorTypingHistoryTimerRef.current = null
+  }
+
+  const endEditorTypingHistoryGroup = () => {
+    clearEditorTypingHistoryTimer()
+    editorTypingHistoryActiveRef.current = false
+    pendingEditorHistoryRef.current = null
+  }
+
+  const touchEditorTypingHistoryGroup = () => {
+    clearEditorTypingHistoryTimer()
+    editorTypingHistoryTimerRef.current = window.setTimeout(() => {
+      editorTypingHistoryTimerRef.current = null
+      editorTypingHistoryActiveRef.current = false
+      pendingEditorHistoryRef.current = null
+    }, EDITOR_TYPING_HISTORY_GROUP_MS)
+  }
+
   const clearEditorTextHistory = () => {
     editorUndoStackRef.current = []
     editorRedoStackRef.current = []
+    endEditorTypingHistoryGroup()
     pendingEditorHistoryRef.current = null
+  }
+
+  const setActiveEditorDraftText = (nextText: string, options: { syncTextarea?: boolean } = {}) => {
+    const syncTextarea = options.syncTextarea ?? true
+    editorDraftTextRef.current = nextText
+    if (syncTextarea && textareaRef.current && textareaRef.current.value !== nextText) {
+      textareaRef.current.value = nextText
+    }
+
+    if (chunkedTextPreview) {
+      setChunkedTextPreview((current) => current ? { ...current, text: nextText } : current)
+      return
+    }
+
+    setDraftText(nextText)
+  }
+
+  const flushActiveEditorDraftText = () => {
+    const nextText = textareaRef.current?.value ?? (editorDraftTextRef.current || activeEditorText)
+    if (nextText !== activeEditorText) {
+      setActiveEditorDraftText(nextText, { syncTextarea: false })
+    }
+    return nextText
   }
 
   const applyEditorTextChange = (
@@ -2775,8 +3514,8 @@ export function ChangesInternalEditor({
     if (snapshot.text === nextText) return false
 
     pushEditorUndoEntry(snapshot)
-    pendingEditorHistoryRef.current = null
-    setDraftText(nextText)
+    endEditorTypingHistoryGroup()
+    setActiveEditorDraftText(nextText)
     setJsonEdit(null)
     setMultiEditRanges([])
     if (options.resetJsonCollapse) setCollapsedJsonPaths(new Set())
@@ -2789,6 +3528,7 @@ export function ChangesInternalEditor({
       if (!textarea) return
       textarea.focus()
       textarea.setSelectionRange(selectionStart, selectionEnd)
+      updateEditorSelectionStatus(textarea, true)
       updateEditorLineWindowState(textarea.scrollTop, textarea.clientHeight)
       syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
     })
@@ -2796,7 +3536,8 @@ export function ChangesInternalEditor({
   }
 
   const restoreEditorTextSnapshot = (entry: EditorTextHistoryEntry) => {
-    setDraftText(entry.text)
+    endEditorTypingHistoryGroup()
+    setActiveEditorDraftText(entry.text)
     setJsonEdit(null)
     setMultiEditRanges([])
     window.requestAnimationFrame(() => {
@@ -2806,6 +3547,7 @@ export function ChangesInternalEditor({
       const selectionEnd = Math.min(entry.selectionEnd, textarea.value.length)
       textarea.focus()
       textarea.setSelectionRange(selectionStart, selectionEnd)
+      updateEditorSelectionStatus(textarea, true)
       updateEditorLineWindowState(textarea.scrollTop, textarea.clientHeight)
       syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
     })
@@ -2829,7 +3571,13 @@ export function ChangesInternalEditor({
 
   const capturePendingEditorHistory = () => {
     if (fileLoading) return
+    if (editorTypingHistoryActiveRef.current) {
+      touchEditorTypingHistoryGroup()
+      return
+    }
+    editorTypingHistoryActiveRef.current = true
     pendingEditorHistoryRef.current = editorTextSnapshot()
+    touchEditorTypingHistoryGroup()
   }
 
   const setEditorSelection = (start: number, end = start) => {
@@ -2838,6 +3586,7 @@ export function ChangesInternalEditor({
       if (!textarea) return
       textarea.focus()
       textarea.setSelectionRange(clamp(start, 0, textarea.value.length), clamp(end, 0, textarea.value.length))
+      updateEditorSelectionStatus(textarea, true)
     })
   }
 
@@ -2877,7 +3626,7 @@ export function ChangesInternalEditor({
 
   const applyTextToMultiEditRanges = (replacement: string, mode: 'replace' | 'backspace' | 'delete' = 'replace') => {
     const textarea = textareaRef.current
-    const sourceText = textarea?.value ?? draftText
+    const sourceText = textarea?.value ?? activeEditorText
     const sourceRanges = normalizeTextRanges(multiEditRanges)
     if (sourceRanges.length === 0) return false
 
@@ -2907,8 +3656,8 @@ export function ChangesInternalEditor({
     nextText += sourceText.slice(cursor)
 
     pushEditorUndoEntry(editorTextSnapshot(textarea))
-    pendingEditorHistoryRef.current = null
-    setDraftText(nextText)
+    endEditorTypingHistoryGroup()
+    setActiveEditorDraftText(nextText)
     setJsonEdit(null)
     setMultiEditRanges(nextRanges)
     setEditorSelection(nextRanges[nextRanges.length - 1].start)
@@ -2921,17 +3670,21 @@ export function ChangesInternalEditor({
     }
 
     const nextText = event.currentTarget.value
-    const previous = pendingEditorHistoryRef.current ?? {
-      text: draftText,
-      selectionStart: Math.min(draftText.length, event.currentTarget.selectionStart),
-      selectionEnd: Math.min(draftText.length, event.currentTarget.selectionEnd)
-    }
+    const previousText = editorDraftTextRef.current || activeEditorText
+    const previous = pendingEditorHistoryRef.current ?? (editorTypingHistoryActiveRef.current ? null : {
+      text: previousText,
+      selectionStart: Math.min(previousText.length, event.currentTarget.selectionStart),
+      selectionEnd: Math.min(previousText.length, event.currentTarget.selectionEnd)
+    })
     pendingEditorHistoryRef.current = null
 
-    if (previous.text !== nextText) {
+    if (previous && previous.text !== nextText) {
       pushEditorUndoEntry(previous)
     }
-    setDraftText(nextText)
+    editorTypingHistoryActiveRef.current = true
+    touchEditorTypingHistoryGroup()
+    updateEditorSelectionStatus(event.currentTarget)
+    setActiveEditorDraftText(nextText, { syncTextarea: false })
   }
 
   const handleEditorTextKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -3000,7 +3753,7 @@ export function ChangesInternalEditor({
     if (redo && editorRedoStackRef.current.length === 0) return
 
     event.preventDefault()
-    pendingEditorHistoryRef.current = null
+    endEditorTypingHistoryGroup()
     if (undo) undoEditorText()
     else redoEditorText()
   }
@@ -3011,8 +3764,32 @@ export function ChangesInternalEditor({
     applyTextToMultiEditRanges(event.clipboardData.getData('text/plain'))
   }
 
+  const updateEditorLineEnding = (nextLineEnding: Exclude<EditorLineEnding, 'Mixed'>) => {
+    applyEditorTextChange(convertEditorLineEnding(flushActiveEditorDraftText(), nextLineEnding))
+  }
+
+  const updateEditorIndent = (nextValue: string) => {
+    if (nextValue === 'mixed' || nextValue === 'none') return
+    const nextIndent = nextValue === 'tabs'
+      ? { target: 'tabs' as const, size: editorIndent.size || 2 }
+      : { target: 'spaces' as const, size: Number(nextValue.replace('spaces-', '')) || editorIndent.size || 2 }
+
+    applyEditorTextChange(convertEditorIndent(flushActiveEditorDraftText(), nextIndent.target, nextIndent.size))
+  }
+
   const focusSearchMatch = (match: FileSearchMatch) => {
     focusEditorPosition(match.lineNumber, match.column, match.length)
+  }
+
+  const focusLiveChange = (change: LiveLineChange) => {
+    const firstLineNumber = activeEditorLineBase
+    const lastLineNumber = activeEditorLineBase + Math.max(0, draftLines.length - 1)
+    if (chunkedTextActive && (change.lineNumber < firstLineNumber || change.lineNumber > lastLineNumber)) {
+      setNotice(`Line ${change.lineNumber} is outside the loaded chunk (${firstLineNumber}-${lastLineNumber}).`)
+      return
+    }
+
+    focusCodePosition(change.lineNumber, 0, Math.max(1, Math.min(80, (change.after || change.before).length)))
   }
 
   const focusCodePosition = (lineNumber: number, column = 0, length = 0) => {
@@ -3073,7 +3850,7 @@ export function ChangesInternalEditor({
     }
 
     const lintFilePath = selectedPath
-    const lintText = draftText
+    const lintText = flushActiveEditorDraftText()
     const lintSettingsSnapshot = lintSettings
     setLintRunState({ status: 'running', message: 'Running lint...', detail: lintFilePath })
     window.requestAnimationFrame(() => {
@@ -3133,7 +3910,10 @@ export function ChangesInternalEditor({
     const snapshot = editorTextSnapshot()
     const current = snapshot.text
     const lines = current.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
-    const lineIndex = request.lineNumber - 1
+    const relativeLineNumber = chunkedTextActive
+      ? request.lineNumber - activeEditorLineBase + 1
+      : request.lineNumber
+    const lineIndex = relativeLineNumber - 1
     const line = lines[lineIndex]
     if (line === undefined) return
 
@@ -3142,13 +3922,17 @@ export function ChangesInternalEditor({
     if (columnStart < 0) return
 
     const nextLine = `${line.slice(0, columnStart)}${request.newValue}${line.slice(columnStart + request.oldValue.length)}`
-    const nextText = updateLineInText(current, request.lineNumber, nextLine)
+    const nextText = updateLineInText(current, relativeLineNumber, nextLine)
     applyEditorTextChange(nextText)
   }
 
   const loadChunkedTextPage = async (direction: 'next' | 'previous', scrollPlacement: 'start' | 'end' = 'start') => {
     const current = chunkedTextPreview
     if (!api || !currentRepoPath || !selectedPath || !current || current.loading || chunkPageRequestRef.current) return
+    if (textDirty) {
+      setNotice('Save or undo current chunk edits before loading another chunk.')
+      return
+    }
 
     const markers = [...current.markers]
     let targetIndex = direction === 'previous' ? current.pageIndex - 1 : current.pageIndex + 1
@@ -3204,8 +3988,9 @@ export function ChangesInternalEditor({
       window.requestAnimationFrame(() => {
         const textarea = textareaRef.current
         if (!textarea) return
+        const lineHeight = measureEditorLineHeight(textarea)
         const nextScrollTop = scrollPlacement === 'end'
-          ? Math.max(0, textarea.scrollHeight - textarea.clientHeight - EDITOR_LINE_HEIGHT * 2)
+          ? Math.max(0, textarea.scrollHeight - textarea.clientHeight - lineHeight * 2)
           : 0
         textarea.scrollTop = nextScrollTop
         textarea.scrollLeft = 0
@@ -3305,23 +4090,60 @@ export function ChangesInternalEditor({
         </pre>
         <textarea
           ref={textareaRef}
+          key={`${selectedPath}:${chunkedTextPreview?.startOffset ?? 0}:${chunkedTextPreview?.endOffset ?? 0}`}
           className={dirty ? 'changes-editor-textarea is-dirty' : 'changes-editor-textarea'}
           spellCheck={false}
           wrap="off"
-          value={activeEditorText}
+          defaultValue={activeEditorText}
           onBeforeInput={capturePendingEditorHistory}
           onChange={handleEditorTextChange}
           onKeyDown={handleEditorTextKeyDown}
+          onKeyUp={() => updateEditorSelectionStatus()}
           onPaste={handleEditorPaste}
           onScroll={syncHighlightScroll}
+          onSelect={() => updateEditorSelectionStatus()}
+          onFocus={() => updateEditorSelectionStatus()}
+          onMouseUp={() => updateEditorSelectionStatus()}
           onMouseDown={() => {
             if (multiEditRanges.length > 0) setMultiEditRanges([])
           }}
           readOnly={false}
           disabled={fileLoading}
         />
-        {editorOverviewMarkers.length > 0 && (
-          <div className="changes-editor-overview" aria-label="File overview markers">
+        {draftLines.length > 0 && !fileLoading && (
+          <div
+            className="changes-editor-overview"
+            aria-label="File overview map"
+            onPointerDown={beginEditorOverviewDrag}
+            onPointerMove={dragEditorOverview}
+            onPointerUp={endEditorOverviewDrag}
+            onPointerCancel={endEditorOverviewDrag}
+          >
+            <div
+              ref={overviewViewportRef}
+              className="changes-editor-overview-viewport"
+              style={{
+                top: `${editorOverviewViewport.top}%`,
+                height: `${editorOverviewViewport.height}%`
+              } as CSSProperties}
+            />
+            <div className="changes-editor-overview-lines" aria-hidden="true">
+              {editorMinimapLines.map((line) => {
+                const denominator = Math.max(1, draftLines.length - 1)
+                const top = clamp(((line.lineNumber - activeEditorLineBase) / denominator) * 100, 0, 100)
+
+                return (
+                  <span
+                    className={`changes-editor-minimap-line minimap-${line.kind}`}
+                    style={{
+                      top: `${top}%`,
+                      width: `${line.widthPercent}%`
+                    } as CSSProperties}
+                    key={`${line.lineNumber}-${line.kind}`}
+                  />
+                )
+              })}
+            </div>
             {editorOverviewMarkers.map((marker, index) => {
               const denominator = Math.max(1, draftLines.length - 1)
               const top = clamp(((marker.lineNumber - activeEditorLineBase) / denominator) * 100, 0, 100)
@@ -3329,7 +4151,11 @@ export function ChangesInternalEditor({
               return (
                 <button
                   type="button"
-                  className={`changes-editor-overview-marker marker-${marker.kind}`}
+                  className={[
+                    'changes-editor-overview-marker',
+                    `marker-${marker.kind}`,
+                    activeSearchMatch?.lineNumber === marker.lineNumber && marker.kind === 'search' ? 'is-active' : ''
+                  ].filter(Boolean).join(' ')}
                   style={{ top: `${top}%` } as CSSProperties}
                   key={`${marker.kind}-${marker.lineNumber}-${index}`}
                   title={marker.title}
@@ -3441,6 +4267,10 @@ export function ChangesInternalEditor({
     options: { scrollPlacement?: 'start' | 'end' } = {}
   ) => {
     if (!api || !currentRepoPath || !selectedPath) return
+    if (hexDirty && hexBytes) {
+      setNotice('Save or undo current hex chunk edits before loading another chunk.')
+      return
+    }
 
     const knownMaxOffset = hexBytes ? Math.max(0, hexBytes.byteSize - 1) : Number.POSITIVE_INFINITY
     const safeOffset = Number.isFinite(requestedOffset)
@@ -4290,6 +5120,9 @@ export function ChangesInternalEditor({
     setJsonEdit(null)
     setMultiEditRanges([])
     setDiagnostics([])
+    setLiveChangesOpen(true)
+    setLiveChangesText(null)
+    setEditorSelectionState({ lineNumber: 1, column: 1, selectedChars: 0, selectedLines: 0 })
     setLintRunState({
       status: 'idle',
       message: 'Lint has not run yet.',
@@ -4310,6 +5143,61 @@ export function ChangesInternalEditor({
     }
     syncEditorOverlays(0, 0)
   }, [selectedPath])
+
+  useEffect(() => {
+    setLiveChangesOpen(true)
+  }, [viewMode])
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+
+      const openDetails = target.closest('details')
+      closeOpenEditorDetails(editorRef.current, openDetails)
+
+      if (!healthMenuRef.current?.contains(target)) {
+        setHealthMenuOpen(false)
+      }
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setHealthMenuOpen(false)
+      closeOpenEditorDetails(editorRef.current)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown, true)
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true)
+      document.removeEventListener('keydown', handleKeyDown, true)
+    }
+  }, [])
+
+  useEffect(() => {
+    setHealthMenuOpen(false)
+    closeOpenEditorDetails(editorRef.current)
+  }, [currentRepoPath, selectedPath, viewMode])
+
+  useEffect(() => {
+    if (!textDirty) setLiveChangesOpen(true)
+  }, [textDirty])
+
+  useEffect(() => {
+    if (!textDirty) {
+      setLiveChangesText(activeEditorText)
+    }
+  }, [activeEditorText, textDirty])
+
+  useEffect(() => {
+    if (!textDirty) return
+
+    const handle = window.setTimeout(() => {
+      setLiveChangesText(activeEditorText)
+    }, EDITOR_LIVE_CHANGES_DEBOUNCE_MS)
+
+    return () => window.clearTimeout(handle)
+  }, [activeEditorLineBase, activeEditorText, selectedPath, textDirty])
 
   useEffect(() => {
     if (!selectedPath) return
@@ -4590,7 +5478,7 @@ export function ChangesInternalEditor({
       if (redo && editorRedoStackRef.current.length === 0) return
 
       event.preventDefault()
-      pendingEditorHistoryRef.current = null
+      endEditorTypingHistoryGroup()
       if (undo) undoEditorText()
       else redoEditorText()
     }
@@ -4959,7 +5847,11 @@ export function ChangesInternalEditor({
   }
 
   const saveFile = async () => {
-    if (!api || !currentRepoPath || !selectedPath || textSaveBlocked || !dirty || fileError) return
+    if (!api || !currentRepoPath || !selectedPath || textSaveBlocked || fileError) return
+    const currentText = flushActiveEditorDraftText()
+    const textDraftDirty = currentText !== originalText
+    if (!textDraftDirty && !hexDirty) return
+
     setSaving(true)
     try {
       if (hexDirty) {
@@ -5022,7 +5914,8 @@ export function ChangesInternalEditor({
 
       if (chunkedTextPreview) {
         const currentChunk = chunkedTextPreview
-        const replacementBytes = utf8ByteOffset(draftText, draftText.length)
+        const chunkText = currentText
+        const replacementBytes = utf8ByteOffset(chunkText, chunkText.length)
         const originalBytes = Math.max(0, currentChunk.endOffset - currentChunk.startOffset)
         const nextByteSize = Math.max(0, currentChunk.byteSize + replacementBytes - originalBytes)
         const result = await runSnapshotAction('File chunk saved.', () => api.writeRepositoryFileChunk({
@@ -5030,13 +5923,14 @@ export function ChangesInternalEditor({
           filePath: selectedPath,
           startOffset: currentChunk.startOffset,
           endOffset: currentChunk.endOffset,
-          text: draftText
+          text: chunkText
         }))
         if (result !== false) {
-          setOriginalText(draftText)
+          setOriginalText(chunkText)
+          setDraftText(chunkText)
           setChunkedTextPreview({
             ...currentChunk,
-            text: draftText,
+            text: chunkText,
             byteSize: nextByteSize,
             endOffset: currentChunk.startOffset + replacementBytes,
             hasMore: currentChunk.startOffset + replacementBytes < nextByteSize,
@@ -5049,10 +5943,10 @@ export function ChangesInternalEditor({
       const result = await runSnapshotAction('File saved.', () => api.writeRepositoryFile({
         repoPath: currentRepoPath,
         filePath: selectedPath,
-        text: draftText
+        text: currentText
       }))
       if (result !== false) {
-        setOriginalText(draftText)
+        setOriginalText(currentText)
       }
     } finally {
       setSaving(false)
@@ -5065,15 +5959,16 @@ export function ChangesInternalEditor({
 
   const beautifyFile = () => {
     if (!selectedPath || chunkedTextActive || fileLoading || fileError || textUnavailableMessage || viewMode === 'image') return
+    const currentText = flushActiveEditorDraftText()
     setBeautifying(true)
     try {
-      const nextText = beautifyTextLocally(selectedPath, draftText)
-      if (!beautifyPreservesTokens(draftText, nextText)) {
+      const nextText = beautifyTextLocally(selectedPath, currentText)
+      if (!beautifyPreservesTokens(currentText, nextText)) {
         setNotice('Beautify was rejected because it changed code tokens. No changes applied.')
         return
       }
 
-      if (nextText === draftText) {
+      if (nextText === currentText) {
         setNotice('Beautify made no changes.')
         return
       }
@@ -5088,13 +5983,14 @@ export function ChangesInternalEditor({
 
   const beautifyFileWithAi = async () => {
     if (!api || !currentRepoPath || !selectedPath || chunkedTextActive || fileLoading || fileError || textUnavailableMessage || viewMode === 'image') return
+    const currentText = flushActiveEditorDraftText()
     setAiBeautifying(true)
     try {
       const result = await api.beautifyFileWithAssistant({
         repoPath: currentRepoPath,
         assistant: selectedAssistant,
         filePath: selectedPath,
-        text: draftText
+        text: currentText
       })
 
       if (!result.ok) {
@@ -5103,12 +5999,12 @@ export function ChangesInternalEditor({
       }
 
       const nextText = normalizeTextForEditor(result.data.content)
-      if (!beautifyPreservesTokens(draftText, nextText)) {
+      if (!beautifyPreservesTokens(currentText, nextText)) {
         setNotice('AI Beautify was rejected because it changed code tokens. No changes applied.')
         return
       }
 
-      if (nextText === draftText) {
+      if (nextText === currentText) {
         setNotice('AI Beautify made no changes.')
         return
       }
@@ -5123,7 +6019,10 @@ export function ChangesInternalEditor({
 
   const revertLiveChange = (change: LiveLineChange) => {
     const snapshot = editorTextSnapshot()
-    const nextText = revertLiveChangeInText(snapshot.text, change)
+    const localChange = chunkedTextActive
+      ? { ...change, lineNumber: change.lineNumber - activeEditorLineBase + 1 }
+      : change
+    const nextText = revertLiveChangeInText(snapshot.text, localChange)
     if (nextText === snapshot.text) return
 
     applyEditorTextChange(nextText)
@@ -5178,10 +6077,127 @@ export function ChangesInternalEditor({
   return (
     <section className="changes-internal-editor" ref={editorRef} style={editorStyle}>
       <aside className="changes-editor-sidebar">
-        <button type="button" className="secondary changes-editor-back" onClick={onBack}>
-          <ArrowLeft size={16} />
-          Back to diff
-        </button>
+        <div className="changes-editor-sidebar-actions">
+          <button type="button" className="secondary changes-editor-back" onClick={onBack}>
+            <ArrowLeft size={16} />
+            Back to diff
+          </button>
+          <div
+            className={`changes-editor-health-menu health-${healthPanelSeverity}${healthEnabled ? ' is-enabled' : ' is-disabled'}`}
+            ref={healthMenuRef}
+          >
+            <button
+              type="button"
+              className="changes-editor-health-trigger"
+              title={healthSummaryTitle}
+              aria-expanded={healthMenuOpen}
+              onClick={() => setHealthMenuOpen((open) => !open)}
+            >
+              <Activity size={15} />
+              <span>Health</span>
+              <strong>{healthEnabled ? (healthSignalCount || 'OK') : 'off'}</strong>
+            </button>
+            {healthMenuOpen && (
+              <div className="changes-editor-health-panel" role="dialog" aria-label="Module health settings">
+                <header>
+                  <div>
+                    <strong>Module health</strong>
+                    <span>Live checks mark file rows from the git snapshot. On-open checks run only after a file is opened.</span>
+                  </div>
+                  <button type="button" onClick={() => updateHealthSettings({ enabled: !healthEnabled })}>
+                    {healthEnabled ? 'Disable' : 'Enable'}
+                  </button>
+                </header>
+                <section className="changes-editor-health-mode-grid">
+                  <span>Run model</span>
+                  <p className="health-mode-card">
+                    <b>Live, all files</b>
+                    Runs without opening file contents: conflict status and change pressure from added/deleted git lines. These can show row icons immediately.
+                  </p>
+                  <p className="health-mode-card">
+                    <b>On open / click</b>
+                    Runs for the active file only: chunked ranges, load limits, lint diagnostics, dirty draft, and dense rendered chunks.
+                  </p>
+                </section>
+                <section className="changes-editor-health-settings">
+                  <span>Live checks</span>
+                  {renderHealthToggle('rowSignals', 'File row signals', 'Show problem icons next to files when health is enabled.')}
+                  {renderHealthToggle('mainConflicts', 'Git conflicts', 'Flag conflicted files from repository status.')}
+                  {renderHealthToggle('mainChurn', 'Change pressure', 'Flag files with many added/deleted lines.')}
+                </section>
+                <section className="changes-editor-health-settings">
+                  <span>On-open checks</span>
+                  {renderHealthToggle('fileChunkedRanges', 'Chunked ranges', 'Flag language files and hex files loaded by chunks.')}
+                  {renderHealthToggle('fileDiagnostics', 'Lint diagnostics', 'Promote current lint issues into health.')}
+                  {renderHealthToggle('fileDirtyDraft', 'Unsaved draft', 'Flag the active file while it has unsaved editor edits.')}
+                  {renderHealthToggle('fileLoadLimits', 'Load limits', 'Flag binary/preview-only/error states for the opened file.')}
+                  {renderHealthToggle('fileDenseChunk', 'Dense editor chunks', 'Warn when the currently loaded chunk has many rendered lines.')}
+                </section>
+                <section className="changes-editor-health-settings">
+                  <span>Thresholds</span>
+                  {renderHealthNumber('churnWarning', 'Churn warning', 'Added + deleted lines before a warning.')}
+                  {renderHealthNumber('churnCritical', 'Churn critical', 'Added + deleted lines before a critical signal.')}
+                  {renderHealthNumber('denseChunkWarning', 'Dense chunk lines', 'Rendered lines in the opened chunk before warning.')}
+                  <button type="button" className="secondary" onClick={resetHealthSettings}>
+                    Reset health settings
+                  </button>
+                </section>
+                {healthEnabled ? (
+                  <>
+                    <section>
+                      <span>Selected file</span>
+                      <strong>{selectedPath || 'No file selected'}</strong>
+                      {activeHealthReport.issues.length === 0 ? (
+                        <p>No lightweight issues found for this file.</p>
+                      ) : (
+                        activeHealthReport.issues.map((issue) => (
+                          <p className={`health-issue health-${issue.severity}`} key={`${issue.run}-${issue.category}-${issue.title}`}>
+                            <span className="health-issue-head">
+                              <b>{issue.title}</b>
+                              <span className={`health-run-badge health-run-${issue.run}`}>{healthRunLabel(issue.run)}</span>
+                            </span>
+                            {issue.detail}
+                          </p>
+                        ))
+                      )}
+                    </section>
+                    {visibleHealthReports.length > 0 && (
+                      <section>
+                        <span>Visible file signals</span>
+                        {visibleHealthReports.map(({ path, report }) => (
+                          <button
+                            type="button"
+                            key={path}
+                            onClick={() => {
+                              setSelectedPath(path)
+                              setHealthMenuOpen(false)
+                            }}
+                          >
+                            <Activity size={12} />
+                            <strong>{path}</strong>
+                            <small>
+                              {report.issues[0] && (
+                                <span className={`health-run-badge health-run-${report.issues[0].run}`}>
+                                  {healthRunLabel(report.issues[0].run)}
+                                </span>
+                              )}
+                              {report.issues[0]?.title}
+                            </small>
+                          </button>
+                        ))}
+                      </section>
+                    )}
+                  </>
+                ) : (
+                  <section>
+                    <span>Disabled</span>
+                    <p>Health checks are off. File rows will not show health signals.</p>
+                  </section>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
         <label className="changes-editor-search">
           <Search size={15} />
           <input value={fileQuery} onChange={(event) => setFileQuery(event.target.value)} placeholder="Search files and content" />
@@ -5276,6 +6292,28 @@ export function ChangesInternalEditor({
                 <ChevronDown size={14} />
               </button>
             </label>
+            <button
+              type="button"
+              className={[
+                'changes-editor-tool-button',
+                'compact-icon',
+                'changes-editor-live-toggle',
+                showLiveChangesPanel ? 'active' : ''
+              ].filter(Boolean).join(' ')}
+              onClick={() => setLiveChangesOpen((open) => !open)}
+              disabled={!selectedPath || !textDirty || fileLoading || viewMode !== 'code' || Boolean(textUnavailableMessage)}
+              title={liveChangesOpen ? 'Hide live changes' : 'Show live changes'}
+              aria-label={liveChangesOpen ? 'Hide live changes' : 'Show live changes'}
+              aria-pressed={showLiveChangesPanel}
+            >
+              <FileCode2 size={15} />
+              {textDirty && (
+                <span className="changes-editor-icon-badge" aria-hidden="true">
+                  {liveChangesStale ? '...' : editedLines}
+                </span>
+              )}
+              <span className="changes-editor-button-label">Live changes</span>
+            </button>
             <details className={lintMenuClassName}>
               <summary
                 title={selectedLintSupported ? 'Lint current file' : 'Lint supports JSON, JSONC, JS, TS, JSX, and TSX files'}
@@ -5383,32 +6421,36 @@ export function ChangesInternalEditor({
             </details>
             <button
               type="button"
-              className="changes-editor-tool-button"
+              className="changes-editor-tool-button compact-icon"
               onClick={beautifyFile}
               disabled={!selectedPath || chunkedTextActive || beautifying || aiBeautifying || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image'}
-              title={chunkedTextActive ? 'Beautify is disabled for file chunks' : 'Beautify locally'}
+              title={chunkedTextActive ? 'Beautify is disabled for file chunks' : beautifying ? 'Beautifying...' : 'Beautify locally'}
+              aria-label={chunkedTextActive ? 'Beautify is disabled for file chunks' : 'Beautify locally'}
             >
               <Sparkles size={15} />
-              {beautifying ? 'Beautifying...' : 'Beautify'}
+              <span className="changes-editor-button-label">{beautifying ? 'Beautifying...' : 'Beautify'}</span>
             </button>
             <button
               type="button"
-              className="changes-editor-tool-button ai"
+              className="changes-editor-tool-button compact-icon ai"
               onClick={beautifyFileWithAi}
               disabled={!api || !currentRepoPath || !selectedPath || chunkedTextActive || beautifying || aiBeautifying || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image'}
-              title={chunkedTextActive ? 'AI Beautify is disabled for file chunks' : 'Beautify with assistant'}
+              title={chunkedTextActive ? 'AI Beautify is disabled for file chunks' : aiBeautifying ? 'AI beautifying...' : 'Beautify with assistant'}
+              aria-label={chunkedTextActive ? 'AI Beautify is disabled for file chunks' : 'Beautify with assistant'}
             >
               <WandSparkles size={15} />
-              {aiBeautifying ? 'AI...' : 'AI Beautify'}
+              <span className="changes-editor-button-label">{aiBeautifying ? 'AI...' : 'AI Beautify'}</span>
             </button>
             <button
               type="button"
-              className="changes-editor-save-button"
+              className="changes-editor-save-button compact-icon"
               onClick={saveFile}
-              disabled={!selectedPath || textSaveBlocked || !dirty || saving || fileLoading || hexLoading || Boolean(fileError) || Boolean(parsedHexDraft.error) || (Boolean(textUnavailableMessage) && !hexDirty)}
+              disabled={!selectedPath || textSaveBlocked || saving || fileLoading || hexLoading || Boolean(fileError) || Boolean(parsedHexDraft.error) || (Boolean(textUnavailableMessage) && !hexDirty)}
+              title={saving ? 'Saving file...' : 'Save file'}
+              aria-label="Save file"
             >
               <Save size={16} />
-              {saving ? 'Saving...' : 'Save file'}
+              <span className="changes-editor-button-label">{saving ? 'Saving...' : 'Save file'}</span>
             </button>
           </div>
         </header>
@@ -5417,7 +6459,7 @@ export function ChangesInternalEditor({
           <div className="quiet-box danger-text">{fileError}</div>
         ) : (
           <div
-            className={textDirty && viewMode === 'code' && !textUnavailableMessage ? 'changes-editor-body has-live-diff' : 'changes-editor-body'}
+            className={showLiveChangesPanel ? 'changes-editor-body has-live-diff' : 'changes-editor-body'}
             onContextMenuCapture={(event) => {
               if (selectedPath) openFileContextMenu(event, selectedPath)
             }}
@@ -5430,17 +6472,36 @@ export function ChangesInternalEditor({
                 detail={selectedPath}
               />
             )}
-            {textDirty && !fileLoading && viewMode === 'code' && !textUnavailableMessage && (
+            {showLiveChangesPanel && (
               <aside className="changes-editor-live-diff" aria-label="Live file changes">
                 <header>
                   <strong>Live changes</strong>
-                  <span>{editedLines}</span>
+                  <span title={liveChangesStale ? 'Updating after typing settles' : undefined}>
+                    {liveChangesStale ? '...' : editedLines}
+                  </span>
+                  <button
+                    type="button"
+                    className="changes-editor-live-close"
+                    onClick={() => setLiveChangesOpen(false)}
+                    title="Close live changes"
+                    aria-label="Close live changes"
+                  >
+                    <X size={14} />
+                  </button>
                 </header>
                 <div>
                   {liveChanges.slice(0, 120).map((change, index) => (
                     <article className={`changes-editor-live-row ${change.kind}`} key={`${index}-${change.lineNumber}-${change.kind}`}>
-                      <span>{change.lineNumber}</span>
-                      <code>{highlight(change.after || change.before || ' ', selectedLang)}</code>
+                      <button
+                        type="button"
+                        className="changes-editor-live-jump"
+                        onClick={() => focusLiveChange(change)}
+                        title={`Go to line ${change.lineNumber}`}
+                        aria-label={`Go to changed line ${change.lineNumber}`}
+                      >
+                        <span>{change.lineNumber}</span>
+                        <code>{highlight(change.after || change.before || ' ', selectedLang)}</code>
+                      </button>
                       <button
                         type="button"
                         className="changes-editor-live-revert"
@@ -5458,6 +6519,51 @@ export function ChangesInternalEditor({
               </aside>
             )}
           </div>
+        )}
+        {selectedPath && viewMode === 'code' && !fileError && !textUnavailableMessage && (
+          <footer className="changes-editor-status-bar">
+            <span className="changes-editor-status-position">
+              Ln {editorSelection.lineNumber}, Col {editorSelection.column}
+              {editorSelection.selectedChars > 0 && ` (${editorSelection.selectedChars} selected${editorSelection.selectedLines > 1 ? `, ${editorSelection.selectedLines} lines` : ''})`}
+            </span>
+            <label>
+              <span>Indent</span>
+              <select
+                value={editorIndentSelectValue}
+                onChange={(event) => updateEditorIndent(event.currentTarget.value)}
+                title="Change indentation for the active file or chunk"
+              >
+                {editorIndent.kind === 'mixed' && <option value="mixed">Mixed</option>}
+                {editorIndent.kind === 'none' && <option value="none">None</option>}
+                <option value="spaces-2">Spaces: 2</option>
+                <option value="spaces-4">Spaces: 4</option>
+                <option value="spaces-8">Spaces: 8</option>
+                <option value="tabs">Tabs</option>
+              </select>
+            </label>
+            <label>
+              <span>EOL</span>
+              <select
+                value={editorLineEnding.kind}
+                onChange={(event) => {
+                  const next = event.currentTarget.value as EditorLineEnding
+                  if (next !== 'Mixed') updateEditorLineEnding(next)
+                }}
+                title="Change line endings for the active file or chunk"
+              >
+                {editorLineEnding.kind === 'Mixed' && <option value="Mixed">Mixed</option>}
+                <option value="LF">LF</option>
+                <option value="CRLF">CRLF</option>
+                {editorLineEnding.kind === 'CR' && <option value="CR">CR</option>}
+              </select>
+            </label>
+            <span title="Editor text is handled as UTF-8">UTF-8</span>
+            {chunkedTextActive && (
+              <span title="Status and conversions apply to the loaded chunk">
+                Chunk {formatBytes(chunkedTextPreview?.startOffset ?? 0)}-{formatBytes(chunkedTextPreview?.endOffset ?? 0)}
+              </span>
+            )}
+          </footer>
         )}
       </div>
 

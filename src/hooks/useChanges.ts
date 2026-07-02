@@ -45,6 +45,20 @@ function getChangeIndexKey(snapshot: RepositorySnapshot | null): string {
   ].join('::')
 }
 
+function countsFromChanges(changes: FileChange[] | undefined): RepositoryCounts | undefined {
+  if (!changes) return undefined
+  return changes.reduce<RepositoryCounts>(
+    (next, change) => ({
+      changed: next.changed + 1,
+      staged: next.staged + (change.staged ? 1 : 0),
+      unstaged: next.unstaged + (change.unstaged ? 1 : 0),
+      untracked: next.untracked + (change.untracked ? 1 : 0),
+      conflicted: next.conflicted + (change.conflicted ? 1 : 0)
+    }),
+    { changed: 0, staged: 0, unstaged: 0, untracked: 0, conflicted: 0 }
+  )
+}
+
 /** Owns change selection, diff viewing, staging, and patch operations. */
 export function useChanges({
   api,
@@ -125,7 +139,8 @@ export function useChanges({
     CHANGE_LIST_ITEM_HEIGHT,
     `${snapshot?.summary.rootPath ?? ''}|${changeFilter}|${changeSearchMode}|${changeContentIndex.size}`
   )
-  const bulkStageToggleState = getBulkStageToggleState(counts)
+  const effectiveCounts = countsFromChanges(snapshot?.status.changes) ?? counts
+  const bulkStageToggleState = getBulkStageToggleState(effectiveCounts)
   const selectedFileTarget = currentRepoPath && selectedChange ? `${currentRepoPath}/${selectedChange.path}` : null
 
   async function loadDiff(change: FileChange, mode: ChangeDiffMode) {
@@ -232,7 +247,7 @@ export function useChanges({
 
   async function toggleBulkStage() {
     if (!api || !currentRepoPath || bulkStagingPending) return
-    const action = getBulkStageToggleAction(counts)
+    const action = getBulkStageToggleAction(effectiveCounts)
     if (action === 'none') return
 
     setBulkStagingPending(true)

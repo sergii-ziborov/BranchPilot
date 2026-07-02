@@ -1,0 +1,73 @@
+html[data-theme='night-city'] :is(
+  .changes-editor-code-shell,
+  .changes-editor-code-shell.is-dirty,
+  .changes-editor-code-shell.is-chunked,
+  .changes-editor-hex-shell,
+  .history-file-code,
+  .diff-preview,
+  .structured-diff
+) {
+  color: var(--night-city-white);
+  background:
+    radial-gradient(circle at 82% 18%, rgba(255, 46, 234, 0.08), transparent 34%),
+    linear-gradient(90deg, rgba(54, 248, 255, 0.04), transparent 34%),
+    rgba(4, 3, 14, 0.96);
+}
+
+html[data-theme='night-city'] .changes-editor-code-shell textarea.changes-editor-textarea,
+html[data-theme='night-city'] .changes-editor-code-shell textarea.changes-editor-textarea:focus,
+html[data-theme='night-city'] .changes-editor-code-shell textarea.changes-editor-textarea.is-dirty {
+  caret-color: var(--night-city-cyan);
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+html[data-theme='night-city'] .changes-editor-highlight {
+  color: var(--night-city-white);
+  text-shadow: 0 0 8px rgba(54, 248, 255, 0.08);
+}
+
+html[data-theme='night-city'] .changes-editor-line-numbers {
+  color: rgba(132, 246, 255, 0.66);
+  background:
+    linear-gradient(90deg, rgba(9, 6, 28, 0.92), rgba(9, 6, 28, 0.42));
+}
+
+html[data-theme='night-city'] .tok-comment { color: var(--syntax-comment) !important; }
+html[data-theme='night-city'] .tok-keyword { color: var(--syntax-keyword) !important; }
+html[data-theme='night-city'] .tok-string { color: var(--syntax-string) !important; }
+html[data-theme='night-city'] .tok-number { color: var(--syntax-number) !important; }
+html[data-theme='night-city'] .tok-type { color: var(--syntax-type) !important; }
+html[data-theme='night-city'] .tok-function { color: var(--syntax-function) !important; }
+html[data-theme='night-city'] .tok-variable { color: var(--syntax-variable) !important; }
+html[data-theme='night-city'] .tok-operator { color: var(--syntax-operator) !important; }
+html[data-theme='night-city'] .tok-punctuation { color: var(--syntax-punctuation) !important; }
+
+html[data-theme='night-city'] .file-type-icon {
+  border-color: color-mix(in srgb, currentColor 46%, transparent);
+  color: var(--night-city-cyan);
+  background: rgba(5, 4, 18, 0.82);
+}
+
+html[data-theme='night-city'] .file-type-ts,
+html[data-theme='night-city'] .file-type-config {
+  color: var(--night-city-cyan);
+}
+
+html[data-theme='night-city'] .file-type-style,
+html[data-theme='night-city'] .file-type-markup,
+html[data-theme='night-city'] .file-type-image {
+  color: var(--night-city-pink);
+}
+
+html[data-theme='night-city'] .file-type-json,
+html[data-theme='night-city'] .file-type-data,
+html[data-theme='night-city'] .file-type-shell {
+  color: var(--night-city-green);
+}
+
+html[data-theme='night-city'] .file-type-git,
+html[data-theme='night-city'] .file-type-rust,
+html[data-theme='night-city'] .file-type-java {
+  color: var(--night-city-rose);
+}

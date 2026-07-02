@@ -1,0 +1,40 @@
+html[data-theme='night-city'] {
+  --night-city-void: #050414;
+  --night-city-ink: #09071d;
+  --night-city-asphalt: #0d0927;
+  --night-city-panel: rgba(10, 8, 30, 0.92);
+  --night-city-panel-2: rgba(18, 12, 48, 0.88);
+  --night-city-glass: rgba(15, 14, 46, 0.72);
+  --night-city-cyan: #36f8ff;
+  --night-city-cyan-soft: #84f6ff;
+  --night-city-blue: #4f7cff;
+  --night-city-pink: #ff2eea;
+  --night-city-rose: #ff3d7f;
+  --night-city-violet: #8a5cff;
+  --night-city-yellow: #ffe15a;
+  --night-city-green: #42ffb8;
+  --night-city-white: #fff8ff;
+  --night-city-muted: #9a8ac8;
+  --theme-radius: 7px;
+  --theme-radius-soft: 9px;
+  --theme-glass-blur: blur(16px) saturate(1.55);
+  --theme-hairline: rgba(54, 248, 255, 0.28);
+  --theme-panel-glow:
+    0 0 0 1px rgba(54, 248, 255, 0.10),
+    0 0 22px rgba(255, 46, 234, 0.12),
+    0 0 46px rgba(79, 124, 255, 0.10);
+  --theme-input-bg: rgba(4, 3, 16, 0.84);
+  --theme-hover-bg: rgba(255, 46, 234, 0.13);
+  --theme-grid: rgba(54, 248, 255, 0.045);
+  --theme-rain: rgba(255, 46, 234, 0.035);
+  --theme-road-line: rgba(132, 246, 255, 0.08);
+  --syntax-keyword: var(--night-city-pink);
+  --syntax-string: var(--night-city-yellow);
+  --syntax-comment: #8b7bb4;
+  --syntax-number: var(--night-city-cyan);
+  --syntax-type: var(--night-city-green);
+  --syntax-function: #c7a6ff;
+  --syntax-variable: var(--night-city-white);
+  --syntax-operator: #ff6aa9;
+  --syntax-punctuation: var(--night-city-cyan-soft);
+}

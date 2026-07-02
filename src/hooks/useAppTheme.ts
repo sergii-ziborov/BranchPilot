@@ -5,10 +5,16 @@ export { APP_THEMES }
 
 const THEME_KEY = 'bp-theme'
 
+function normalizeThemeId(id: string | null) {
+  if (!id) return DEFAULT_APP_THEME
+  return isAppThemeId(id) ? id : DEFAULT_APP_THEME
+}
+
 function applyTheme(id: string) {
+  const normalized = normalizeThemeId(id)
   const root = document.documentElement
-  if (id === 'github-light') root.removeAttribute('data-theme')
-  else root.setAttribute('data-theme', id)
+  if (normalized === 'github-light') root.removeAttribute('data-theme')
+  else root.setAttribute('data-theme', normalized)
 }
 
 function syncChromeTheme() {
@@ -26,7 +32,7 @@ function syncChromeTheme() {
 export function useAppTheme(): [string, (id: string) => void] {
   const [theme, setTheme] = useState<string>(() => {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(THEME_KEY) : null
-    return saved && isAppThemeId(saved) ? saved : DEFAULT_APP_THEME
+    return normalizeThemeId(saved)
   })
 
   useEffect(() => {

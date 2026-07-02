@@ -44,7 +44,7 @@ html[data-theme='matrix'] :is(
   border-color: var(--matrix-line) !important;
   color: var(--matrix-white) !important;
   background: rgba(0, 255, 102, 0.14) !important;
-  box-shadow: inset 0 0 0 1px rgba(0, 255, 102, 0.18) !important;
+  box-shadow: 0 0 0 1px rgba(0, 255, 102, 0.18) !important;
 }
 
 html[data-theme='matrix'] :is(
@@ -68,13 +68,17 @@ html[data-theme='matrix'] :is(
   .shell-branch-row.active .shell-branch-pick,
   button[aria-selected='true']
 ) {
-  border-color: var(--matrix-white) !important;
-  color: #001306 !important;
-  background: var(--matrix-code) !important;
+  border-color: var(--matrix-code) !important;
+  color: var(--matrix-white) !important;
+  background:
+    repeating-linear-gradient(180deg, rgba(0, 255, 102, 0.12) 0 1px, transparent 1px 4px),
+    rgba(0, 42, 18, 0.88) !important;
   box-shadow:
-    inset 0 0 0 1px rgba(235, 255, 241, 0.64),
-    0 0 18px rgba(0, 255, 102, 0.28) !important;
-  text-shadow: none !important;
+    0 0 0 1px rgba(0, 255, 102, 0.44),
+    0 0 16px rgba(0, 255, 102, 0.22) !important;
+  filter: none !important;
+  text-shadow: 0 0 7px rgba(0, 255, 102, 0.42) !important;
+  transform: none !important;
 }
 
 html[data-theme='matrix'] :is(
@@ -167,6 +171,7 @@ html[data-theme='matrix'] input[type='checkbox']::after {
 
 html[data-theme='matrix'] input[type='checkbox']:checked,
 html[data-theme='matrix'] input[type='checkbox'][aria-checked='true'],
+html[data-theme='matrix'] .bulk-stage-toggle[data-stage-state='staged'] input[type='checkbox'],
 html[data-theme='matrix'] .change-row[data-stage-state='staged'] .change-stage-toggle input[type='checkbox'] {
   background-color: var(--matrix-code) !important;
   background-image: none !important;
@@ -179,6 +184,7 @@ html[data-theme='matrix'] .change-row[data-stage-state='staged'] .change-stage-t
 
 html[data-theme='matrix'] input[type='checkbox']:checked::after,
 html[data-theme='matrix'] input[type='checkbox'][aria-checked='true']::after,
+html[data-theme='matrix'] .bulk-stage-toggle[data-stage-state='staged'] input[type='checkbox']::after,
 html[data-theme='matrix'] .change-row[data-stage-state='staged'] .change-stage-toggle input[type='checkbox']::after {
   transform: scale(1);
 }
@@ -190,6 +196,7 @@ html[data-theme='matrix'] input[type='checkbox']:disabled {
 
 html[data-theme='matrix'] input[type='checkbox']:indeterminate,
 html[data-theme='matrix'] input[type='checkbox'][aria-checked='mixed'],
+html[data-theme='matrix'] .bulk-stage-toggle[data-stage-state='partial'] input[type='checkbox'],
 html[data-theme='matrix'] .change-row[data-stage-state='partial'] .change-stage-toggle input[type='checkbox'] {
   background: var(--matrix-code) !important;
   border-color: #ebfff1 !important;
@@ -197,6 +204,7 @@ html[data-theme='matrix'] .change-row[data-stage-state='partial'] .change-stage-
 
 html[data-theme='matrix'] input[type='checkbox']:indeterminate::after,
 html[data-theme='matrix'] input[type='checkbox'][aria-checked='mixed']::after,
+html[data-theme='matrix'] .bulk-stage-toggle[data-stage-state='partial'] input[type='checkbox']::after,
 html[data-theme='matrix'] .change-row[data-stage-state='partial'] .change-stage-toggle input[type='checkbox']::after {
   width: 9px;
   height: 2px;

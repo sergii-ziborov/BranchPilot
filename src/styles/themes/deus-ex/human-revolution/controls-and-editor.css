@@ -23,8 +23,8 @@ html[data-theme='deus-ex'] :is(
   .diff-preview code
 ) {
   font-family: var(--dx-code-font) !important;
-  font-size: 12px;
-  line-height: 1.65;
+  font-size: var(--changes-editor-font-size, 12px);
+  line-height: var(--changes-editor-line-height, 20px);
 }
 
 html[data-theme='deus-ex'] .changes-editor-line-numbers {

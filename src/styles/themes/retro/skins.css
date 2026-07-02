@@ -638,7 +638,7 @@ html[data-theme='cisco-dark'] :is(
   mix-blend-mode: screen;
 }
 
-html[data-theme='cyberboard'] :is(
+html[data-theme='night-city'] :is(
   .signal-status,
   .signal-status.diff-operation-curtain,
   .signal-status.history-detail-loading,
@@ -659,7 +659,7 @@ html[data-theme='cyberboard'] :is(
     linear-gradient(180deg, rgba(8, 8, 22, 0.96), rgba(5, 4, 15, 0.99));
 }
 
-html[data-theme='cyberboard'] :is(
+html[data-theme='night-city'] :is(
   .signal-status,
   .signal-status.diff-operation-curtain,
   .signal-status.history-detail-loading,
@@ -681,11 +681,11 @@ html[data-theme='cyberboard'] :is(
     repeating-linear-gradient(90deg, transparent 0 27px, rgba(124, 58, 237, 0.24) 27px 28px, transparent 28px 54px),
     repeating-linear-gradient(180deg, transparent 0 20px, rgba(0, 234, 255, 0.10) 20px 21px, transparent 21px 40px);
   background-size: 100% 100%, 100% 100%, 100% 100%, 130% 100%, 170% 100%, 54px 100%, 100% 40px;
-  animation: cyberboard-route-flow 1.18s linear infinite;
+  animation: night-city-route-flow 1.18s linear infinite;
   mix-blend-mode: screen;
 }
 
-html[data-theme='cyberboard'] :is(
+html[data-theme='night-city'] :is(
   .signal-status,
   .signal-status.diff-operation-curtain,
   .signal-status.history-detail-loading,
@@ -702,7 +702,7 @@ html[data-theme='cyberboard'] :is(
   background:
     linear-gradient(107deg, transparent 0 34%, rgba(0, 234, 255, 0.42) 43%, rgba(255, 79, 216, 0.36) 51%, transparent 64% 100%),
     radial-gradient(circle at 50% 50%, rgba(0, 255, 177, 0.22), transparent 26%);
-  animation: cyberboard-node-pulse 1.55s ease-in-out infinite;
+  animation: night-city-node-pulse 1.55s ease-in-out infinite;
   mix-blend-mode: screen;
 }
 
@@ -828,13 +828,13 @@ html[data-theme='cyberpunk'] .repository-refresh-curtain {
   52% { transform: translateX(20%) scale(1.04); opacity: 0.88; }
 }
 
-@keyframes cyberboard-route-flow {
+@keyframes night-city-route-flow {
   0% { background-position: 0 0, 0 0, 0 0, -18% 0, 16% 0, 0 0, 0 0; filter: saturate(1.05); }
   50% { background-position: 0 0, 0 0, 0 0, 18% 0, -12% 0, 27px 0, 0 20px; filter: saturate(1.35) brightness(1.12); }
   100% { background-position: 0 0, 0 0, 0 0, 36% 0, -30% 0, 54px 0, 0 40px; filter: saturate(1.08); }
 }
 
-@keyframes cyberboard-node-pulse {
+@keyframes night-city-node-pulse {
   0%, 100% { transform: translateX(-20%) skewX(-10deg); opacity: 0.32; }
   50% { transform: translateX(18%) skewX(-10deg); opacity: 0.82; }
 }

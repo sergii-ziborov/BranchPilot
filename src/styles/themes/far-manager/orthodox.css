@@ -357,8 +357,8 @@ html[data-theme='far-manager'] :is(
   .diff-preview code
 ) {
   font-family: var(--far-font) !important;
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: var(--changes-editor-font-size, 12px);
+  line-height: var(--changes-editor-line-height, 20px);
 }
 
 html[data-theme='far-manager'] .changes-editor-line-numbers {

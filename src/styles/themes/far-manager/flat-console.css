@@ -170,7 +170,9 @@ html[data-theme='far-manager'] .changes-editor-textarea,
 html[data-theme='far-manager'] .diff-line,
 html[data-theme='far-manager'] .split-diff-cell {
   color: #ffffff !important;
-  font: 12px/18px var(--far-font) !important;
+  font-family: var(--far-font) !important;
+  font-size: var(--changes-editor-font-size, 12px) !important;
+  line-height: var(--changes-editor-line-height, 20px) !important;
   letter-spacing: 0 !important;
 }
 

@@ -272,14 +272,14 @@ html[data-theme='deus-ex'] .changes-editor-line-numbers,
 html[data-theme='deus-ex'] .changes-editor-textarea,
 html[data-theme='deus-ex'] .changes-editor-color-layer {
   font-family: var(--dx-code-font) !important;
-  font-size: 12px !important;
-  line-height: 20.4px !important;
+  font-size: var(--changes-editor-font-size, 12px) !important;
+  line-height: var(--changes-editor-line-height, 20px) !important;
 }
 
 html[data-theme='deus-ex'] .changes-editor-highlight-line,
 html[data-theme='deus-ex'] .changes-editor-line-numbers span {
-  min-height: 20.4px !important;
-  line-height: 20.4px !important;
+  min-height: var(--changes-editor-line-height, 20px) !important;
+  line-height: var(--changes-editor-line-height, 20px) !important;
 }
 
 html[data-theme='deus-ex'] .changes-editor-textarea,

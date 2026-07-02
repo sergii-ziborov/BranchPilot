@@ -40,3 +40,6 @@
 @import "./themes/deus-ex/human-revolution.css";
 @import "./themes/far-manager/orthodox.css";
 @import "./themes/far-manager/flat-console.css";
+@import "./themes/far-manager/editor.css";
+@import "./themes/far-manager/controls.css";
+@import "./themes/far-manager/loaders.css";

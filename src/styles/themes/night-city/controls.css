@@ -1,0 +1,163 @@
+html[data-theme='night-city'] :is(
+  button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled),
+  input,
+  textarea,
+  select
+) {
+  border-radius: var(--theme-radius);
+}
+
+html[data-theme='night-city'] :is(
+  input,
+  textarea,
+  select,
+  .change-filter-input,
+  .github-repo-search input
+) {
+  border-color: var(--theme-hairline);
+  color: var(--text-strong);
+  background: var(--theme-input-bg);
+  box-shadow:
+    inset 0 0 0 1px rgba(54, 248, 255, 0.055),
+    0 0 18px rgba(79, 124, 255, 0.08);
+}
+
+html[data-theme='night-city'] :is(
+  button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
+  .shell-dropdown-item:hover,
+  .shell-dropdown-primary:hover,
+  .change-row:hover,
+  .history-row:hover,
+  .file-tree-item:hover
+) {
+  border-color: var(--night-city-cyan);
+  color: var(--text-strong);
+  background:
+    linear-gradient(90deg, rgba(54, 248, 255, 0.12), rgba(255, 46, 234, 0.10)),
+    var(--night-city-glass);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 46, 234, 0.12),
+    0 0 18px rgba(54, 248, 255, 0.14);
+}
+
+html[data-theme='night-city'] :is(
+  .view-switch-tab.active,
+  .icon-button.active,
+  .coauthor-chip.selected,
+  .contributor-filter button.active,
+  .config-email-options button.active,
+  .changes-actions-popover button.active,
+  .shell-theme-item.active,
+  .search-scope-toggle button.active,
+  .segmented button.active,
+  .github-filter-segment button.active
+) {
+  border-color: var(--night-city-cyan);
+  color: #050414 !important;
+  background:
+    linear-gradient(90deg, var(--night-city-cyan), #c7a6ff 48%, var(--night-city-pink)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 0 22px rgba(255, 46, 234, 0.26),
+    0 0 18px rgba(54, 248, 255, 0.22);
+  text-shadow: none;
+}
+
+html[data-theme='night-city'] :is(.icon-button.active, .view-switch-tab.active, .shell-theme-item.active) svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+  filter: none;
+}
+
+html[data-theme='night-city'] :is(
+  .change-row.selected,
+  .file-tree-item.selected,
+  .current-pr,
+  .pr-row.selected,
+  .report-scope-repo.selected
+) {
+  border-color: var(--night-city-cyan);
+  color: var(--text-strong);
+  background:
+    linear-gradient(90deg, rgba(54, 248, 255, 0.18), rgba(255, 46, 234, 0.14)),
+    rgba(11, 8, 34, 0.90);
+  box-shadow:
+    inset 4px 0 0 var(--night-city-cyan),
+    0 0 18px rgba(255, 46, 234, 0.16);
+}
+
+html[data-theme='night-city'] button.history-row {
+  clip-path: none;
+  border-color: transparent;
+  border-radius: 0;
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+html[data-theme='night-city'] button.history-row::before,
+html[data-theme='night-city'] button.history-row::after {
+  display: none;
+}
+
+html[data-theme='night-city'] button.history-row.selected {
+  color: var(--text-strong);
+  background:
+    linear-gradient(90deg, rgba(54, 248, 255, 0.18), rgba(255, 46, 234, 0.12));
+  box-shadow: inset 4px 0 0 var(--night-city-cyan);
+}
+
+html[data-theme='night-city'] :is(.change-stage-toggle, .bulk-stage-toggle) {
+  border-color: rgba(54, 248, 255, 0.42);
+  color: var(--night-city-cyan);
+  background: rgba(4, 3, 16, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 46, 234, 0.10);
+}
+
+html[data-theme='night-city'] :is(
+  .change-stage-toggle input[type='checkbox'],
+  .bulk-stage-toggle input[type='checkbox']
+) {
+  accent-color: var(--night-city-cyan);
+  border-color: rgba(54, 248, 255, 0.42);
+  background: rgba(4, 3, 16, 0.82);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 46, 234, 0.12),
+    0 0 8px rgba(54, 248, 255, 0.10);
+}
+
+html[data-theme='night-city'] :is(
+  .change-stage-toggle input[type='checkbox']:checked,
+  .bulk-stage-toggle[data-stage-state='staged'] input[type='checkbox'],
+  .bulk-stage-toggle[data-stage-state='partial'] input[type='checkbox']
+) {
+  border-color: var(--night-city-cyan);
+  color: #050414;
+  background: linear-gradient(135deg, var(--night-city-cyan), var(--night-city-pink));
+  box-shadow: 0 0 16px rgba(54, 248, 255, 0.22);
+}
+
+html[data-theme='night-city'] .bulk-stage-toggle[data-stage-state='partial'] input[type='checkbox'] {
+  background:
+    linear-gradient(90deg, transparent 0 22%, #050414 22% 78%, transparent 78% 100%),
+    linear-gradient(135deg, var(--night-city-cyan), var(--night-city-pink));
+}
+
+html[data-theme='night-city'] .history-graph-canvas {
+  --history-graph-trunk: #36f8ff;
+  --history-graph-lane-1: #ff2eea;
+  --history-graph-lane-2: #4f7cff;
+  --history-graph-lane-3: #42ffb8;
+  --history-graph-lane-4: #ffe15a;
+  --history-graph-lane-5: #ff3d7f;
+  --history-graph-lane-6: #84f6ff;
+  --history-graph-lane-7: #b68cff;
+  --history-graph-lane-8: #ffffff;
+  background: transparent;
+}
+
+html[data-theme='night-city'] :is(.file-status, .dash-count, .shell-tab-badge) {
+  border-radius: 3px;
+  box-shadow: 0 0 12px color-mix(in srgb, currentColor 24%, transparent);
+}

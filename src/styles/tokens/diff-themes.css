@@ -182,37 +182,37 @@
   --syntax-punctuation: #00eaff;
 }
 
-:root[data-theme='cyberboard'] {
-  --diff-bg: #070717;
-  --diff-text: #ebe7ff;
-  --diff-muted: #9187bd;
-  --diff-border: rgba(124, 58, 237, 0.32);
-  --diff-file-bg: rgba(10, 9, 25, 0.96);
-  --diff-file-text: #fff9ff;
-  --diff-hunk-bg: rgba(0, 234, 255, 0.10);
-  --diff-hunk-text: #00eaff;
-  --diff-button-bg: rgba(13, 10, 28, 0.80);
-  --diff-add-text: #b9ffe7;
-  --diff-add-bg: rgba(0, 255, 177, 0.18);
-  --diff-remove-text: #ffbddf;
-  --diff-remove-bg: rgba(255, 79, 216, 0.19);
-  --diff-empty-bg: rgba(12, 10, 28, 0.70);
-  --diff-word-add-bg: rgba(0, 234, 255, 0.24);
-  --diff-word-add-border: rgba(0, 234, 255, 0.26);
-  --diff-word-del-bg: rgba(255, 79, 216, 0.24);
-  --diff-word-del-border: rgba(255, 79, 216, 0.25);
-  --diff-selected-accent: #00eaff;
-  --diff-selection-bg: #0b0922;
-  --diff-selection-text: #fff9ff;
+:root[data-theme='night-city'] {
+  --diff-bg: #050414;
+  --diff-text: #f2eeff;
+  --diff-muted: #9a8ac8;
+  --diff-border: rgba(54, 248, 255, 0.30);
+  --diff-file-bg: rgba(7, 5, 24, 0.96);
+  --diff-file-text: #fff8ff;
+  --diff-hunk-bg: rgba(84, 92, 255, 0.16);
+  --diff-hunk-text: #84f6ff;
+  --diff-button-bg: rgba(11, 8, 34, 0.84);
+  --diff-add-text: #c3fff1;
+  --diff-add-bg: rgba(32, 255, 194, 0.16);
+  --diff-remove-text: #ffc1f7;
+  --diff-remove-bg: rgba(255, 46, 127, 0.20);
+  --diff-empty-bg: rgba(9, 6, 28, 0.72);
+  --diff-word-add-bg: rgba(54, 248, 255, 0.24);
+  --diff-word-add-border: rgba(54, 248, 255, 0.30);
+  --diff-word-del-bg: rgba(255, 46, 234, 0.26);
+  --diff-word-del-border: rgba(255, 46, 234, 0.30);
+  --diff-selected-accent: #36f8ff;
+  --diff-selection-bg: #15103a;
+  --diff-selection-text: #fff8ff;
   --syntax-keyword: #ff4fd8;
-  --syntax-string: #f9f871;
+  --syntax-string: #ffe15a;
   --syntax-comment: #8c7bb7;
-  --syntax-number: #00eaff;
-  --syntax-type: #00ffb1;
-  --syntax-function: #a78bfa;
-  --syntax-variable: #fff9ff;
-  --syntax-operator: #ff4fd8;
-  --syntax-punctuation: #00eaff;
+  --syntax-number: #36f8ff;
+  --syntax-type: #42ffb8;
+  --syntax-function: #b68cff;
+  --syntax-variable: #fff8ff;
+  --syntax-operator: #ff6aa9;
+  --syntax-punctuation: #84f6ff;
 }
 
 :root[data-theme='matrix'] {

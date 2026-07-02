@@ -1,0 +1,125 @@
+html[data-theme='night-city'] body {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(54, 248, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 82% 2%, rgba(255, 46, 234, 0.20), transparent 30%),
+    radial-gradient(circle at 58% 92%, rgba(79, 124, 255, 0.15), transparent 36%),
+    linear-gradient(180deg, #0a0622 0%, var(--night-city-void) 56%),
+    var(--surface);
+}
+
+html[data-theme='night-city'] .app-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(90deg, var(--theme-grid) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 46, 234, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 46, 234, 0.045), transparent 34%),
+    var(--surface);
+  background-size: 48px 48px, 48px 48px, auto, auto;
+}
+
+html[data-theme='night-city'] .app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 0 64%, var(--theme-rain) 64% 66%, transparent 66% 100%),
+    linear-gradient(115deg, transparent 0 14%, rgba(54, 248, 255, 0.07) 15% 15.4%, transparent 16% 100%),
+    linear-gradient(245deg, transparent 0 18%, rgba(255, 46, 234, 0.09) 19% 19.5%, transparent 20% 100%),
+    radial-gradient(circle at 50% -18%, rgba(255, 46, 234, 0.10), transparent 42%);
+  background-size: auto 5px, 100% 100%, 100% 100%, auto;
+  mix-blend-mode: screen;
+}
+
+html[data-theme='night-city'] .shell-bar {
+  border-bottom-color: var(--theme-hairline);
+  background:
+    linear-gradient(90deg, rgba(54, 248, 255, 0.08), transparent 36%),
+    linear-gradient(270deg, rgba(255, 46, 234, 0.08), transparent 28%),
+    rgba(6, 5, 22, 0.92);
+  box-shadow: var(--theme-panel-glow);
+  backdrop-filter: var(--theme-glass-blur);
+}
+
+html[data-theme='night-city'] :is(
+  .empty-state,
+  .single-panel,
+  .changes-panel,
+  .diff-panel,
+  .stat-tile,
+  .provider-card,
+  .provider-remote-card,
+  .quiet-box,
+  .dashboard-section,
+  .daily-heatmap-panel,
+  .daily-day-panel,
+  .daily-review-card,
+  .daily-ranking-card,
+  .config-card,
+  .memory-card,
+  .pr-panel,
+  .github-repo-browser,
+  .linkedin-card,
+  .review-empty,
+  .review-results
+) {
+  border-color: var(--theme-hairline);
+  border-radius: var(--theme-radius-soft);
+  background:
+    linear-gradient(135deg, rgba(54, 248, 255, 0.055), transparent 35%),
+    linear-gradient(315deg, rgba(255, 46, 234, 0.105), transparent 58%),
+    var(--night-city-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 0 0 1px rgba(255, 46, 234, 0.035);
+}
+
+html[data-theme='night-city'] :is(
+  .shell-segments,
+  .shell-menu > summary,
+  .shell-dropdown,
+  .changes-actions-popover,
+  .commit-identity-popover,
+  .assistant-model-popover,
+  .github-repo-filter-panel,
+  .report-scope-popover,
+  .confirmation-dialog,
+  .review-fix-prompt-modal,
+  .tool-modal
+) {
+  border-color: var(--theme-hairline);
+  border-radius: var(--theme-radius);
+  background:
+    linear-gradient(180deg, rgba(54, 248, 255, 0.065), rgba(255, 46, 234, 0.085)),
+    var(--night-city-panel-2);
+  box-shadow: var(--theme-panel-glow);
+  backdrop-filter: var(--theme-glass-blur);
+}
+
+html[data-theme='night-city'] .heatmap-grid {
+  padding: 3px 3px 9px;
+}
+
+html[data-theme='night-city'] .heatmap-cell {
+  box-sizing: border-box;
+  border: 1px solid rgba(54, 248, 255, 0.14);
+  background:
+    linear-gradient(135deg, rgba(54, 248, 255, 0.08), rgba(255, 46, 234, 0.05)),
+    rgba(7, 5, 22, 0.94);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+html[data-theme='night-city'] .heatmap-cell.level-1 { background: rgba(79, 124, 255, 0.32); }
+html[data-theme='night-city'] .heatmap-cell.level-2 { background: linear-gradient(135deg, rgba(54, 248, 255, 0.66), rgba(79, 124, 255, 0.42)); }
+html[data-theme='night-city'] .heatmap-cell.level-3 { background: linear-gradient(135deg, rgba(255, 46, 234, 0.82), rgba(54, 248, 255, 0.48)); }
+html[data-theme='night-city'] .heatmap-cell.level-4 { background: linear-gradient(135deg, #fff8ff, #ff2eea 42%, #36f8ff); }
+
+html[data-theme='night-city'] .heatmap-cell.selected {
+  outline-color: var(--night-city-cyan);
+  box-shadow:
+    0 0 0 2px rgba(54, 248, 255, 0.28),
+    0 0 18px rgba(255, 46, 234, 0.30),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.20);
+}

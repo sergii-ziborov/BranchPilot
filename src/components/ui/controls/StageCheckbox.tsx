@@ -64,11 +64,13 @@ export function StageCheckbox({
 /** Header checkbox that stages/unstages all changed files at once. */
 export function BulkStageCheckbox({
   state,
+  visualState,
   disabled,
   changedCount,
   onToggle
 }: {
   state: ReturnType<typeof getBulkStageToggleState>
+  visualState?: 'checked' | 'mixed' | 'unchecked'
   disabled: boolean
   changedCount: number
   onToggle: () => void | Promise<void>
@@ -83,26 +85,33 @@ export function BulkStageCheckbox({
 
   const checked = optimisticChecked ?? state.checked
   const showMixed = optimisticChecked === null && state.mixed
+  const visibleState = visualState ?? (showMixed ? 'mixed' : checked ? 'checked' : 'unchecked')
+  const visibleChecked = visibleState === 'checked'
+  const visibleMixed = visibleState === 'mixed'
 
   // No dependency array: the browser clears `indeterminate` on click even when
   // the mixed state is unchanged, so re-assert it after every render.
   useEffect(() => {
     if (inputRef.current) {
-      inputRef.current.indeterminate = showMixed
+      inputRef.current.indeterminate = visibleMixed
     }
   })
 
   return (
-    <label className="bulk-stage-toggle" title={state.label}>
+    <label
+      className="bulk-stage-toggle"
+      data-stage-state={visibleChecked ? 'staged' : visibleMixed ? 'partial' : 'unstaged'}
+      title={state.label}
+    >
       <input
         ref={inputRef}
         type="checkbox"
         aria-label={state.label}
-        aria-checked={showMixed ? 'mixed' : checked}
-        checked={checked}
+        aria-checked={visibleMixed ? 'mixed' : visibleChecked}
+        checked={visibleChecked}
         disabled={disabled || state.disabled}
         onChange={() => {
-          setOptimisticChecked(!checked)
+          setOptimisticChecked(!visibleChecked)
           void onToggle()
         }}
       />

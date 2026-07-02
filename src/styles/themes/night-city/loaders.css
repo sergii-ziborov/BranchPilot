@@ -1,0 +1,69 @@
+html[data-theme='night-city'] :is(
+  .signal-status,
+  .signal-status.diff-operation-curtain,
+  .signal-status.history-detail-loading,
+  .signal-status.history-file-diff-loading,
+  .signal-status.history-preview-list-curtain,
+  .signal-status.linkedin-generation-curtain,
+  .signal-status.daily-review-curtain,
+  .signal-status.review-running-curtain,
+  .signal-status.assistant-model-list-curtain,
+  .signal-status.changes-editor-file-curtain
+) {
+  --signal-main: #ff2eea;
+  --signal-alt: #36f8ff;
+  --signal-hot: #fff8ff;
+  background:
+    radial-gradient(circle at 48% 48%, rgba(255, 46, 234, 0.18), transparent 34%),
+    radial-gradient(circle at 68% 60%, rgba(54, 248, 255, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(7, 5, 24, 0.96), rgba(2, 2, 10, 0.99));
+  backdrop-filter: none;
+}
+
+html[data-theme='night-city'] .signal-status::before {
+  opacity: 0.88;
+  background:
+    linear-gradient(180deg, transparent 0 58%, rgba(54, 248, 255, 0.20) 59%, rgba(255, 46, 234, 0.30) 61%, transparent 66% 100%),
+    repeating-linear-gradient(90deg, transparent 0 28px, rgba(54, 248, 255, 0.22) 28px 29px, transparent 29px 58px),
+    repeating-linear-gradient(180deg, rgba(255, 46, 234, 0.13) 0 1px, transparent 1px 18px);
+  background-size: 100% 230px, 58px 100%, 100% 24px;
+  animation: night-city-sign-scan 1.05s steps(7, end) infinite;
+  mix-blend-mode: screen;
+}
+
+html[data-theme='night-city'] .signal-status::after {
+  inset: -20% -14%;
+  opacity: 0.78;
+  background:
+    linear-gradient(108deg, transparent 0 24%, rgba(54, 248, 255, 0.36) 34%, rgba(255, 46, 234, 0.42) 48%, transparent 64% 100%),
+    radial-gradient(circle at 50% 50%, rgba(255, 46, 234, 0.22), transparent 28%);
+  animation: night-city-neon-sweep 1.45s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+@keyframes night-city-sign-scan {
+  0% {
+    background-position: 0 -230px, 0 0, 0 -24px;
+    filter: contrast(1.18) brightness(0.96);
+    transform: translateY(-6px);
+  }
+
+  45% {
+    background-position: 0 -68px, 16px 0, 0 5px;
+    filter: contrast(1.45) brightness(1.14);
+    transform: translateY(4px);
+  }
+
+  100% {
+    background-position: 0 230px, 58px 0, 0 24px;
+    filter: contrast(1.22) brightness(1.02);
+    transform: translateY(7px);
+  }
+}
+
+@keyframes night-city-neon-sweep {
+  0% { opacity: 0.24; transform: translate(-18%, -4%) skewX(-10deg); }
+  25% { opacity: 0.92; transform: translate(2%, 2%) skewX(6deg); }
+  54% { opacity: 0.40; transform: translate(-4%, -1%) skewX(-4deg); }
+  100% { opacity: 0.30; transform: translate(20%, 3%) skewX(10deg); }
+}

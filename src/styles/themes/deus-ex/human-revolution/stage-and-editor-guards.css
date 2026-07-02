@@ -234,7 +234,9 @@ html[data-theme='deus-ex'] .changes-editor-code-shell :is(
   .changes-editor-color-layer-inner,
   textarea.changes-editor-textarea
 ) {
-  font: 12px/20px var(--dx-code-font) !important;
+  font-family: var(--dx-code-font) !important;
+  font-size: var(--changes-editor-font-size, 12px) !important;
+  line-height: var(--changes-editor-line-height, 20px) !important;
   letter-spacing: 0 !important;
 }
 
@@ -242,14 +244,36 @@ html[data-theme='deus-ex'] .changes-editor-code-shell :is(
   .changes-editor-highlight-line,
   .changes-editor-line-numbers span
 ) {
-  min-height: 20px !important;
-  line-height: 20px !important;
+  min-height: var(--changes-editor-line-height, 20px) !important;
+  line-height: var(--changes-editor-line-height, 20px) !important;
 }
 
 html[data-theme='deus-ex'] .changes-editor-code-shell textarea.changes-editor-textarea,
 html[data-theme='deus-ex'] .changes-editor-code-shell textarea.changes-editor-textarea:focus,
 html[data-theme='deus-ex'] .changes-editor-code-shell textarea.changes-editor-textarea.is-dirty {
-  line-height: 20px !important;
-  padding-top: 16px !important;
+  line-height: var(--changes-editor-line-height, 20px) !important;
+  padding-top: 14px !important;
   caret-color: #54ffd6 !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-live-close,
+html[data-theme='deus-ex'] .changes-editor-live-close:not(:disabled) {
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  margin-left: auto !important;
+  padding: 0 !important;
+  border: 1px solid rgba(199, 160, 24, 0.34) !important;
+  color: #f6edb2 !important;
+  background: #050704 !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+
+html[data-theme='deus-ex'] .changes-editor-live-close:hover,
+html[data-theme='deus-ex'] .changes-editor-live-close:focus-visible {
+  border-color: #e0bd34 !important;
+  color: #050602 !important;
+  background: #c7a018 !important;
 }

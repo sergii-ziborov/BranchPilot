@@ -47,17 +47,18 @@ html[data-theme='matrix'] :is(
   .changes-drawer-tabs button.active,
   button[aria-selected='true']
 ) {
-  border: 1px solid #d8ffe6 !important;
-  color: #001707 !important;
+  border: 1px solid #00ff66 !important;
+  color: #ebfff1 !important;
   background:
-    linear-gradient(90deg, #ffffff 0 4px, transparent 4px 100%),
-    linear-gradient(180deg, #d8ffe6 0%, #00ff6a 44%, #008f3c 100%) !important;
+    repeating-linear-gradient(180deg, rgba(0, 255, 102, 0.12) 0 1px, transparent 1px 4px),
+    rgba(0, 42, 18, 0.88) !important;
   box-shadow:
-    inset 0 0 0 1px rgba(216, 255, 230, 0.72),
-    0 0 0 1px rgba(0, 255, 106, 0.58),
-    0 0 24px rgba(0, 255, 106, 0.48) !important;
+    0 0 0 1px rgba(0, 255, 102, 0.44),
+    0 0 16px rgba(0, 255, 102, 0.22) !important;
+  filter: none !important;
   opacity: 1 !important;
-  text-shadow: none !important;
+  text-shadow: 0 0 7px rgba(0, 255, 102, 0.42) !important;
+  transform: none !important;
 }
 
 html[data-theme='matrix'] :is(

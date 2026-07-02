@@ -55,6 +55,10 @@ function createLoadingScene(THREE: Three, mount: HTMLDivElement): () => void {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   mount.appendChild(renderer.domElement)
 
+  const world = new THREE.Group()
+  const background = new THREE.Group()
+  scene.add(background, world)
+
   const routeCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(-3.1, -0.7, 0),
     new THREE.Vector3(-1.85, -0.42, 0.12),
@@ -78,7 +82,7 @@ function createLoadingScene(THREE: Three, mount: HTMLDivElement): () => void {
   const routeGlow = tube(THREE, routeCurve, 0.075, accent, 0.15)
   const branchA = tube(THREE, branchCurveA, 0.018, accentSoft, 0.58)
   const branchB = tube(THREE, branchCurveB, 0.018, accentStrong, 0.5)
-  scene.add(routeGlow, route, branchA, branchB)
+  world.add(routeGlow, route, branchA, branchB)
 
   const nodes = [
     routeCurve.getPointAt(0),
@@ -89,19 +93,19 @@ function createLoadingScene(THREE: Three, mount: HTMLDivElement): () => void {
     branchCurveA.getPointAt(1),
     branchCurveB.getPointAt(1)
   ].map((point, index) => makeNode(THREE, point, index < 5 ? accent : accentSoft, surface))
-  scene.add(...nodes)
+  world.add(...nodes)
 
   const pilot = makePilot(THREE, accentStrong, accentSoft)
-  scene.add(pilot)
+  world.add(pilot)
 
   const scanner = makeScanner(THREE, accentSoft)
-  scene.add(scanner)
+  world.add(scanner)
 
   const grid = makeGrid(THREE, border)
-  scene.add(grid)
+  background.add(grid)
 
   const particles = makeParticles(THREE, accent, accentSoft)
-  scene.add(particles)
+  background.add(particles)
 
   const resize = () => {
     const { width, height } = mount.getBoundingClientRect()
@@ -110,6 +114,11 @@ function createLoadingScene(THREE: Three, mount: HTMLDivElement): () => void {
     renderer.setSize(safeWidth, safeHeight, false)
     camera.aspect = safeWidth / safeHeight
     camera.updateProjectionMatrix()
+
+    const aspect = safeWidth / safeHeight
+    const wideScale = clamp(aspect / (16 / 9), 1, 2.08)
+    world.scale.set(wideScale, 1, 1)
+    background.scale.set(clamp(wideScale * 1.16, 1, 2.25), 1, 1)
   }
   const observer = new ResizeObserver(resize)
   observer.observe(mount)
@@ -160,6 +169,10 @@ function cssColor(style: CSSStyleDeclaration, token: string, fallback: string): 
 function withoutAlpha(color: string): string {
   const rgba = color.match(/^rgba\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*[^)]+\)$/i)
   return rgba ? `rgb(${rgba[1]}, ${rgba[2]}, ${rgba[3]})` : color
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
 function tube(THREE: Three, curve: ThreeModule.Curve<ThreeModule.Vector3>, radius: number, color: string, opacity: number) {

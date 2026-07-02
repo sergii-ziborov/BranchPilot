@@ -66,6 +66,25 @@ function changeStageStateLabel(change: FileChange): string {
   return 'Not included in commit'
 }
 
+type BulkStageVisualState = 'checked' | 'mixed' | 'unchecked'
+
+function bulkStageVisualState(
+  changes: FileChange[] | undefined,
+  optimisticChecked: boolean | null,
+  fallback: { checked: boolean; mixed: boolean }
+): BulkStageVisualState {
+  if (optimisticChecked !== null) return optimisticChecked ? 'checked' : 'unchecked'
+  if (!changes || changes.length === 0) return fallback.checked ? 'checked' : fallback.mixed ? 'mixed' : 'unchecked'
+
+  const stageableChanges = changes.filter((change) => !change.conflicted)
+  const hasStaged = stageableChanges.some((change) => change.staged)
+  const hasUnstaged = stageableChanges.some((change) => change.unstaged || change.untracked)
+
+  if (hasStaged && !hasUnstaged) return 'checked'
+  if (hasStaged && hasUnstaged) return 'mixed'
+  return 'unchecked'
+}
+
 export function ChangeListPanel({
   snapshot,
   totalChanges,
@@ -100,6 +119,7 @@ export function ChangeListPanel({
 }: ChangeListPanelProps) {
   const { containerRef: changesContainerRef, onScroll: changesScroll, window: changesWindow, items: changesItems } = virtualChanges
   const changeSearchModeLabel = changeSearchMode === 'path' ? 'Name' : changeSearchMode === 'content' ? 'Diff' : 'All'
+  const bulkVisualState = bulkStageVisualState(snapshot?.status.changes, bulkStageOptimisticChecked, bulkStageToggleState)
   const closePatchActionsMenu = () => {
     if (patchActionsMenuRef.current) patchActionsMenuRef.current.open = false
   }
@@ -219,6 +239,7 @@ export function ChangeListPanel({
       <div className="change-list-header">
         <BulkStageCheckbox
           state={bulkStageToggleState}
+          visualState={bulkVisualState}
           disabled={busy || bulkStagingPending}
           changedCount={totalChanges}
           onToggle={toggleBulkStage}
