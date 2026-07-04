@@ -15,8 +15,10 @@
     "build": "tsc -b && vite build && tsc -p tsconfig.electron.json",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac:run": "npm run dist:mac && npm run start:mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:all": "npm run build && electron-builder --mac --win",
+    "start:mac": "node scripts/open-mac-build.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run"
