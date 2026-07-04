@@ -189,6 +189,63 @@ export function useProjectMemory({
     await copyProjectMemoryText(page.markdown, `${page.title} wiki page`)
   }
 
+  async function saveProjectWikiPage(page: ProjectWikiPage | null, markdown: string) {
+    if (!api || !currentRepoPath || !page) return
+    setWikiLoading(true)
+    setError(null)
+    const result = await api.saveProjectWikiPage({
+      repoPath: currentRepoPath,
+      pageId: page.id,
+      markdown
+    })
+
+    if (result.ok) {
+      setProjectWiki(result.data)
+      setSelectedProjectWikiPageId(page.id)
+      setNotice(`${page.title} wiki page saved.`)
+    } else {
+      setError(result.error.message)
+      setNotice(branchPilotErrorText(result.error))
+    }
+
+    setWikiLoading(false)
+  }
+
+  async function pullProjectWikiFromGitHub() {
+    if (!api || !currentRepoPath) return
+    setWikiLoading(true)
+    setError(null)
+    const result = await api.pullProjectWikiFromGitHub(currentRepoPath)
+
+    if (result.ok) {
+      setProjectWiki(result.data.wiki)
+      setSelectedProjectWikiPageId(result.data.wiki.pages[0]?.id ?? 'overview')
+      setNotice(result.data.message)
+    } else {
+      setError(result.error.message)
+      setNotice(branchPilotErrorText(result.error))
+    }
+
+    setWikiLoading(false)
+  }
+
+  async function pushProjectWikiToGitHub() {
+    if (!api || !currentRepoPath) return
+    setWikiLoading(true)
+    setError(null)
+    const result = await api.pushProjectWikiToGitHub(currentRepoPath)
+
+    if (result.ok) {
+      setProjectWiki(result.data.wiki)
+      setNotice(result.data.message)
+    } else {
+      setError(result.error.message)
+      setNotice(branchPilotErrorText(result.error))
+    }
+
+    setWikiLoading(false)
+  }
+
   async function clearActivityLog() {
     if (!api || !currentRepoPath) return
     const confirmed = await requestConfirmation('Clear BranchPilot activity for this repository? This cannot be undone.', {
@@ -226,6 +283,8 @@ export function useProjectMemory({
     selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports,
     filteredActivityEntries, completedWorkItems,
     loadProjectMemory, generateProjectWiki, scanProjectMemory,
-    copyProjectMemoryText, copyProjectWikiPage, clearActivityLog
+    copyProjectMemoryText, copyProjectWikiPage, saveProjectWikiPage,
+    pullProjectWikiFromGitHub, pushProjectWikiToGitHub,
+    clearActivityLog
   }
 }

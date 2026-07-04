@@ -92,7 +92,9 @@ import type {
   ProjectMemoryScanResult,
   ProjectMemorySnapshot,
   ProjectWikiGenerationResult,
+  ProjectWikiPageUpdateRequest,
   ProjectWikiSnapshot,
+  ProjectWikiSyncResult,
   PublishBranchRequest,
   PullRequestTextGenerationRequest,
   RecentRepository,
@@ -324,6 +326,9 @@ export interface BranchPilotApi {
   getProjectMemoryMcpConfig: (repoPath: string) => Promise<ApiResult<ProjectMemoryMcpConfig>>
   getProjectWiki: (repoPath: string) => Promise<ApiResult<ProjectWikiSnapshot | null>>
   generateProjectWiki: (repoPath: string) => Promise<ApiResult<ProjectWikiGenerationResult>>
+  saveProjectWikiPage: (request: ProjectWikiPageUpdateRequest) => Promise<ApiResult<ProjectWikiSnapshot>>
+  pullProjectWikiFromGitHub: (repoPath: string) => Promise<ApiResult<ProjectWikiSyncResult>>
+  pushProjectWikiToGitHub: (repoPath: string) => Promise<ApiResult<ProjectWikiSyncResult>>
   getAssistantPolicy: (repoPath: string) => Promise<ApiResult<AssistantPolicyStatus>>
   setAssistantPolicy: (update: AssistantPolicyUpdate) => Promise<ApiResult<AssistantPolicyStatus>>
   getEditorSettings: () => Promise<ApiResult<EditorSettings>>

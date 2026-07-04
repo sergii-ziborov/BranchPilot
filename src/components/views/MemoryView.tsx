@@ -1,55 +1,32 @@
-import { Database, Loader2, RefreshCcw, Trash2 } from 'lucide-react'
+import {
+  BookOpen, Bot, Cable, CheckCircle2, Clock3, Database, FileCode2,
+  Copy, Download, GitCommitHorizontal, History, RefreshCcw, Save, Server, Trash2, Upload
+} from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { SegmentedControl } from '../SegmentedControl'
 import { CopyableCodeBlock } from '../CopyableCodeBlock'
+import { SignalStatus } from '../SignalStatus'
+import { AssistantModelSelect, type AssistantPromptPreview } from '../AssistantModelSelect'
 import type {
+  AssistantId, AssistantStatus,
   ActivityLogEntry, ActivityLogSnapshot, ProjectMemoryMcpConfig, ProjectMemorySnapshot,
   ProjectWikiPage, ProjectWikiPageId, ProjectWikiSnapshot
 } from '../../shared/branchPilot'
 import type { ActivityCategory, CompletedWorkItem } from '../../lib/activityLabels'
 import { activityCategoryLabel, activityMetadataLabel, activityTypeLabel, completedWorkSourceLabel } from '../../lib/activityLabels'
-import { formatDate } from '../../lib/format'
+import { formatBytes, formatDate } from '../../lib/format'
 import { memoryFileMeta } from '../../lib/memoryLabels'
-import { InfoRow, Stat } from '../primitives'
+import {
+  sortedMemoryFiles,
+  summarizeMemoryFolders
+} from '../../lib/projectMemorySignals'
 
-export function MemoryView({
-  projectMemory,
-  memoryLoading,
-  loadProjectMemory,
-  scanProjectMemory,
-  activityLog,
-  projectMemoryMcpConfig,
-  copyProjectMemoryText,
-  projectWiki,
-  wikiLoading,
-  generateProjectWiki,
-  selectedProjectWikiPage,
-  setSelectedProjectWikiPageId,
-  copyProjectWikiPage,
-  completedWorkItems,
-  clearActivityLog,
-  activityCategories,
-  activityCategory,
-  setActivityCategory,
-  filteredActivityEntries,
-  selectedMemoryFilePath,
-  setSelectedMemoryFilePath,
-  selectedMemoryFile,
-  selectedMemorySymbols,
-  selectedMemoryImports
-}: {
+interface MemoryViewProps {
   projectMemory: ProjectMemorySnapshot | null
   memoryLoading: boolean
   loadProjectMemory: () => void | Promise<void>
   scanProjectMemory: () => void | Promise<void>
   activityLog: ActivityLogSnapshot | null
-  projectMemoryMcpConfig: ProjectMemoryMcpConfig | null
-  copyProjectMemoryText: (text: string, label: string) => void | Promise<void>
-  projectWiki: ProjectWikiSnapshot | null
-  wikiLoading: boolean
-  generateProjectWiki: () => void | Promise<void>
-  selectedProjectWikiPage: ProjectWikiPage | null
-  setSelectedProjectWikiPageId: (id: ProjectWikiPageId) => void
-  copyProjectWikiPage: (page: ProjectWikiPage | null) => void | Promise<void>
   completedWorkItems: CompletedWorkItem[]
   clearActivityLog: () => void | Promise<void>
   activityCategories: ActivityCategory[]
@@ -61,171 +38,256 @@ export function MemoryView({
   selectedMemoryFile: ProjectMemorySnapshot['files'][number] | null
   selectedMemorySymbols: ProjectMemorySnapshot['symbols']
   selectedMemoryImports: ProjectMemorySnapshot['imports']
-}) {
-    const files = projectMemory?.files ?? []
+}
+
+interface ProjectWikiViewProps {
+  projectWiki: ProjectWikiSnapshot | null
+  projectMemory: ProjectMemorySnapshot | null
+  memoryLoading: boolean
+  wikiLoading: boolean
+  generateProjectWiki: () => void | Promise<void>
+  selectedProjectWikiPage: ProjectWikiPage | null
+  setSelectedProjectWikiPageId: (id: ProjectWikiPageId) => void
+  copyProjectWikiPage: (page: ProjectWikiPage | null) => void | Promise<void>
+  saveProjectWikiPage: (page: ProjectWikiPage | null, markdown: string) => void | Promise<void>
+  pullProjectWikiFromGitHub: () => void | Promise<void>
+  pushProjectWikiToGitHub: () => void | Promise<void>
+  selectedAssistant: AssistantId
+  setSelectedAssistant: (assistant: AssistantId) => void
+  assistants: AssistantStatus[]
+  assistantsChecking: boolean
+  checkAssistants: () => void | Promise<void>
+}
+
+interface McpSetupViewProps {
+  projectMemoryMcpConfig: ProjectMemoryMcpConfig | null
+  projectMemory: ProjectMemorySnapshot | null
+  projectWiki: ProjectWikiSnapshot | null
+  activityLog: ActivityLogSnapshot | null
+  copyProjectMemoryText: (text: string, label: string) => void | Promise<void>
+}
+
+export function MemoryView({
+  projectMemory,
+  memoryLoading,
+  loadProjectMemory,
+  scanProjectMemory,
+  activityLog,
+  completedWorkItems,
+  clearActivityLog,
+  activityCategories,
+  activityCategory,
+  setActivityCategory,
+  filteredActivityEntries,
+  selectedMemoryFilePath,
+  setSelectedMemoryFilePath,
+  selectedMemoryFile,
+  selectedMemorySymbols,
+  selectedMemoryImports
+}: MemoryViewProps) {
+  const files = projectMemory?.files ?? []
   const symbols = projectMemory?.symbols ?? []
   const commits = projectMemory?.recentCommits ?? []
+  const visibleActivity = filteredActivityEntries.slice(0, 18)
+  const visibleFiles = sortedMemoryFiles(files).slice(0, 320)
+  const topFolders = summarizeMemoryFolders(files, 5)
+  const completedPreview = completedWorkItems.slice(0, 6)
+  const memoryHeadingDetail = projectMemory ? (
+    <span className="memory-heading-metrics">
+      <span className="metric-files">{files.length.toLocaleString()} files</span>
+      <span className="metric-symbols">{symbols.length.toLocaleString()} symbols</span>
+      <span className="metric-imports">{projectMemory.imports.length.toLocaleString()} imports</span>
+      <span className="metric-scan">scanned {formatDate(projectMemory.scannedAt)}</span>
+    </span>
+  ) : 'Files, symbols, imports, commits, and local BranchPilot activity.'
 
   return (
-    <section className="single-panel">
-      <div className="panel-heading">
-        <div>
-          <h2>Project Memory</h2>
-          <p>Local project context index for assistant workflows.</p>
-        </div>
-        <div className="panel-actions">
-          <button type="button" onClick={() => loadProjectMemory()} disabled={memoryLoading}>
-            <RefreshCcw size={17} />
-            Reload
-          </button>
+    <section className="single-panel branchpilot-memory-panel memory-index-panel">
+      <MemoryPanelHeading
+        title="Memory"
+        detail={memoryHeadingDetail}
+        actions={(
+          <>
+            <button type="button" onClick={() => loadProjectMemory()} disabled={memoryLoading}>
+              <RefreshCcw size={17} />
+              Reload
+            </button>
+            <button type="button" onClick={scanProjectMemory} disabled={memoryLoading}>
+              <Database size={17} />
+              Rescan
+            </button>
+          </>
+        )}
+      />
+
+      {memoryLoading && !projectMemory ? (
+        <SignalStatus
+          className="memory-data-loading"
+          label="Scanning memory"
+          detail="Indexing files, symbols, imports, commits, and local activity."
+        />
+      ) : !projectMemory ? (
+        <section className="memory-empty-board">
+          <Database size={28} />
+          <div>
+            <h3>No Project Memory snapshot</h3>
+            <p>Run a scan to build the local repository index.</p>
+          </div>
           <button type="button" onClick={scanProjectMemory} disabled={memoryLoading}>
-            {memoryLoading ? <Loader2 className="spin" size={17} /> : <Database size={17} />}
+            <Database size={16} />
             Rescan
           </button>
-        </div>
-      </div>
-
-      {!projectMemory ? (
-        <div className="quiet-box">
-          {memoryLoading ? 'Scanning Project Memory.' : 'No Project Memory snapshot yet.'}
-        </div>
+        </section>
       ) : (
-        <div className="memory-workspace">
-          <section className="memory-summary-grid">
-            <Stat label="Indexed files" value={files.length} />
-            <Stat label="Symbols" value={symbols.length} />
-            <Stat label="Imports" value={projectMemory.imports.length} />
-            <Stat label="Recent commits" value={commits.length} />
-            <Stat label="Activity events" value={activityLog?.totalCount ?? 0} />
-          </section>
-
-          <section className="memory-meta">
-            <InfoRow label="Last scan" value={formatDate(projectMemory.scannedAt)} />
-            <InfoRow label="Branch" value={projectMemory.repository.currentBranch} />
-            <InfoRow label="Remote" value={projectMemory.repository.remoteName ?? 'None'} />
-            <InfoRow label="Repository ID" value={projectMemory.repository.id} />
-          </section>
-
-          <section className="memory-stack">
-            {projectMemory.stackHints.length === 0 ? (
-              <div className="quiet-box">No stack hints detected.</div>
-            ) : (
-              projectMemory.stackHints.map((hint) => (
-                <span key={hint.id} title={hint.source}>{hint.label}</span>
-              ))
-            )}
-          </section>
-
-          {projectMemoryMcpConfig && (
-            <details className="memory-collapsible">
-              <summary>Codex MCP setup</summary>
-            <section className="memory-mcp-card">
-              <div className="memory-section-heading">
-                <div>
-                  <h3>Codex MCP setup</h3>
-                  <span>{projectMemoryMcpConfig.serverExists ? 'Server build found' : 'Run npm run build before connecting'}</span>
-                </div>
+        <div className="memory-workbench">
+          <section className="memory-layout-grid">
+            <section className="memory-workcell memory-files-cell">
+              <MemoryCellHeading icon={<FileCode2 size={16} />} title="Indexed files" meta={`${visibleFiles.length} shown`} />
+              <div className="memory-index-summary">
+                <MemoryChipGroup
+                  label="Stack"
+                  items={projectMemory.stackHints.map((hint) => hint.label)}
+                  empty="No stack hints"
+                />
+                <MemoryChipGroup
+                  label="Folders"
+                  items={topFolders.map((folder) => `${folder.label} ${folder.count}`)}
+                  empty="No folder signals"
+                />
               </div>
-              <InfoRow label="Memory dir" value={projectMemoryMcpConfig.memoryDir} />
-              <InfoRow label="Activity dir" value={projectMemoryMcpConfig.activityDir} />
-              <InfoRow label="Wiki dir" value={projectMemoryMcpConfig.wikiDir} />
-              <InfoRow label="Server path" value={projectMemoryMcpConfig.serverPath} />
-              <CopyableCodeBlock
-                variant="snippet"
-                title="CLI command"
-                code={projectMemoryMcpConfig.codexCommand}
-                onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.codexCommand, 'Codex MCP command')}
-              />
-              <CopyableCodeBlock
-                variant="snippet"
-                title="config.toml"
-                code={projectMemoryMcpConfig.codexToml}
-                onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.codexToml, 'Codex MCP TOML')}
-              />
+              <div className="memory-scroll-list">
+                {files.length === 0 ? (
+                  <div className="quiet-box">No indexed files.</div>
+                ) : (
+                  visibleFiles.map((file) => (
+                    <button
+                      className={selectedMemoryFilePath === file.path ? 'memory-file-row selected' : 'memory-file-row'}
+                      type="button"
+                      key={file.path}
+                      onClick={() => setSelectedMemoryFilePath(file.path)}
+                    >
+                      <strong>{file.path}</strong>
+                      <span>{memoryFileMeta(file)}</span>
+                    </button>
+                  ))
+                )}
+              </div>
             </section>
-            </details>
-          )}
 
-          <details className="memory-collapsible">
-            <summary>Project Wiki</summary>
-          <section className="project-wiki-card">
-            <div className="memory-section-heading">
-              <div>
-                <h3>Project Wiki</h3>
-                <span>
-                  {projectWiki
-                    ? `${projectWiki.pages.length} pages · generated ${formatDate(projectWiki.generatedAt)}`
-                    : 'Generate a local private wiki from Project Memory'}
-                </span>
-              </div>
-              <div className="panel-actions">
-                <button type="button" onClick={() => loadProjectMemory()} disabled={memoryLoading || wikiLoading}>
-                  <RefreshCcw size={15} />
-                  Reload
-                </button>
-                <button type="button" onClick={generateProjectWiki} disabled={memoryLoading || wikiLoading}>
-                  {wikiLoading ? <Loader2 className="spin" size={15} /> : <Database size={15} />}
-                  Generate wiki
-                </button>
-              </div>
-            </div>
-
-            {!projectWiki ? (
-              <div className="quiet-box">
-                {wikiLoading ? 'Generating Project Wiki.' : 'No Project Wiki generated yet.'}
-              </div>
-            ) : (
-              <>
-                <section className="memory-meta">
-                  <InfoRow label="Generated" value={formatDate(projectWiki.generatedAt)} />
-                  <InfoRow label="Source scan" value={formatDate(projectWiki.sourceMemoryScannedAt)} />
-                  <InfoRow label="Repository" value={projectWiki.repository.name} />
-                  <InfoRow label="Branch" value={projectWiki.repository.currentBranch} />
-                </section>
-
-                <div className="project-wiki-grid">
-                  <div className="project-wiki-pages">
-                    {projectWiki.pages.map((page) => (
-                      <button
-                        className={selectedProjectWikiPage?.id === page.id ? 'project-wiki-page selected' : 'project-wiki-page'}
-                        type="button"
-                        key={page.id}
-                        onClick={() => setSelectedProjectWikiPageId(page.id)}
-                      >
-                        <strong>{page.title}</strong>
-                        <span>{page.summary}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <CopyableCodeBlock
-                    variant="preview"
-                    title={selectedProjectWikiPage?.title ?? 'Wiki page'}
-                    code={selectedProjectWikiPage?.markdown ?? 'Select a wiki page.'}
-                    copyLabel="Copy Markdown"
-                    copyDisabled={!selectedProjectWikiPage}
-                    onCopy={() => copyProjectWikiPage(selectedProjectWikiPage)}
-                  />
-                </div>
-              </>
-            )}
-          </section>
-          </details>
-
-          <details className="memory-collapsible">
-            <summary>Completed Work</summary>
-          <section className="memory-activity-card completed-work-card">
-            <div className="memory-section-heading">
-              <div>
-                <h3>Completed Work</h3>
-                <span>{completedWorkItems.length} finished work item{completedWorkItems.length === 1 ? '' : 's'} from Git history and completed operations</span>
-              </div>
-            </div>
-            <div className="completed-work-list">
-              {completedWorkItems.length === 0 ? (
-                <div className="quiet-box">Generate Project Memory or make a commit to build completed work history.</div>
+            <section className="memory-workcell memory-outline-cell">
+              <MemoryCellHeading
+                icon={<Database size={16} />}
+                title={selectedMemoryFile?.path ?? 'File outline'}
+                meta={`${selectedMemorySymbols.length} symbols`}
+              />
+              {!selectedMemoryFile ? (
+                <div className="quiet-box">Select an indexed file.</div>
               ) : (
-                completedWorkItems.map((item) => (
+                <div className="memory-outline-grid">
+                  <section className="memory-file-summary">
+                    <span>{selectedMemoryFile.language ?? (selectedMemoryFile.extension || 'file')}</span>
+                    <span>{formatBytes(selectedMemoryFile.sizeBytes)}</span>
+                    <span>{selectedMemoryFile.symbolCount.toLocaleString()} symbols</span>
+                    <span>{selectedMemoryFile.importCount.toLocaleString()} imports</span>
+                  </section>
+                  <section className="memory-outline-section memory-symbols-section">
+                    <MemoryCellHeading icon={<Database size={15} />} title="Symbols" meta={String(selectedMemorySymbols.length)} compact />
+                    <div className="memory-scroll-list">
+                      {selectedMemorySymbols.length === 0 ? (
+                        <div className="quiet-box">No symbols detected.</div>
+                      ) : (
+                        selectedMemorySymbols.map((symbol) => (
+                          <article className="memory-symbol-row" key={symbol.id}>
+                            <span>{symbol.kind}</span>
+                            <strong>{symbol.parentName ? `${symbol.parentName}.${symbol.name}` : symbol.name}</strong>
+                            <code>{symbol.exported ? 'exported' : 'local'} - line {symbol.line}</code>
+                          </article>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                  <div className="memory-import-stack">
+                    <MemoryCellHeading icon={<Cable size={15} />} title="Imports" meta={String(selectedMemoryImports.length)} compact />
+                    <div className="memory-scroll-list">
+                      {selectedMemoryImports.length === 0 ? (
+                        <div className="quiet-box">No imports detected.</div>
+                      ) : (
+                        selectedMemoryImports.map((entry) => (
+                          <code key={`${entry.path}-${entry.line}-${entry.source}`}>
+                            {entry.source}{entry.specifiers.length > 0 ? ` - ${entry.specifiers.join(', ')}` : ''} - line {entry.line}
+                          </code>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section className="memory-workcell memory-history-cell">
+              <div className="memory-history-head">
+                <MemoryCellHeading icon={<History size={16} />} title="Activity" meta={`${activityLog?.totalCount ?? 0} events`} />
+                <button className="danger-button icon-button" type="button" onClick={clearActivityLog} disabled={memoryLoading || !activityLog?.totalCount} title="Clear activity log">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              <SegmentedControl
+                className="memory-activity-filters"
+                ariaLabel="Activity filters"
+                value={activityCategory}
+                onChange={(value) => setActivityCategory(value as ActivityCategory)}
+                options={activityCategories.map((category) => ({
+                  value: category,
+                  label: activityCategoryLabel(category)
+                }))}
+              />
+              <section className="memory-activity-section">
+                <div className="memory-scroll-list activity">
+                  {visibleActivity.length === 0 ? (
+                    <div className="quiet-box">No activity for this filter.</div>
+                  ) : (
+                    visibleActivity.map((entry) => (
+                      <article className={`activity-row activity-${entry.status}`} key={entry.id}>
+                        <div>
+                          <strong>{activityTypeLabel(entry.type)}</strong>
+                          <span>{entry.actor} - {entry.status} - {formatDate(entry.createdAt)}</span>
+                        </div>
+                        <code>{activityMetadataLabel(entry)}</code>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+              <MemoryCellHeading icon={<GitCommitHorizontal size={16} />} title="Recent commits" meta={commits.length > 10 ? `10 of ${commits.length}` : String(commits.length)} compact />
+              <section className="memory-commits-section">
+                <div className="memory-scroll-list commits">
+                  {commits.length === 0 ? (
+                    <div className="quiet-box">No commits indexed.</div>
+                  ) : (
+                    commits.slice(0, 10).map((commit) => (
+                      <article className="memory-commit-row" key={commit.sha}>
+                        <strong>{commit.subject || '(no subject)'}</strong>
+                        <span>{commit.shortSha} - {formatDate(commit.authoredAt)}</span>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+            </section>
+          </section>
+
+          <section className="memory-completed-strip">
+            <MemoryCellHeading
+              icon={<CheckCircle2 size={16} />}
+              title="Completed work"
+              meta={completedWorkItems.length > completedPreview.length ? `${completedPreview.length} of ${completedWorkItems.length}` : `${completedWorkItems.length} items`}
+              compact
+            />
+            <div className="completed-work-list compact">
+              {completedPreview.length === 0 ? (
+                <div className="quiet-box">No completed work indexed yet.</div>
+              ) : (
+                completedPreview.map((item) => (
                   <article className={`completed-work-row source-${item.source}`} key={item.id}>
                     <div>
                       <strong>{item.title}</strong>
@@ -237,145 +299,522 @@ export function MemoryView({
               )}
             </div>
           </section>
-          </details>
+        </div>
+      )}
+    </section>
+  )
+}
 
-          <details className="memory-collapsible">
-            <summary>Raw Activity Events</summary>
-          <section className="memory-activity-card">
-            <div className="memory-section-heading">
-              <div>
-                <h3>Raw Activity Events</h3>
-                <span>{activityLog?.totalCount ?? 0} technical events stored locally</span>
-              </div>
-              <div className="panel-actions">
-                <button type="button" onClick={() => loadProjectMemory()} disabled={memoryLoading}>
-                  <RefreshCcw size={15} />
-                  Reload
-                </button>
-                <button className="danger-button" type="button" onClick={clearActivityLog} disabled={memoryLoading || !activityLog?.totalCount}>
-                  <Trash2 size={15} />
-                  Clear
-                </button>
-              </div>
-            </div>
-            <SegmentedControl
-              className="memory-activity-filters"
-              ariaLabel="Activity filters"
-              value={activityCategory}
-              onChange={(value) => setActivityCategory(value as ActivityCategory)}
-              options={activityCategories.map((category) => ({
-                value: category,
-                label: activityCategoryLabel(category)
-              }))}
+export function ProjectWikiView({
+  projectWiki,
+  projectMemory,
+  memoryLoading,
+  wikiLoading,
+  generateProjectWiki,
+  selectedProjectWikiPage,
+  setSelectedProjectWikiPageId,
+  copyProjectWikiPage,
+  saveProjectWikiPage,
+  pullProjectWikiFromGitHub,
+  pushProjectWikiToGitHub,
+  selectedAssistant,
+  setSelectedAssistant,
+  assistants,
+  assistantsChecking,
+  checkAssistants
+}: ProjectWikiViewProps) {
+  const pages = projectWiki?.pages ?? []
+  const [markdownDraft, setMarkdownDraft] = useState('')
+  const wikiPrompt = useMemo(() => projectWikiGenerationPrompt(projectMemory, projectWiki), [projectMemory, projectWiki])
+  const wikiPrompts = useMemo<AssistantPromptPreview[]>(() => [{
+    id: 'project-wiki',
+    title: 'Project Wiki generation',
+    subtitle: 'editable markdown pages',
+    body: wikiPrompt
+  }], [wikiPrompt])
+  const markdownDirty = Boolean(selectedProjectWikiPage && markdownDraft !== selectedProjectWikiPage.markdown)
+  const wikiMeta = projectWiki
+    ? `${pages.length} pages - generated ${formatDate(projectWiki.generatedAt)} - scan ${formatDate(projectWiki.sourceMemoryScannedAt)}${projectWiki.markdownDir ? ` - md ${shortPath(projectWiki.markdownDir)}` : ''}`
+    : projectMemory
+      ? `${projectMemory.files.length} files indexed - ${projectMemory.repository.currentBranch}`
+      : 'Scan Project Memory before generating wiki'
+
+  useEffect(() => {
+    setMarkdownDraft(selectedProjectWikiPage?.markdown ?? '')
+  }, [selectedProjectWikiPage?.id, selectedProjectWikiPage?.markdown])
+
+  return (
+    <section className="single-panel branchpilot-memory-panel project-wiki-panel">
+      <header className="wiki-command-bar">
+        <div className="wiki-title-block">
+          <div>
+            <h2>Project Wiki</h2>
+            <p>{wikiMeta}</p>
+          </div>
+        </div>
+        <div className="wiki-command-actions">
+          <div className="wiki-assistant-control">
+            <AssistantModelSelect
+              id="project-wiki-assistant"
+              label="Assistant"
+              selectedAssistant={selectedAssistant}
+              setSelectedAssistant={setSelectedAssistant}
+              assistants={assistants}
+              assistantsChecking={assistantsChecking}
+              checkAssistants={checkAssistants}
+              prompts={wikiPrompts}
+              promptsAriaLabel="Project Wiki generation prompt"
             />
-            <div className="memory-activity-list">
-              {filteredActivityEntries.length === 0 ? (
-                <div className="quiet-box">No activity for this filter.</div>
-              ) : (
-                <>
-                  {filteredActivityEntries.slice(0, 40).map((entry) => (
-                    <article className={`activity-row activity-${entry.status}`} key={entry.id}>
-                      <div>
-                        <strong>{activityTypeLabel(entry.type)}</strong>
-                        <span>{entry.actor} · {entry.status} · {formatDate(entry.createdAt)}</span>
-                      </div>
-                      <code>{activityMetadataLabel(entry)}</code>
-                    </article>
-                  ))}
-                  {filteredActivityEntries.length > 40 && (
-                    <div className="quiet-box">Showing 40 of {filteredActivityEntries.length} loaded events.</div>
-                  )}
-                </>
-              )}
-            </div>
-          </section>
-          </details>
+          </div>
+          <div className="panel-actions memory-actions wiki-actions">
+            <button type="button" onClick={generateProjectWiki} disabled={memoryLoading || wikiLoading}>
+              <Bot size={17} />
+              Build local wiki
+            </button>
+          </div>
+        </div>
+      </header>
 
-          <section className="memory-grid">
-            <div className="memory-list">
-              <div className="memory-section-heading">
-                <h3>Files</h3>
-                <span>{files.length}</span>
-              </div>
-              {files.length === 0 ? (
-                <div className="quiet-box">No indexed files.</div>
-              ) : (
-                files.slice(0, 250).map((file) => (
+      {wikiLoading && !projectWiki ? (
+        <SignalStatus
+          className="memory-data-loading"
+          label="Generating wiki"
+          detail="Building pages from Memory, commits, and BranchPilot activity."
+        />
+      ) : !projectWiki ? (
+        <section className="memory-empty-board">
+          <BookOpen size={28} />
+          <div>
+            <h3>No Project Wiki generated</h3>
+            <p>Generate wiki pages after scanning Project Memory.</p>
+          </div>
+          <button type="button" onClick={generateProjectWiki} disabled={memoryLoading || wikiLoading}>
+            <Bot size={16} />
+            Build local wiki
+          </button>
+        </section>
+      ) : (
+        <div className="wiki-workbench">
+          <section className="wiki-browser-grid">
+            <section className="memory-workcell wiki-pages-cell">
+              <MemoryCellHeading icon={<BookOpen size={16} />} title="Pages" meta={`${pages.length} pages`} />
+              <div className="memory-scroll-list wiki-pages">
+                {pages.map((page) => (
                   <button
-                    className={selectedMemoryFilePath === file.path ? 'memory-file-row selected' : 'memory-file-row'}
+                    className={selectedProjectWikiPage?.id === page.id ? 'project-wiki-page selected' : 'project-wiki-page'}
                     type="button"
-                    key={file.path}
-                    onClick={() => setSelectedMemoryFilePath(file.path)}
+                    key={page.id}
+                    onClick={() => setSelectedProjectWikiPageId(page.id)}
                   >
-                    <strong>{file.path}</strong>
-                    <span>{memoryFileMeta(file)}</span>
+                    <strong>{page.title}</strong>
+                    <span>{page.summary}</span>
                   </button>
-                ))
-              )}
-            </div>
-
-            <div className="memory-details">
-              <div className="memory-section-heading">
-                <h3>{selectedMemoryFile?.path ?? 'File outline'}</h3>
-                <span>{selectedMemorySymbols.length} symbols</span>
+                ))}
               </div>
+            </section>
 
-              {!selectedMemoryFile ? (
-                <div className="quiet-box">Select an indexed file.</div>
-              ) : (
-                <>
-                  <div className="memory-outline">
-                    {selectedMemorySymbols.length === 0 ? (
-                      <div className="quiet-box">No symbols detected in this file.</div>
-                    ) : (
-                      selectedMemorySymbols.map((symbol) => (
-                        <article className="memory-symbol-row" key={symbol.id}>
-                          <span>{symbol.kind}</span>
-                          <strong>{symbol.parentName ? `${symbol.parentName}.${symbol.name}` : symbol.name}</strong>
-                          <code>{symbol.exported ? 'exported' : 'local'} · line {symbol.line}</code>
-                        </article>
-                      ))
-                    )}
+            <section className="memory-workcell wiki-preview-cell">
+              <div className="project-wiki-editor">
+                <header>
+                  <div>
+                    <h3>{selectedProjectWikiPage?.title ?? 'Wiki page'}</h3>
+                    <span>
+                      {selectedProjectWikiPage
+                        ? `${projectWikiMarkdownFileLabel(selectedProjectWikiPage)}${markdownDirty ? ' - edited' : ''}`
+                        : 'Select a wiki page'}
+                    </span>
                   </div>
-
-                  <div className="memory-section-heading compact">
-                    <h3>Imports</h3>
-                    <span>{selectedMemoryImports.length}</span>
+                  <div className="project-wiki-editor-actions">
+                    <button type="button" onClick={() => copyProjectWikiPage(selectedProjectWikiPage)} disabled={!selectedProjectWikiPage}>
+                      <Copy size={15} />
+                      Copy
+                    </button>
+                    <button type="button" onClick={() => saveProjectWikiPage(selectedProjectWikiPage, markdownDraft)} disabled={!selectedProjectWikiPage || !markdownDirty || wikiLoading}>
+                      <Save size={15} />
+                      Save
+                    </button>
+                    <button type="button" onClick={pullProjectWikiFromGitHub} disabled={memoryLoading || wikiLoading}>
+                      <Download size={15} />
+                      Pull GitHub
+                    </button>
+                    <button type="button" onClick={pushProjectWikiToGitHub} disabled={!projectWiki || memoryLoading || wikiLoading}>
+                      <Upload size={15} />
+                      Push GitHub
+                    </button>
                   </div>
-                  <div className="memory-imports">
-                    {selectedMemoryImports.length === 0 ? (
-                      <div className="quiet-box">No imports detected.</div>
-                    ) : (
-                      selectedMemoryImports.map((entry) => (
-                        <code key={`${entry.path}-${entry.line}-${entry.source}`}>
-                          {entry.source}{entry.specifiers.length > 0 ? ` · ${entry.specifiers.join(', ')}` : ''} · line {entry.line}
-                        </code>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="memory-list recent-memory-commits">
-              <div className="memory-section-heading">
-                <h3>Recent commits</h3>
-                <span>{commits.length > 12 ? `12 of ${commits.length}` : commits.length}</span>
+                </header>
+                <textarea
+                  aria-label="Project Wiki Markdown editor"
+                  spellCheck={false}
+                  value={markdownDraft}
+                  disabled={!selectedProjectWikiPage}
+                  onChange={(event) => setMarkdownDraft(event.currentTarget.value)}
+                  placeholder="Select a Project Wiki page."
+                />
               </div>
-              {commits.length === 0 ? (
-                <div className="quiet-box">No commits indexed.</div>
-              ) : (
-                commits.slice(0, 12).map((commit) => (
-                  <article className="memory-commit-row" key={commit.sha}>
-                    <strong>{commit.subject || '(no subject)'}</strong>
-                    <span>{commit.shortSha} · {formatDate(commit.authoredAt)}</span>
-                  </article>
-                ))
-              )}
-            </div>
+            </section>
           </section>
         </div>
       )}
     </section>
   )
+}
+
+export function McpSetupView({
+  projectMemoryMcpConfig,
+  projectMemory,
+  projectWiki,
+  activityLog,
+  copyProjectMemoryText
+}: McpSetupViewProps) {
+  if (!projectMemoryMcpConfig) {
+    return (
+      <section className="single-panel branchpilot-memory-panel mcp-panel">
+        <MemoryPanelHeading
+          title="MCP"
+          detail="Connect Codex to BranchPilot Memory, Project Wiki, and change history."
+        />
+        <section className="memory-empty-board">
+          <Cable size={28} />
+          <div>
+            <h3>No MCP config</h3>
+            <p>Open a repository to generate connection settings.</p>
+          </div>
+        </section>
+      </section>
+    )
+  }
+
+  const prompt = mcpConnectionPrompt(projectMemoryMcpConfig, projectMemory, projectWiki, activityLog)
+  const mcpResources = [
+    {
+      title: 'Project Wiki',
+      uri: 'branchpilot://repo/current/wiki',
+      detail: 'Generated architecture, module map, workflows, policy, and recent timeline.'
+    },
+    {
+      title: 'Change history',
+      uri: 'branchpilot://repo/current/activity',
+      detail: 'BranchPilot activity ledger: assistant actions, Git operations, PR/provider events.'
+    },
+    {
+      title: 'Recent commits',
+      uri: 'branchpilot://repo/current/commits',
+      detail: 'Recent Git subjects and SHAs to explain what changed before reading files.'
+    },
+    {
+      title: 'Code index',
+      uri: 'branchpilot://repo/current/tree + symbols',
+      detail: 'Indexed file tree and exported/local symbols for fast code navigation.'
+    }
+  ]
+  const mcpToolGroups = [
+    {
+      title: 'Orient',
+      tools: ['project_summary', 'get_current_git_state', 'get_project_wiki']
+    },
+    {
+      title: 'Find code',
+      tools: ['search_files', 'search_symbols', 'get_file_outline', 'get_symbol_context']
+    },
+    {
+      title: 'Trace work',
+      tools: ['get_recent_commits', 'get_agent_activity', 'get_wiki_page']
+    }
+  ]
+  const mcpPrompts = ['review-current-work', 'prepare-change-plan', 'explain-module', 'summarize-recent-work']
+  const sourceCards = [
+    {
+      title: 'Memory index',
+      detail: projectMemory ? `${projectMemory.files.length} files - ${projectMemory.symbols.length} symbols` : 'No snapshot loaded',
+      meta: 'Searchable project map',
+      ready: Boolean(projectMemory)
+    },
+    {
+      title: 'Project Wiki',
+      detail: projectWiki ? `${projectWiki.pages.length} generated pages` : 'No wiki generated',
+      meta: 'Architecture guide',
+      ready: Boolean(projectWiki)
+    },
+    {
+      title: 'Change history',
+      detail: `${activityLog?.totalCount ?? 0} BranchPilot events`,
+      meta: 'Assistant and Git timeline',
+      ready: Boolean(activityLog?.totalCount)
+    },
+    {
+      title: 'Read-only server',
+      detail: projectMemoryMcpConfig.serverExists ? 'Server build found' : 'Run npm run build',
+      meta: 'No file writes or Git mutation',
+      ready: projectMemoryMcpConfig.serverExists
+    }
+  ]
+
+  return (
+    <section className="single-panel branchpilot-memory-panel mcp-panel">
+      <MemoryPanelHeading
+        title="MCP"
+        detail="Copy a connection prompt or config that exposes Memory, Project Wiki, and change history to Codex."
+      />
+
+      <div className="mcp-workbench">
+        <section className="mcp-source-grid">
+          {sourceCards.map((card) => (
+            <article className={card.ready ? 'mcp-source-card ready' : 'mcp-source-card'} key={card.title}>
+              {card.ready ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
+              <div>
+                <strong>{card.title}</strong>
+                <span>{card.detail}</span>
+                <small>{card.meta}</small>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <section className="mcp-main-grid">
+          <section className="memory-workcell mcp-surface-cell">
+            <MemoryCellHeading icon={<Cable size={16} />} title="What MCP gives Codex" meta={`${mcpResources.length} resources - ${mcpPrompts.length} prompts`} />
+            <div className="mcp-resource-list">
+              {mcpResources.map((resource) => (
+                <article className="mcp-resource-row" key={resource.uri}>
+                  <div>
+                    <strong>{resource.title}</strong>
+                    <span>{resource.detail}</span>
+                  </div>
+                  <code>{resource.uri}</code>
+                </article>
+              ))}
+            </div>
+
+            <div className="mcp-tool-groups">
+              {mcpToolGroups.map((group) => (
+                <article className="mcp-tool-card" key={group.title}>
+                  <strong>{group.title}</strong>
+                  <span>{group.tools.join(' - ')}</span>
+                </article>
+              ))}
+            </div>
+
+            <section className="mcp-prompt-card">
+              <div className="memory-section-heading compact">
+                <h3>Codex behavior prompt</h3>
+                <button type="button" onClick={() => copyProjectMemoryText(prompt, 'BranchPilot MCP prompt')}>
+                  <Cable size={15} />
+                  Copy Prompt
+                </button>
+              </div>
+              <p>Use this when connecting Codex so it reads BranchPilot Wiki, activity, commits, tree, and symbols before spending tokens on raw files.</p>
+              <div className="mcp-prompt-chips">
+                {mcpPrompts.map((name) => <code key={name}>{name}</code>)}
+              </div>
+            </section>
+          </section>
+
+          <section className="memory-workcell mcp-config-cell">
+            <MemoryCellHeading icon={<Server size={16} />} title="Connection" meta={projectMemoryMcpConfig.serverExists ? 'ready' : 'build missing'} />
+            <CopyableCodeBlock
+              variant="snippet"
+              title="CLI command"
+              code={projectMemoryMcpConfig.codexCommand}
+              onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.codexCommand, 'Codex MCP command')}
+            />
+            <CopyableCodeBlock
+              variant="snippet"
+              title="config.toml"
+              code={projectMemoryMcpConfig.codexToml}
+              onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.codexToml, 'Codex MCP TOML')}
+            />
+            <section className="mcp-diagnostics">
+              <MemoryCellHeading icon={<Database size={15} />} title="Diagnostics" meta="local paths" compact />
+              <div className="mcp-diagnostic-grid">
+                <McpDiagnostic label="Repo" value={projectMemoryMcpConfig.repoPath} />
+                <McpDiagnostic label="Server" value={projectMemoryMcpConfig.serverPath} />
+                <McpDiagnostic label="Memory" value={projectMemoryMcpConfig.memoryDir} />
+                <McpDiagnostic label="Activity + Wiki" value={`${shortPath(projectMemoryMcpConfig.activityDir)} - ${shortPath(projectMemoryMcpConfig.wikiDir)}`} />
+              </div>
+            </section>
+          </section>
+        </section>
+      </div>
+    </section>
+  )
+}
+
+function McpDiagnostic({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="mcp-diagnostic-row" title={value}>
+      <span>{label}</span>
+      <strong>{shortPath(value)}</strong>
+    </article>
+  )
+}
+
+function projectWikiGenerationPrompt(
+  memory: ProjectMemorySnapshot | null,
+  wiki: ProjectWikiSnapshot | null
+): string {
+  const repository = memory?.repository ?? wiki?.repository
+  const stackHints = memory?.stackHints.map((hint) => `${hint.label} (${hint.source})`).join(', ') || 'not scanned'
+
+  return [
+    'Generate a BranchPilot Project Wiki for Codex and future local assistants.',
+    'The wiki must be practical architecture documentation, not marketing copy.',
+    'Treat BranchPilot Project Wiki as local private Markdown wiki pages. It may be pushed to GitHub Wiki later, but do not assume GitHub Wiki already exists.',
+    '',
+    `Repository: ${repository?.name ?? 'current repository'}`,
+    `Branch: ${repository?.currentBranch ?? 'current branch'}`,
+    `Indexed files: ${memory?.files.length ?? 0}`,
+    `Indexed symbols: ${memory?.symbols.length ?? 0}`,
+    `Indexed imports: ${memory?.imports.length ?? 0}`,
+    `Stack hints: ${stackHints}`,
+    '',
+    'Required Markdown pages:',
+    '1. Home.md: repository purpose, stack, current branch, important constraints, and links to the other pages.',
+    '2. Module-Map.md: every meaningful top-level and second-level module folder; component/service/module boundaries.',
+    '3. Folder-Structure.md: what belongs in each folder and which paths are low-signal generated/cache/build output.',
+    '4. Technology-Map.md: frameworks, runtimes, package managers, build/runtime entrypoints, configs, and provider/API layers.',
+    '5. Important-Symbols.md: exported components/services/types and why they matter.',
+    '6. Workflows.md: how user-facing flows move across UI, services, Electron, provider/API, and Git layers.',
+    '7. Assistant-Policy.md: what Codex should read first, what not to mutate, and MCP usage order.',
+    '8. Recent-Timeline.md: recent commits/activity only when it changes architectural understanding.',
+    '',
+    'Rules:',
+    '- Prefer concrete repository paths and symbols from Project Memory.',
+    '- Do not invent modules, technologies, metrics, users, or production claims.',
+    '- Every page must be valid Markdown and stay under 500 lines.',
+    '- Keep each page useful under token pressure: short sections, dense bullets, clear cross-links.',
+    '- Add relative wiki links like [Technology Map](Technology-Map.md) where they help navigation.',
+    '- If a folder is only generated assets/cache/build output, mark it as low-signal or omit it.',
+    '- Do not duplicate Memory index data unless it explains architecture.',
+    '- Write pages that can be stored locally and optionally pushed to GitHub Wiki.'
+  ].join('\n')
+}
+
+function MemoryPanelHeading({
+  title,
+  detail,
+  actions
+}: {
+  title: string
+  detail: ReactNode
+  actions?: ReactNode
+}) {
+  return (
+    <div className="memory-panel-heading">
+      <div>
+        <h2>{title}</h2>
+        <p>{detail}</p>
+      </div>
+      {actions && <div className="panel-actions memory-actions">{actions}</div>}
+    </div>
+  )
+}
+
+function MemoryCellHeading({
+  icon,
+  title,
+  meta,
+  compact = false
+}: {
+  icon: ReactNode
+  title: string
+  meta: string
+  compact?: boolean
+}) {
+  return (
+    <div className={compact ? 'memory-cell-heading compact' : 'memory-cell-heading'}>
+      <div>
+        {icon}
+        <h3>{title}</h3>
+      </div>
+      <span>{meta}</span>
+    </div>
+  )
+}
+
+function MemoryChipGroup({
+  label,
+  items,
+  empty
+}: {
+  label: string
+  items: string[]
+  empty: string
+}) {
+  const visibleItems = items.slice(0, 6)
+
+  return (
+    <div className="memory-chip-row">
+      <span>{label}</span>
+      <div>
+        {visibleItems.length === 0 ? (
+          <em>{empty}</em>
+        ) : (
+          visibleItems.map((item) => <code key={item}>{item}</code>)
+        )}
+      </div>
+    </div>
+  )
+}
+
+function mcpConnectionPrompt(
+  config: ProjectMemoryMcpConfig,
+  memory: ProjectMemorySnapshot | null,
+  wiki: ProjectWikiSnapshot | null,
+  activity: ActivityLogSnapshot | null
+): string {
+  return [
+    'Use BranchPilot MCP as the first source of local project context.',
+    '',
+    `Repository: ${config.repoPath}`,
+    `Memory: ${memory ? `${memory.files.length} files, ${memory.symbols.length} symbols, scanned ${formatDate(memory.scannedAt)}` : 'not loaded'}`,
+    `Wiki: ${wiki ? `${wiki.pages.length} pages, generated ${formatDate(wiki.generatedAt)}` : 'not generated'}`,
+    `Change history: ${activity?.totalCount ?? 0} BranchPilot activity events plus recent commits`,
+    '',
+    'Read order:',
+    '1. branchpilot://repo/current/wiki for architecture and workflow intent.',
+    '2. branchpilot://repo/current/activity and branchpilot://repo/current/commits for recent work.',
+    '3. branchpilot://repo/current/tree and branchpilot://repo/current/symbols to narrow exploration.',
+    '4. Disk files only for exact implementation details.',
+    '',
+    'Available workflow prompts: review-current-work, prepare-change-plan, explain-module, summarize-recent-work.',
+    '',
+    'Treat this as a read-only BranchPilot context bridge, not a graph/repo-lens view.',
+    `Connect with: ${config.codexCommand}`
+  ].join('\n')
+}
+
+function shortPath(value: string): string {
+  const parts = value.split('/').filter(Boolean)
+
+  if (parts.length <= 4) {
+    return value
+  }
+
+  return `.../${parts.slice(-3).join('/')}`
+}
+
+function projectWikiMarkdownFileLabel(page: ProjectWikiPage): string {
+  const knownNames: Record<string, string> = {
+    overview: 'Home.md',
+    module_map: 'Module-Map.md',
+    folder_structure: 'Folder-Structure.md',
+    technology_map: 'Technology-Map.md',
+    important_symbols: 'Important-Symbols.md',
+    workflows: 'Workflows.md',
+    assistant_policy: 'Assistant-Policy.md',
+    recent_timeline: 'Recent-Timeline.md'
+  }
+
+  if (knownNames[page.id]) {
+    return knownNames[page.id]
+  }
+
+  const fileName = page.title
+    .trim()
+    .replace(/\.md$/i, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return `${fileName || 'Wiki-Page'}.md`
 }

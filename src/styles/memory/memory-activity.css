@@ -1,225 +1,731 @@
-﻿.memory-workspace {
+.branchpilot-memory-panel {
   display: grid;
-  gap: 14px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.memory-summary-grid {
+.memory-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.memory-panel-heading > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.memory-panel-heading h2 {
+  font-size: 20px;
+}
+
+.memory-panel-heading p {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-heading-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.memory-heading-metrics span {
+  overflow: hidden;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--metric-color, var(--accent)) 32%, var(--border));
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--metric-color, var(--accent)) 72%, var(--text-strong));
+  background: color-mix(in srgb, var(--metric-color, var(--accent)) 10%, var(--panel));
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-heading-metrics .metric-files {
+  --metric-color: #60a5fa;
+}
+
+.memory-heading-metrics .metric-symbols {
+  --metric-color: #a78bfa;
+}
+
+.memory-heading-metrics .metric-imports {
+  --metric-color: #22c55e;
+}
+
+.memory-heading-metrics .metric-scan {
+  --metric-color: #f59e0b;
+}
+
+.memory-actions {
+  flex: 0 0 auto;
+}
+
+.memory-workbench,
+.wiki-workbench,
+.mcp-workbench {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.memory-workbench {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.mcp-workbench {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.wiki-workbench {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.wiki-command-bar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(580px, auto);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wiki-title-block {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wiki-title-block > div {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wiki-title-block h2 {
+  flex: 0 0 auto;
+  font-size: 20px;
+}
+
+.wiki-title-block p {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiki-command-actions {
+  display: grid;
+  grid-template-columns: minmax(360px, 520px) auto;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wiki-assistant-control {
+  min-width: 0;
+}
+
+.wiki-assistant-control > label {
+  display: none;
+}
+
+.wiki-actions {
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.project-wiki-panel {
+  --wiki-command-control-height: 44px;
+}
+
+.project-wiki-panel .wiki-assistant-control,
+.project-wiki-panel .assistant-select-row,
+.project-wiki-panel .assistant-model-menu,
+.project-wiki-panel .wiki-actions {
+  min-height: var(--wiki-command-control-height);
+}
+
+.project-wiki-panel .assistant-model-menu {
+  grid-template-columns: minmax(260px, 1fr) 128px;
+  gap: 8px;
+}
+
+.project-wiki-panel .assistant-model-trigger,
+.project-wiki-panel .assistant-model-prompts-button,
+.project-wiki-panel .wiki-actions button {
+  height: var(--wiki-command-control-height);
+  min-height: var(--wiki-command-control-height);
+  padding: 0 12px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: none;
+}
+
+.project-wiki-panel .assistant-model-trigger:hover,
+.project-wiki-panel .assistant-model-prompts-button:hover,
+.project-wiki-panel .wiki-actions button:hover {
+  border-color: var(--border-strong, #a7b0c0) !important;
+  background: var(--panel-2);
+}
+
+.project-wiki-panel .assistant-model-trigger {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.project-wiki-panel .assistant-model-trigger-copy {
+  gap: 1px;
+}
+
+.project-wiki-panel .assistant-model-trigger-copy strong {
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.project-wiki-panel .assistant-model-trigger-copy span {
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.project-wiki-panel .assistant-model-status.trigger-state {
+  max-width: 92px;
+}
+
+.project-wiki-panel .assistant-model-prompts-button {
+  width: 100%;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.project-wiki-panel .wiki-actions button {
+  min-width: 112px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.memory-stat-rail {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+}
+
+.memory-stat-rail.wiki {
+  grid-template-columns: minmax(92px, 0.45fr) repeat(3, minmax(0, 1fr));
 }
 
 .memory-meta {
   display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.memory-meta.memory-meta-compact {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel-2);
 }
 
-.memory-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.memory-stack span {
-  min-height: 28px;
-  padding: 5px 9px;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  color: var(--accent-strong);
-  background: var(--sel-bg);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.memory-mcp-card {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-}
-
-.memory-mcp-card > .info-row {
+.memory-meta-compact .info-row {
   min-width: 0;
-}
-
-.memory-mcp-snippet {
-  display: grid;
-  gap: 8px;
-}
-
-.memory-mcp-snippet button {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  background: var(--panel);
-}
-
-.memory-mcp-snippet pre {
-  overflow: auto;
-  margin: 0;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #0f172a;
-}
-
-.memory-mcp-snippet code {
-  color: #d1d5db;
-  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  white-space: pre;
-}
-
-.project-wiki-card {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-}
-
-.project-wiki-grid {
-  display: grid;
-  grid-template-columns: minmax(240px, 0.42fr) minmax(0, 1fr);
-  gap: 12px;
-}
-
-.project-wiki-pages {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-}
-
-.project-wiki-page {
-  display: grid;
-  width: 100%;
-  gap: 4px;
   min-height: 58px;
-  padding: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  color: var(--text);
-  background: var(--panel-2);
-  text-align: left;
+  background: var(--panel);
 }
 
-.project-wiki-page.selected {
-  border-color: var(--sel-border);
-  background: var(--sel-bg);
-}
-
-.project-wiki-page strong {
-  color: var(--text-strong);
-}
-
-.project-wiki-page span {
+.memory-meta-compact .info-row span,
+.mcp-meta .info-row span {
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.project-wiki-preview {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-
-.project-wiki-preview button {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  background: var(--panel);
-}
-
-.project-wiki-preview pre {
-  overflow: auto;
-  max-height: 520px;
-  margin: 0;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #0f172a;
-}
-
-.project-wiki-preview code {
-  color: #d1d5db;
-  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  white-space: pre;
-}
-
-.memory-activity-card {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-}
-
-.completed-work-list {
-  display: grid;
-  gap: 8px;
-}
-
-.completed-work-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  min-height: 52px;
-  padding: 9px 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel-2);
-}
-
-.completed-work-row strong,
-.completed-work-row span {
-  display: block;
+.memory-meta-compact .info-row strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.completed-work-row strong {
+.memory-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.74fr) minmax(380px, 1.08fr) minmax(320px, 0.92fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.wiki-browser-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.34fr) minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.mcp-main-grid {
+  display: grid;
+  grid-template-columns: minmax(460px, 1.08fr) minmax(380px, 0.92fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.memory-workcell,
+.memory-empty-board,
+.mcp-source-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.memory-workcell {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.memory-files-cell {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.memory-outline-cell {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.memory-history-cell {
+  grid-template-rows: auto auto minmax(132px, 1fr) auto minmax(110px, 0.42fr);
+  align-content: stretch;
+}
+
+.memory-cell-heading,
+.memory-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.memory-cell-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.memory-cell-heading svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.memory-cell-heading h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-cell-heading span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.memory-cell-heading.compact {
+  margin-top: 2px;
+}
+
+.memory-stack-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 30px;
+}
+
+.memory-stack-compact span {
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--sel-bg) 76%, transparent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.memory-index-summary {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.memory-chip-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.memory-chip-row > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.memory-chip-row > div {
+  display: flex;
+  min-width: 0;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.memory-chip-row code,
+.memory-chip-row em {
+  overflow: hidden;
+  flex: 0 1 auto;
+  max-width: 142px;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 999px;
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--sel-bg) 70%, transparent);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-chip-row em {
+  color: var(--muted);
+  border-color: var(--border);
+  background: var(--panel-2);
+}
+
+.memory-scroll-list {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.memory-files-cell .memory-scroll-list,
+.memory-outline-cell > .memory-outline-grid,
+.memory-history-cell .memory-activity-section,
+.wiki-pages-cell .memory-scroll-list,
+.wiki-preview-cell .project-wiki-preview,
+.wiki-preview-cell .project-wiki-editor,
+.mcp-prompt-cell .memory-mcp-snippet,
+.mcp-config-cell {
+  height: 100%;
+}
+
+.memory-scroll-list.small {
+  max-height: 170px;
+}
+
+.memory-outline-grid {
+  display: grid;
+  grid-template-rows: auto minmax(150px, 0.62fr) minmax(112px, 0.38fr);
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.memory-file-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.memory-file-summary span {
+  overflow: hidden;
+  max-width: 150px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 999px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel-2) 72%, transparent);
+  font-size: 11px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-outline-section,
+.memory-import-stack {
+  display: grid;
+  gap: 8px;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.memory-outline-section .memory-scroll-list,
+.memory-import-stack .memory-scroll-list {
+  min-height: 0;
+  overflow: auto;
+}
+
+.memory-file-row,
+.memory-symbol-row,
+.memory-commit-row,
+.activity-row,
+.project-wiki-page,
+.completed-work-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.memory-file-row {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  min-height: 34px;
+  padding: 5px 8px;
+  color: var(--text);
+  text-align: left;
+}
+
+.memory-file-row:hover,
+.memory-file-row.selected,
+.project-wiki-page:hover,
+.project-wiki-page.selected {
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
+}
+
+.memory-file-row strong,
+.memory-file-row span,
+.memory-commit-row strong,
+.memory-commit-row span,
+.activity-row strong,
+.activity-row span,
+.activity-row code,
+.completed-work-row strong,
+.completed-work-row span,
+.project-wiki-page strong,
+.project-wiki-page span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-file-row strong,
+.memory-commit-row strong,
+.activity-row strong,
+.completed-work-row strong,
+.project-wiki-page strong {
   color: var(--text-strong);
 }
 
-.completed-work-row span {
-  margin-top: 3px;
+.memory-file-row strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.memory-file-row span,
+.memory-commit-row span,
+.activity-row span,
+.activity-row code,
+.completed-work-row span,
+.project-wiki-page span {
   color: var(--muted);
   font-size: 12px;
 }
 
+.memory-file-row span {
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.memory-symbol-row {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 2px 9px;
+  min-height: 40px;
+  padding: 7px 9px;
+}
+
+.memory-symbol-row span {
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.memory-symbol-row strong {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-symbol-row code {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-import-stack code {
+  display: block;
+  overflow: hidden;
+  min-height: 30px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel-2);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  padding: 5px 8px;
+  border-left: 4px solid var(--sel-border);
+}
+
+.memory-history-cell .activity-row {
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr);
+}
+
+.activity-row.activity-failure {
+  border-left-color: #f87171;
+}
+
+.memory-commit-row {
+  display: grid;
+  gap: 3px;
+  min-height: 44px;
+  padding: 7px 9px;
+}
+
+.memory-activity-filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 0;
+  padding: 3px;
+}
+
+.memory-activity-filters button {
+  min-height: 28px !important;
+  padding: 0 8px !important;
+  font-size: 11px;
+}
+
+.memory-history-head .icon-button {
+  min-width: 31px;
+  min-height: 31px;
+  padding: 0;
+}
+
+.memory-activity-section,
+.memory-commits-section {
+  display: grid;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.memory-activity-section .memory-scroll-list,
+.memory-commits-section .memory-scroll-list {
+  min-height: 0;
+  overflow: auto;
+}
+
+.memory-completed-strip {
+  display: grid;
+  gap: 7px;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.completed-work-list {
+  display: grid;
+  gap: 7px;
+}
+
+.completed-work-list.compact {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.completed-work-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 7px 8px;
+}
+
+.memory-completed-strip .completed-work-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.activity-row > div,
+.completed-work-row > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .completed-work-row em {
-  min-width: 74px;
-  padding: 4px 8px;
+  min-width: 52px;
+  padding: 3px 6px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  color: #475569;
+  color: var(--muted);
   background: var(--panel);
-  font-size: 11px;
+  font-size: 10px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 900;
   text-align: center;
   text-transform: uppercase;
 }
@@ -232,7 +738,7 @@
 
 .completed-work-row.source-provider em {
   color: var(--accent-strong);
-  border-color: #bfdbfe;
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--border));
   background: var(--sel-bg);
 }
 
@@ -248,32 +754,420 @@
   background: #f0fdfa;
 }
 
-.memory-activity-filters {
-  flex-wrap: wrap;
-  margin-bottom: 0;
+.project-wiki-page {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px;
+  color: var(--text);
+  text-align: left;
 }
 
-.memory-activity-list {
+.project-wiki-preview,
+.project-wiki-editor,
+.memory-mcp-snippet {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
-  max-height: 360px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.project-wiki-editor header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.project-wiki-editor header > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.project-wiki-editor h3,
+.project-wiki-editor span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-wiki-editor h3 {
+  color: var(--text-strong);
+  font-size: 16px;
+}
+
+.project-wiki-editor span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.project-wiki-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.project-wiki-editor-actions button,
+.project-wiki-preview button,
+.memory-mcp-snippet button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.project-wiki-editor-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.project-wiki-editor textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 12px;
+  resize: none;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: #d1d5db;
+  background: #0f172a;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.project-wiki-preview pre,
+.memory-mcp-snippet pre {
+  overflow: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+}
+
+.project-wiki-preview pre {
+  max-height: none;
+}
+
+.memory-mcp-snippet pre {
+  max-height: 100%;
+}
+
+.project-wiki-preview code,
+.memory-mcp-snippet code {
+  color: #d1d5db;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.mcp-source-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mcp-source-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.mcp-source-card svg {
+  color: var(--muted);
+}
+
+.mcp-source-card.ready svg {
+  color: #16a34a;
+}
+
+.mcp-source-card div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mcp-source-card strong,
+.mcp-source-card span,
+.mcp-source-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-source-card strong {
+  color: var(--text-strong);
+}
+
+.mcp-source-card span,
+.mcp-source-card small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mcp-surface-cell {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+
+.mcp-resource-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 0;
   overflow: auto;
 }
 
-.activity-row {
-  display: grid;
-  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-  min-height: 54px;
-  padding: 10px 12px;
+.mcp-resource-row,
+.mcp-tool-card,
+.mcp-prompt-card,
+.mcp-diagnostic-row {
   border: 1px solid var(--border);
-  border-left: 4px solid var(--sel-border);
   border-radius: 8px;
   background: var(--panel-2);
 }
 
-.activity-row.activity-failure {
-  border-left-color: #f87171;
-  background: #fef2f2;
+.mcp-resource-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 68px;
+  padding: 10px 12px;
+}
+
+.mcp-resource-row div,
+.mcp-tool-card {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mcp-resource-row strong,
+.mcp-tool-card strong {
+  color: var(--text-strong);
+}
+
+.mcp-resource-row span,
+.mcp-tool-card span,
+.mcp-prompt-card p {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mcp-resource-row code {
+  overflow: hidden;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--accent-strong);
+  background: var(--panel);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-tool-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mcp-tool-card {
+  min-height: 72px;
+  padding: 10px;
+}
+
+.mcp-tool-card span {
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.mcp-prompt-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.mcp-prompt-card .memory-section-heading {
+  align-items: center;
+}
+
+.mcp-prompt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mcp-prompt-chips code {
+  padding: 4px 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  color: var(--accent-strong);
+  background: var(--sel-bg);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mcp-config-cell {
+  grid-template-rows: auto auto auto auto;
+  overflow: auto;
+}
+
+.mcp-config-cell .memory-mcp-snippet {
+  min-height: auto;
+}
+
+.mcp-config-cell .memory-mcp-snippet pre {
+  max-height: 118px;
+}
+
+.memory-meta.mcp-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mcp-meta .info-row {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.mcp-meta .info-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-diagnostics {
+  display: grid;
+  gap: 8px;
+}
+
+.mcp-diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mcp-diagnostic-row {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  min-height: 54px;
+  padding: 8px 10px;
+}
+
+.mcp-diagnostic-row span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mcp-diagnostic-row strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-empty-board {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 140px;
+  padding: 18px;
+}
+
+.memory-empty-board svg {
+  color: var(--muted);
+}
+
+.memory-empty-board h3 {
+  margin-bottom: 3px;
+}
+
+.memory-empty-board p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.signal-status.memory-data-loading {
+  min-height: 180px;
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background:
+    radial-gradient(circle at 74% 24%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 34%),
+    color-mix(in srgb, var(--panel-2) 88%, transparent);
+}
+
+.signal-status.memory-data-loading .signal-status-copy strong {
+  font-size: 12px;
+  letter-spacing: 0.09em;
+}
+
+.signal-status.memory-data-loading .signal-status-copy span {
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 980px) {
+  .memory-layout-grid,
+  .wiki-browser-grid,
+  .mcp-main-grid,
+  .wiki-command-bar,
+  .wiki-command-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-source-grid,
+  .mcp-resource-row,
+  .completed-work-list.compact,
+  .memory-stat-rail,
+  .memory-stat-rail.wiki,
+  .memory-meta.memory-meta-compact,
+  .memory-meta.mcp-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .branchpilot-memory-panel {
+    overflow-y: auto;
+  }
+
+  .mcp-tool-groups,
+  .mcp-diagnostic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wiki-title-block > div {
+    display: grid;
+    gap: 3px;
+  }
+
+  .wiki-actions {
+    justify-content: flex-start;
+  }
 }

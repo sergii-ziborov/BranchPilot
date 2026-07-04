@@ -10,5 +10,7 @@ export type ViewMode =
   | 'review'
   | 'providers'
   | 'memory'
+  | 'wiki'
+  | 'mcp'
   | 'daily'
   | 'linkedin'

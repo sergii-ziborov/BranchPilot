@@ -84,7 +84,20 @@ export class ProjectMemoryService {
 
   async getProjectMemory(repoPath: string): Promise<ProjectMemorySnapshot | null> {
     const rootPath = await this.resolveRepositoryRoot(repoPath)
-    return this.storage.read(rootPath)
+    const repository = await this.getRepository(rootPath)
+    const snapshot = await this.storage.read(repository)
+
+    if (!snapshot) {
+      return null
+    }
+
+    const hydratedSnapshot = { ...snapshot, repository }
+
+    if (snapshot.repository.id !== repository.id || snapshot.repository.rootPath !== repository.rootPath) {
+      await this.storage.write(hydratedSnapshot)
+    }
+
+    return hydratedSnapshot
   }
 
   async scanProjectMemory(repoPath: string): Promise<ProjectMemoryScanResult> {
@@ -123,14 +136,23 @@ export class ProjectMemoryService {
   private async getRepository(rootPath: string): Promise<ProjectMemoryRepository> {
     const branch = await this.git(rootPath, ['branch', '--show-current'], { allowedExitCodes: [0, 1] })
     const remote = await this.getPrimaryRemote(rootPath)
-
-    return {
-      id: repositoryId(rootPath),
+    const currentBranch = branch.stdout.trim() || 'Detached HEAD'
+    const remoteUrl = remote?.fetchUrl ?? remote?.pushUrl
+    const repository = {
+      id: '',
       rootPath,
       name: path.basename(rootPath),
-      currentBranch: branch.stdout.trim() || 'Detached HEAD',
+      currentBranch,
       remoteName: remote?.name,
-      remoteUrl: remote?.fetchUrl ?? remote?.pushUrl
+      remoteUrl
+    }
+
+    return {
+      ...repository,
+      id: repositoryId(repository),
+      rootPath,
+      name: path.basename(rootPath),
+      currentBranch
     }
   }
 
@@ -211,24 +233,72 @@ export class ProjectMemoryService {
 export class ProjectMemoryStore {
   constructor(private readonly directoryPath: string) {}
 
-  async read(rootPath: string): Promise<ProjectMemorySnapshot | null> {
+  async read(repository: ProjectMemoryRepository): Promise<ProjectMemorySnapshot | null> {
+    for (const filePath of this.candidateFilePaths(repository)) {
+      const snapshot = await this.readFile(filePath)
+
+      if (snapshot) {
+        return snapshot
+      }
+    }
+
+    return this.findMatchingSnapshot(repository)
+  }
+
+  async write(snapshot: ProjectMemorySnapshot): Promise<void> {
+    await fs.mkdir(this.directoryPath, { recursive: true })
+    await fs.writeFile(this.filePath(snapshot.repository), JSON.stringify(snapshot, null, 2), 'utf8')
+  }
+
+  private filePath(repository: ProjectMemoryRepository): string {
+    return path.join(this.directoryPath, `${repositoryId(repository)}.json`)
+  }
+
+  private legacyFilePath(rootPath: string): string {
+    return path.join(this.directoryPath, `${legacyRepositoryId(rootPath)}.json`)
+  }
+
+  private candidateFilePaths(repository: ProjectMemoryRepository): string[] {
+    return [...new Set([
+      this.filePath(repository),
+      this.legacyFilePath(repository.rootPath)
+    ])]
+  }
+
+  private async findMatchingSnapshot(repository: ProjectMemoryRepository): Promise<ProjectMemorySnapshot | null> {
+    const entries = await fs.readdir(this.directoryPath, { withFileTypes: true }).catch(() => [])
+    const remoteKey = normalizeRemoteUrl(repository.remoteUrl)
+    const matches: ProjectMemorySnapshot[] = []
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.json')) continue
+
+      const snapshot = await this.readFile(path.join(this.directoryPath, entry.name))
+
+      if (!snapshot) continue
+
+      const samePath = normalizeNativePath(snapshot.repository.rootPath) === normalizeNativePath(repository.rootPath)
+      const sameRemote = remoteKey && normalizeRemoteUrl(snapshot.repository.remoteUrl) === remoteKey
+
+      if (samePath || sameRemote) {
+        matches.push(snapshot)
+      }
+    }
+
+    matches.sort((left, right) => right.scannedAt.localeCompare(left.scannedAt))
+
+    return matches[0] ?? null
+  }
+
+  private async readFile(filePath: string): Promise<ProjectMemorySnapshot | null> {
     try {
-      const raw = await fs.readFile(this.filePath(rootPath), 'utf8')
+      const raw = await fs.readFile(filePath, 'utf8')
       const parsed = JSON.parse(raw) as ProjectMemorySnapshot
 
       return parsed.version === MEMORY_VERSION && parsed.repository?.rootPath ? parsed : null
     } catch {
       return null
     }
-  }
-
-  async write(snapshot: ProjectMemorySnapshot): Promise<void> {
-    await fs.mkdir(this.directoryPath, { recursive: true })
-    await fs.writeFile(this.filePath(snapshot.repository.rootPath), JSON.stringify(snapshot, null, 2), 'utf8')
-  }
-
-  private filePath(rootPath: string): string {
-    return path.join(this.directoryPath, `${repositoryId(rootPath)}.json`)
   }
 }
 
@@ -578,8 +648,47 @@ async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
-function repositoryId(rootPath: string): string {
+function repositoryId(repository: ProjectMemoryRepository): string
+function repositoryId(rootPath: string): string
+function repositoryId(input: ProjectMemoryRepository | string): string {
+  if (typeof input === 'string') {
+    return legacyRepositoryId(input)
+  }
+
+  return createHash('sha256').update(repositoryIdentityKey(input)).digest('hex').slice(0, 16)
+}
+
+function legacyRepositoryId(rootPath: string): string {
   return createHash('sha256').update(rootPath).digest('hex').slice(0, 16)
+}
+
+function repositoryIdentityKey(repository: ProjectMemoryRepository): string {
+  const remoteUrl = normalizeRemoteUrl(repository.remoteUrl)
+
+  return remoteUrl ? `remote:${remoteUrl}` : `path:${normalizeNativePath(repository.rootPath)}`
+}
+
+function normalizeRemoteUrl(remoteUrl?: string): string | null {
+  const trimmed = remoteUrl?.trim()
+
+  if (!trimmed) return null
+
+  const sshMatch = trimmed.match(/^git@([^:]+):(.+)$/)
+
+  if (sshMatch) {
+    return normalizeRemoteParts(sshMatch[1], sshMatch[2])
+  }
+
+  try {
+    const parsed = new URL(trimmed)
+    return normalizeRemoteParts(parsed.host, parsed.pathname)
+  } catch {
+    return trimmed.replace(/\.git$/i, '').replace(/\/+$/, '').toLowerCase()
+  }
+}
+
+function normalizeRemoteParts(host: string, pathname: string): string {
+  return `${host.toLowerCase()}/${pathname.replace(/^\/+/, '').replace(/\.git$/i, '').replace(/\/+$/, '')}`.toLowerCase()
 }
 
 function compareByPathAndLine(

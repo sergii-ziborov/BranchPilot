@@ -4,6 +4,7 @@ const path = require('node:path')
 const rootPath = path.resolve(__dirname, '..')
 const rootNeedle = rootPath.toLowerCase()
 const devServerPort = '5174'
+const appDisplayName = 'BranchPilot'
 
 function run(command, args, options = {}) {
   return execFileSync(command, args, {
@@ -69,6 +70,31 @@ function readDarwinProcessCwd(pid) {
   const output = tryRun('/usr/sbin/lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], { silent: true })
   const cwdLine = output.split(/\r?\n/).find((line) => line.startsWith('n'))
   return cwdLine ? cwdLine.slice(1) : ''
+}
+
+function setDarwinPlistString(plistPath, key, value) {
+  const currentValue = tryRun('/usr/libexec/PlistBuddy', ['-c', `Print :${key}`, plistPath], { silent: true }).trim()
+  if (currentValue === value) return false
+
+  const setOutput = tryRun('/usr/libexec/PlistBuddy', ['-c', `Set :${key} ${value}`, plistPath], { silent: true })
+  if (setOutput !== '') return true
+
+  tryRun('/usr/libexec/PlistBuddy', ['-c', `Add :${key} string ${value}`, plistPath], { silent: true })
+  return true
+}
+
+function brandDarwinElectronBundle() {
+  const plistPath = path.join(rootPath, 'node_modules/electron/dist/Electron.app/Contents/Info.plist')
+  if (!require('node:fs').existsSync(plistPath)) return
+
+  const changed = [
+    setDarwinPlistString(plistPath, 'CFBundleName', appDisplayName),
+    setDarwinPlistString(plistPath, 'CFBundleDisplayName', appDisplayName)
+  ].some(Boolean)
+
+  if (changed) {
+    console.log(`[prepare-dev] Branded macOS Electron dev bundle as ${appDisplayName}.`)
+  }
 }
 
 function protectedProcessIds(processes) {
@@ -194,4 +220,5 @@ if (process.platform === 'win32') {
   stopWindowsDevProcesses()
 } else if (process.platform === 'darwin') {
   stopDarwinDevProcesses()
+  brandDarwinElectronBundle()
 }

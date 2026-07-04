@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, ScrollText } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, ChevronDown, Copy, ScrollText } from 'lucide-react'
 import { reviewPromptPreview, type AssistantId, type AssistantStatus, type InstalledAssistantId } from '../shared/branchPilot'
 import { SignalStatus } from './SignalStatus'
 import {
@@ -20,6 +20,13 @@ const ASSISTANT_MODEL_GROUPS: Array<{
   { id: 'codex', label: 'Codex', options: CODEX_MODEL_OPTIONS }
 ]
 
+export interface AssistantPromptPreview {
+  id: string
+  title: string
+  subtitle: string
+  body: string
+}
+
 export function AssistantModelSelect({
   id,
   label,
@@ -27,7 +34,10 @@ export function AssistantModelSelect({
   setSelectedAssistant,
   assistants,
   assistantsChecking,
-  checkAssistants
+  checkAssistants,
+  prompts,
+  onCopyPrompt,
+  promptsAriaLabel = 'Generation prompts'
 }: {
   id: string
   label: string
@@ -36,9 +46,14 @@ export function AssistantModelSelect({
   assistants: AssistantStatus[]
   assistantsChecking: boolean
   checkAssistants: () => void | Promise<void>
+  prompts?: AssistantPromptPreview[]
+  onCopyPrompt?: (body: string, label: string) => void | Promise<void>
+  promptsAriaLabel?: string
 }) {
   const [assistantMenuOpen, setAssistantMenuOpen] = useState(false)
   const [promptsOpen, setPromptsOpen] = useState(false)
+  const [promptDrafts, setPromptDrafts] = useState<Record<string, string>>({})
+  const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null)
   const assistantMenuRef = useRef<HTMLDivElement | null>(null)
   const assistantStatuses = new Map<InstalledAssistantId, AssistantStatus>(assistants.map((assistant) => [assistant.id, assistant]))
   const readyAssistant = assistants.find((assistant) => assistant.state === 'ready')
@@ -49,6 +64,17 @@ export function AssistantModelSelect({
   const assistantSelectState = assistantVisualState(selectedAssistantStatus)
   const selectedAssistantCopy = selectedAssistantDescription(selectedAssistant, readyAssistant, assistants)
   const selectedAssistantStatusLabel = selectedAssistantStatus ? assistantStatusLabel(selectedAssistantStatus) : 'not loaded'
+  const defaultPromptPreviews = useMemo(() => reviewModes.map((mode) => ({
+    id: mode,
+    title: reviewModeLabel(mode),
+    subtitle: mode,
+    body: reviewPromptPreview(mode)
+  })), [])
+  const promptPreviews = prompts ?? defaultPromptPreviews
+
+  useEffect(() => {
+    setPromptDrafts(Object.fromEntries(promptPreviews.map((prompt) => [prompt.id, prompt.body])))
+  }, [promptPreviews])
 
   useEffect(() => {
     if (!assistantMenuOpen && !promptsOpen) {
@@ -96,6 +122,19 @@ export function AssistantModelSelect({
   const togglePrompts = () => {
     setPromptsOpen((open) => !open)
     setAssistantMenuOpen(false)
+  }
+
+  const copyPrompt = async (prompt: AssistantPromptPreview) => {
+    const body = promptDrafts[prompt.id] ?? prompt.body
+
+    if (onCopyPrompt) {
+      await onCopyPrompt(body, `${prompt.title} prompt`)
+    } else {
+      await navigator.clipboard.writeText(body)
+    }
+
+    setCopiedPromptId(prompt.id)
+    window.setTimeout(() => setCopiedPromptId((current) => current === prompt.id ? null : current), 1400)
   }
 
   return (
@@ -190,15 +229,29 @@ export function AssistantModelSelect({
             </div>
           )}
           {promptsOpen && (
-            <div className="assistant-model-popover assistant-prompts-popover" role="dialog" aria-label="Review prompts">
+            <div className="assistant-model-popover assistant-prompts-popover" role="dialog" aria-label={promptsAriaLabel}>
               <div className="assistant-prompts-list">
-                {reviewModes.map((mode) => (
-                  <article className="assistant-prompt-card" key={mode}>
+                {promptPreviews.map((prompt) => (
+                  <article className="assistant-prompt-card" key={prompt.id}>
                     <header>
-                      <strong>{reviewModeLabel(mode)}</strong>
-                      <span>{mode}</span>
+                      <div>
+                        <strong>{prompt.title}</strong>
+                        <span>{prompt.subtitle}</span>
+                      </div>
+                      <button type="button" onClick={() => void copyPrompt(prompt)}>
+                        <Copy size={14} />
+                        {copiedPromptId === prompt.id ? 'Copied' : 'Copy'}
+                      </button>
                     </header>
-                    <pre>{reviewPromptPreview(mode)}</pre>
+                    <textarea
+                      aria-label={`${prompt.title} prompt`}
+                      spellCheck={false}
+                      value={promptDrafts[prompt.id] ?? prompt.body}
+                      onChange={(event) => {
+                        const nextValue = event.currentTarget.value
+                        setPromptDrafts((drafts) => ({ ...drafts, [prompt.id]: nextValue }))
+                      }}
+                    />
                   </article>
                 ))}
               </div>

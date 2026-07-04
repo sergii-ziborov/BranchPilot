@@ -23,6 +23,7 @@ import type {
   DiffContextRequest,
   DiffRequest,
   ImagePreviewRequest,
+  ProjectWikiPageUpdateRequest,
   ProjectMemoryScanResult,
   RepositoryBrowserRequest,
   RepositoryBrowserSnapshot,
@@ -217,6 +218,15 @@ export function registerRepositoryHandlers(
     } : undefined
   }, (repoPath: string) =>
     projectWikiService.generateProjectWiki(repoPath)
+  )
+  handle('repository:saveProjectWikiPage', (request: ProjectWikiPageUpdateRequest) =>
+    projectWikiService.saveProjectWikiPage(request)
+  )
+  handle('repository:pullProjectWikiFromGitHub', (repoPath: string) =>
+    projectWikiService.pullFromGitHubWiki(repoPath)
+  )
+  handle('repository:pushProjectWikiToGitHub', (repoPath: string) =>
+    projectWikiService.pushToGitHubWiki(repoPath)
   )
   handle('repository:projectMemoryMcpConfig', (repoPath: string) =>
     createProjectMemoryMcpConfig({

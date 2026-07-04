@@ -27,6 +27,7 @@ import { isSafeExternalUrl } from '../shared/externalUrl'
 import { usePrompts } from './usePrompts'
 import { useReportRepoPaths } from './useReportRepoPaths'
 import { useRepositoryManagement } from './useRepositoryManagement'
+import { preferredMemoryFilePath } from '../lib/projectMemorySignals'
 
 const api = window.branchPilot
 const ASSISTANT_PREFERENCE_KEY = 'bp-assistant'
@@ -113,7 +114,7 @@ export function useAppController() {
 
 
   useEffect(() => {
-    if (!snapshot || viewMode !== 'dashboard') return
+    if (!snapshot || (viewMode !== 'dashboard' && viewMode !== 'memory' && viewMode !== 'wiki' && viewMode !== 'mcp')) return
     void loadProjectMemory()
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
@@ -145,7 +146,8 @@ export function useAppController() {
     selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading,
     selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports,
     filteredActivityEntries, completedWorkItems,
-    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage, clearActivityLog
+    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage,
+    saveProjectWikiPage, pullProjectWikiFromGitHub, pushProjectWikiToGitHub, clearActivityLog
   } = useProjectMemory({ api, currentRepoPath, setNotice, setError, copyToClipboard, requestConfirmation })
   const {
     assistants, assistantsChecking, assistantPolicy, setAssistantPolicy, assistantPolicyLoading,
@@ -223,7 +225,7 @@ export function useAppController() {
     }
 
     if (!selectedMemoryFilePath || !projectMemory.files.some((file) => file.path === selectedMemoryFilePath)) {
-      setSelectedMemoryFilePath(projectMemory.files[0]?.path ?? null)
+      setSelectedMemoryFilePath(preferredMemoryFilePath(projectMemory))
     }
   }, [projectMemory, selectedMemoryFilePath])
 
@@ -438,7 +440,7 @@ export function useAppController() {
     setError(null)
     void silentRefreshDashboard()
 
-    if (viewMode === 'dashboard') {
+    if (viewMode === 'dashboard' || viewMode === 'memory' || viewMode === 'wiki' || viewMode === 'mcp') {
       void loadProjectMemory(nextSnapshot.summary.rootPath)
     }
   }
@@ -599,6 +601,9 @@ export function useAppController() {
       case 'view-branches': setViewMode('branches'); break
       case 'view-merge': setViewMode('merge'); break
       case 'view-review': setViewMode('review'); break
+      case 'view-providers': setViewMode('providers'); break
+      case 'view-daily': setViewMode('daily'); break
+      case 'view-linkedin': setViewMode('linkedin'); break
       case 'view-config': setViewMode('config'); break
     }
   }
@@ -669,6 +674,9 @@ export function useAppController() {
     scanProjectMemory,
     copyProjectMemoryText,
     copyProjectWikiPage,
+    saveProjectWikiPage,
+    pullProjectWikiFromGitHub,
+    pushProjectWikiToGitHub,
     clearActivityLog,
     assistants,
     assistantsChecking,
@@ -997,4 +1005,3 @@ function readSelectedAssistantPreference(): AssistantId {
     return 'auto'
   }
 }
-

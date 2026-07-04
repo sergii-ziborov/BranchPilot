@@ -1,8 +1,9 @@
-import { CalendarDays } from 'lucide-react'
+import { BookOpen, Cable, CalendarDays, Database } from 'lucide-react'
 import { LinkedinIcon } from '../../BrandIcons'
 import { BackToChanges } from '../../BackToChanges'
 import { DailyView, ReportScopeMenu } from '../../views/DailyView'
 import { LinkedInView } from '../../views/LinkedInView'
+import { McpSetupView, MemoryView, ProjectWikiView } from '../../views/MemoryView'
 import { useController } from '../../../hooks/AppControllerContext'
 
 export function ReportsRoute() {
@@ -51,7 +52,38 @@ export function ReportsRoute() {
     setLinkedInCustomPrompt,
     resetLinkedInPrompt,
     copyLinkedInMarkdown,
-    copyLinkedInTags
+    copyLinkedInTags,
+    projectMemory,
+    memoryLoading,
+    loadProjectMemory,
+    scanProjectMemory,
+    activityLog,
+    projectMemoryMcpConfig,
+    copyProjectMemoryText,
+    projectWiki,
+    wikiLoading,
+    generateProjectWiki,
+    selectedProjectWikiPage,
+    setSelectedProjectWikiPageId,
+    copyProjectWikiPage,
+    saveProjectWikiPage,
+    pullProjectWikiFromGitHub,
+    pushProjectWikiToGitHub,
+    completedWorkItems,
+    clearActivityLog,
+    activityCategory,
+    setActivityCategory,
+    filteredActivityEntries,
+    selectedMemoryFilePath,
+    setSelectedMemoryFilePath,
+    selectedMemoryFile,
+    selectedMemorySymbols,
+    selectedMemoryImports,
+    selectedAssistant,
+    setSelectedAssistant,
+    assistants,
+    assistantsChecking,
+    checkAssistants
   } = useController()
 
   return (
@@ -78,6 +110,36 @@ export function ReportsRoute() {
           >
             <LinkedinIcon size={15} />
             LinkedIn
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'memory'}
+            className={viewMode === 'memory' ? 'active' : ''}
+            onClick={() => setViewMode('memory')}
+          >
+            <Database size={15} />
+            Memory
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'wiki'}
+            className={viewMode === 'wiki' ? 'active' : ''}
+            onClick={() => setViewMode('wiki')}
+          >
+            <BookOpen size={15} />
+            Project Wiki
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'mcp'}
+            className={viewMode === 'mcp' ? 'active' : ''}
+            onClick={() => setViewMode('mcp')}
+          >
+            <Cable size={15} />
+            MCP
           </button>
         </div>
         {viewMode === 'daily' && (
@@ -141,6 +203,55 @@ export function ReportsRoute() {
           resetLinkedInPrompt={resetLinkedInPrompt}
           copyLinkedInMarkdown={copyLinkedInMarkdown}
           copyLinkedInTags={copyLinkedInTags}
+        />
+      )}
+      {viewMode === 'memory' && (
+        <MemoryView
+          projectMemory={projectMemory}
+          memoryLoading={memoryLoading}
+          loadProjectMemory={loadProjectMemory}
+          scanProjectMemory={scanProjectMemory}
+          activityLog={activityLog}
+          completedWorkItems={completedWorkItems}
+          clearActivityLog={clearActivityLog}
+          activityCategories={['all', 'git', 'assistant', 'provider', 'memory']}
+          activityCategory={activityCategory}
+          setActivityCategory={setActivityCategory}
+          filteredActivityEntries={filteredActivityEntries}
+          selectedMemoryFilePath={selectedMemoryFilePath}
+          setSelectedMemoryFilePath={setSelectedMemoryFilePath}
+          selectedMemoryFile={selectedMemoryFile}
+          selectedMemorySymbols={selectedMemorySymbols}
+          selectedMemoryImports={selectedMemoryImports}
+        />
+      )}
+      {viewMode === 'wiki' && (
+        <ProjectWikiView
+          projectWiki={projectWiki}
+          projectMemory={projectMemory}
+          memoryLoading={memoryLoading}
+          wikiLoading={wikiLoading}
+          generateProjectWiki={generateProjectWiki}
+          selectedProjectWikiPage={selectedProjectWikiPage}
+          setSelectedProjectWikiPageId={setSelectedProjectWikiPageId}
+          copyProjectWikiPage={copyProjectWikiPage}
+          saveProjectWikiPage={saveProjectWikiPage}
+          pullProjectWikiFromGitHub={pullProjectWikiFromGitHub}
+          pushProjectWikiToGitHub={pushProjectWikiToGitHub}
+          selectedAssistant={selectedAssistant}
+          setSelectedAssistant={setSelectedAssistant}
+          assistants={assistants}
+          assistantsChecking={assistantsChecking}
+          checkAssistants={checkAssistants}
+        />
+      )}
+      {viewMode === 'mcp' && (
+        <McpSetupView
+          projectMemoryMcpConfig={projectMemoryMcpConfig}
+          projectMemory={projectMemory}
+          projectWiki={projectWiki}
+          activityLog={activityLog}
+          copyProjectMemoryText={copyProjectMemoryText}
         />
       )}
     </div>
