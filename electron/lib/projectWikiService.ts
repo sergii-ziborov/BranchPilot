@@ -57,7 +57,11 @@ export class ProjectWikiService {
 
     const hydratedWiki = { ...wiki, repository: memory.repository }
 
-    if (wiki.repository.id !== memory.repository.id || wiki.repository.rootPath !== memory.repository.rootPath) {
+    if (
+      wiki.repository.id !== memory.repository.id ||
+      wiki.repository.rootPath !== memory.repository.rootPath ||
+      !wiki.markdownDir
+    ) {
       return this.storage.write(hydratedWiki)
     }
 

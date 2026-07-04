@@ -114,7 +114,8 @@ html[data-theme='deus-ex'] .prompt-severity {
 
 html[data-theme='deus-ex'] .assistant-prompts-popover,
 html[data-theme='deus-ex'] .assistant-prompt-card,
-html[data-theme='deus-ex'] .assistant-prompt-card pre {
+html[data-theme='deus-ex'] .assistant-prompt-card textarea,
+html[data-theme='deus-ex'] .assistant-prompt-card button {
   color: #f0e7bb !important;
   background: #040604 !important;
   background-image: none !important;
@@ -122,7 +123,7 @@ html[data-theme='deus-ex'] .assistant-prompt-card pre {
   opacity: 1 !important;
 }
 
-html[data-theme='deus-ex'] .assistant-prompt-card pre {
+html[data-theme='deus-ex'] .assistant-prompt-card textarea {
   white-space: pre-wrap !important;
   overflow-wrap: anywhere !important;
   word-break: normal !important;
