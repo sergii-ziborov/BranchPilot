@@ -555,6 +555,10 @@ function lineBreakCount(text: string): number {
   return text.match(/\n/g)?.length ?? 0
 }
 
+function textareaVisualLineCount(text: string): number {
+  return Math.max(1, lineBreakCount(text) + 1)
+}
+
 function chunkedTextPreviewFromResult(
   result: RepositoryFileChunkResult,
   options: { startLine: number; markers: ChunkedTextMarker[]; pageIndex: number }
@@ -3017,33 +3021,44 @@ export function ChangesInternalEditor({
     textUnavailableMessage,
     viewMode
   ])
-  const fileHealthByPath = useMemo(() => {
+  const liveHealthByPath = useMemo(() => {
+    if (!healthEnabled) return new Map<string, EditorHealthReport>()
+
     const reports = new Map<string, EditorHealthReport>()
     for (const file of files) {
       const change = changeByPath.get(file.path)
-      reports.set(file.path, file.path === selectedPath
-        ? activeHealthReport
-        : buildEditorHealthReport(file.path, change, { scope: 'main', settings: healthSettings }))
+      reports.set(file.path, buildEditorHealthReport(file.path, change, { scope: 'main', settings: healthSettings }))
     }
     return reports
-  }, [activeHealthReport, changeByPath, files, healthSettings, selectedPath])
-  const visibleHealthReportEntries = useMemo(() => (
-    visibleFiles
-      .map((file) => ({ path: file.path, report: fileHealthByPath.get(file.path) }))
-      .filter((entry): entry is { path: string; report: EditorHealthReport } => Boolean(entry.report?.issues.length))
+  }, [changeByPath, files, healthEnabled, healthSettings])
+  const fileHealthByPath = useMemo(() => {
+    if (!healthEnabled) return new Map<string, EditorHealthReport>()
+
+    const reports = new Map(liveHealthByPath)
+    if (selectedPath) reports.set(selectedPath, activeHealthReport)
+    return reports
+  }, [activeHealthReport, healthEnabled, liveHealthByPath, selectedPath])
+  const allHealthReportEntries = useMemo(() => (
+    Array.from(fileHealthByPath.entries())
+      .map(([path, report]) => ({ path, report }))
+      .filter((entry) => entry.report.issues.length > 0)
       .sort((left, right) => healthSeverityRank(right.report.severity) - healthSeverityRank(left.report.severity))
-  ), [fileHealthByPath, visibleFiles])
-  const visibleHealthReports = useMemo(() => visibleHealthReportEntries.slice(0, 8), [visibleHealthReportEntries])
-  const healthIssueCount = activeHealthReport.issues.length
-  const visibleHealthSignalCount = visibleHealthReportEntries.filter(({ path }) => path !== selectedPath).length
-  const healthSignalCount = healthIssueCount + visibleHealthSignalCount
-  const healthPanelSeverity = visibleHealthReportEntries.reduce(
+  ), [fileHealthByPath])
+  const liveHealthReportEntries = useMemo(
+    () => allHealthReportEntries.filter(({ path }) => path !== selectedPath),
+    [allHealthReportEntries, selectedPath]
+  )
+  const liveHealthReports = useMemo(() => liveHealthReportEntries.slice(0, 10), [liveHealthReportEntries])
+  const healthIssueCount = healthEnabled ? activeHealthReport.issues.length : 0
+  const liveHealthSignalCount = healthEnabled ? liveHealthReportEntries.length : 0
+  const healthSignalCount = healthIssueCount + liveHealthSignalCount
+  const healthPanelSeverity = allHealthReportEntries.reduce(
     (severity, { report }) => healthSeverityRank(report.severity) > healthSeverityRank(severity) ? report.severity : severity,
-    activeHealthReport.severity
+    healthEnabled ? activeHealthReport.severity : ('healthy' as EditorHealthSeverity)
   )
   const healthSummaryTitle = healthEnabled
     ? healthSignalCount > 0
-      ? `${healthIssueCount} opened-file issue${healthIssueCount === 1 ? '' : 's'}, ${visibleHealthSignalCount} visible live file signal${visibleHealthSignalCount === 1 ? '' : 's'}`
+      ? `${healthIssueCount} opened-file issue${healthIssueCount === 1 ? '' : 's'}, ${liveHealthSignalCount} live repository signal${liveHealthSignalCount === 1 ? '' : 's'}`
       : selectedPath
         ? 'Selected file looks healthy by lightweight checks'
         : 'Select a file to inspect health'
@@ -3275,11 +3290,23 @@ export function ChangesInternalEditor({
     const computed = window.getComputedStyle(textarea)
     const parsedLineHeight = Number.parseFloat(computed.lineHeight)
     const parsedFontSize = Number.parseFloat(computed.fontSize)
-    const nextLineHeight = Number.isFinite(parsedLineHeight) && parsedLineHeight > 4
+    const cssLineHeight = Number.isFinite(parsedLineHeight) && parsedLineHeight > 4
       ? parsedLineHeight
       : Number.isFinite(parsedFontSize) && parsedFontSize > 4
         ? parsedFontSize * (EDITOR_LINE_HEIGHT / 12)
         : EDITOR_LINE_HEIGHT
+    const paddingTop = Number.parseFloat(computed.paddingTop)
+    const paddingBottom = Number.parseFloat(computed.paddingBottom)
+    const verticalPadding = (Number.isFinite(paddingTop) ? paddingTop : 0) + (Number.isFinite(paddingBottom) ? paddingBottom : 0)
+    const visualLineCount = textareaVisualLineCount(textarea.value)
+    const measuredLineHeight = visualLineCount > 8
+      ? (textarea.scrollHeight - verticalPadding) / visualLineCount
+      : 0
+    const nextLineHeight = Number.isFinite(measuredLineHeight) &&
+      measuredLineHeight > cssLineHeight * 0.75 &&
+      measuredLineHeight < cssLineHeight * 1.35
+      ? measuredLineHeight
+      : cssLineHeight
 
     if (Math.abs(nextLineHeight - editorLineHeightRef.current) > EDITOR_LINE_HEIGHT_EPSILON) {
       editorLineHeightRef.current = nextLineHeight
@@ -6161,10 +6188,10 @@ export function ChangesInternalEditor({
                         ))
                       )}
                     </section>
-                    {visibleHealthReports.length > 0 && (
+                    {liveHealthReports.length > 0 && (
                       <section>
-                        <span>Visible file signals</span>
-                        {visibleHealthReports.map(({ path, report }) => (
+                        <span>Live repository signals</span>
+                        {liveHealthReports.map(({ path, report }) => (
                           <button
                             type="button"
                             key={path}

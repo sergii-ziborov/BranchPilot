@@ -264,6 +264,29 @@
   --scrollbar-thumb-hover: rgba(54, 248, 255, 0.62);
 }
 
+:root[data-theme='cyberdeck'] {
+  --text: #c7f4f8;
+  --text-strong: #effdff;
+  --muted: #81a8ae;
+  --surface: #03070a;
+  --border: rgba(95, 248, 255, 0.32);
+  --sidebar: #041014;
+  --sidebar-text: #e4fbff;
+  --sidebar-muted: #7ea4aa;
+  --panel: rgba(8, 22, 27, 0.92);
+  --panel-2: rgba(12, 34, 42, 0.84);
+  --accent: #5ff8ff;
+  --accent-strong: #ffb72e;
+  --accent-soft: #4ea2ff;
+  --accent-contrast: #021014;
+  --shell-bar: rgba(4, 11, 14, 0.96);
+  --app-grad-top: #071015;
+  --sel-bg: rgba(95, 248, 255, 0.16);
+  --sel-border: #ffb72e;
+  --scrollbar-thumb: rgba(95, 248, 255, 0.34);
+  --scrollbar-thumb-hover: rgba(255, 183, 46, 0.58);
+}
+
 :root[data-theme='matrix'] {
   --text: #88ffad;
   --text-strong: #e4ffec;

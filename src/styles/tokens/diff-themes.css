@@ -215,6 +215,39 @@
   --syntax-punctuation: #84f6ff;
 }
 
+:root[data-theme='cyberdeck'] {
+  --diff-bg: #03090c;
+  --diff-text: #d7fbff;
+  --diff-muted: #7fa4aa;
+  --diff-border: rgba(95, 248, 255, 0.30);
+  --diff-file-bg: rgba(4, 14, 17, 0.96);
+  --diff-file-text: #effdff;
+  --diff-hunk-bg: rgba(95, 248, 255, 0.10);
+  --diff-hunk-text: #ffcf69;
+  --diff-button-bg: rgba(6, 18, 22, 0.84);
+  --diff-add-text: #c5ffe7;
+  --diff-add-bg: rgba(77, 255, 181, 0.15);
+  --diff-remove-text: #ffc0c8;
+  --diff-remove-bg: rgba(255, 48, 72, 0.18);
+  --diff-empty-bg: rgba(4, 14, 17, 0.72);
+  --diff-word-add-bg: rgba(77, 255, 181, 0.24);
+  --diff-word-add-border: rgba(77, 255, 181, 0.30);
+  --diff-word-del-bg: rgba(255, 48, 72, 0.24);
+  --diff-word-del-border: rgba(255, 48, 72, 0.30);
+  --diff-selected-accent: #ffb72e;
+  --diff-selection-bg: #061116;
+  --diff-selection-text: #effdff;
+  --syntax-keyword: #ffb72e;
+  --syntax-string: #4dffb5;
+  --syntax-comment: #638188;
+  --syntax-number: #4ea2ff;
+  --syntax-type: #5ff8ff;
+  --syntax-function: #a9fbff;
+  --syntax-variable: #effdff;
+  --syntax-operator: #ff6a2a;
+  --syntax-punctuation: #9bd6dc;
+}
+
 :root[data-theme='matrix'] {
   --sel-bg: rgba(0, 255, 106, 0.16);
   --sel-border: #00ff6a;

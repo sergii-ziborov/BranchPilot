@@ -1,0 +1,34 @@
+html[data-theme='cyberdeck'] {
+  --deck-black: #03070a;
+  --deck-ink: #061116;
+  --deck-panel: rgba(8, 22, 27, 0.94);
+  --deck-panel-2: rgba(12, 34, 42, 0.88);
+  --deck-glass: rgba(11, 45, 55, 0.68);
+  --deck-cyan: #5ff8ff;
+  --deck-cyan-soft: #a9fbff;
+  --deck-blue: #4ea2ff;
+  --deck-amber: #ffb72e;
+  --deck-orange: #ff6a2a;
+  --deck-red: #ff3048;
+  --deck-green: #4dffb5;
+  --deck-white: #effdff;
+  --deck-muted: #81a8ae;
+  --theme-radius: 3px;
+  --theme-radius-soft: 5px;
+  --theme-hairline: rgba(95, 248, 255, 0.28);
+  --theme-input-bg: rgba(2, 9, 12, 0.86);
+  --theme-hover-bg: rgba(95, 248, 255, 0.11);
+  --theme-panel-glow:
+    0 0 0 1px rgba(95, 248, 255, 0.10),
+    0 0 24px rgba(78, 162, 255, 0.10);
+  --theme-grid: rgba(95, 248, 255, 0.055);
+  --syntax-keyword: var(--deck-amber);
+  --syntax-string: var(--deck-green);
+  --syntax-comment: #638188;
+  --syntax-number: var(--deck-blue);
+  --syntax-type: var(--deck-cyan);
+  --syntax-function: var(--deck-cyan-soft);
+  --syntax-variable: var(--deck-white);
+  --syntax-operator: var(--deck-orange);
+  --syntax-punctuation: #9bd6dc;
+}

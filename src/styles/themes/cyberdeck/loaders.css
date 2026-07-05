@@ -1,0 +1,74 @@
+html[data-theme='cyberdeck'] :is(
+  .signal-status,
+  .signal-status.diff-operation-curtain,
+  .signal-status.history-detail-loading,
+  .signal-status.history-file-diff-loading,
+  .signal-status.history-preview-list-curtain,
+  .signal-status.linkedin-generation-curtain,
+  .signal-status.daily-review-curtain,
+  .signal-status.review-running-curtain,
+  .signal-status.assistant-model-list-curtain,
+  .signal-status.changes-editor-file-curtain,
+  .signal-status.changes-editor-body-curtain,
+  .signal-status.changes-editor-hex-loading
+) {
+  --signal-main: #5ff8ff;
+  --signal-alt: #ffb72e;
+  --signal-hot: #effdff;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(95, 248, 255, 0.15), transparent 32%),
+    linear-gradient(180deg, rgba(5, 15, 19, 0.98), rgba(1, 5, 7, 0.99));
+  backdrop-filter: none;
+}
+
+html[data-theme='cyberdeck'] .signal-status::before {
+  opacity: 0.92;
+  background:
+    linear-gradient(90deg, transparent 0 18%, rgba(255, 183, 46, 0.22) 18.3% 19.2%, transparent 19.5% 100%),
+    repeating-linear-gradient(90deg, transparent 0 34px, rgba(95, 248, 255, 0.18) 34px 35px, transparent 35px 70px),
+    repeating-linear-gradient(180deg, rgba(95, 248, 255, 0.10) 0 1px, transparent 1px 14px);
+  background-size: 100% 100%, 70px 100%, 100% 18px;
+  animation: cyberdeck-screen-scan 1.1s steps(8, end) infinite;
+  mix-blend-mode: screen;
+}
+
+html[data-theme='cyberdeck'] .signal-status::after {
+  inset: 18% 16%;
+  border: 1px solid rgba(95, 248, 255, 0.34);
+  background:
+    linear-gradient(90deg, rgba(95, 248, 255, 0.10), transparent 22%, transparent 78%, rgba(255, 183, 46, 0.12)),
+    linear-gradient(180deg, transparent, rgba(95, 248, 255, 0.08));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+    0 0 30px rgba(95, 248, 255, 0.18);
+  animation: cyberdeck-panel-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes cyberdeck-screen-scan {
+  0% {
+    background-position: 0 0, 0 0, 0 -18px;
+    filter: contrast(1.12) brightness(0.95);
+  }
+
+  50% {
+    background-position: 18px 0, 35px 0, 0 5px;
+    filter: contrast(1.32) brightness(1.12);
+  }
+
+  100% {
+    background-position: 0 0, 70px 0, 0 18px;
+    filter: contrast(1.14) brightness(1);
+  }
+}
+
+@keyframes cyberdeck-panel-breathe {
+  0%, 100% {
+    opacity: 0.62;
+    transform: scaleX(0.98);
+  }
+
+  50% {
+    opacity: 0.92;
+    transform: scaleX(1);
+  }
+}

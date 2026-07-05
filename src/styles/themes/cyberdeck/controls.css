@@ -1,0 +1,257 @@
+html[data-theme='cyberdeck'] :is(
+  button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button),
+  input,
+  textarea,
+  select
+) {
+  border-radius: var(--theme-radius);
+}
+
+html[data-theme='cyberdeck'] :is(
+  input,
+  textarea,
+  select,
+  .change-filter-input,
+  .github-repo-search input
+) {
+  border-color: rgba(95, 248, 255, 0.30);
+  color: var(--text-strong);
+  background:
+    linear-gradient(90deg, rgba(95, 248, 255, 0.035), transparent),
+    var(--theme-input-bg);
+  box-shadow: inset 3px 0 0 rgba(95, 248, 255, 0.12);
+}
+
+html[data-theme='cyberdeck'] :is(
+  button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled),
+  .shell-dropdown-item,
+  .shell-dropdown-primary
+) {
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+
+html[data-theme='cyberdeck'] :is(
+  button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
+  .shell-dropdown-item:hover,
+  .shell-dropdown-primary:hover,
+  .change-row:hover,
+  .history-row:hover,
+  .file-tree-item:hover
+) {
+  border-color: var(--deck-cyan);
+  color: var(--deck-white);
+  background:
+    linear-gradient(90deg, rgba(95, 248, 255, 0.14), rgba(255, 183, 46, 0.08)),
+    var(--deck-glass);
+  box-shadow:
+    inset 4px 0 0 var(--deck-cyan),
+    0 0 18px rgba(95, 248, 255, 0.16);
+}
+
+html[data-theme='cyberdeck'] :is(
+  .view-switch-tab.active,
+  .icon-button.active,
+  .shell-dropdown-item.active,
+  .shell-dropdown-item.active .shell-dropdown-primary,
+  .shell-menu[open] > summary,
+  .shell-theme[open] > summary,
+  .shell-sync-menu[open] > summary,
+  .coauthor-chip.selected,
+  .contributor-filter button.active,
+  .config-email-options button.active,
+  .changes-actions-popover button.active,
+  .shell-theme-item.active,
+  .search-scope-toggle button.active,
+  .segmented button.active,
+  .github-filter-segment button.active
+) {
+  border-color: var(--deck-amber);
+  color: #061116 !important;
+  background:
+    linear-gradient(90deg, var(--deck-amber), #ffdc7a 52%, var(--deck-cyan)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 20px rgba(255, 183, 46, 0.22);
+  text-shadow: none;
+}
+
+html[data-theme='cyberdeck'] :is(.icon-button.active, .view-switch-tab.active, .shell-theme-item.active) svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+}
+
+html[data-theme='cyberdeck'] :is(
+  .change-row.selected,
+  .changes-editor-file-row.selected,
+  .file-tree-item.selected,
+  .commit-file-row.selected,
+  .history-preview-file-row.selected,
+  .current-pr,
+  .pr-row.selected,
+  .report-scope-repo.selected
+) {
+  border-color: var(--deck-amber);
+  color: var(--deck-white);
+  background:
+    linear-gradient(90deg, rgba(255, 183, 46, 0.20), rgba(95, 248, 255, 0.12)),
+    rgba(8, 22, 27, 0.94);
+  box-shadow:
+    inset 5px 0 0 var(--deck-amber),
+    0 0 18px rgba(95, 248, 255, 0.14);
+}
+
+html[data-theme='cyberdeck'] :is(.changes-editor-file-row, .change-row, .commit-file-row) {
+  border-radius: 3px;
+}
+
+html[data-theme='cyberdeck'] :is(.changes-editor-file-row.changed, .change-row[data-stage-state='partial']) {
+  background: linear-gradient(90deg, rgba(255, 183, 46, 0.12), rgba(95, 248, 255, 0.045));
+}
+
+html[data-theme='cyberdeck'] .changes-editor-file-row.edited {
+  background: linear-gradient(90deg, rgba(95, 248, 255, 0.14), rgba(77, 255, 181, 0.06));
+}
+
+html[data-theme='cyberdeck'] .changes-editor-file-row.clean {
+  color: rgba(199, 244, 248, 0.76);
+}
+
+html[data-theme='cyberdeck'] button.history-row {
+  clip-path: none;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme='cyberdeck'] button.history-row.selected {
+  background: linear-gradient(90deg, rgba(255, 183, 46, 0.18), rgba(95, 248, 255, 0.10));
+  box-shadow: inset 5px 0 0 var(--deck-amber);
+}
+
+html[data-theme='cyberdeck'] :is(.change-stage-toggle, .bulk-stage-toggle) {
+  border-color: rgba(95, 248, 255, 0.34);
+  background: rgba(3, 12, 15, 0.82);
+}
+
+html[data-theme='cyberdeck'] :is(
+  .change-stage-toggle input[type='checkbox'],
+  .bulk-stage-toggle input[type='checkbox'],
+  .changes-editor-health-setting input[type='checkbox'],
+  .changes-editor-lint-popover input[type='checkbox']
+) {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--deck-amber);
+  border: 1px solid rgba(95, 248, 255, 0.42);
+  border-radius: 2px;
+  background: #02080a;
+  cursor: pointer;
+}
+
+html[data-theme='cyberdeck'] :is(
+  .change-stage-toggle input[type='checkbox']:checked,
+  .bulk-stage-toggle[data-stage-state='staged'] input[type='checkbox'],
+  .changes-editor-health-setting input[type='checkbox']:checked,
+  .changes-editor-lint-popover input[type='checkbox']:checked
+) {
+  border-color: var(--deck-amber);
+  background: var(--deck-amber);
+  box-shadow: 0 0 14px rgba(255, 183, 46, 0.22);
+}
+
+html[data-theme='cyberdeck'] :is(
+  .change-stage-toggle input[type='checkbox']:checked,
+  .bulk-stage-toggle[data-stage-state='staged'] input[type='checkbox'],
+  .changes-editor-health-setting input[type='checkbox']:checked,
+  .changes-editor-lint-popover input[type='checkbox']:checked
+)::after {
+  content: '';
+  width: 8px;
+  height: 5px;
+  border-bottom: 2px solid #061116;
+  border-left: 2px solid #061116;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+html[data-theme='cyberdeck'] .bulk-stage-toggle[data-stage-state='partial'] input[type='checkbox'] {
+  border-color: var(--deck-cyan);
+  background:
+    linear-gradient(90deg, transparent 0 22%, #061116 22% 78%, transparent 78% 100%),
+    var(--deck-cyan);
+}
+
+html[data-theme='cyberdeck'] .bulk-stage-toggle[data-stage-state='partial'] input[type='checkbox']::after {
+  content: '';
+  width: 9px;
+  height: 2px;
+  border: 0;
+  background: #061116;
+  transform: none;
+}
+
+html[data-theme='cyberdeck'] :is(
+  .changes-editor-tool-button,
+  .changes-editor-save-button,
+  .changes-editor-lint-menu summary,
+  .changes-editor-health-trigger,
+  .changes-editor-hex-controls button,
+  .changes-editor-live-close,
+  .changes-editor-live-revert
+) {
+  border-color: rgba(95, 248, 255, 0.32);
+  color: var(--deck-white);
+  background:
+    linear-gradient(90deg, rgba(95, 248, 255, 0.08), rgba(255, 183, 46, 0.035)),
+    rgba(5, 16, 20, 0.88);
+  box-shadow: none;
+}
+
+html[data-theme='cyberdeck'] :is(.changes-editor-tool-button.ai, .changes-editor-save-button:not(:disabled)) {
+  border-color: rgba(255, 183, 46, 0.58);
+  color: var(--deck-amber);
+}
+
+html[data-theme='cyberdeck'] :is(
+  .changes-editor-tool-button:hover:not(:disabled),
+  .changes-editor-save-button:hover:not(:disabled),
+  .changes-editor-lint-menu summary:hover,
+  .changes-editor-health-trigger:hover,
+  .changes-editor-hex-controls button:hover:not(:disabled),
+  .changes-editor-live-close:hover,
+  .changes-editor-live-revert:hover
+) {
+  border-color: var(--deck-cyan);
+  color: var(--deck-cyan-soft);
+  background:
+    linear-gradient(90deg, rgba(95, 248, 255, 0.16), rgba(255, 183, 46, 0.08)),
+    rgba(6, 24, 30, 0.92);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-lint-popover button:first-child {
+  border-color: var(--deck-amber);
+  color: #061116;
+  background: linear-gradient(90deg, var(--deck-amber), #ffdc7a);
+}
+
+html[data-theme='cyberdeck'] .history-graph-canvas {
+  --history-graph-trunk: #5ff8ff;
+  --history-graph-lane-1: #ffb72e;
+  --history-graph-lane-2: #4ea2ff;
+  --history-graph-lane-3: #4dffb5;
+  --history-graph-lane-4: #ff6a2a;
+  --history-graph-lane-5: #ff3048;
+  --history-graph-lane-6: #a9fbff;
+  --history-graph-lane-7: #ffffff;
+  --history-graph-lane-8: #7b61ff;
+}
+
+html[data-theme='cyberdeck'] :is(.file-status, .dash-count, .shell-tab-badge) {
+  border-radius: 2px;
+  box-shadow: 0 0 12px color-mix(in srgb, currentColor 22%, transparent);
+}

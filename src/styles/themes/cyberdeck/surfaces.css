@@ -1,0 +1,153 @@
+html[data-theme='cyberdeck'] body {
+  background:
+    radial-gradient(circle at 18% -8%, rgba(95, 248, 255, 0.16), transparent 34%),
+    radial-gradient(circle at 90% 16%, rgba(255, 106, 42, 0.12), transparent 28%),
+    linear-gradient(180deg, #071015 0%, var(--deck-black) 68%),
+    var(--surface);
+}
+
+html[data-theme='cyberdeck'] .app-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(90deg, var(--theme-grid) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(95, 248, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 183, 46, 0.035), transparent 42%),
+    var(--surface);
+  background-size: 56px 56px, 56px 56px, auto, auto;
+}
+
+html[data-theme='cyberdeck'] .app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, transparent 0 10%, rgba(95, 248, 255, 0.08) 10.2% 10.5%, transparent 10.8% 100%),
+    linear-gradient(242deg, transparent 0 18%, rgba(255, 183, 46, 0.08) 18.2% 18.55%, transparent 18.8% 100%),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 4px);
+  opacity: 0.86;
+}
+
+html[data-theme='cyberdeck'] .shell-bar {
+  border-bottom-color: var(--theme-hairline);
+  background:
+    linear-gradient(90deg, rgba(95, 248, 255, 0.09), transparent 36%),
+    linear-gradient(270deg, rgba(255, 183, 46, 0.08), transparent 22%),
+    rgba(4, 11, 14, 0.96);
+  box-shadow: var(--theme-panel-glow);
+}
+
+html[data-theme='cyberdeck'] :is(
+  .empty-state,
+  .single-panel,
+  .changes-panel,
+  .diff-panel,
+  .stat-tile,
+  .provider-card,
+  .provider-remote-card,
+  .quiet-box,
+  .dashboard-section,
+  .daily-heatmap-panel,
+  .daily-day-panel,
+  .daily-review-card,
+  .daily-ranking-card,
+  .config-card,
+  .memory-card,
+  .pr-panel,
+  .github-repo-browser,
+  .linkedin-card,
+  .review-empty,
+  .review-results,
+  .changes-editor-code-shell,
+  .changes-editor-hex-shell,
+  .changes-editor-json-viewer,
+  .changes-editor-preview-shell
+) {
+  border-color: var(--theme-hairline);
+  border-radius: var(--theme-radius-soft);
+  background:
+    linear-gradient(135deg, rgba(95, 248, 255, 0.06), transparent 38%),
+    linear-gradient(315deg, rgba(255, 183, 46, 0.055), transparent 55%),
+    var(--deck-panel);
+  box-shadow: var(--theme-panel-glow);
+}
+
+html[data-theme='cyberdeck'] :is(
+  .shell-segments,
+  .shell-menu > summary,
+  .shell-dropdown,
+  .changes-actions-popover,
+  .commit-identity-popover,
+  .assistant-model-popover,
+  .github-repo-filter-panel,
+  .report-scope-popover,
+  .changes-editor-health-panel,
+  .changes-editor-lint-popover,
+  .changes-editor-live-diff,
+  .confirmation-dialog,
+  .review-fix-prompt-modal,
+  .tool-modal
+) {
+  border-color: rgba(95, 248, 255, 0.34);
+  border-radius: var(--theme-radius);
+  background:
+    linear-gradient(180deg, rgba(95, 248, 255, 0.08), rgba(5, 16, 20, 0.92)),
+    var(--deck-panel-2);
+  box-shadow:
+    var(--theme-panel-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme='cyberdeck'] :is(
+  .changes-editor-header,
+  .changes-editor-chunk-banner,
+  .changes-editor-status-bar,
+  .changes-editor-hex-meta,
+  .changes-editor-hex-controls,
+  .changes-editor-live-diff header
+) {
+  border-color: rgba(95, 248, 255, 0.28);
+  background:
+    linear-gradient(90deg, rgba(95, 248, 255, 0.075), transparent 48%),
+    rgba(4, 14, 18, 0.94);
+}
+
+html[data-theme='cyberdeck'] :is(.changes-editor-file-list, .changes-editor-tree-root) {
+  --folder-rail-color: rgba(95, 248, 255, 0.34);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-overview {
+  border: 1px solid rgba(95, 248, 255, 0.24);
+  background:
+    linear-gradient(90deg, transparent, rgba(3, 12, 15, 0.72)),
+    repeating-linear-gradient(180deg, rgba(95, 248, 255, 0.08) 0 1px, transparent 1px 7px),
+    rgba(5, 17, 22, 0.88);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    -16px 0 22px rgba(3, 7, 10, 0.76);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-overview-viewport {
+  border-color: var(--deck-amber);
+  background: rgba(255, 183, 46, 0.12);
+  box-shadow: 0 0 18px rgba(95, 248, 255, 0.18);
+}
+
+html[data-theme='cyberdeck'] .heatmap-cell {
+  border: 1px solid rgba(95, 248, 255, 0.18);
+  background: rgba(5, 18, 22, 0.94);
+}
+
+html[data-theme='cyberdeck'] .heatmap-cell.level-1 { background: rgba(78, 162, 255, 0.28); }
+html[data-theme='cyberdeck'] .heatmap-cell.level-2 { background: rgba(95, 248, 255, 0.42); }
+html[data-theme='cyberdeck'] .heatmap-cell.level-3 { background: linear-gradient(135deg, rgba(95, 248, 255, 0.72), rgba(255, 183, 46, 0.54)); }
+html[data-theme='cyberdeck'] .heatmap-cell.level-4 { background: linear-gradient(135deg, #effdff, #5ff8ff 46%, #ffb72e); }
+
+html[data-theme='cyberdeck'] .heatmap-cell.selected {
+  outline-color: var(--deck-amber);
+  box-shadow:
+    0 0 0 2px rgba(255, 183, 46, 0.30),
+    0 0 18px rgba(95, 248, 255, 0.22);
+}

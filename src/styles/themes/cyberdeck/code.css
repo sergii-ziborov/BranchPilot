@@ -1,0 +1,167 @@
+html[data-theme='cyberdeck'] :is(
+  .changes-editor-code-shell,
+  .changes-editor-code-shell.is-dirty,
+  .changes-editor-code-shell.is-chunked,
+  .changes-editor-hex-shell,
+  .history-file-code,
+  .diff-preview,
+  .structured-diff
+) {
+  color: var(--deck-white);
+  background:
+    radial-gradient(circle at 78% 12%, rgba(95, 248, 255, 0.08), transparent 32%),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 4px),
+    rgba(2, 8, 10, 0.98);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-code-shell textarea.changes-editor-textarea,
+html[data-theme='cyberdeck'] .changes-editor-code-shell textarea.changes-editor-textarea:focus,
+html[data-theme='cyberdeck'] .changes-editor-code-shell textarea.changes-editor-textarea.is-dirty {
+  caret-color: var(--deck-amber);
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+html[data-theme='cyberdeck'] .changes-editor-highlight {
+  color: var(--deck-white);
+  text-shadow: 0 0 7px rgba(95, 248, 255, 0.08);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-line-numbers {
+  color: rgba(169, 251, 255, 0.66);
+  background:
+    linear-gradient(90deg, rgba(4, 14, 17, 0.94), rgba(4, 14, 17, 0.38));
+}
+
+html[data-theme='cyberdeck'] :is(
+  .changes-editor-highlight,
+  .changes-editor-line-numbers,
+  .changes-editor-line-numbers span,
+  .changes-editor-textarea,
+  .changes-editor-color-layer,
+  .changes-editor-highlight-line
+) {
+  line-height: var(--changes-editor-line-height, 20px);
+  font-variant-ligatures: none;
+}
+
+html[data-theme='cyberdeck'] .changes-editor-highlight-line.line-added {
+  background: rgba(77, 255, 181, 0.10);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-highlight-line.line-modified {
+  background: rgba(255, 183, 46, 0.12);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-highlight-line.line-removed {
+  background: rgba(255, 48, 72, 0.13);
+}
+
+html[data-theme='cyberdeck'] .tok-comment { color: var(--syntax-comment) !important; }
+html[data-theme='cyberdeck'] .tok-keyword { color: var(--syntax-keyword) !important; }
+html[data-theme='cyberdeck'] .tok-string { color: var(--syntax-string) !important; }
+html[data-theme='cyberdeck'] .tok-number { color: var(--syntax-number) !important; }
+html[data-theme='cyberdeck'] .tok-type { color: var(--syntax-type) !important; }
+html[data-theme='cyberdeck'] .tok-function { color: var(--syntax-function) !important; }
+html[data-theme='cyberdeck'] .tok-variable { color: var(--syntax-variable) !important; }
+html[data-theme='cyberdeck'] .tok-operator { color: var(--syntax-operator) !important; }
+html[data-theme='cyberdeck'] .tok-punctuation { color: var(--syntax-punctuation) !important; }
+
+html[data-theme='cyberdeck'] :is(.changes-editor-search-hit, .changes-editor-search-hit.active) {
+  color: #061116;
+  background: var(--deck-amber);
+  box-shadow: 0 0 0 1px rgba(255, 183, 46, 0.42);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-search-hit.active {
+  background: var(--deck-cyan);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-live-row {
+  border-color: rgba(95, 248, 255, 0.18);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-live-row.added {
+  background: rgba(77, 255, 181, 0.12);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-live-row.modified {
+  background: rgba(255, 183, 46, 0.13);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-live-row.removed {
+  background: rgba(255, 48, 72, 0.16);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-live-diff header span {
+  color: #061116;
+  background: var(--deck-cyan);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-minimap-line {
+  background: rgba(169, 251, 255, 0.40);
+}
+
+html[data-theme='cyberdeck'] .changes-editor-minimap-line.minimap-added { background: var(--deck-green); }
+html[data-theme='cyberdeck'] .changes-editor-minimap-line.minimap-modified { background: var(--deck-amber); }
+html[data-theme='cyberdeck'] .changes-editor-minimap-line.minimap-removed,
+html[data-theme='cyberdeck'] .changes-editor-minimap-line.minimap-diagnostic { background: var(--deck-red); }
+html[data-theme='cyberdeck'] .changes-editor-minimap-line.minimap-search,
+html[data-theme='cyberdeck'] .changes-editor-minimap-line.minimap-multi-edit { background: var(--deck-cyan); }
+
+html[data-theme='cyberdeck'] :is(
+  .changes-editor-hex-table,
+  .changes-editor-hex-table > header,
+  .changes-editor-hex-row,
+  .changes-editor-hex-offset,
+  .changes-editor-hex-ascii-grid
+) {
+  border-color: rgba(95, 248, 255, 0.20);
+  background-color: rgba(3, 10, 13, 0.92);
+}
+
+html[data-theme='cyberdeck'] :is(.changes-editor-hex-byte-cell, .changes-editor-hex-ascii-cell) {
+  border-color: rgba(95, 248, 255, 0.18);
+  color: var(--deck-cyan-soft);
+  background: rgba(5, 18, 23, 0.72);
+}
+
+html[data-theme='cyberdeck'] :is(.changes-editor-hex-byte-cell:hover, .changes-editor-hex-ascii-cell:hover) {
+  border-color: var(--deck-amber);
+  color: var(--deck-white);
+  background: rgba(255, 183, 46, 0.13);
+}
+
+html[data-theme='cyberdeck'] :is(.changes-editor-hex-byte-cell.active, .changes-editor-hex-ascii-cell.active) {
+  border-color: var(--deck-amber);
+  color: #061116;
+  background: var(--deck-amber);
+}
+
+html[data-theme='cyberdeck'] :is(.changes-editor-hex-byte-cell.changed, .changes-editor-hex-ascii-cell.changed) {
+  border-color: var(--deck-green);
+  color: var(--deck-green);
+  background: rgba(77, 255, 181, 0.12);
+}
+
+html[data-theme='cyberdeck'] .file-type-icon {
+  border-color: color-mix(in srgb, currentColor 48%, transparent);
+  color: var(--deck-cyan);
+  background: rgba(2, 9, 12, 0.88);
+}
+
+html[data-theme='cyberdeck'] :is(.file-type-ts, .file-type-config) {
+  color: var(--deck-cyan);
+}
+
+html[data-theme='cyberdeck'] :is(.file-type-style, .file-type-markup, .file-type-image) {
+  color: var(--deck-amber);
+}
+
+html[data-theme='cyberdeck'] :is(.file-type-json, .file-type-data, .file-type-shell) {
+  color: var(--deck-green);
+}
+
+html[data-theme='cyberdeck'] :is(.file-type-git, .file-type-rust, .file-type-java) {
+  color: var(--deck-orange);
+}

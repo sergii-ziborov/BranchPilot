@@ -38,12 +38,12 @@ export function registerRepositoryOverviewSpecs() {
     const service = createService()
 
     mkdirSync(path.join(repoPath, 'mockups'))
-    writeFileSync(path.join(repoPath, 'mockups', 'cyberboard.html'), '<!doctype html>\n')
+    writeFileSync(path.join(repoPath, 'mockups', 'wireframe.html'), '<!doctype html>\n')
 
     const snapshot = await service.openRepository(repoPath)
     const paths = snapshot.status.changes.map((change) => change.path)
 
-    expect(paths).toContain('mockups/cyberboard.html')
+    expect(paths).toContain('mockups/wireframe.html')
     expect(paths).not.toContain('mockups/')
     expect(paths).not.toContain('/mockups')
   })

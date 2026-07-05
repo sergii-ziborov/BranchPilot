@@ -1554,6 +1554,11 @@
 .changes-editor-code-shell {
   --changes-editor-font-size: 12px;
   --changes-editor-line-height: 20px;
+  --changes-editor-pad-top: 14px;
+  --changes-editor-pad-right: 108px;
+  --changes-editor-pad-bottom: 14px;
+  --changes-editor-gutter-width: 64px;
+  --changes-editor-code-left: 78px;
   position: relative;
   min-height: 0;
   width: 100%;
@@ -2422,22 +2427,26 @@ button.changes-editor-hex-byte-cell {
 .changes-editor-textarea {
   position: absolute;
   inset: 0;
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
   margin: 0;
-  padding: 14px 16px;
+  padding: var(--changes-editor-pad-top) 16px var(--changes-editor-pad-bottom);
   border: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: var(--changes-editor-font-size);
   line-height: var(--changes-editor-line-height);
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+  font-kerning: none;
   tab-size: 2;
 }
 
 .changes-editor-line-numbers {
   z-index: 2;
   right: auto;
-  width: 64px;
-  padding: 14px 8px 14px 6px;
+  width: var(--changes-editor-gutter-width);
+  padding: var(--changes-editor-pad-top) 8px var(--changes-editor-pad-bottom) 6px;
   border-right: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
   color: color-mix(in srgb, var(--muted) 82%, var(--text));
   background:
@@ -2495,7 +2504,7 @@ button.changes-editor-hex-byte-cell {
 
 .changes-editor-highlight {
   z-index: 1;
-  padding-left: 78px;
+  padding-left: var(--changes-editor-code-left);
   color: var(--diff-code-text, var(--text-strong));
   background: transparent;
   overflow: hidden;
@@ -2513,14 +2522,18 @@ button.changes-editor-hex-byte-cell {
   position: absolute;
   inset: 0;
   z-index: 4;
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
-  padding: 14px 16px 14px 78px;
+  padding: var(--changes-editor-pad-top) 16px var(--changes-editor-pad-bottom) var(--changes-editor-code-left);
   overflow: hidden;
   pointer-events: none;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: var(--changes-editor-font-size);
   line-height: var(--changes-editor-line-height);
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+  font-kerning: none;
   tab-size: 2;
 }
 
@@ -2554,6 +2567,11 @@ button.changes-editor-hex-byte-cell {
   white-space: pre;
 }
 
+.changes-editor-highlight-line *,
+.changes-editor-color-layer * {
+  line-height: inherit;
+}
+
 .changes-editor-highlight-line.line-added {
   background: var(--diff-add-bg);
 }
@@ -2582,7 +2600,7 @@ button.changes-editor-hex-byte-cell {
 
 .changes-editor-textarea {
   z-index: 3;
-  padding-left: 78px;
+  padding-left: var(--changes-editor-code-left);
   resize: none;
   outline: none;
   color: transparent !important;
@@ -2594,6 +2612,14 @@ button.changes-editor-hex-byte-cell {
   tab-size: 2;
   -webkit-text-fill-color: transparent !important;
   white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.changes-editor-textarea::selection {
+  color: transparent !important;
+  background: color-mix(in srgb, var(--accent) 36%, transparent);
+  -webkit-text-fill-color: transparent !important;
 }
 
 .changes-editor-textarea:disabled {
@@ -2621,7 +2647,7 @@ button.changes-editor-hex-byte-cell {
 
 .changes-editor-highlight,
 .changes-editor-textarea {
-  padding-right: 108px;
+  padding-right: var(--changes-editor-pad-right);
 }
 
 .changes-editor-code-shell.is-chunked .changes-editor-overview {
