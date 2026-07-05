@@ -83,23 +83,28 @@ export async function loadProjectMemorySnapshot(options: MemoryQueryOptions): Pr
   }
 
   if (options.repoPath) {
-    return readSnapshot(path.join(options.memoryDir, `${repositoryId(options.repoPath)}.json`))
-  }
-
-  const entries = await fs.readdir(options.memoryDir, { withFileTypes: true }).catch(() => [])
-  const snapshots: ProjectMemorySnapshot[] = []
-
-  for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.json')) {
-      continue
-    }
+    const legacyFilePath = path.join(options.memoryDir, `${repositoryId(options.repoPath)}.json`)
 
     try {
-      snapshots.push(await readSnapshot(path.join(options.memoryDir, entry.name)))
+      return await readSnapshot(legacyFilePath)
     } catch {
-      continue
+      const snapshots = await readSnapshots(options.memoryDir)
+      const normalizedRepoPath = normalizePath(options.repoPath)
+      const matchingSnapshots = snapshots.filter((snapshot) => normalizePath(snapshot.repository.rootPath) === normalizedRepoPath)
+
+      matchingSnapshots.sort((left, right) => right.scannedAt.localeCompare(left.scannedAt))
+
+      const match = matchingSnapshots[0]
+
+      if (match) {
+        return match
+      }
+
+      throw new Error('No Project Memory snapshot found for this repository. Open the repository in BranchPilot and run Memory > Rescan.')
     }
   }
+
+  const snapshots = await readSnapshots(options.memoryDir)
 
   snapshots.sort((left, right) => right.scannedAt.localeCompare(left.scannedAt))
 
@@ -116,10 +121,10 @@ export async function loadProjectWikiSnapshot(options: MemoryQueryOptions): Prom
   const snapshot = await loadProjectMemorySnapshot(options)
 
   if (!options.wikiDir?.trim()) {
-    throw new Error('Project Wiki directory is required. Recopy the BranchPilot MCP config from Memory > Codex MCP setup.')
+    throw new Error('Project Wiki directory is required. Recopy the BranchPilot MCP config from Reports > MCP.')
   }
 
-  const wiki = await new ProjectWikiStore(options.wikiDir).read(snapshot.repository.rootPath)
+  const wiki = await new ProjectWikiStore(options.wikiDir).read(snapshot.repository)
 
   if (!wiki) {
     throw new Error('No Project Wiki snapshot found. Open the repository in BranchPilot and run Memory > Generate wiki.')
@@ -409,6 +414,29 @@ async function readSnapshot(filePath: string): Promise<ProjectMemorySnapshot> {
       cause: error
     })
   }
+}
+
+async function readSnapshots(directoryPath: string): Promise<ProjectMemorySnapshot[]> {
+  const entries = await fs.readdir(directoryPath, { withFileTypes: true }).catch(() => [])
+  const snapshots: ProjectMemorySnapshot[] = []
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) {
+      continue
+    }
+
+    try {
+      snapshots.push(await readSnapshot(path.join(directoryPath, entry.name)))
+    } catch {
+      continue
+    }
+  }
+
+  return snapshots
+}
+
+function normalizePath(filePath: string): string {
+  return path.resolve(filePath)
 }
 
 function findSymbol(symbols: ProjectMemorySymbol[], options: SymbolContextOptions): ProjectMemorySymbol | undefined {

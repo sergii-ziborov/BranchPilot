@@ -39,7 +39,7 @@ export function EmptyState({
   setCloneRemoteUrl: (value: string) => void
   cloneTargetName: string
   setCloneTargetName: (value: string) => void
-  cloneRepository: () => void | Promise<void>
+  cloneRepository: () => void | Promise<unknown>
 }) {
   return (
     <section className="empty-state">

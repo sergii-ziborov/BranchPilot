@@ -27,6 +27,7 @@ import { isSafeExternalUrl } from '../shared/externalUrl'
 import { usePrompts } from './usePrompts'
 import { useReportRepoPaths } from './useReportRepoPaths'
 import { useRepositoryManagement } from './useRepositoryManagement'
+import { preferredMemoryFilePath } from '../lib/projectMemorySignals'
 
 const api = window.branchPilot
 const ASSISTANT_PREFERENCE_KEY = 'bp-assistant'
@@ -113,7 +114,7 @@ export function useAppController() {
 
 
   useEffect(() => {
-    if (!snapshot || viewMode !== 'dashboard') return
+    if (!snapshot || (viewMode !== 'dashboard' && viewMode !== 'memory' && viewMode !== 'wiki' && viewMode !== 'mcp')) return
     void loadProjectMemory()
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
@@ -145,7 +146,8 @@ export function useAppController() {
     selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading,
     selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports,
     filteredActivityEntries, completedWorkItems,
-    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage, clearActivityLog
+    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage,
+    saveProjectWikiPage, pullProjectWikiFromGitHub, pushProjectWikiToGitHub, clearActivityLog
   } = useProjectMemory({ api, currentRepoPath, setNotice, setError, copyToClipboard, requestConfirmation })
   const {
     assistants, assistantsChecking, assistantPolicy, setAssistantPolicy, assistantPolicyLoading,
@@ -185,9 +187,10 @@ export function useAppController() {
     recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter,
     filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, contributionGraphLoading,
     dashboardRepositoryFilter, setDashboardRepositoryFilter, repositoryPickerOpen, setRepositoryPickerOpen,
+    cloneDialogOpen, setCloneDialogOpen,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
     loadRecentRepositories, loadRepositoryDashboard, silentRefreshDashboard, toggleRepositoryPinned,
-    chooseRepository, openRepository, initializeRepository, cloneRepository, refreshRepository,
+    chooseRepository, openCloneDialog, openRepository, initializeRepository, cloneRepository, refreshRepository,
     openRepoInEditor, openRepositoryTerminal
   } = useRepositoryManagement({
     api, currentRepoPath, allReposMode, viewMode, reportRepoPaths: selectedReportRepoPaths, setViewMode, snapshot,
@@ -223,7 +226,7 @@ export function useAppController() {
     }
 
     if (!selectedMemoryFilePath || !projectMemory.files.some((file) => file.path === selectedMemoryFilePath)) {
-      setSelectedMemoryFilePath(projectMemory.files[0]?.path ?? null)
+      setSelectedMemoryFilePath(preferredMemoryFilePath(projectMemory))
     }
   }, [projectMemory, selectedMemoryFilePath])
 
@@ -438,7 +441,7 @@ export function useAppController() {
     setError(null)
     void silentRefreshDashboard()
 
-    if (viewMode === 'dashboard') {
+    if (viewMode === 'dashboard' || viewMode === 'memory' || viewMode === 'wiki' || viewMode === 'mcp') {
       void loadProjectMemory(nextSnapshot.summary.rootPath)
     }
   }
@@ -583,8 +586,10 @@ export function useAppController() {
   const handleMenuAction = (action: string) => {
     switch (action) {
       case 'open-repository':
-      case 'clone-repository':
         void chooseRepository()
+        break
+      case 'clone-repository':
+        openCloneDialog()
         break
       case 'refresh': void refreshRepository(); break
       case 'open-in-editor': void openRepoInEditor(); break
@@ -599,6 +604,9 @@ export function useAppController() {
       case 'view-branches': setViewMode('branches'); break
       case 'view-merge': setViewMode('merge'); break
       case 'view-review': setViewMode('review'); break
+      case 'view-providers': setViewMode('providers'); break
+      case 'view-daily': setViewMode('daily'); break
+      case 'view-linkedin': setViewMode('linkedin'); break
       case 'view-config': setViewMode('config'); break
     }
   }
@@ -669,6 +677,9 @@ export function useAppController() {
     scanProjectMemory,
     copyProjectMemoryText,
     copyProjectWikiPage,
+    saveProjectWikiPage,
+    pullProjectWikiFromGitHub,
+    pushProjectWikiToGitHub,
     clearActivityLog,
     assistants,
     assistantsChecking,
@@ -802,6 +813,8 @@ export function useAppController() {
     setDashboardRepositoryFilter,
     repositoryPickerOpen,
     setRepositoryPickerOpen,
+    cloneDialogOpen,
+    setCloneDialogOpen,
     cloneRemoteUrl,
     setCloneRemoteUrl,
     cloneTargetName,
@@ -810,6 +823,7 @@ export function useAppController() {
     loadRepositoryDashboard,
     toggleRepositoryPinned,
     chooseRepository,
+    openCloneDialog,
     openRepository,
     initializeRepository,
     cloneRepository,
@@ -997,4 +1011,3 @@ function readSelectedAssistantPreference(): AssistantId {
     return 'auto'
   }
 }
-

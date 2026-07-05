@@ -30,7 +30,7 @@ export function activityEntryCategory(entry: ActivityLogEntry): ActivityCategory
 
 /** Display label for an activity category filter. */
 export function activityCategoryLabel(category: ActivityCategory): string {
-  if (category === 'git') return 'Git'
+  if (category === 'git') return 'Git ops'
   if (category === 'assistant') return 'Assistant'
   if (category === 'provider') return 'Provider'
   if (category === 'memory') return 'Memory'

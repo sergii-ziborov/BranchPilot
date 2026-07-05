@@ -51,6 +51,10 @@ npm install
 npm run dev
 ```
 
+`npm run dev` cleans up stale BranchPilot dev processes before starting. That
+cleanup covers Windows and macOS so repeated local launches do not get stuck on
+the Vite port or an old Electron process.
+
 ## Verification
 
 ```sh
@@ -66,6 +70,8 @@ Builds are produced with electron-builder and written to `release/`.
 ```sh
 npm run dist        # current platform
 npm run dist:mac    # macOS (dmg + zip, arm64)
+npm run dist:mac:run # build macOS and open the packaged .app
+npm run start:mac   # open the newest release/**/BranchPilot.app
 npm run dist:win    # Windows (NSIS installer, x64 + arm64)
 npm run dist:all    # macOS + Windows
 ```
@@ -81,6 +87,13 @@ Windows machine or in CI (e.g. a `windows-latest` GitHub Actions runner).
 
 App icons live in `build/` (`icon.icns` for macOS, `icon.ico` for Windows, `icon.png`
 fallback) and are generated from `build/icon.svg`.
+
+## Architecture
+
+Start with [ARCHITECTURE.md](ARCHITECTURE.md). It links to smaller, task-focused
+docs under `docs/architecture/` and module docs under `docs/modules/`, each kept
+under 500 lines for Codex-friendly navigation. Folder-by-folder ownership lives
+in `docs/folders/`.
 
 ## Private Beta Smoke
 

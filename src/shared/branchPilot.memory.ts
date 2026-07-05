@@ -77,18 +77,13 @@ export interface ProjectMemoryMcpConfig {
   wikiDir: string
   serverPath: string
   repoPath: string
+  serverCommand: string
   codexCommand: string
   codexToml: string
   serverExists: boolean
 }
 
-export type ProjectWikiPageId =
-  | 'overview'
-  | 'module_map'
-  | 'important_symbols'
-  | 'workflows'
-  | 'assistant_policy'
-  | 'recent_timeline'
+export type ProjectWikiPageId = string
 
 export interface ProjectWikiPage {
   id: ProjectWikiPageId
@@ -102,6 +97,7 @@ export interface ProjectWikiSnapshot {
   generatedAt: string
   sourceMemoryScannedAt: string
   repository: ProjectMemoryRepository
+  markdownDir?: string
   pages: ProjectWikiPage[]
 }
 
@@ -110,3 +106,16 @@ export interface ProjectWikiGenerationResult {
   memory: ProjectMemoryScanResult
 }
 
+export interface ProjectWikiPageUpdateRequest {
+  repoPath: string
+  pageId: ProjectWikiPageId
+  markdown: string
+}
+
+export interface ProjectWikiSyncResult {
+  wiki: ProjectWikiSnapshot
+  pageCount: number
+  remoteUrl: string
+  message: string
+  commitSha?: string
+}

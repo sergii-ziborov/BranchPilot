@@ -49,7 +49,7 @@ app.setAboutPanelOptions({
   version: app.getVersion(),
   copyright: '© 2026 Serhii Ziborov · MIT License',
   authors: ['Serhii Ziborov'],
-  website: 'https://github.com/serhii-ziborov/BranchPilot',
+  website: 'https://github.com/sergii-ziborov/BranchPilot',
   iconPath: brandIconPath,
   credits: 'BranchPilot — a fast, local-first Git desktop client.\nBuilt by Serhii Ziborov. Commit, branch, review and ship without leaving your machine.'
 })
@@ -77,7 +77,8 @@ const projectMemoryService = new ProjectMemoryService(
 const projectWikiService = new ProjectWikiService(
   projectMemoryService,
   activityLogService,
-  new ProjectWikiStore(projectWikiDir)
+  new ProjectWikiStore(projectWikiDir),
+  commandRunner
 )
 const dailyReviewService = new DailyReviewService(repositoryService, activityLogService)
 

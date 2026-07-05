@@ -245,13 +245,17 @@
 }
 
 .memory-collapsible > summary::before {
-  content: 'â–¸';
-  color: var(--muted);
-  font-size: 11px;
+  content: '';
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--muted);
+  transition: transform 120ms ease;
 }
 
 .memory-collapsible[open] > summary::before {
-  content: 'â–¾';
+  transform: rotate(90deg);
 }
 
 .memory-collapsible[open] > summary {
@@ -350,4 +354,3 @@
 .change-row:focus-within {
   box-shadow: inset 0 0 0 2px var(--sel-border);
 }
-

@@ -60,6 +60,7 @@ export function ChangesRoute({ changesTool, setChangesTool }: ChangesRouteProps)
     assistantPolicy,
     selectedAssistant,
     setNotice,
+    requestConfirmation,
     generateCommitText,
     canGenerateCommitText,
     commitActionState,
@@ -160,6 +161,7 @@ export function ChangesRoute({ changesTool, setChangesTool }: ChangesRouteProps)
         assistantPolicy={assistantPolicy}
         selectedAssistant={selectedAssistant}
         setNotice={setNotice}
+        requestConfirmation={requestConfirmation}
         generateCommitText={generateCommitText}
         canGenerateCommitText={canGenerateCommitText}
         commitActionState={commitActionState}

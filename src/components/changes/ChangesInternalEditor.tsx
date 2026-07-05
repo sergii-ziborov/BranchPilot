@@ -14,6 +14,7 @@ import {
 } from 'react'
 import { Activity, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Pencil, PlusSquare, RotateCcw, Save, Search, Sparkles, Terminal, Trash2, WandSparkles, X } from 'lucide-react'
 import type { ApiResult, AssistantId, BranchPilotApi, DiffLine, DiffResult, FileChange, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
+import type { ConfirmationOptions } from '../../lib/prompts'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
 import { friendlyIpcErrorMessage } from '../../lib/ipcErrorMessage'
@@ -35,6 +36,7 @@ interface ChangesInternalEditorProps {
   selectedAssistant: AssistantId
   onBack: () => void
   setNotice: (message: string) => void
+  requestConfirmation: (message: string, options?: ConfirmationOptions) => Promise<boolean>
   runSnapshotAction: (label: string, action: () => Promise<ApiResult<RepositorySnapshot>>) => boolean | void | Promise<boolean>
 }
 
@@ -2615,6 +2617,7 @@ export function ChangesInternalEditor({
   selectedAssistant,
   onBack,
   setNotice,
+  requestConfirmation,
   runSnapshotAction
 }: ChangesInternalEditorProps) {
   const editorRef = useRef<HTMLElement | null>(null)
@@ -5841,7 +5844,14 @@ export function ChangesInternalEditor({
     const path = fileMenu?.path
     setFileMenu(null)
     if (!path || !currentRepoPath || !api) return
-    if (path === selectedPath && dirty && !window.confirm('Rename this file and discard unsaved editor edits?')) return
+    if (path === selectedPath && dirty) {
+      const confirmed = await requestConfirmation('Rename this file and discard unsaved editor edits?', {
+        title: 'Rename File',
+        confirmLabel: 'Rename file',
+        variant: 'danger'
+      })
+      if (!confirmed) return
+    }
 
     const nextPath = window.prompt('Rename file inside this repository:', path)?.trim().replace(/\\/g, '/')
     if (!nextPath || nextPath === path) return
@@ -5860,8 +5870,13 @@ export function ChangesInternalEditor({
     const path = fileMenu?.path
     setFileMenu(null)
     if (!path || !currentRepoPath || !api) return
-    const dirtyWarning = path === selectedPath && dirty ? '\n\nUnsaved editor edits will be discarded.' : ''
-    if (!window.confirm(`Delete ${path}?${dirtyWarning}`)) return
+    const dirtyWarning = path === selectedPath && dirty ? ' Unsaved editor edits will be discarded.' : ''
+    const confirmed = await requestConfirmation(`Delete ${path}?${dirtyWarning}`, {
+      title: 'Delete File',
+      confirmLabel: 'Delete file',
+      variant: 'danger'
+    })
+    if (!confirmed) return
 
     const result = await runSnapshotAction('File deleted.', () => api.deleteRepositoryFile({
       repoPath: currentRepoPath,

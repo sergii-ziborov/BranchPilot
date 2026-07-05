@@ -10,8 +10,6 @@ import { GitHubRepositoryBrowserHost } from './hosts/GitHubRepositoryBrowserHost
 const api = window.branchPilot
 
 interface AppDialogsProps {
-  showClone: boolean
-  setShowClone: Dispatch<SetStateAction<boolean>>
   showPublishRepository: boolean
   setShowPublishRepository: Dispatch<SetStateAction<boolean>>
   showAbout: boolean
@@ -19,8 +17,6 @@ interface AppDialogsProps {
 }
 
 export function AppDialogs({
-  showClone,
-  setShowClone,
   showPublishRepository,
   setShowPublishRepository,
   showAbout,
@@ -40,6 +36,8 @@ export function AppDialogs({
     answerTextPrompt,
     repositoryPickerOpen,
     setRepositoryPickerOpen,
+    cloneDialogOpen,
+    setCloneDialogOpen,
     currentRepoPath,
     recentRepositories,
     openRepository,
@@ -79,16 +77,16 @@ export function AppDialogs({
           onClose={() => setRepositoryPickerOpen(false)}
         />
       )}
-      {showClone && (
-        <ToolModal title="Clone repository" onClose={() => setShowClone(false)}>
+      {cloneDialogOpen && (
+        <ToolModal title="Clone repository" onClose={() => setCloneDialogOpen(false)}>
           <section className="single-panel clone-modal-body">
             <form
               className="clone-url-row"
               onSubmit={async (event) => {
                 event.preventDefault()
                 if (!cloneRemoteUrl.trim()) return
-                await cloneRepository()
-                setShowClone(false)
+                const cloned = await cloneRepository()
+                if (cloned) setCloneDialogOpen(false)
               }}
             >
               <input

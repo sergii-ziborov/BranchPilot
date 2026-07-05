@@ -1,147 +1,85 @@
-# BranchPilot — Architecture
+# BranchPilot Architecture
 
-BranchPilot is a local-first Git desktop client built on Electron, React 19 and
-TypeScript (Vite + vitest). It reads real repository state through the system
-`git` binary and the GitHub CLI, and offers optional AI assistants for commit
-messages, branch drafts, reviews and more.
+This file is the Codex entry point for the codebase. Keep it short, then open
+only the linked detail file that matches the change. Source files remain the
+authority when docs and implementation disagree.
 
-The codebase is organised so that **no source file exceeds ~1000 lines** and
-each module has a single responsibility. Dependencies flow toward small, stable
-modules (shared types, error and command primitives); there are **no runtime
-import cycles**.
+Doc rule: no architecture Markdown file should exceed 500 lines. Split a file
+before it grows past that size.
 
-## Process model
+## System Shape
 
-Electron runs two processes that never share memory:
+BranchPilot is a local-first Electron desktop Git client:
 
-- **Main process** (`electron/`) — Node side. Owns all privileged work: running
-  `git`, talking to the GitHub CLI, file system access, settings, activity log,
-  project memory, and the AI assistant runners. Exposes everything to the UI as
-  a typed IPC surface.
-- **Renderer process** (`src/`) — the React UI. Has no direct file or git
-  access; it calls the main process through `window.branchPilot`, a typed bridge
-  injected by `electron/preload.cts`.
+- Electron main process owns privileged work: Git, GitHub CLI, filesystem,
+  settings, activity logs, project memory/wiki, external editors and assistant
+  runners.[^main]
+- React renderer owns UI state, view routing and presentation. It does not call
+  Git or the filesystem directly.[^renderer]
+- A typed preload bridge exposes `window.branchPilot`; both sides share the API
+  and channel definitions from `src/shared`.[^ipc]
+- Domain workflows are thin UI hooks plus main-process services. Safety rules
+  live close to the operation that can mutate a repository.[^workflows]
 
-The contract between them is the `BranchPilotApi` interface plus an explicit
-channel allowlist, both defined in `src/shared/` so each side imports the same
-types.
+## Read Map
 
-## Renderer (`src/`)
+| Task | Open |
+| --- | --- |
+| UI, route, hook, view, style work | [Renderer architecture](docs/architecture/renderer.md) |
+| Git operation, repository state, settings, editor, memory, providers | [Main process architecture](docs/architecture/main-process.md) |
+| New renderer-to-main method or channel | [IPC and shared contracts](docs/architecture/ipc-contract.md) |
+| End-to-end behavior across UI, IPC and services | [Domain workflows](docs/architecture/domain-workflows.md) |
+| Build, run, package, test, docs maintenance | [Development workflow](docs/architecture/development.md) |
+| Directory/module ownership | [Module catalog](docs/modules/README.md) |
+| Folder-by-folder ownership | [Folder catalog](docs/folders/README.md) |
 
-```
-src/
-  App.tsx                 composition root (presenter): destructures the
-                          controller and renders the view tree + dialogs
-  hooks/useAppController   aggregating hook: owns core state, the run* action
-                          helpers, and wires every domain hook together
-  hooks/use*              one hook per domain (Changes, History, Branches,
-                          Commit, Merge, Stash, Providers, Assistants, Review,
-                          GitConfig, ProjectMemory, DailyReview, LinkedIn) plus
-                          usePrompts, useRepositoryManagement, useVirtualList
-  components/             shared presentational components (sidebar, topbar,
-                          dialogs, diff view, panels, primitives)
-  components/views/       one component per tab/view, fed by props only
-  lib/                    pure UI helpers and label/format functions
-  shared/                 isomorphic code shared with the main process:
-                          types, IPC channel list, pure precondition logic
-  styles/                 App.css split into cascade-preserving partials
-```
+## Source Map
 
-### Key patterns
+| Area | Primary files |
+| --- | --- |
+| App composition | `src/App.tsx`, `src/components/app/AppFrame.tsx`, `src/components/app/AppWorkspace.tsx` |
+| Controller and domain hooks | `src/hooks/useAppController.ts`, `src/hooks/use*.ts` |
+| Views and routes | `src/components/app/routes/*.tsx`, `src/components/views/*.tsx` |
+| UI primitives | `src/components/ui/**`, compatibility exports in `src/components/*.tsx` |
+| Main bootstrap | `electron/main.ts`, `electron/appMenu.ts` |
+| IPC registration | `electron/ipc/registerIpcHandlers.ts`, `electron/ipc/handlers/*.ts` |
+| Shared IPC contract | `src/shared/branchPilotApi.ts`, `src/shared/ipcChannels.ts`, `electron/preload.cts` |
+| Repository engine | `electron/lib/repositoryService*.ts`, `electron/lib/commandRunner.ts` |
+| GitHub provider | `electron/providers/githubCliService*.ts`, `src/hooks/useProviders.ts` |
+| Assistants | `electron/assistants/assistantRunner*.ts`, `src/hooks/useAssistants.ts`, `src/hooks/useReview.ts` |
+| Memory/wiki/activity | `electron/lib/projectMemoryService.ts`, `electron/lib/projectWikiService.ts`, `electron/lib/activityLogService.ts` |
+| Theme and layout CSS | `src/styles/**`, imported through `src/App.css` and `src/index.css` |
 
-- **Aggregating controller.** `App.tsx` is a thin presenter. All wiring lives in
-  `useAppController`, which holds the core snapshot/busy/notice/error state, the
-  `run*` action wrappers (`runApiAction`, `runSnapshotAction`,
-  `runOperationAction`, `runBusyOperation`) and `applySnapshot*`, then calls each
-  domain hook and returns a single object the view tree consumes.
-- **Dependency-injected hooks.** Every domain hook receives a `deps` object
-  (`api`, `currentRepoPath`, `setNotice`, the `run*` helpers, etc.) instead of
-  reaching for globals. This keeps hooks independently testable and avoids
-  hidden coupling.
-- **Render-props for shared panels.** Cross-view panels (pre-commit review,
-  assistant readiness/policy, GitHub browser, PR details) are passed into views
-  as `() => ReactNode` functions so closures stay in one place.
-- **Windowed lists.** `useVirtualList` returns a callback ref plus the visible
-  window/items; consumers destructure it into locals once (required to satisfy
-  the `react-hooks/refs` compiler rule).
+## Dependency Direction
 
-## Main process (`electron/`)
+- Renderer imports shared types and pure helpers, then calls `window.branchPilot`.
+- Preload imports the shared API type and channel type, but does not implement
+  business logic.
+- Main process imports shared request/response types and returns `ApiResult`
+  values through IPC helpers.
+- Shared modules must stay isomorphic: no Electron, DOM, Node-only runtime calls
+  unless the file name and consumers make that boundary explicit.
 
-```
-electron/
-  main.ts                 app bootstrap: builds service instances + IPC helpers,
-                          creates the window
-  preload.cts             typed window.branchPilot bridge (invoke side)
-  ipc/ipcHelpers          createIpcHelpers(): handle/handleLogged/
-                          handleAssistantAction/handleUnwrapped + repo-path and
-                          dialog helpers (the registration toolkit)
-  ipc/registerIpcHandlers thin orchestrator: calls the domain handler modules
-  ipc/handlers/           IPC registration split by domain
-                          (repository, git, providers, assistants)
-  ipc/ipcTypes            shared deps interface + withProjectMemoryRefresh
-  lib/                    services (repository, settings, editor, activity log,
-                          assistant policy, project memory/wiki, daily review)
-                          and primitives (commandRunner, errors, parsers)
-  providers/              GitHub CLI + HTTP API bridge (main / api / parsers)
-  assistants/             AI assistant runner, split into focused modules
-  mcp/                    project-memory MCP server
-```
+## Change Routing
 
-### RepositoryService inheritance chain
+1. For a UI-only change, start in the route/view, then move outward to the hook
+   only if new state or behavior is required.[^renderer]
+2. For a Git behavior change, start at the matching IPC handler, then follow the
+   delegated service on `repositoryService`.[^main]
+3. For a new feature crossing the process boundary, add the shared type, channel,
+   preload method, handler and renderer hook together.[^ipc]
+4. For an assistant/provider/memory workflow, preserve the existing activity log
+   and policy gates.[^workflows]
+5. Run the narrow test first, then the broader verification commands listed in
+   the development doc.[^development]
+6. When a task names a directory, open the module catalog and then the matching
+   module file.[^modules]
+7. When a task names a folder path, open the folder catalog first.[^folders]
 
-`RepositoryService` is the largest service. Rather than one 2400-line class it is
-split across an inheritance chain so `this` dispatch is unchanged and the
-compiler enforces the partition:
-
-- `repositoryService.base.ts` — `RepositoryServiceBase`: constructor, the `git`
-  primitive, config/remote helpers, all `assert*` guards and private read
-  helpers (`list*`).
-- `repositoryService.queries.ts` — `RepositoryServiceQueries extends Base`: read
-  / query methods (`getSnapshot`, diff, history, dashboard, compare, list*).
-- `repositoryService.ts` — `RepositoryService extends Queries`: mutating
-  operations (open/clone, stage/commit, branches, tags, worktrees, stash,
-  merge/rebase, patches).
-- `repositoryService.helpers.ts` — pure free functions (path/name normalizers,
-  git output parsers) used by all three.
-
-The provider and assistant modules follow the same idea: a thin entry module
-plus `*.api`, `*.parsers`, `*.schemas`, `*.context`, `*.exec`, `*.runners`
-siblings of pure or cohesive functions.
-
-## Shared types (`src/shared/branchPilot.ts`)
-
-The type surface is a **barrel**. `branchPilot.ts` only re-exports its domain
-partials:
-
-```
-branchPilot.ts            export * from core / memory / assistants / gitops / Api
-branchPilot.core.ts       repository, status, dashboard, branch, worktree, lfs
-branchPilot.memory.ts     project memory + wiki
-branchPilot.assistants.ts assistant policy, activity log, daily review
-branchPilot.gitops.ts     diffs, commits, requests, generated artifacts, review
-branchPilotApi.ts         BranchPilotApi interface + GitHub PR/repo types
-```
-
-Both processes import from `branchPilot`, so the barrel keeps every consumer
-stable while the definitions live in focused files. Cross-file imports use
-explicit `.js` extensions because the electron project compiles with
-`moduleResolution: NodeNext`.
-
-## Verification
-
-Two TypeScript projects must both be checked — `tsc -b` does **not** cover the
-electron code:
-
-```
-npx tsc -b                          # app/renderer (tsconfig.app.json = src/)
-npx tsc -p tsconfig.electron.json   # main process (NodeNext)
-npx eslint .                        # lint (react-hooks compiler rules included)
-npx vitest run                      # unit + component (SSR) tests
-```
-
-Full production build: `tsc -b && vite build && tsc -p tsconfig.electron.json`.
-
-Notes for the sandbox: behavioural git tests need `git >= 2.36`
-(`worktree list --porcelain -z`); on older git they fail purely on the
-environment. `vite build` needs the native `lightningcss` / `rolldown` bindings
-for the host platform.
+[^renderer]: [Renderer architecture](docs/architecture/renderer.md)
+[^main]: [Main process architecture](docs/architecture/main-process.md)
+[^ipc]: [IPC and shared contracts](docs/architecture/ipc-contract.md)
+[^workflows]: [Domain workflows](docs/architecture/domain-workflows.md)
+[^development]: [Development workflow](docs/architecture/development.md)
+[^modules]: [Module catalog](docs/modules/README.md)
+[^folders]: [Folder catalog](docs/folders/README.md)

@@ -6,6 +6,7 @@ import type {
 } from '../../shared/branchPilot'
 import type { ChangeDiffMode } from '../../shared/changeStaging'
 import type { ViewMode } from '../../lib/viewMode'
+import type { ConfirmationOptions } from '../../lib/prompts'
 import { getBulkStageToggleState } from '../../shared/changeStaging'
 import { ViewSwitch } from '../ViewSwitch'
 import { getAmendCommitActionState, getCommitActionState, getCommitAndPushActionState } from '../../shared/commitPreconditions'
@@ -57,6 +58,7 @@ export function ChangesView({
   githubAccounts, githubCliStatus, assistantPolicy,
   selectedAssistant,
   setNotice, onOpenReview, onOpenStash, stashCount,
+  requestConfirmation,
   generateCommitText, canGenerateCommitText,
   commitActionState, commitAndPushActionState, amendCommitActionState,
   commitChanges, amendLastCommit,
@@ -113,6 +115,7 @@ export function ChangesView({
   onOpenReview: () => void
   onOpenStash: () => void
   stashCount: number
+  requestConfirmation: (message: string, options?: ConfirmationOptions) => Promise<boolean>
   generateCommitText: () => void | Promise<void>
   canGenerateCommitText: boolean
   commitActionState: ReturnType<typeof getCommitActionState>
@@ -298,6 +301,7 @@ export function ChangesView({
           selectedAssistant={selectedAssistant}
           onBack={() => setInternalEditorPath(null)}
           setNotice={setNotice}
+          requestConfirmation={requestConfirmation}
           runSnapshotAction={runSnapshotAction}
         />
       </section>
