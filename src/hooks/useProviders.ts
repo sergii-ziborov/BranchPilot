@@ -270,6 +270,7 @@ export function useProviders({
 
       if (result.ok && result.data) {
         applySnapshot(result.data, `${repository.nameWithOwner} cloned.`)
+        try { localStorage.setItem('bp-repo', result.data.summary.rootPath) } catch { /* ignore */ }
         setViewMode('changes')
       } else if (result.ok) {
         setNotice('Clone canceled.')

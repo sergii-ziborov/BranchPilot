@@ -55,8 +55,8 @@ export function ReportsRoute() {
     copyLinkedInTags,
     projectMemory,
     memoryLoading,
-    loadProjectMemory,
     scanProjectMemory,
+    openRepoInEditor,
     activityLog,
     projectMemoryMcpConfig,
     copyProjectMemoryText,
@@ -209,8 +209,8 @@ export function ReportsRoute() {
         <MemoryView
           projectMemory={projectMemory}
           memoryLoading={memoryLoading}
-          loadProjectMemory={loadProjectMemory}
           scanProjectMemory={scanProjectMemory}
+          openRepoInEditor={openRepoInEditor}
           activityLog={activityLog}
           completedWorkItems={completedWorkItems}
           clearActivityLog={clearActivityLog}

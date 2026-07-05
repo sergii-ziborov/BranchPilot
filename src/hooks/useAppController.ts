@@ -187,9 +187,10 @@ export function useAppController() {
     recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter,
     filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, contributionGraphLoading,
     dashboardRepositoryFilter, setDashboardRepositoryFilter, repositoryPickerOpen, setRepositoryPickerOpen,
+    cloneDialogOpen, setCloneDialogOpen,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
     loadRecentRepositories, loadRepositoryDashboard, silentRefreshDashboard, toggleRepositoryPinned,
-    chooseRepository, openRepository, initializeRepository, cloneRepository, refreshRepository,
+    chooseRepository, openCloneDialog, openRepository, initializeRepository, cloneRepository, refreshRepository,
     openRepoInEditor, openRepositoryTerminal
   } = useRepositoryManagement({
     api, currentRepoPath, allReposMode, viewMode, reportRepoPaths: selectedReportRepoPaths, setViewMode, snapshot,
@@ -585,8 +586,10 @@ export function useAppController() {
   const handleMenuAction = (action: string) => {
     switch (action) {
       case 'open-repository':
-      case 'clone-repository':
         void chooseRepository()
+        break
+      case 'clone-repository':
+        openCloneDialog()
         break
       case 'refresh': void refreshRepository(); break
       case 'open-in-editor': void openRepoInEditor(); break
@@ -810,6 +813,8 @@ export function useAppController() {
     setDashboardRepositoryFilter,
     repositoryPickerOpen,
     setRepositoryPickerOpen,
+    cloneDialogOpen,
+    setCloneDialogOpen,
     cloneRemoteUrl,
     setCloneRemoteUrl,
     cloneTargetName,
@@ -818,6 +823,7 @@ export function useAppController() {
     loadRepositoryDashboard,
     toggleRepositoryPinned,
     chooseRepository,
+    openCloneDialog,
     openRepository,
     initializeRepository,
     cloneRepository,

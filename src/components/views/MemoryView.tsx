@@ -1,6 +1,6 @@
 import {
   BookOpen, Bot, Cable, CheckCircle2, Clock3, Database, FileCode2,
-  Copy, Download, GitCommitHorizontal, History, RefreshCcw, Save, Server, Trash2, Upload
+  Copy, Download, FolderOpen, History, Save, Server, Trash2, Upload
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { SegmentedControl } from '../SegmentedControl'
@@ -24,8 +24,8 @@ import {
 interface MemoryViewProps {
   projectMemory: ProjectMemorySnapshot | null
   memoryLoading: boolean
-  loadProjectMemory: () => void | Promise<void>
   scanProjectMemory: () => void | Promise<void>
+  openRepoInEditor: () => void | Promise<void>
   activityLog: ActivityLogSnapshot | null
   completedWorkItems: CompletedWorkItem[]
   clearActivityLog: () => void | Promise<void>
@@ -70,8 +70,8 @@ interface McpSetupViewProps {
 export function MemoryView({
   projectMemory,
   memoryLoading,
-  loadProjectMemory,
   scanProjectMemory,
+  openRepoInEditor,
   activityLog,
   completedWorkItems,
   clearActivityLog,
@@ -87,11 +87,16 @@ export function MemoryView({
 }: MemoryViewProps) {
   const files = projectMemory?.files ?? []
   const symbols = projectMemory?.symbols ?? []
-  const commits = projectMemory?.recentCommits ?? []
-  const visibleActivity = filteredActivityEntries.slice(0, 18)
+  const visibleActivitySource = useMemo(
+    () => filteredActivityEntries.filter(isUsefulMemoryActivity),
+    [filteredActivityEntries]
+  )
+  const visibleActivity = visibleActivitySource.slice(0, 18)
   const visibleFiles = sortedMemoryFiles(files).slice(0, 320)
   const topFolders = summarizeMemoryFolders(files, 5)
   const completedPreview = completedWorkItems.slice(0, 6)
+  const visibleMemorySymbols = useMemo(() => compactMemorySymbols(selectedMemorySymbols), [selectedMemorySymbols])
+  const visibleMemoryImports = useMemo(() => compactMemoryImports(selectedMemoryImports), [selectedMemoryImports])
   const memoryHeadingDetail = projectMemory ? (
     <span className="memory-heading-metrics">
       <span className="metric-files">{files.length.toLocaleString()} files</span>
@@ -99,7 +104,7 @@ export function MemoryView({
       <span className="metric-imports">{projectMemory.imports.length.toLocaleString()} imports</span>
       <span className="metric-scan">scanned {formatDate(projectMemory.scannedAt)}</span>
     </span>
-  ) : 'Files, symbols, imports, commits, and local BranchPilot activity.'
+  ) : 'Files, symbols, imports, and local BranchPilot activity.'
 
   return (
     <section className="single-panel branchpilot-memory-panel memory-index-panel">
@@ -107,16 +112,10 @@ export function MemoryView({
         title="Memory"
         detail={memoryHeadingDetail}
         actions={(
-          <>
-            <button type="button" onClick={() => loadProjectMemory()} disabled={memoryLoading}>
-              <RefreshCcw size={17} />
-              Reload
-            </button>
-            <button type="button" onClick={scanProjectMemory} disabled={memoryLoading}>
-              <Database size={17} />
-              Rescan
-            </button>
-          </>
+          <button type="button" onClick={scanProjectMemory} disabled={memoryLoading}>
+            <Database size={17} />
+            Rescan
+          </button>
         )}
       />
 
@@ -124,7 +123,7 @@ export function MemoryView({
         <SignalStatus
           className="memory-data-loading"
           label="Scanning memory"
-          detail="Indexing files, symbols, imports, commits, and local activity."
+          detail="Indexing files, symbols, imports, and local activity."
         />
       ) : !projectMemory ? (
         <section className="memory-empty-board">
@@ -150,9 +149,15 @@ export function MemoryView({
                   empty="No stack hints"
                 />
                 <MemoryChipGroup
-                  label="Folders"
+                  label="Top paths"
                   items={topFolders.map((folder) => `${folder.label} ${folder.count}`)}
-                  empty="No folder signals"
+                  empty="No path signals"
+                  action={(
+                    <button className="memory-chip-action" type="button" onClick={openRepoInEditor}>
+                      <FolderOpen size={13} />
+                      Editor
+                    </button>
+                  )}
                 />
               </div>
               <div className="memory-scroll-list">
@@ -178,7 +183,7 @@ export function MemoryView({
               <MemoryCellHeading
                 icon={<Database size={16} />}
                 title={selectedMemoryFile?.path ?? 'File outline'}
-                meta={`${selectedMemorySymbols.length} symbols`}
+                meta={selectedMemoryFile ? `${visibleMemorySymbols.length} names` : `${selectedMemorySymbols.length} symbols`}
               />
               {!selectedMemoryFile ? (
                 <div className="quiet-box">Select an indexed file.</div>
@@ -191,30 +196,34 @@ export function MemoryView({
                     <span>{selectedMemoryFile.importCount.toLocaleString()} imports</span>
                   </section>
                   <section className="memory-outline-section memory-symbols-section">
-                    <MemoryCellHeading icon={<Database size={15} />} title="Symbols" meta={String(selectedMemorySymbols.length)} compact />
+                    <MemoryCellHeading icon={<Database size={15} />} title="Symbols" meta={String(visibleMemorySymbols.length)} compact />
                     <div className="memory-scroll-list">
-                      {selectedMemorySymbols.length === 0 ? (
+                      {visibleMemorySymbols.length === 0 ? (
                         <div className="quiet-box">No symbols detected.</div>
                       ) : (
-                        selectedMemorySymbols.map((symbol) => (
+                        visibleMemorySymbols.map((symbol) => (
                           <article className="memory-symbol-row" key={symbol.id}>
                             <span>{symbol.kind}</span>
-                            <strong>{symbol.parentName ? `${symbol.parentName}.${symbol.name}` : symbol.name}</strong>
-                            <code>{symbol.exported ? 'exported' : 'local'} - line {symbol.line}</code>
+                            <strong title={symbol.name}>
+                              {symbol.name}
+                              {symbol.count > 1 && <small>{symbol.count}x</small>}
+                            </strong>
+                            <code>{symbol.exported ? 'exported' : 'local'} - {formatLines(symbol.lines)}</code>
                           </article>
                         ))
                       )}
                     </div>
                   </section>
                   <div className="memory-import-stack">
-                    <MemoryCellHeading icon={<Cable size={15} />} title="Imports" meta={String(selectedMemoryImports.length)} compact />
+                    <MemoryCellHeading icon={<Cable size={15} />} title="Imports" meta={String(visibleMemoryImports.length)} compact />
                     <div className="memory-scroll-list">
-                      {selectedMemoryImports.length === 0 ? (
+                      {visibleMemoryImports.length === 0 ? (
                         <div className="quiet-box">No imports detected.</div>
                       ) : (
-                        selectedMemoryImports.map((entry) => (
-                          <code key={`${entry.path}-${entry.line}-${entry.source}`}>
-                            {entry.source}{entry.specifiers.length > 0 ? ` - ${entry.specifiers.join(', ')}` : ''} - line {entry.line}
+                        visibleMemoryImports.map((entry) => (
+                          <code key={entry.id} title={entry.title}>
+                            {entry.source}{entry.specifiers.length > 0 ? ` - ${entry.specifiers.join(', ')}` : ''} - {formatLines(entry.lines)}
+                            {entry.count > 1 ? ` - ${entry.count} uses` : ''}
                           </code>
                         ))
                       )}
@@ -226,7 +235,7 @@ export function MemoryView({
 
             <section className="memory-workcell memory-history-cell">
               <div className="memory-history-head">
-                <MemoryCellHeading icon={<History size={16} />} title="Activity" meta={`${activityLog?.totalCount ?? 0} events`} />
+                <MemoryCellHeading icon={<History size={16} />} title="Activity" meta={`${visibleActivitySource.length} shown`} />
                 <button className="danger-button icon-button" type="button" onClick={clearActivityLog} disabled={memoryLoading || !activityLog?.totalCount} title="Clear activity log">
                   <Trash2 size={15} />
                 </button>
@@ -244,7 +253,7 @@ export function MemoryView({
               <section className="memory-activity-section">
                 <div className="memory-scroll-list activity">
                   {visibleActivity.length === 0 ? (
-                    <div className="quiet-box">No activity for this filter.</div>
+                    <div className="quiet-box">No BranchPilot activity for this filter.</div>
                   ) : (
                     visibleActivity.map((entry) => (
                       <article className={`activity-row activity-${entry.status}`} key={entry.id}>
@@ -253,21 +262,6 @@ export function MemoryView({
                           <span>{entry.actor} - {entry.status} - {formatDate(entry.createdAt)}</span>
                         </div>
                         <code>{activityMetadataLabel(entry)}</code>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </section>
-              <MemoryCellHeading icon={<GitCommitHorizontal size={16} />} title="Recent commits" meta={commits.length > 10 ? `10 of ${commits.length}` : String(commits.length)} compact />
-              <section className="memory-commits-section">
-                <div className="memory-scroll-list commits">
-                  {commits.length === 0 ? (
-                    <div className="quiet-box">No commits indexed.</div>
-                  ) : (
-                    commits.slice(0, 10).map((commit) => (
-                      <article className="memory-commit-row" key={commit.sha}>
-                        <strong>{commit.subject || '(no subject)'}</strong>
-                        <span>{commit.shortSha} - {formatDate(commit.authoredAt)}</span>
                       </article>
                     ))
                   )}
@@ -472,7 +466,7 @@ export function McpSetupView({
       <section className="single-panel branchpilot-memory-panel mcp-panel">
         <MemoryPanelHeading
           title="MCP"
-          detail="Connect Codex to BranchPilot Memory, Project Wiki, and change history."
+          detail="Connect local assistants to BranchPilot Memory, Project Wiki, and change history."
         />
         <section className="memory-empty-board">
           <Cable size={28} />
@@ -490,12 +484,12 @@ export function McpSetupView({
     {
       title: 'Project Wiki',
       uri: 'branchpilot://repo/current/wiki',
-      detail: 'Generated architecture, module map, workflows, policy, and recent timeline.'
+      detail: 'Generated architecture, module map, workflows, assistant policy, and recent timeline.'
     },
     {
       title: 'Change history',
       uri: 'branchpilot://repo/current/activity',
-      detail: 'BranchPilot activity ledger: assistant actions, Git operations, PR/provider events.'
+      detail: 'BranchPilot activity ledger: assistant actions, repository operations, and provider events.'
     },
     {
       title: 'Recent commits',
@@ -505,7 +499,7 @@ export function McpSetupView({
     {
       title: 'Code index',
       uri: 'branchpilot://repo/current/tree + symbols',
-      detail: 'Indexed file tree and exported/local symbols for fast code navigation.'
+      detail: 'Indexed file tree, imports, and exported/local symbols for fast code navigation.'
     }
   ]
   const mcpToolGroups = [
@@ -539,7 +533,7 @@ export function McpSetupView({
     {
       title: 'Change history',
       detail: `${activityLog?.totalCount ?? 0} BranchPilot events`,
-      meta: 'Assistant and Git timeline',
+      meta: 'Assistant, provider, and repo timeline',
       ready: Boolean(activityLog?.totalCount)
     },
     {
@@ -554,7 +548,7 @@ export function McpSetupView({
     <section className="single-panel branchpilot-memory-panel mcp-panel">
       <MemoryPanelHeading
         title="MCP"
-        detail="Copy a connection prompt or config that exposes Memory, Project Wiki, and change history to Codex."
+        detail="Copy a connection prompt or config that exposes Memory, Project Wiki, and change history to local assistants."
       />
 
       <div className="mcp-workbench">
@@ -573,7 +567,7 @@ export function McpSetupView({
 
         <section className="mcp-main-grid">
           <section className="memory-workcell mcp-surface-cell">
-            <MemoryCellHeading icon={<Cable size={16} />} title="What MCP gives Codex" meta={`${mcpResources.length} resources - ${mcpPrompts.length} prompts`} />
+            <MemoryCellHeading icon={<Cable size={16} />} title="MCP context surface" meta={`${mcpResources.length} resources - ${mcpPrompts.length} prompts`} />
             <div className="mcp-resource-list">
               {mcpResources.map((resource) => (
                 <article className="mcp-resource-row" key={resource.uri}>
@@ -597,13 +591,13 @@ export function McpSetupView({
 
             <section className="mcp-prompt-card">
               <div className="memory-section-heading compact">
-                <h3>Codex behavior prompt</h3>
+                <h3>Assistant behavior prompt</h3>
                 <button type="button" onClick={() => copyProjectMemoryText(prompt, 'BranchPilot MCP prompt')}>
                   <Cable size={15} />
                   Copy Prompt
                 </button>
               </div>
-              <p>Use this when connecting Codex so it reads BranchPilot Wiki, activity, commits, tree, and symbols before spending tokens on raw files.</p>
+              <p>Use this when connecting Claude Code, Codex, or another MCP client so it reads BranchPilot context before opening raw files.</p>
               <div className="mcp-prompt-chips">
                 {mcpPrompts.map((name) => <code key={name}>{name}</code>)}
               </div>
@@ -614,13 +608,19 @@ export function McpSetupView({
             <MemoryCellHeading icon={<Server size={16} />} title="Connection" meta={projectMemoryMcpConfig.serverExists ? 'ready' : 'build missing'} />
             <CopyableCodeBlock
               variant="snippet"
-              title="CLI command"
-              code={projectMemoryMcpConfig.codexCommand}
-              onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.codexCommand, 'Codex MCP command')}
+              title="Server command"
+              code={projectMemoryMcpConfig.serverCommand}
+              onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.serverCommand, 'MCP server command')}
             />
             <CopyableCodeBlock
               variant="snippet"
-              title="config.toml"
+              title="Codex CLI command"
+              code={projectMemoryMcpConfig.codexCommand}
+              onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.codexCommand, 'Codex CLI MCP command')}
+            />
+            <CopyableCodeBlock
+              variant="snippet"
+              title="Codex config.toml"
               code={projectMemoryMcpConfig.codexToml}
               onCopy={() => copyProjectMemoryText(projectMemoryMcpConfig.codexToml, 'Codex MCP TOML')}
             />
@@ -657,7 +657,7 @@ function projectWikiGenerationPrompt(
   const stackHints = memory?.stackHints.map((hint) => `${hint.label} (${hint.source})`).join(', ') || 'not scanned'
 
   return [
-    'Generate a BranchPilot Project Wiki for Codex and future local assistants.',
+    'Generate a BranchPilot Project Wiki for Claude Code, Codex, and future local assistants.',
     'The wiki must be practical architecture documentation, not marketing copy.',
     'Treat BranchPilot Project Wiki as local private Markdown wiki pages. It may be pushed to GitHub Wiki later, but do not assume GitHub Wiki already exists.',
     '',
@@ -675,7 +675,7 @@ function projectWikiGenerationPrompt(
     '4. Technology-Map.md: frameworks, runtimes, package managers, build/runtime entrypoints, configs, and provider/API layers.',
     '5. Important-Symbols.md: exported components/services/types and why they matter.',
     '6. Workflows.md: how user-facing flows move across UI, services, Electron, provider/API, and Git layers.',
-    '7. Assistant-Policy.md: what Codex should read first, what not to mutate, and MCP usage order.',
+    '7. Assistant-Policy.md: what local assistants should read first, what not to mutate, and MCP usage order.',
     '8. Recent-Timeline.md: recent commits/activity only when it changes architectural understanding.',
     '',
     'Rules:',
@@ -735,16 +735,18 @@ function MemoryCellHeading({
 function MemoryChipGroup({
   label,
   items,
-  empty
+  empty,
+  action
 }: {
   label: string
   items: string[]
   empty: string
+  action?: ReactNode
 }) {
   const visibleItems = items.slice(0, 6)
 
   return (
-    <div className="memory-chip-row">
+    <div className={action ? 'memory-chip-row with-action' : 'memory-chip-row'}>
       <span>{label}</span>
       <div>
         {visibleItems.length === 0 ? (
@@ -753,8 +755,90 @@ function MemoryChipGroup({
           visibleItems.map((item) => <code key={item}>{item}</code>)
         )}
       </div>
+      {action}
     </div>
   )
+}
+
+function isUsefulMemoryActivity(entry: ActivityLogEntry): boolean {
+  return entry.type !== 'repository_opened' && entry.type !== 'repository_refreshed'
+}
+
+interface MemorySymbolGroup {
+  id: string
+  kind: string
+  name: string
+  exported: boolean
+  lines: number[]
+  count: number
+}
+
+function compactMemorySymbols(symbols: ProjectMemorySnapshot['symbols']): MemorySymbolGroup[] {
+  const groups = new Map<string, MemorySymbolGroup>()
+
+  for (const symbol of symbols) {
+    const name = symbol.parentName ? `${symbol.parentName}.${symbol.name}` : symbol.name
+    const key = `${symbol.kind}:${name}:${symbol.exported ? 'exported' : 'local'}`
+    const group = groups.get(key) ?? {
+      id: key,
+      kind: symbol.kind,
+      name,
+      exported: symbol.exported,
+      lines: [],
+      count: 0
+    }
+
+    group.lines.push(symbol.line)
+    group.count += 1
+    groups.set(key, group)
+  }
+
+  return [...groups.values()]
+    .map((group) => ({ ...group, lines: [...new Set(group.lines)].sort((left, right) => left - right) }))
+    .sort((left, right) => (left.lines[0] ?? 0) - (right.lines[0] ?? 0) || left.name.localeCompare(right.name))
+}
+
+interface MemoryImportGroup {
+  id: string
+  source: string
+  specifiers: string[]
+  lines: number[]
+  count: number
+  title: string
+}
+
+function compactMemoryImports(imports: ProjectMemorySnapshot['imports']): MemoryImportGroup[] {
+  const groups = new Map<string, MemoryImportGroup>()
+
+  for (const entry of imports) {
+    const specifiers = [...new Set(entry.specifiers)].sort()
+    const key = `${entry.source}:${specifiers.join(',')}`
+    const group = groups.get(key) ?? {
+      id: key,
+      source: entry.source,
+      specifiers,
+      lines: [],
+      count: 0,
+      title: ''
+    }
+
+    group.lines.push(entry.line)
+    group.count += 1
+    group.title = `${entry.source}${specifiers.length > 0 ? ` - ${specifiers.join(', ')}` : ''}`
+    groups.set(key, group)
+  }
+
+  return [...groups.values()]
+    .map((group) => ({ ...group, lines: [...new Set(group.lines)].sort((left, right) => left - right) }))
+    .sort((left, right) => (left.lines[0] ?? 0) - (right.lines[0] ?? 0) || left.source.localeCompare(right.source))
+}
+
+function formatLines(lines: number[]): string {
+  if (lines.length === 0) return 'no lines'
+  if (lines.length === 1) return `line ${lines[0]}`
+
+  const preview = lines.slice(0, 4).join(', ')
+  return lines.length > 4 ? `lines ${preview} +${lines.length - 4}` : `lines ${preview}`
 }
 
 function mcpConnectionPrompt(
@@ -764,7 +848,7 @@ function mcpConnectionPrompt(
   activity: ActivityLogSnapshot | null
 ): string {
   return [
-    'Use BranchPilot MCP as the first source of local project context.',
+    'Use BranchPilot MCP as the first source of local project context for this assistant.',
     '',
     `Repository: ${config.repoPath}`,
     `Memory: ${memory ? `${memory.files.length} files, ${memory.symbols.length} symbols, scanned ${formatDate(memory.scannedAt)}` : 'not loaded'}`,
@@ -780,7 +864,8 @@ function mcpConnectionPrompt(
     'Available workflow prompts: review-current-work, prepare-change-plan, explain-module, summarize-recent-work.',
     '',
     'Treat this as a read-only BranchPilot context bridge, not a graph/repo-lens view.',
-    `Connect with: ${config.codexCommand}`
+    `Generic server command: ${config.serverCommand}`,
+    `Codex CLI helper: ${config.codexCommand}`
   ].join('\n')
 }
 

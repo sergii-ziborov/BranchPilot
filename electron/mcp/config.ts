@@ -28,6 +28,10 @@ export async function createProjectMemoryMcpConfig(input: ProjectMemoryMcpConfig
     wikiDir: input.wikiDir,
     serverPath: input.serverPath,
     repoPath: input.repoPath,
+    serverCommand: [
+      'node',
+      ...args
+    ].map(shellQuote).join(' '),
     codexCommand: [
       'codex',
       'mcp',

@@ -401,7 +401,7 @@ function moduleMapMarkdown(snapshot: ProjectMemorySnapshot): string {
   return [
     '# Module Map',
     '',
-    'This page is the main orientation map for Codex. Start here before opening raw files.',
+    'This page is the main orientation map for local assistants. Start here before opening raw files.',
     '',
     '## Technology Signals',
     ...listOrEmpty([

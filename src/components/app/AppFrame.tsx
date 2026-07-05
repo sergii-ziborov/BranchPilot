@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AppShellBar } from '../AppShellBar'
 import { GlobalTooltip } from '../GlobalTooltip'
 import { RepositoryLoadingState } from '../EmptyState'
@@ -24,14 +24,17 @@ export function AppFrame() {
     notice,
     error,
     setError,
+    cloneDialogOpen,
+    setCloneDialogOpen,
+    openCloneDialog,
     loadGitHubAccounts,
     loadGitHubRepositories,
     loadRepositoryDashboard
   } = useController()
   const [changesTool, setChangesTool] = useState<ChangesTool>(null)
-  const [showClone, setShowClone] = useState(false)
   const [showPublishRepository, setShowPublishRepository] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
+  const cloneOpenedFromRepoPathRef = useRef<string | null>(null)
   const showRepositoryLoading = busy && isRepositoryTransitionOperation(operationLabel)
   const showRepositorySync = busy && !showRepositoryLoading && isRepositorySyncOperation(operationLabel)
 
@@ -43,14 +46,18 @@ export function AppFrame() {
   }, [])
 
   useEffect(() => {
-    if (!showClone) return
+    if (!cloneDialogOpen) return
+    cloneOpenedFromRepoPathRef.current = snapshot?.summary.rootPath ?? null
     void loadGitHubAccounts()
     void loadGitHubRepositories()
-  }, [showClone])
+  }, [cloneDialogOpen])
 
   useEffect(() => {
-    if (showClone && snapshot) setShowClone(false)
-  }, [showClone, snapshot?.summary.rootPath])
+    if (!cloneDialogOpen || !snapshot?.summary.rootPath) return
+    if (snapshot.summary.rootPath !== cloneOpenedFromRepoPathRef.current) {
+      setCloneDialogOpen(false)
+    }
+  }, [cloneDialogOpen, snapshot?.summary.rootPath])
 
   useEffect(() => {
     if (viewMode === 'daily') void loadRepositoryDashboard()
@@ -62,7 +69,7 @@ export function AppFrame() {
 
   return (
     <main className="app-shell">
-      <AppShellBar onOpenClone={() => setShowClone(true)} onOpenPublishRepository={() => setShowPublishRepository(true)} />
+      <AppShellBar onOpenClone={openCloneDialog} onOpenPublishRepository={() => setShowPublishRepository(true)} />
       <Toaster notice={notice} busy={busy} operationLabel={operationLabel} error={error} onDismissError={() => setError(null)} />
       <GlobalTooltip />
       {showRepositoryLoading && (
@@ -86,8 +93,6 @@ export function AppFrame() {
         onOpenPublishRepository={() => setShowPublishRepository(true)}
       />
       <AppDialogs
-        showClone={showClone}
-        setShowClone={setShowClone}
         showPublishRepository={showPublishRepository}
         setShowPublishRepository={setShowPublishRepository}
         showAbout={showAbout}

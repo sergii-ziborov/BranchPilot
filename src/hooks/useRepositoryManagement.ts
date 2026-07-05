@@ -51,6 +51,7 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   const [dashboardRepositoryFilter, setDashboardRepositoryFilter] = useState('')
   const [cloneRemoteUrl, setCloneRemoteUrl] = useState('')
   const [cloneTargetName, setCloneTargetName] = useState('')
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false)
   const [recentRepositories, setRecentRepositories] = useState<RecentRepository[]>([])
   const [recentRepositoryFilter, setRecentRepositoryFilter] = useState('')
   const [repositoryPickerOpen, setRepositoryPickerOpen] = useState(false)
@@ -180,7 +181,13 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
   }
 
   function chooseRepository() {
+    setCloneDialogOpen(false)
     setRepositoryPickerOpen(true)
+  }
+
+  function openCloneDialog() {
+    setRepositoryPickerOpen(false)
+    setCloneDialogOpen(true)
   }
 
   async function openRepository(path: string): Promise<boolean> {
@@ -207,16 +214,16 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     })
   }
 
-  async function cloneRepository() {
-    if (!api) return
+  async function cloneRepository(): Promise<boolean> {
+    if (!api) return false
     const remoteUrl = cloneRemoteUrl.trim()
 
     if (!remoteUrl) {
       setNotice('Clone blocked: add a repository URL.')
-      return
+      return false
     }
 
-    await runBusyOperation('Cloning repository...', async () => {
+    return runBusyOperation('Cloning repository...', async () => {
       const result = await api.cloneRepository({
         remoteUrl,
         targetName: cloneTargetName.trim() || undefined
@@ -226,10 +233,14 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
         setCloneRemoteUrl('')
         setCloneTargetName('')
         applySnapshot(result.data, 'Repository cloned.')
+        try { localStorage.setItem('bp-repo', result.data.summary.rootPath) } catch { /* ignore */ }
+        return true
       } else if (!result.ok) {
         setError(result.error.message)
         setNotice(branchPilotErrorText(result.error))
       }
+
+      return false
     })
   }
 
@@ -291,9 +302,10 @@ export function useRepositoryManagement(deps: UseRepositoryManagementDeps) {
     recentRepositories, setRecentRepositories, recentRepositoryFilter, setRecentRepositoryFilter,
     filteredRecentRepositories, repositoryDashboard, contributionGraph, repositoryRhythm, dashboardLoading, contributionGraphLoading,
     dashboardRepositoryFilter, setDashboardRepositoryFilter, repositoryPickerOpen, setRepositoryPickerOpen,
+    cloneDialogOpen, setCloneDialogOpen,
     cloneRemoteUrl, setCloneRemoteUrl, cloneTargetName, setCloneTargetName,
     loadRecentRepositories, loadRepositoryDashboard, silentRefreshDashboard, toggleRepositoryPinned,
-    chooseRepository, openRepository, initializeRepository, cloneRepository, refreshRepository,
+    chooseRepository, openCloneDialog, openRepository, initializeRepository, cloneRepository, refreshRepository,
     openRepoInEditor, openRepositoryTerminal
   }
 }

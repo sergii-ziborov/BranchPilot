@@ -77,6 +77,7 @@ export interface ProjectMemoryMcpConfig {
   wikiDir: string
   serverPath: string
   repoPath: string
+  serverCommand: string
   codexCommand: string
   codexToml: string
   serverExists: boolean

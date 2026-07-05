@@ -121,7 +121,7 @@ export async function loadProjectWikiSnapshot(options: MemoryQueryOptions): Prom
   const snapshot = await loadProjectMemorySnapshot(options)
 
   if (!options.wikiDir?.trim()) {
-    throw new Error('Project Wiki directory is required. Recopy the BranchPilot MCP config from Memory > Codex MCP setup.')
+    throw new Error('Project Wiki directory is required. Recopy the BranchPilot MCP config from Reports > MCP.')
   }
 
   const wiki = await new ProjectWikiStore(options.wikiDir).read(snapshot.repository)

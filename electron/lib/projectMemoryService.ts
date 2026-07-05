@@ -358,14 +358,24 @@ async function scanDirectory(rootPath: string, relativeDirectory: string, state:
 
 async function scanFile(rootPath: string, relativePath: string, state: ScanState): Promise<void> {
   const absolutePath = path.join(rootPath, relativePath)
-  const stat = await fs.stat(absolutePath)
+  const stat = await fs.stat(absolutePath).catch(() => null)
+
+  if (!stat) {
+    state.skippedFileCount += 1
+    return
+  }
 
   if (stat.size > MAX_INDEXED_FILE_BYTES) {
     state.skippedFileCount += 1
     return
   }
 
-  const buffer = await fs.readFile(absolutePath)
+  const buffer = await fs.readFile(absolutePath).catch(() => null)
+
+  if (!buffer) {
+    state.skippedFileCount += 1
+    return
+  }
 
   if (buffer.includes(0)) {
     state.skippedFileCount += 1

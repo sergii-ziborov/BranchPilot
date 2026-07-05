@@ -73,14 +73,6 @@ export function useProjectMemory({
   )
 
   const completedWorkItems = useMemo<CompletedWorkItem[]>(() => {
-    const commitItems = (projectMemory?.recentCommits ?? []).slice(0, 12).map((commit) => ({
-      id: `commit-${commit.sha}`,
-      title: commit.subject || '(no subject)',
-      meta: `${commit.shortSha} · ${commit.authorName} · ${formatDate(commit.authoredAt)}`,
-      createdAt: commit.authoredAt,
-      source: 'commit' as const
-    }))
-
     const operationItems = (activityLog?.entries ?? [])
       .filter((entry) => entry.status === 'success' && completedActivityTypes.has(entry.type))
       .slice(0, 12)
@@ -92,10 +84,10 @@ export function useProjectMemory({
         source: completedWorkSource(entry.type)
       }))
 
-    return [...commitItems, ...operationItems]
+    return operationItems
       .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
       .slice(0, 12)
-  }, [activityLog, projectMemory])
+  }, [activityLog])
 
   async function loadProjectMemory(repoPath = currentRepoPath) {
     if (!api || !repoPath) return
