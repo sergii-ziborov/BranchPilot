@@ -12,7 +12,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type UIEvent as ReactUIEvent
 } from 'react'
-import { Activity, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Pencil, PlusSquare, RotateCcw, Save, Search, Sparkles, Terminal, Trash2, WandSparkles, X } from 'lucide-react'
+import { Activity, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, CircleAlert, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Pencil, PlusSquare, RefreshCw, RotateCcw, Save, Search, Sparkles, Terminal, Trash2, TriangleAlert, WandSparkles, X } from 'lucide-react'
 import type { ApiResult, AssistantId, BranchPilotApi, DiffLine, DiffResult, FileChange, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
 import type { ConfirmationOptions } from '../../lib/prompts'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
@@ -23,6 +23,7 @@ import { SignalStatus } from '../SignalStatus'
 import {
   findCssColorTokens,
   isCssColorFile,
+  openCssColorPicker,
   rewriteCssColorValue,
   type CssColorEditDraft,
   type CssColorToken
@@ -55,6 +56,7 @@ const EDITOR_SEARCH_MATCH_LIMIT = 5000
 const EDITOR_FILE_CONTENT_SEARCH_MIN_LENGTH = 2
 const EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT = 250
 const EDITOR_FILE_CONTENT_SEARCH_DEBOUNCE_MS = 260
+const EDITOR_HEALTH_LINT_CONCURRENCY = 6
 const EDITOR_LINE_HEIGHT = 20
 const EDITOR_LINE_HEIGHT_EPSILON = 0.05
 const EDITOR_FILE_CHUNK_BYTES = 48_000
@@ -279,7 +281,7 @@ interface EditorSelectionStatus {
 }
 
 type EditorHealthSeverity = 'healthy' | 'warning' | 'critical'
-type EditorHealthRun = 'live' | 'opened'
+type EditorHealthRun = 'live' | 'opened' | 'manual'
 
 interface EditorHealthIssue {
   severity: EditorHealthSeverity
@@ -292,6 +294,14 @@ interface EditorHealthIssue {
 interface EditorHealthReport {
   severity: EditorHealthSeverity
   issues: EditorHealthIssue[]
+}
+
+interface EditorHealthScanState {
+  status: 'idle' | 'running' | 'done'
+  scanned: number
+  linted: number
+  signals: number
+  error: string | null
 }
 
 interface EditorHealthSettings {
@@ -1501,6 +1511,7 @@ function healthSeverityFromIssues(issues: EditorHealthIssue[]): EditorHealthSeve
 }
 
 function healthRunLabel(run: EditorHealthRun): string {
+  if (run === 'manual') return 'All files'
   return run === 'live' ? 'Live' : 'On open'
 }
 
@@ -1646,6 +1657,35 @@ function buildEditorHealthReport(
     severity: healthSeverityFromIssues(issues),
     issues
   }
+}
+
+function buildLiveHealthReports(
+  files: RepositoryFileEntry[],
+  changeByPath: Map<string, FileChange>,
+  settings: EditorHealthSettings
+): Map<string, EditorHealthReport> {
+  const reports = new Map<string, EditorHealthReport>()
+  for (const file of files) {
+    const change = changeByPath.get(file.path)
+    reports.set(file.path, buildEditorHealthReport(file.path, change, { scope: 'main', settings }))
+  }
+  return reports
+}
+
+function mergeHealthReports(left?: EditorHealthReport, right?: EditorHealthReport): EditorHealthReport {
+  const issues = [...(left?.issues ?? []), ...(right?.issues ?? [])]
+  return {
+    severity: healthSeverityFromIssues(issues),
+    issues
+  }
+}
+
+function countHealthSignalFiles(reports: Map<string, EditorHealthReport>): number {
+  let count = 0
+  reports.forEach((report) => {
+    if (report.issues.length > 0) count += 1
+  })
+  return count
 }
 
 function safeSvgDataUrl(svgText: string): string {
@@ -2566,7 +2606,7 @@ function EditorCssColorSwatch({
   } as CSSProperties
 
   const openPicker = () => {
-    if (!pending) inputRef.current?.click()
+    if (!pending) openCssColorPicker(inputRef.current)
   }
 
   const updateColor = async (inputValue: string) => {
@@ -2596,7 +2636,6 @@ function EditorCssColorSwatch({
         aria-label={`Change ${token.value}`}
         title={`Change ${token.value}`}
         onClick={(event) => {
-          event.preventDefault()
           event.stopPropagation()
           openPicker()
         }}
@@ -2664,6 +2703,14 @@ export function ChangesInternalEditor({
   const [sidebarWidth, setSidebarWidth] = useState(readStoredEditorSidebarWidth)
   const [healthSettings, setHealthSettings] = useState(readStoredEditorHealthSettings)
   const [healthMenuOpen, setHealthMenuOpen] = useState(false)
+  const [healthScanState, setHealthScanState] = useState<EditorHealthScanState>({
+    status: 'idle',
+    scanned: 0,
+    linted: 0,
+    signals: 0,
+    error: null
+  })
+  const [manualHealthByPath, setManualHealthByPath] = useState<Map<string, EditorHealthReport>>(() => new Map())
   const [files, setFiles] = useState<RepositoryFileEntry[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [fileQuery, setFileQuery] = useState('')
@@ -2725,6 +2772,12 @@ export function ChangesInternalEditor({
     message: 'Lint has not run yet.',
     detail: 'Open a supported file and run lint.'
   })
+
+  useEffect(() => {
+    setManualHealthByPath(new Map())
+    setHealthScanState({ status: 'idle', scanned: 0, linted: 0, signals: 0, error: null })
+  }, [currentRepoPath])
+
   const changeByPath = useMemo(() => new Map((snapshot?.status.changes ?? []).map((change) => [change.path, change])), [snapshot])
   const selectedChange = selectedPath ? changeByPath.get(selectedPath) ?? null : null
   const query = fileQuery.trim().toLowerCase()
@@ -3055,20 +3108,20 @@ export function ChangesInternalEditor({
   const liveHealthByPath = useMemo(() => {
     if (!healthEnabled) return new Map<string, EditorHealthReport>()
 
-    const reports = new Map<string, EditorHealthReport>()
-    for (const file of files) {
-      const change = changeByPath.get(file.path)
-      reports.set(file.path, buildEditorHealthReport(file.path, change, { scope: 'main', settings: healthSettings }))
-    }
-    return reports
+    return buildLiveHealthReports(files, changeByPath, healthSettings)
   }, [changeByPath, files, healthEnabled, healthSettings])
   const fileHealthByPath = useMemo(() => {
     if (!healthEnabled) return new Map<string, EditorHealthReport>()
 
     const reports = new Map(liveHealthByPath)
-    if (selectedPath) reports.set(selectedPath, activeHealthReport)
+    manualHealthByPath.forEach((report, path) => {
+      reports.set(path, mergeHealthReports(reports.get(path), report))
+    })
+    if (selectedPath) {
+      reports.set(selectedPath, mergeHealthReports(reports.get(selectedPath), activeHealthReport))
+    }
     return reports
-  }, [activeHealthReport, healthEnabled, liveHealthByPath, selectedPath])
+  }, [activeHealthReport, healthEnabled, liveHealthByPath, manualHealthByPath, selectedPath])
   const allHealthReportEntries = useMemo(() => (
     Array.from(fileHealthByPath.entries())
       .map(([path, report]) => ({ path, report }))
@@ -3080,20 +3133,28 @@ export function ChangesInternalEditor({
     [allHealthReportEntries, selectedPath]
   )
   const liveHealthReports = useMemo(() => liveHealthReportEntries.slice(0, 10), [liveHealthReportEntries])
-  const healthIssueCount = healthEnabled ? activeHealthReport.issues.length : 0
-  const liveHealthSignalCount = healthEnabled ? liveHealthReportEntries.length : 0
-  const healthSignalCount = healthIssueCount + liveHealthSignalCount
+  const selectedHealthReport = selectedPath ? fileHealthByPath.get(selectedPath) ?? activeHealthReport : activeHealthReport
+  const healthIssueCount = healthEnabled ? selectedHealthReport.issues.length : 0
+  const healthSignalFileCount = healthEnabled ? allHealthReportEntries.length : 0
+  const healthSignalCount = healthSignalFileCount
   const healthPanelSeverity = allHealthReportEntries.reduce(
     (severity, { report }) => healthSeverityRank(report.severity) > healthSeverityRank(severity) ? report.severity : severity,
     healthEnabled ? activeHealthReport.severity : ('healthy' as EditorHealthSeverity)
   )
   const healthSummaryTitle = healthEnabled
-    ? healthSignalCount > 0
-      ? `${healthIssueCount} opened-file issue${healthIssueCount === 1 ? '' : 's'}, ${liveHealthSignalCount} live repository signal${liveHealthSignalCount === 1 ? '' : 's'}`
+    ? healthSignalFileCount > 0
+      ? `${healthSignalFileCount} file${healthSignalFileCount === 1 ? '' : 's'} with health signals${healthIssueCount > 0 ? `; ${healthIssueCount} selected-file issue${healthIssueCount === 1 ? '' : 's'}` : ''}`
       : selectedPath
         ? 'Selected file looks healthy by lightweight checks'
         : 'Select a file to inspect health'
     : 'Module health is disabled'
+  const healthRunDisabled = healthScanState.status === 'running' || filesLoading || !api || !currentRepoPath
+  const healthScanSummary =
+    healthScanState.status === 'running'
+      ? 'Scanning repository files...'
+    : healthScanState.status === 'done'
+        ? `${healthScanState.scanned} files checked, ${healthScanState.linted} linted, ${healthScanState.signals} file signal${healthScanState.signals === 1 ? '' : 's'}`
+        : `${files.length} files ready for live checks`
 
   const updateHealthSettings = (patch: Partial<EditorHealthSettings>) => {
     setHealthSettings((settings) => {
@@ -3150,6 +3211,129 @@ export function ChangesInternalEditor({
     storeEditorHealthSettings(DEFAULT_EDITOR_HEALTH_SETTINGS)
   }
 
+  const runAllFilesHealthCheck = async () => {
+    if (!api || !currentRepoPath) {
+      setNotice('Open a repository before running health checks.')
+      return
+    }
+
+    const nextSettings = healthSettings.enabled ? healthSettings : { ...healthSettings, enabled: true }
+    if (!healthSettings.enabled) {
+      updateHealthSettings({ enabled: true })
+    }
+
+    setHealthScanState({ status: 'running', scanned: 0, linted: 0, signals: 0, error: null })
+    const refreshedFiles = await reloadEditorFiles(selectedPath)
+    const scannedFiles = refreshedFiles.length > 0 ? refreshedFiles : files
+    const liveReports = buildLiveHealthReports(scannedFiles, changeByPath, nextSettings)
+    const manualReports = new Map<string, EditorHealthReport>()
+    const lintCandidates = scannedFiles.filter((file) => lintRulesEnabledForFile(file.path, lintSettings))
+    let linted = 0
+
+    const lintFile = async (file: RepositoryFileEntry) => {
+      try {
+        const result = await api.getRepositoryFileChunk({
+          repoPath: currentRepoPath,
+          filePath: file.path,
+          offset: 0,
+          maxBytes: EDITOR_FILE_CHUNK_BYTES
+        })
+        linted += 1
+
+        if (!result.ok) {
+          manualReports.set(file.path, {
+            severity: 'critical',
+            issues: [{
+              severity: 'critical',
+              run: 'manual',
+              category: 'load',
+              title: 'Health read failed',
+              detail: friendlyIpcErrorMessage(result.error.message, 'Could not read this file during all-files health.')
+            }]
+          })
+          return
+        }
+
+        if (result.data.binary) {
+          manualReports.set(file.path, {
+            severity: 'warning',
+            issues: [{
+              severity: 'warning',
+              run: 'manual',
+              category: 'preview',
+              title: 'Binary content',
+              detail: 'This file matches a lintable extension but its content is binary, so all-files lint skipped it.'
+            }]
+          })
+          return
+        }
+
+        if (result.data.hasMore) {
+          manualReports.set(file.path, {
+            severity: 'warning',
+            issues: [{
+              severity: 'warning',
+              run: 'manual',
+              category: 'batch',
+              title: 'Large file skipped',
+              detail: `All-files lint read the first ${formatBytes(result.data.endOffset)} of ${formatBytes(result.data.byteSize)}. Open the file to inspect chunks deliberately.`
+            }]
+          })
+          return
+        }
+
+        const fileDiagnostics = validateEditorText(file.path, result.data.text, lintSettings)
+        if (fileDiagnostics.length > 0) {
+          manualReports.set(file.path, {
+            severity: 'critical',
+            issues: [{
+              severity: 'critical',
+              run: 'manual',
+              category: 'diagnostics',
+              title: 'Lint issues',
+              detail: `${fileDiagnostics.length} issue${fileDiagnostics.length === 1 ? '' : 's'} found during all-files health. Open the file to inspect line details.`
+            }]
+          })
+        }
+      } catch (error) {
+        linted += 1
+        manualReports.set(file.path, {
+          severity: 'critical',
+          issues: [{
+            severity: 'critical',
+            run: 'manual',
+            category: 'load',
+            title: 'Health read failed',
+            detail: friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Could not read this file during all-files health.')
+          }]
+        })
+      }
+    }
+
+    for (let index = 0; index < lintCandidates.length; index += EDITOR_HEALTH_LINT_CONCURRENCY) {
+      await Promise.all(lintCandidates.slice(index, index + EDITOR_HEALTH_LINT_CONCURRENCY).map(lintFile))
+    }
+
+    const mergedReports = new Map(liveReports)
+    manualReports.forEach((report, path) => {
+      mergedReports.set(path, mergeHealthReports(mergedReports.get(path), report))
+    })
+    const signals = countHealthSignalFiles(mergedReports)
+    setManualHealthByPath(manualReports)
+    setHealthScanState({
+      status: 'done',
+      scanned: scannedFiles.length,
+      linted,
+      signals,
+      error: null
+    })
+    setNotice(
+      signals > 0
+        ? `Health checked ${scannedFiles.length} file${scannedFiles.length === 1 ? '' : 's'} and linted ${linted}; ${signals} file${signals === 1 ? '' : 's'} need attention.`
+        : `Health checked ${scannedFiles.length} file${scannedFiles.length === 1 ? '' : 's'} and linted ${linted}; no signals found.`
+    )
+  }
+
   const openFileContextMenu = (event: ReactMouseEvent, path: string) => {
     if (!path) return
     event.preventDefault()
@@ -3189,6 +3373,8 @@ export function ChangesInternalEditor({
     const fileHealth = healthEnabled && healthSettings.rowSignals ? fileHealthByPath.get(file.path) ?? null : null
     const fileHealthIssues = fileHealth?.issues ?? []
     const fileHealthTitle = fileHealthIssues.map((issue) => `[${healthRunLabel(issue.run)}] ${issue.title}: ${issue.detail}`).join('\n')
+    const fileHealthClass = fileHealthIssues.length > 0 ? `health-${fileHealth?.severity ?? 'warning'}` : ''
+    const FileHealthIcon = fileHealth?.severity === 'critical' ? TriangleAlert : CircleAlert
 
     return (
       <button
@@ -3198,7 +3384,8 @@ export function ChangesInternalEditor({
           'changes-editor-file-row',
           selected ? 'selected' : '',
           fileIsDirty ? 'edited' : '',
-          change ? 'changed' : 'clean'
+          change ? 'changed' : 'clean',
+          fileHealthClass
         ].filter(Boolean).join(' ')}
         key={file.path}
         onClick={() => openRepositoryFileRow(file, contentMatch)}
@@ -3220,7 +3407,7 @@ export function ChangesInternalEditor({
             title={fileHealthTitle}
             aria-label={fileHealthTitle}
           >
-            <Activity size={12} />
+            <FileHealthIcon size={12} />
           </span>
         )}
         {contentMatch && (
@@ -6179,9 +6366,15 @@ export function ChangesInternalEditor({
                     <strong>Module health</strong>
                     <span>Live checks mark file rows from the git snapshot. On-open checks run only after a file is opened.</span>
                   </div>
-                  <button type="button" onClick={() => updateHealthSettings({ enabled: !healthEnabled })}>
-                    {healthEnabled ? 'Disable' : 'Enable'}
-                  </button>
+                  <div className="changes-editor-health-actions">
+                    <button type="button" onClick={() => void runAllFilesHealthCheck()} disabled={healthRunDisabled}>
+                      <RefreshCw className={healthScanState.status === 'running' ? 'spin' : undefined} size={13} />
+                      Run all files
+                    </button>
+                    <button type="button" onClick={() => updateHealthSettings({ enabled: !healthEnabled })}>
+                      {healthEnabled ? 'Disable' : 'Enable'}
+                    </button>
+                  </div>
                 </header>
                 <section className="changes-editor-health-mode-grid">
                   <span>Run model</span>
@@ -6193,6 +6386,11 @@ export function ChangesInternalEditor({
                     <b>On open / click</b>
                     Runs for the active file only: chunked ranges, load limits, lint diagnostics, dirty draft, and dense rendered chunks.
                   </p>
+                </section>
+                <section>
+                  <span>Last all-files run</span>
+                  <strong>{healthScanSummary}</strong>
+                  {healthScanState.error && <p className="danger-text">{healthScanState.error}</p>}
                 </section>
                 <section className="changes-editor-health-settings">
                   <span>Live checks</span>
@@ -6222,10 +6420,10 @@ export function ChangesInternalEditor({
                     <section>
                       <span>Selected file</span>
                       <strong>{selectedPath || 'No file selected'}</strong>
-                      {activeHealthReport.issues.length === 0 ? (
+                      {selectedHealthReport.issues.length === 0 ? (
                         <p>No lightweight issues found for this file.</p>
                       ) : (
-                        activeHealthReport.issues.map((issue) => (
+                        selectedHealthReport.issues.map((issue) => (
                           <p className={`health-issue health-${issue.severity}`} key={`${issue.run}-${issue.category}-${issue.title}`}>
                             <span className="health-issue-head">
                               <b>{issue.title}</b>

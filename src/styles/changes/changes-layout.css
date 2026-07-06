@@ -517,6 +517,14 @@
   min-width: 0;
 }
 
+.changes-editor-health-panel header .changes-editor-health-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 148px;
+}
+
 .changes-editor-health-panel header span {
   color: var(--muted);
   font-size: 11px;
@@ -525,8 +533,17 @@
 }
 
 .changes-editor-health-panel header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 28px;
   padding: 0 10px;
+}
+
+.changes-editor-health-panel header button:disabled {
+  cursor: default;
+  opacity: 0.62;
 }
 
 .changes-editor-health-panel section > span {
@@ -612,6 +629,11 @@
 .changes-editor-health-panel .health-run-opened {
   border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
   background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.changes-editor-health-panel .health-run-manual {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .changes-editor-health-panel .health-warning {
@@ -914,6 +936,22 @@
   background: color-mix(in srgb, var(--accent) 15%, var(--panel));
 }
 
+.changes-editor-file-row.health-warning {
+  border-color: color-mix(in srgb, var(--warning) 52%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--warning) 16%, transparent), transparent 62%),
+    color-mix(in srgb, var(--panel) 88%, transparent);
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.changes-editor-file-row.health-critical {
+  border-color: color-mix(in srgb, var(--bad) 58%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--bad) 18%, transparent), transparent 62%),
+    color-mix(in srgb, var(--panel) 88%, transparent);
+  box-shadow: inset 3px 0 0 var(--bad);
+}
+
 .changes-editor-file-row.clean {
   color: color-mix(in srgb, var(--text) 76%, var(--muted));
 }
@@ -934,18 +972,46 @@
   border-radius: 999px;
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 13%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--warning) 16%, transparent),
+    0 0 10px color-mix(in srgb, var(--warning) 16%, transparent);
+}
+
+.changes-editor-file-health svg {
+  stroke-width: 2.4;
+}
+
+.changes-editor-file-health.health-warning {
+  color: var(--warning);
 }
 
 .changes-editor-file-health.health-critical {
   border-color: color-mix(in srgb, var(--bad) 70%, var(--border));
   color: var(--bad);
   background: color-mix(in srgb, var(--bad) 16%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--bad) 20%, transparent),
+    0 0 12px color-mix(in srgb, var(--bad) 22%, transparent);
 }
 
 .changes-editor-file-row.selected {
   border-color: var(--accent);
   background: var(--sel-bg);
   color: var(--text-strong);
+}
+
+.changes-editor-file-row.selected.health-warning {
+  border-color: color-mix(in srgb, var(--warning) 70%, var(--accent));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--warning) 22%, transparent), transparent 62%),
+    var(--sel-bg);
+}
+
+.changes-editor-file-row.selected.health-critical {
+  border-color: color-mix(in srgb, var(--bad) 70%, var(--accent));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--bad) 22%, transparent), transparent 62%),
+    var(--sel-bg);
 }
 
 .changes-editor-main {

@@ -9,6 +9,7 @@ import {
   getCurrentGitState,
   getFileOutline,
   getAgentActivity,
+  getProjectHealth,
   getProjectSummary,
   getProjectWiki,
   getPromptText,
@@ -24,7 +25,7 @@ import {
 const SERVER_VERSION = '0.1.0'
 const SERVER_INSTRUCTIONS = [
   'BranchPilot exposes read-only Project Memory for a local Git repository.',
-  'Use this server for indexed repo summary, file, symbol, import, and commit context.',
+  'Use this server for indexed repo summary, health, file, symbol, import, and commit context.',
   'Project Memory can be stale: every result includes scannedAt. Use shell/git separately for live mutable state.',
   'This server never writes files, runs commands, edits Git state, or stores credentials.'
 ].join(' ')
@@ -90,6 +91,7 @@ const activityTypes = [
 ] as const
 const activityActors = ['user', 'branchpilot', 'assistant', 'provider'] as const
 const activityStatuses = ['success', 'failure'] as const
+const healthSeverities = ['critical', 'warning', 'notice', 'healthy'] as const
 const wikiPageIds = [
   'overview',
   'module_map',
@@ -112,6 +114,17 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'project_summary')?.description,
     annotations: readOnlyAnnotations()
   }, async () => toolJson(await getProjectSummary(options)))
+
+  server.registerTool('get_project_health', {
+    title: 'Get Project Health',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_project_health')?.description,
+    inputSchema: {
+      limit: z.number().int().min(1).max(100).optional().describe('Maximum number of file health reports to return.'),
+      minimumSeverity: z.enum(healthSeverities).optional().describe('Minimum file severity to include.'),
+      includeHealthy: z.boolean().optional().describe('Include files with no health signals.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getProjectHealth({ ...options, ...args })))
 
   server.registerTool('search_files', {
     title: 'Search Files',

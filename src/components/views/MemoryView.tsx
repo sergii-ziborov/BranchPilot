@@ -132,10 +132,6 @@ export function MemoryView({
             <h3>No Project Memory snapshot</h3>
             <p>Run a scan to build the local repository index.</p>
           </div>
-          <button type="button" onClick={scanProjectMemory} disabled={memoryLoading}>
-            <Database size={16} />
-            Rescan
-          </button>
         </section>
       ) : (
         <div className="memory-workbench">
@@ -482,6 +478,11 @@ export function McpSetupView({
   const prompt = mcpConnectionPrompt(projectMemoryMcpConfig, projectMemory, projectWiki, activityLog)
   const mcpResources = [
     {
+      title: 'Project health',
+      uri: 'branchpilot://repo/current/health',
+      detail: 'File-level risk map from Project Memory: large files, dense modules, configs, and entrypoints.'
+    },
+    {
       title: 'Project Wiki',
       uri: 'branchpilot://repo/current/wiki',
       detail: 'Generated architecture, module map, workflows, assistant policy, and recent timeline.'
@@ -505,7 +506,7 @@ export function McpSetupView({
   const mcpToolGroups = [
     {
       title: 'Orient',
-      tools: ['project_summary', 'get_current_git_state', 'get_project_wiki']
+      tools: ['project_summary', 'get_project_health', 'get_current_git_state', 'get_project_wiki']
     },
     {
       title: 'Find code',
@@ -856,12 +857,13 @@ function mcpConnectionPrompt(
     `Change history: ${activity?.totalCount ?? 0} BranchPilot activity events plus recent commits`,
     '',
     'Read order:',
-    '1. branchpilot://repo/current/wiki for architecture and workflow intent.',
-    '2. branchpilot://repo/current/activity and branchpilot://repo/current/commits for recent work.',
-    '3. branchpilot://repo/current/tree and branchpilot://repo/current/symbols to narrow exploration.',
-    '4. Disk files only for exact implementation details.',
+    '1. branchpilot://repo/current/health to spot risky files before planning edits.',
+    '2. branchpilot://repo/current/wiki for architecture and workflow intent.',
+    '3. branchpilot://repo/current/activity and branchpilot://repo/current/commits for recent work.',
+    '4. branchpilot://repo/current/tree and branchpilot://repo/current/symbols to narrow exploration.',
+    '5. Disk files only for exact implementation details.',
     '',
-    'Available workflow prompts: review-current-work, prepare-change-plan, explain-module, summarize-recent-work.',
+    'Available workflow prompts: review-current-work, prepare-change-plan, explain-module, summarize-recent-work. Useful tools include project_summary, get_project_health, search_files, search_symbols, get_file_outline, get_symbol_context.',
     '',
     'Treat this as a read-only BranchPilot context bridge, not a graph/repo-lens view.',
     `Generic server command: ${config.serverCommand}`,

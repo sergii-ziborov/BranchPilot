@@ -24,6 +24,7 @@ import { GIT_EXECUTABLE, normalizeNativePath } from './platformExecutables.js'
 const WIKI_VERSION = 1
 const ACTIVITY_LIMIT = 80
 const MAX_LIST_ITEMS = 20
+const MAX_MODULE_WIKI_PAGES = 32
 const IMPORTANT_SYMBOL_KINDS = new Set(['class', 'component', 'function', 'interface', 'type'])
 const COMPLETED_WORK_ACTIVITY_TYPES = new Set<ActivityLogEntry['type']>([
   'github_pr_created',
@@ -334,9 +335,19 @@ export class ProjectWikiStore {
 }
 
 function buildWikiPages(snapshot: ProjectMemorySnapshot, activity: ActivityLogEntry[]): ProjectWikiPage[] {
+  const modulePages = wikiModuleDirectories(snapshot).map((module) =>
+    createPage(
+      modulePageId(module.name),
+      modulePageTitle(module.name),
+      `Module guide for ${module.name}.`,
+      modulePageMarkdown(snapshot, module)
+    )
+  )
+
   return [
     createPage('overview', 'Overview', 'Repository identity, stack, and indexed context.', overviewMarkdown(snapshot)),
     createPage('module_map', 'Module Map', 'Main directories and indexed file distribution.', moduleMapMarkdown(snapshot)),
+    ...modulePages,
     createPage('folder_structure', 'Folder Structure', 'What belongs in each meaningful folder.', folderStructureMarkdown(snapshot)),
     createPage('technology_map', 'Technology Map', 'Frameworks, runtimes, configs, and entrypoints.', technologyMapMarkdown(snapshot)),
     createPage('important_symbols', 'Important Symbols', 'High-signal symbols from the Project Memory index.', importantSymbolsMarkdown(snapshot)),
@@ -387,9 +398,7 @@ function overviewMarkdown(snapshot: ProjectMemorySnapshot): string {
 
 function moduleMapMarkdown(snapshot: ProjectMemorySnapshot): string {
   const rootDirectories = summarizeDirectories(snapshot.files, 1)
-  const modules = summarizeDirectories(snapshot.files, 2)
-    .filter((entry) => entry.name !== '.')
-    .slice(0, 28)
+  const modules = wikiModuleDirectories(snapshot)
   const languages = summarizeLanguages(snapshot.files)
   const externalImports = summarizeExternalImports(snapshot)
   const entrypoints = findEntrypoints(snapshot.files)
@@ -416,7 +425,7 @@ function moduleMapMarkdown(snapshot: ProjectMemorySnapshot): string {
     )),
     '',
     '## Module Details',
-    ...(modules.length > 0 ? modules.flatMap((entry) => moduleDetailLines(snapshot, entry)) : ['- No indexed module folders available.']),
+    ...(modules.length > 0 ? modules.flatMap((entry) => moduleDetailLines(snapshot, entry, true)) : ['- No indexed module folders available.']),
     '',
     '## Entrypoints',
     ...listOrEmpty(entrypoints.map((file) => `${file.path} (${file.language ?? file.extension}, ${file.symbolCount} symbols)`)),
@@ -589,7 +598,7 @@ function recentTimelineMarkdown(snapshot: ProjectMemorySnapshot, activity: Activ
   ].join('\n')
 }
 
-function summarizeDirectories(files: ProjectMemoryFile[], depth = 1) {
+function summarizeDirectories(files: ProjectMemoryFile[], depth = 1, limit = MAX_LIST_ITEMS) {
   const directories = new Map<string, { name: string; files: number; symbols: number; imports: number; sizeBytes: number }>()
 
   for (const file of files) {
@@ -604,7 +613,12 @@ function summarizeDirectories(files: ProjectMemoryFile[], depth = 1) {
 
   return [...directories.values()]
     .sort((left, right) => right.files - left.files || right.symbols - left.symbols || left.name.localeCompare(right.name))
-    .slice(0, MAX_LIST_ITEMS)
+    .slice(0, limit)
+}
+
+function wikiModuleDirectories(snapshot: ProjectMemorySnapshot) {
+  return summarizeDirectories(snapshot.files, 2, MAX_MODULE_WIKI_PAGES)
+    .filter((entry) => entry.name !== '.' && !isLowSignalPath(entry.name))
 }
 
 function directoryKey(filePath: string, depth: number): string {
@@ -619,7 +633,8 @@ function directoryKey(filePath: string, depth: number): string {
 
 function moduleDetailLines(
   snapshot: ProjectMemorySnapshot,
-  module: { name: string; files: number; symbols: number; imports: number; sizeBytes: number }
+  module: { name: string; files: number; symbols: number; imports: number; sizeBytes: number },
+  includePageLink = false
 ): string[] {
   const files = snapshot.files
     .filter((file) => file.path === module.name || file.path.startsWith(`${module.name}/`))
@@ -633,7 +648,7 @@ function moduleDetailLines(
   const keyFiles = files.slice(0, 6)
 
   return [
-    `### ${module.name}`,
+    `### ${includePageLink ? `[${module.name}](${modulePageFileName(module.name)})` : module.name}`,
     `- Role: ${moduleRole(module.name)}`,
     `- Scale: ${module.files} files, ${module.symbols} symbols, ${module.imports} imports, ${formatBytes(module.sizeBytes)} indexed.`,
     `- Languages: ${languages.length > 0 ? languages.map((entry) => `${entry.name} (${entry.files})`).join(', ') : 'unknown'}.`,
@@ -642,6 +657,76 @@ function moduleDetailLines(
     `- External imports: ${imports.length > 0 ? imports.map((entry) => `${entry.name} (${entry.count})`).join(', ') : 'none detected'}.`,
     ''
   ]
+}
+
+function modulePageMarkdown(
+  snapshot: ProjectMemorySnapshot,
+  module: { name: string; files: number; symbols: number; imports: number; sizeBytes: number }
+): string {
+  const files = snapshot.files
+    .filter((file) => file.path === module.name || file.path.startsWith(`${module.name}/`))
+    .sort((left, right) => scoreFileForModule(right) - scoreFileForModule(left) || left.path.localeCompare(right.path))
+  const symbols = snapshot.symbols
+    .filter((symbol) => symbol.path.startsWith(`${module.name}/`))
+    .sort(compareSymbolsForImportance)
+  const imports = summarizeModuleImports(snapshot, module.name)
+  const languages = summarizeLanguages(files)
+  const entrypoints = files
+    .filter((file) => /(^|\/)(main|index|app|layout|route|server|preload|renderer|service|controller|provider)\.(tsx?|jsx?|mjs|cjs)$/i.test(file.path))
+    .slice(0, 16)
+  const configFiles = findConfigFiles(files)
+  const largestFiles = [...files]
+    .sort((left, right) => right.sizeBytes - left.sizeBytes)
+    .slice(0, 12)
+
+  return [
+    `# ${modulePageTitle(module.name)}`,
+    '',
+    `Module path: ${module.name}`,
+    `Role: ${moduleRole(module.name)}`,
+    `Scale: ${module.files} files, ${module.symbols} symbols, ${module.imports} imports, ${formatBytes(module.sizeBytes)} indexed.`,
+    '',
+    '## Languages',
+    ...listOrEmpty(languages.slice(0, 10).map((entry) => `${entry.name}: ${entry.files} files`)),
+    '',
+    '## Key Files',
+    ...listOrEmpty(files.slice(0, 18).map((file) =>
+      `${file.path}: ${file.language ?? file.extension}, ${file.symbolCount} symbols, ${file.importCount} imports, ${formatBytes(file.sizeBytes)}`
+    )),
+    '',
+    '## Entrypoints And Config',
+    ...listOrEmpty([
+      ...entrypoints.map((file) => `${file.path}: entrypoint or orchestration file`),
+      ...configFiles.map((file) => `${file.path}: configuration surface`)
+    ]),
+    '',
+    '## Important Symbols',
+    ...listOrEmpty(symbols.slice(0, 24).map((symbol) =>
+      `${symbolLabel(symbol)} - ${symbol.kind}, ${symbol.path}:${symbol.line}${symbol.exported ? ', exported' : ''}`
+    )),
+    '',
+    '## External Imports',
+    ...listOrEmpty(imports.slice(0, 16).map((entry) => `${entry.name}: ${entry.count} imports`)),
+    '',
+    '## Largest Files',
+    ...listOrEmpty(largestFiles.map((file) => `${file.path}: ${formatBytes(file.sizeBytes)}`))
+  ].join('\n')
+}
+
+function modulePageId(moduleName: string): ProjectWikiPageId {
+  return `module_${moduleName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'root'}`
+}
+
+function modulePageTitle(moduleName: string): string {
+  return `Module: ${moduleName}`
+}
+
+function modulePageFileName(moduleName: string): string {
+  return `${sanitizeWikiFileName(modulePageTitle(moduleName))}.md`
 }
 
 function scoreFileForModule(file: ProjectMemoryFile): number {

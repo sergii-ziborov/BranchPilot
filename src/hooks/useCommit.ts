@@ -59,7 +59,7 @@ export function useCommit({
   const commitAndPushActionState = getCommitAndPushActionState({ snapshot, title: commitTitle })
   const amendCommitActionState = getAmendCommitActionState({ snapshot, title: commitTitle })
 
-  async function commitChanges(): Promise<boolean> {
+  async function commitChanges(progressLabel = 'Creating commit...'): Promise<boolean> {
     if (!api || !currentRepoPath) return false
     if (!commitActionState.enabled) {
       setNotice(`Commit blocked: ${commitActionState.reasons.join(' ')}`)
@@ -75,7 +75,7 @@ export function useCommit({
           description: commitDescription,
           coAuthors: commitCoAuthors
         }),
-      'Creating commit...'
+      progressLabel
     )
 
     if (committed) {

@@ -15,6 +15,7 @@ export function isRepositorySyncOperation(operationLabel: string | null): boolea
     'Pulling origin...',
     'Pushing origin...',
     'Force pushing with lease...',
+    'Committing and pushing...',
     'Fetch complete...',
     'Pull complete...',
     'Push complete...',
@@ -28,5 +29,6 @@ export function repositorySyncOperationLabel(operationLabel: string | null): str
   if (operationLabel.startsWith('Pull')) return 'Pulling origin'
   if (operationLabel.startsWith('Push')) return 'Pushing origin'
   if (operationLabel.startsWith('Force')) return 'Force pushing'
+  if (operationLabel.startsWith('Committing and pushing')) return 'Committing and pushing'
   return operationLabel.replace(/\.\.\.$/, '')
 }

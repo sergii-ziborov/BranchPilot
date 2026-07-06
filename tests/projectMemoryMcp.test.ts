@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -13,6 +13,7 @@ import { createProjectMemoryMcpConfig } from '../electron/mcp/config'
 import {
   getAgentActivity,
   getFileOutline,
+  getProjectHealth,
   getProjectWiki,
   getWikiPage,
   loadProjectMemorySnapshot,
@@ -60,6 +61,77 @@ describe('BranchPilot MCP Project Memory bridge', () => {
     })
   })
 
+  it('summarizes Project Memory health signals for MCP planning', async () => {
+    const { memoryDir, repoPath, snapshot } = await createStoredSnapshot()
+    const heavySnapshot: ProjectMemorySnapshot = {
+      ...snapshot,
+      files: [
+        ...snapshot.files,
+        {
+          path: 'src/heavy.ts',
+          extension: '.ts',
+          sizeBytes: 650_000,
+          language: 'TypeScript',
+          symbolCount: 90,
+          importCount: 32
+        },
+        {
+          path: 'package-lock.json',
+          extension: '.json',
+          sizeBytes: 294_600,
+          language: 'JSON',
+          symbolCount: 0,
+          importCount: 0
+        }
+      ],
+      symbols: [
+        ...snapshot.symbols,
+        {
+          id: 'src/heavy.ts:1:function:heavyWork',
+          name: 'heavyWork',
+          kind: 'function',
+          path: 'src/heavy.ts',
+          line: 1,
+          exported: true
+        }
+      ],
+      imports: [
+        ...snapshot.imports,
+        {
+          path: 'src/heavy.ts',
+          source: 'react',
+          specifiers: ['React'],
+          line: 1
+        }
+      ]
+    }
+
+    await new ProjectMemoryStore(memoryDir).write(heavySnapshot)
+
+    const health = await getProjectHealth({ memoryDir, repoPath, limit: 10 })
+
+    expect(health.summary).toMatchObject({
+      totalFiles: 4,
+      criticalFiles: 1,
+      warningFiles: 1
+    })
+    expect(health.files[0]).toMatchObject({
+      path: 'src/heavy.ts',
+      severity: 'critical'
+    })
+    expect(health.files[0].issues.map((issue) => issue.code)).toEqual(expect.arrayContaining([
+      'large-file',
+      'dense-symbols',
+      'dense-imports'
+    ]))
+    expect(health.files).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        path: 'package-lock.json',
+        severity: 'warning'
+      })
+    ]))
+  })
+
   it('reports missing and malformed snapshots clearly', async () => {
     const memoryDir = createTempDirectory('branchpilot-mcp-missing-test-')
     const repoPath = '/tmp/missing-repo'
@@ -67,8 +139,9 @@ describe('BranchPilot MCP Project Memory bridge', () => {
     await expect(loadProjectMemorySnapshot({ memoryDir, repoPath })).rejects.toThrow('No Project Memory snapshot found')
 
     const { snapshot } = await createStoredSnapshot(memoryDir)
-    const storageFile = path.join(memoryDir, `${snapshot.repository.id}.json`)
-    writeFileSync(storageFile, '{ malformed json', 'utf8')
+    for (const entry of readdirSync(memoryDir).filter((name) => name.endsWith('.json'))) {
+      writeFileSync(path.join(memoryDir, entry), '{ malformed json', 'utf8')
+    }
 
     await expect(loadProjectMemorySnapshot({ memoryDir, repoPath: snapshot.repository.rootPath })).rejects.toThrow('malformed')
   })
@@ -110,6 +183,7 @@ describe('BranchPilot MCP Project Memory bridge', () => {
     const tools = await client.listTools()
     expect(tools.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining([
       'project_summary',
+      'get_project_health',
       'search_files',
       'search_symbols',
       'get_file_outline',
@@ -126,6 +200,7 @@ describe('BranchPilot MCP Project Memory bridge', () => {
     const resources = await client.listResources()
     expect(resources.resources.map((resource) => resource.uri)).toEqual(expect.arrayContaining([
       'branchpilot://repo/current/summary',
+      'branchpilot://repo/current/health',
       'branchpilot://repo/current/tree',
       'branchpilot://repo/current/symbols',
       'branchpilot://repo/current/commits',
@@ -153,6 +228,17 @@ describe('BranchPilot MCP Project Memory bridge', () => {
         files: 2,
         symbols: 4,
         recentActivity: 1
+      }
+    })
+
+    const healthResult = await client.callTool({ name: 'get_project_health', arguments: { limit: 5 } })
+    expect(JSON.parse(getTextResult(healthResult))).toMatchObject({
+      repository: {
+        rootPath: repoPath,
+        currentBranch: 'main'
+      },
+      summary: {
+        totalFiles: 2
       }
     })
 

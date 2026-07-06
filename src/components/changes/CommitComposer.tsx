@@ -539,9 +539,9 @@ export function CommitComposer({
                 notifyBlocked('Commit & push blocked', commitAndPushActionState.reasons)
                 return
               }
-              const committed = await commitChanges()
+              const committed = await commitChanges('Committing and pushing...')
               if (committed && currentRepoPath) {
-                await runSnapshotAction('Push complete.', () => api!.push(currentRepoPath))
+                await runSnapshotAction('Push complete.', () => api!.push(currentRepoPath), 'Committing and pushing...')
               }
             }}
           >

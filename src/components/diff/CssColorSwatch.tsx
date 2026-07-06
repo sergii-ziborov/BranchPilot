@@ -150,6 +150,21 @@ export function rewriteCssColorValue(oldValue: string, inputValue: string): stri
   return `rgb(${red}, ${green}, ${blue})`
 }
 
+export function openCssColorPicker(input: HTMLInputElement | null): void {
+  if (!input) return
+
+  if (typeof input.showPicker === 'function') {
+    try {
+      input.showPicker()
+      return
+    } catch {
+      // Fall back for Chromium/Electron builds that expose showPicker but reject it for this input state.
+    }
+  }
+
+  input.click()
+}
+
 function CssColorSwatch({
   token,
   filePath,
@@ -166,7 +181,7 @@ function CssColorSwatch({
   const style = { '--css-color-preview': token.previewValue } as CSSProperties
 
   const openPicker = () => {
-    if (!pending) inputRef.current?.click()
+    if (!pending) openCssColorPicker(inputRef.current)
   }
 
   const updateColor = async (inputValue: string) => {

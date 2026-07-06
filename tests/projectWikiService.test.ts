@@ -40,15 +40,22 @@ describe('ProjectWikiService', () => {
 
     expect(result.memory.scannedFileCount).toBeGreaterThan(0)
     expect(wiki.repository.rootPath).toBe(normalizeNativePath(rootPath))
-    expect(wiki.pages.map((page) => page.id)).toEqual([
+    expect(wiki.pages.map((page) => page.id)).toEqual(expect.arrayContaining([
       'overview',
       'module_map',
+      'module_src',
+      'module_electron_lib',
+      'folder_structure',
+      'technology_map',
       'important_symbols',
       'workflows',
       'assistant_policy',
       'recent_timeline'
-    ])
+    ]))
+    expect(wiki.pages.length).toBeGreaterThan(8)
     expect(wiki.pages.find((page) => page.id === 'overview')?.markdown).toContain('React')
+    expect(wiki.pages.find((page) => page.id === 'module_map')?.markdown).toContain('[src](Module-src.md)')
+    expect(wiki.pages.find((page) => page.id === 'module_src')?.markdown).toContain('src/App.tsx')
     expect(wiki.pages.find((page) => page.id === 'important_symbols')?.markdown).toContain('ProjectScanner')
     expect(wiki.pages.find((page) => page.id === 'workflows')?.markdown).toContain('Assistant Review')
     expect(wiki.pages.find((page) => page.id === 'recent_timeline')?.markdown).toContain('Assistant Review Generated')
@@ -66,7 +73,7 @@ describe('ProjectWikiService', () => {
     const reloaded = await createProjectWikiService(activityLogService, storageDir, memoryDir).getProjectWiki(repoPath)
 
     expect(reloaded?.generatedAt).toBe(generated.wiki.generatedAt)
-    expect(reloaded?.pages.length).toBe(6)
+    expect(reloaded?.pages.length).toBeGreaterThan(8)
   })
 
   it('rejects invalid repository paths before generation', async () => {

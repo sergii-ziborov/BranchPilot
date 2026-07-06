@@ -37,10 +37,10 @@ export interface CommitComposerProps {
   commitActionState: ReturnType<typeof getCommitActionState>
   commitAndPushActionState: ReturnType<typeof getCommitAndPushActionState>
   amendCommitActionState: ReturnType<typeof getAmendCommitActionState>
-  commitChanges: () => Promise<boolean>
+  commitChanges: (progressLabel?: string) => Promise<boolean>
   amendLastCommit: () => void | Promise<boolean>
   currentRepoPath: string | undefined
-  runSnapshotAction: (label: string, action: () => Promise<ApiResult<RepositorySnapshot>>) => boolean | void | Promise<boolean>
+  runSnapshotAction: (label: string, action: () => Promise<ApiResult<RepositorySnapshot>>, progressLabel?: string) => boolean | void | Promise<boolean>
   api: BranchPilotApi | undefined
   setViewMode: (mode: ViewMode) => void
 }
