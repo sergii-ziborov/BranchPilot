@@ -1,7 +1,4 @@
-html[data-theme='matrix'] :is(
-  .signal-status,
-  .repository-refresh-curtain
-) {
+html[data-theme='matrix'] .signal-status {
   --signal-main: var(--matrix-code);
   --signal-alt: var(--matrix-code-soft);
   --signal-hot: var(--matrix-white);
@@ -18,7 +15,7 @@ html[data-theme='matrix'] :is(
   backdrop-filter: none !important;
 }
 
-html[data-theme='matrix'] :is(.signal-status, .repository-refresh-curtain)::before {
+html[data-theme='matrix'] .signal-status::before {
   content: "001011010100101101001011 MATRIX SYSTEM TRACE 010110101001011010010110 ";
   position: absolute;
   inset: -32% -8%;
@@ -40,7 +37,7 @@ html[data-theme='matrix'] :is(.signal-status, .repository-refresh-curtain)::befo
   animation: bp-matrix-code-rain 1.35s linear infinite !important;
 }
 
-html[data-theme='matrix'] :is(.signal-status, .repository-refresh-curtain)::after {
+html[data-theme='matrix'] .signal-status::after {
   content: "";
   position: absolute;
   inset: -8% -4%;
@@ -52,20 +49,6 @@ html[data-theme='matrix'] :is(.signal-status, .repository-refresh-curtain)::afte
   mix-blend-mode: screen;
   opacity: 0.70;
   animation: bp-matrix-field-pulse 2.2s ease-in-out infinite !important;
-}
-
-html[data-theme='matrix'] .repository-refresh-signal.signal-status::before,
-html[data-theme='matrix'] .repository-refresh-signal.signal-status::after {
-  content: none !important;
-  display: none !important;
-}
-
-html[data-theme='matrix'] .repository-refresh-signal.signal-status {
-  min-width: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
 }
 
 html[data-theme='matrix'] .signal-status-copy {
@@ -119,8 +102,8 @@ html[data-theme='matrix'] :is(.daily-heatmap-panel.is-loading, .daily-ranking-ca
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-theme='matrix'] :is(.signal-status, .repository-refresh-curtain)::before,
-  html[data-theme='matrix'] :is(.signal-status, .repository-refresh-curtain)::after {
+  html[data-theme='matrix'] .signal-status::before,
+  html[data-theme='matrix'] .signal-status::after {
     animation: none !important;
   }
 }

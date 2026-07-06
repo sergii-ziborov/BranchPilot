@@ -66,12 +66,6 @@ html[data-theme='deus-ex'] .signal-status::after {
   opacity: 0.72;
 }
 
-html[data-theme='deus-ex'] .repository-refresh-curtain {
-  background:
-    radial-gradient(circle at 50% 40%, rgba(255, 191, 46, 0.18), transparent 34%),
-    linear-gradient(180deg, rgba(8, 9, 3, 0.82), rgba(0, 0, 0, 0.94));
-}
-
 @keyframes deus-prism-fragments {
   0%, 100% {
     background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;

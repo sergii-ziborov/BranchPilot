@@ -790,13 +790,6 @@ html[data-theme='far-manager'] :is(
   mix-blend-mode: normal;
 }
 
-html[data-theme='cyberpunk'] .repository-refresh-curtain {
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.86), rgba(10, 0, 8, 0.92)),
-    repeating-linear-gradient(180deg, rgba(255, 0, 72, 0.18) 0 1px, transparent 1px 13px);
-  backdrop-filter: saturate(1.35) contrast(1.1);
-}
-
 @keyframes github-light-graph-flow {
   0%, 100% { background-position: 0 0, 0 0, 0 0, -18% 0, 18% 0, 0 0; opacity: 0.58; }
   50% { background-position: 0 0, 0 0, 0 0, 22% 0, -18% 0, 0 14px; opacity: 0.92; }

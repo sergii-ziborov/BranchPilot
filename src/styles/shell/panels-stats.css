@@ -193,111 +193,23 @@
   border-radius: 0;
 }
 
-.repository-refresh-curtain {
-  --refresh-main: #ff174d;
-  --refresh-alt: #00e5ff;
-  --refresh-hot: #ff5b7a;
+.repository-sync-history-overlay {
   position: fixed;
   inset: 0;
   z-index: 295;
-  display: grid;
-  place-items: center;
   overflow: hidden;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--refresh-alt) 14%, transparent), transparent 32%),
-    radial-gradient(circle at 80% 76%, color-mix(in srgb, var(--refresh-main) 18%, transparent), transparent 34%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface) 72%, transparent), color-mix(in srgb, #1a0008 62%, transparent));
-  backdrop-filter: blur(3px) saturate(1.18);
 }
 
-.repository-refresh-curtain::before,
-.repository-refresh-curtain::after {
+.repository-sync-history-signal.history-detail-loading {
   position: absolute;
   inset: 0;
-  content: "";
-  pointer-events: none;
-}
-
-.repository-refresh-curtain::before {
-  opacity: 0.56;
-  background:
-    repeating-linear-gradient(
-      180deg,
-      transparent 0 12px,
-      color-mix(in srgb, var(--refresh-main) 16%, transparent) 12px 13px,
-      transparent 13px 22px
-    ),
-    linear-gradient(90deg, transparent, color-mix(in srgb, var(--refresh-main) 24%, transparent), transparent);
-  animation: repository-refresh-scan 1.15s linear infinite;
-}
-
-.repository-refresh-curtain::after {
-  opacity: 0.74;
-  background:
-    linear-gradient(90deg, transparent 0 28%, color-mix(in srgb, var(--refresh-alt) 20%, transparent) 42%, transparent 58% 100%),
-    linear-gradient(180deg, transparent 0 46%, color-mix(in srgb, var(--refresh-hot) 22%, transparent) 50%, transparent 55% 100%);
-  mix-blend-mode: screen;
-  animation: repository-refresh-breach 1.45s ease-in-out infinite;
-}
-
-.repository-refresh-signal {
-  --signal-main: var(--refresh-main);
-  --signal-alt: var(--refresh-alt);
-  --signal-hot: var(--refresh-hot);
-  width: min(560px, calc(100vw - 48px));
-  min-height: 108px;
-  padding: 20px;
-  border: 1px solid color-mix(in srgb, var(--refresh-main) 56%, var(--border));
-  border-radius: 8px;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--refresh-main) 14%, transparent),
-    0 28px 90px rgba(0, 0, 0, 0.34);
-}
-
-html[data-theme='deus-ex'] .repository-refresh-curtain {
-  --refresh-main: #ffcc00;
-  --refresh-alt: #61ffd1;
-  --refresh-hot: #fff176;
-  background:
-    radial-gradient(circle at 18% 16%, color-mix(in srgb, var(--refresh-alt) 12%, transparent), transparent 32%),
-    radial-gradient(circle at 82% 78%, color-mix(in srgb, var(--refresh-main) 18%, transparent), transparent 34%),
-    linear-gradient(180deg, color-mix(in srgb, #1a1600 72%, transparent), color-mix(in srgb, #030600 68%, transparent));
-}
-
-html[data-theme='cyberpunk'] .repository-refresh-curtain {
-  --refresh-main: #ff005c;
-  --refresh-alt: #00eaff;
-  --refresh-hot: #ffe600;
-  background:
-    linear-gradient(105deg, rgba(255, 0, 92, 0.15), transparent 32%, rgba(0, 234, 255, 0.14) 64%, transparent),
-    repeating-linear-gradient(180deg, rgba(255, 0, 92, 0.14) 0 1px, transparent 1px 20px),
-    repeating-linear-gradient(90deg, rgba(0, 234, 255, 0.08) 0 1px, transparent 1px 36px),
-    rgba(12, 0, 11, 0.42);
-  backdrop-filter: saturate(1.35);
-}
-
-@keyframes repository-refresh-scan {
-  from { transform: translateY(-22px); }
-  to { transform: translateY(22px); }
-}
-
-@keyframes repository-refresh-breach {
-  0%, 100% {
-    opacity: 0.42;
-    transform: translateX(-6%) skewX(-5deg);
-  }
-  50% {
-    opacity: 0.9;
-    transform: translateX(6%) skewX(5deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .repository-refresh-curtain::before,
-  .repository-refresh-curtain::after {
-    animation: none;
-  }
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .repository-loading-state::before {

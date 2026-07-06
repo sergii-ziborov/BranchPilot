@@ -78,9 +78,9 @@ export function AppFrame() {
         </div>
       )}
       {showRepositorySync && (
-        <div className="repository-refresh-curtain" role="presentation">
+        <div className="repository-sync-history-overlay" role="presentation">
           <SignalStatus
-            className="repository-refresh-signal"
+            className="repository-sync-history-signal history-detail-loading"
             label={repositorySyncOperationLabel(operationLabel)}
             detail={snapshot?.summary.name ?? 'repository'}
           />

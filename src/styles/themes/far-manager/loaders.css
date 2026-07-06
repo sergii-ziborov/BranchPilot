@@ -10,8 +10,7 @@ html[data-theme='far-manager'] :is(
   .signal-status.assistant-model-list-curtain,
   .signal-status.changes-editor-file-curtain,
   .signal-status.changes-editor-body-curtain,
-  .signal-status.changes-editor-hex-loading,
-  .repository-refresh-curtain
+  .signal-status.changes-editor-hex-loading
 ) {
   --signal-main: #00ffff;
   --signal-alt: #ffff00;
@@ -23,8 +22,8 @@ html[data-theme='far-manager'] :is(
   filter: none !important;
 }
 
-html[data-theme='far-manager'] :is(.signal-status, .repository-refresh-curtain)::before,
-html[data-theme='far-manager'] :is(.signal-status, .repository-refresh-curtain)::after {
+html[data-theme='far-manager'] .signal-status::before,
+html[data-theme='far-manager'] .signal-status::after {
   content: none !important;
   display: none !important;
   animation: none !important;
