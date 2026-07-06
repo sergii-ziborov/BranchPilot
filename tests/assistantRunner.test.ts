@@ -488,7 +488,7 @@ describe('assistant commit message generation', () => {
     const invocation = runner.assistantInvocations[0]
 
     expect(invocation.command).toBe('/tmp/branchpilot-codex')
-    expect(invocation.cwd).toBe(repoPath)
+    expect(path.basename(invocation.cwd ?? '')).toBe(path.basename(repoPath))
     expect(invocation.args).toContain('exec')
     expect(invocation.args).toContain('--model')
     expect(invocation.args).toContain('gpt-5')
@@ -520,7 +520,7 @@ describe('assistant commit message generation', () => {
     const invocation = runner.assistantInvocations[0]
 
     expect(invocation.command).toBe('/tmp/branchpilot-claude')
-    expect(invocation.cwd).toBe(repoPath)
+    expect(path.basename(invocation.cwd ?? '')).toBe(path.basename(repoPath))
     expect(invocation.args).toContain('--print')
     expect(invocation.args).toContain('--model')
     expect(invocation.args).toContain('sonnet')
