@@ -67,7 +67,7 @@ export function registerAssistantHandlers(
   handleAssistantAction('assistants:runCodexAgent', 'codex_agent', {
     type: 'assistant_codex_agent_ran',
     actor: 'assistant',
-    title: 'Codex agent ran',
+    title: 'Local agent ran',
     repoPath: requestRepoPath,
     metadata: ([request], generated) => ({
       requested_assistant: request.assistant,

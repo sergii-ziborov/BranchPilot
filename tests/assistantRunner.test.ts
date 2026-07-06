@@ -9,7 +9,8 @@ import {
   generateLinkedInProject,
   generatePullRequestText,
   generateRepositoryStarter,
-  listAssistantStatuses
+  listAssistantStatuses,
+  runCodexAgent
 } from '../electron/assistants/assistantRunner'
 import {
   AssistantTestRunner,
@@ -464,6 +465,74 @@ describe('assistant commit message generation', () => {
     })).rejects.toMatchObject({
       code: 'assistant_parse_failed'
     })
+  })
+
+  it('runs the Codex local agent with sandbox, reasoning, model, and image attachments', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({ available: ['codex'] })
+
+    await runCodexAgent(runner, {
+      repoPath,
+      assistant: 'codex:gpt-5',
+      prompt: 'Inspect this screenshot.',
+      sandbox: 'workspace-write',
+      reasoning: 'extra-high',
+      images: [{
+        name: 'screen.png',
+        mimeType: 'image/png',
+        dataUrl: 'data:image/png;base64,iVBORw0KGgo='
+      }]
+    })
+
+    expect(runner.assistantInvocations).toHaveLength(1)
+    const invocation = runner.assistantInvocations[0]
+
+    expect(invocation.command).toBe('/tmp/branchpilot-codex')
+    expect(invocation.cwd).toBe(repoPath)
+    expect(invocation.args).toContain('exec')
+    expect(invocation.args).toContain('--model')
+    expect(invocation.args).toContain('gpt-5')
+    expect(invocation.args).toContain('--sandbox')
+    expect(invocation.args).toContain('workspace-write')
+    expect(invocation.args).toContain('model_reasoning_effort="high"')
+    expect(invocation.args).toContain('--image')
+    expect(runner.assistantPrompt).toContain('Codex receives attached images through the CLI image channel.')
+  })
+
+  it('runs the Claude local agent with Claude Code access and effort controls', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({ available: ['claude'] })
+
+    await runCodexAgent(runner, {
+      repoPath,
+      assistant: 'claude:sonnet',
+      prompt: 'Inspect this screenshot.',
+      sandbox: 'read-only',
+      reasoning: 'extra-high',
+      images: [{
+        name: 'screen.png',
+        mimeType: 'image/png',
+        dataUrl: 'data:image/png;base64,iVBORw0KGgo='
+      }]
+    })
+
+    expect(runner.assistantInvocations).toHaveLength(1)
+    const invocation = runner.assistantInvocations[0]
+
+    expect(invocation.command).toBe('/tmp/branchpilot-claude')
+    expect(invocation.cwd).toBe(repoPath)
+    expect(invocation.args).toContain('--print')
+    expect(invocation.args).toContain('--model')
+    expect(invocation.args).toContain('sonnet')
+    expect(invocation.args).toContain('--effort')
+    expect(invocation.args).toContain('xhigh')
+    expect(invocation.args).toContain('--permission-mode')
+    expect(invocation.args).toContain('dontAsk')
+    expect(invocation.args).toContain('--allowedTools')
+    expect(invocation.args.join(' ')).toContain('Read')
+    expect(invocation.args).toContain('--add-dir')
+    expect(runner.assistantPrompt).toContain('You are Claude Code running inside BranchPilot')
+    expect(runner.assistantPrompt).toContain('Claude image file paths:')
   })
 
 })

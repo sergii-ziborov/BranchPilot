@@ -22,7 +22,7 @@ const ACTION_LABELS: Record<AssistantActionKind, string> = {
   branch_draft: 'branch draft generation',
   commit_message: 'commit text generation',
   file_beautify: 'file beautify',
-  codex_agent: 'Codex agent',
+  codex_agent: 'Local agent',
   linkedin_project: 'LinkedIn project generation',
   pull_request_text: 'pull request text generation',
   repository_starter: 'repository starter generation',

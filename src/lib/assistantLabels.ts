@@ -91,7 +91,7 @@ export function assistantPolicyModeLabel(mode: AssistantPolicyMode): string {
 export function assistantActionLabel(action: AssistantActionKind): string {
   if (action === 'branch_draft') return 'Branch draft generation'
   if (action === 'commit_message') return 'Commit text generation'
-  if (action === 'codex_agent') return 'Codex agent'
+  if (action === 'codex_agent') return 'Local agent'
   if (action === 'file_beautify') return 'File beautify'
   if (action === 'linkedin_project') return 'LinkedIn project generation'
   if (action === 'pull_request_text') return 'PR text generation'

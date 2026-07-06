@@ -813,7 +813,7 @@ function parseCodexAgentImage(image: NonNullable<CodexAgentRequest['images']>[nu
   const mimeType = match?.[1].toLowerCase() || declaredMime
 
   if (!mimeType.startsWith('image/')) {
-    throw new BranchPilotUserError('codex_agent_invalid_attachment', 'Codex agent attachments must be images.')
+    throw new BranchPilotUserError('codex_agent_invalid_attachment', 'Agent attachments must be images.')
   }
 
   const base64 = match?.groups?.data ?? image.dataUrl
@@ -822,7 +822,7 @@ function parseCodexAgentImage(image: NonNullable<CodexAgentRequest['images']>[nu
   if (buffer.length > MAX_CODEX_AGENT_IMAGE_BYTES) {
     throw new BranchPilotUserError(
       'codex_agent_attachment_too_large',
-      'One Codex agent image is too large.',
+      'One agent image is too large.',
       'Keep each image under 8 MB.'
     )
   }

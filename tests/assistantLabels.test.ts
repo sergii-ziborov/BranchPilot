@@ -91,7 +91,7 @@ describe('assistantActionLabel', () => {
   it('labels each action kind', () => {
     expect(assistantActionLabel('branch_draft')).toBe('Branch draft generation')
     expect(assistantActionLabel('commit_message')).toBe('Commit text generation')
-    expect(assistantActionLabel('codex_agent')).toBe('Codex agent')
+    expect(assistantActionLabel('codex_agent')).toBe('Local agent')
     expect(assistantActionLabel('linkedin_project')).toBe('LinkedIn project generation')
     expect(assistantActionLabel('pull_request_text')).toBe('PR text generation')
     expect(assistantActionLabel('review_report')).toBe('Assistant reviews')

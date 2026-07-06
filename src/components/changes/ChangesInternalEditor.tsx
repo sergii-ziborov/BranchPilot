@@ -6966,7 +6966,7 @@ export function ChangesInternalEditor({
               <div className="changes-editor-codex-head-actions">
                 {codexAgentResult && (
                   <span className="changes-editor-codex-meta">
-                    {Math.max(1, Math.round(codexAgentResult.durationMs / 1000))}s · {codexAgentResult.sandbox}
+                    {Math.max(1, Math.round(codexAgentResult.durationMs / 1000))}s - {codexAgentResult.sandbox}
                   </span>
                 )}
                 <button
@@ -6974,12 +6974,12 @@ export function ChangesInternalEditor({
                   className="compact-icon"
                   onClick={() => setCodexAgentSettingsOpen((open) => !open)}
                   aria-pressed={codexAgentSettingsOpen}
-                  title={codexAgentSettingsOpen ? 'Hide Codex settings' : 'Show Codex settings'}
+                  title={codexAgentSettingsOpen ? `Hide ${localAgentLabel(codexAgentProvider)} settings` : `Show ${localAgentLabel(codexAgentProvider)} settings`}
                 >
                   <SlidersHorizontal size={15} />
                   <span className="changes-editor-button-label">Settings</span>
                 </button>
-                <button type="button" className="compact-icon" onClick={() => setCodexAgentOpen(false)} title="Close Codex agent" aria-label="Close Codex agent">
+                <button type="button" className="compact-icon" onClick={() => setCodexAgentOpen(false)} title={`Close ${localAgentLabel(codexAgentProvider)} agent`} aria-label={`Close ${localAgentLabel(codexAgentProvider)} agent`}>
                   <X size={15} />
                 </button>
               </div>
@@ -6988,9 +6988,17 @@ export function ChangesInternalEditor({
             {codexAgentSettingsOpen && (
               <div className="changes-editor-codex-settings">
                 <label>
+                  <span>Provider</span>
+                  <select value={codexAgentProvider} onChange={(event) => selectLocalAgentProvider(event.currentTarget.value as LocalAgentProvider, false)}>
+                    {LOCAL_AGENT_PROVIDERS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
                   <span>Model</span>
                   <select value={codexAgentAssistant} onChange={(event) => setCodexAgentAssistant(event.currentTarget.value as AssistantId)}>
-                    {CODEX_MODEL_OPTIONS.map((option) => (
+                    {localAgentModelOptions(codexAgentProvider).map((option) => (
                       <option key={option.id} value={option.id}>{assistantSelectionLabel(option.id)}</option>
                     ))}
                   </select>
@@ -7019,7 +7027,7 @@ export function ChangesInternalEditor({
                 <textarea
                   value={codexAgentPrompt}
                   onChange={(event) => setCodexAgentPrompt(event.currentTarget.value)}
-                  placeholder="Ask Codex about this file, attach screenshots, or ask it to make a local change."
+                  placeholder={`Ask ${localAgentLabel(codexAgentProvider)} about this file, attach screenshots, or ask it to make a local change.`}
                   rows={4}
                   disabled={codexAgentRunning}
                 />
@@ -7051,7 +7059,7 @@ export function ChangesInternalEditor({
                     disabled={codexAgentRunning || !api || !currentRepoPath}
                   >
                     {codexAgentRunning ? <RefreshCw className="spin" size={15} /> : <SendHorizontal size={15} />}
-                    {codexAgentRunning ? 'Running...' : 'Run Codex'}
+                    {codexAgentRunning ? 'Running...' : `Run ${localAgentLabel(codexAgentProvider)}`}
                   </button>
                 </footer>
               </div>
@@ -7064,13 +7072,13 @@ export function ChangesInternalEditor({
                 {codexAgentError ? (
                   <div className="changes-editor-codex-error">{codexAgentError}</div>
                 ) : codexAgentRunning ? (
-                  <SignalStatus className="codex-agent-curtain" label="Running Codex" detail={`${assistantSelectionLabel(codexAgentAssistant)} · ${codexAgentSandbox}`} />
+                  <SignalStatus className="codex-agent-curtain" label={`Running ${localAgentLabel(codexAgentProvider)}`} detail={`${assistantSelectionLabel(codexAgentAssistant)} - ${codexAgentSandbox}`} />
                 ) : codexAgentResult ? (
                   <>
                     <pre>{codexAgentResult.output}</pre>
                     {codexAgentResult.events.length > 0 && (
                       <details className="changes-editor-codex-trace">
-                        <summary>Trace · {codexAgentResult.events.length}</summary>
+                        <summary>Trace - {codexAgentResult.events.length}</summary>
                         <div>
                           {codexAgentResult.events.map((event, index) => (
                             <article key={`${event.type}-${index}`}>
@@ -7084,8 +7092,8 @@ export function ChangesInternalEditor({
                   </>
                 ) : (
                   <div className="changes-editor-codex-empty">
-                    <img src={codexAgentIcon} alt="" aria-hidden="true" />
-                    <span>{assistantSelectionLabel(codexAgentAssistant)} · {codexAgentReasoning}</span>
+                    <LocalAgentBrandIcon provider={codexAgentProvider} size={58} />
+                    <span>{assistantSelectionLabel(codexAgentAssistant)} - {codexAgentReasoning}</span>
                   </div>
                 )}
               </div>
