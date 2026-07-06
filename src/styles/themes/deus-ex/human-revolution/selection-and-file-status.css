@@ -234,6 +234,22 @@ html[data-theme='deus-ex'] .shell-bar .shell-branch-row .shell-branch-actions .s
   opacity: 0.88 !important;
 }
 
+html[data-theme='deus-ex'] .shell-bar .shell-branch-row .shell-branch-actions {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='deus-ex'] .shell-bar .shell-branch-row .shell-branch-actions button.icon-button.shell-branch-action-button {
+  width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  appearance: none !important;
+  mix-blend-mode: normal !important;
+}
+
 html[data-theme='deus-ex'] .shell-bar .shell-branch-row .shell-branch-actions .shell-branch-action-button svg {
   color: currentColor !important;
   stroke: currentColor !important;

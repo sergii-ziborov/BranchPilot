@@ -28,8 +28,7 @@ import {
   type CssColorEditDraft,
   type CssColorToken
 } from '../diff/CssColorSwatch'
-import codexAgentIcon from '../../assets/codex-agent-icon.png'
-import { CODEX_MODEL_OPTIONS, assistantSelectionLabel } from '../../lib/assistantLabels'
+import { CLAUDE_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, assistantSelectionLabel } from '../../lib/assistantLabels'
 
 interface ChangesInternalEditorProps {
   api: BranchPilotApi | undefined
@@ -454,6 +453,8 @@ interface CodexAgentImageDraft {
   dataUrl: string
 }
 
+type LocalAgentProvider = 'codex' | 'claude'
+
 const CODEX_AGENT_REASONING_OPTIONS: Array<{ value: CodexAgentReasoning; label: string }> = [
   { value: 'light', label: 'Light' },
   { value: 'medium', label: 'Medium' },
@@ -466,6 +467,44 @@ const CODEX_AGENT_SANDBOX_OPTIONS: Array<{ value: CodexAgentSandbox; label: stri
   { value: 'workspace-write', label: 'Work locally' },
   { value: 'danger-full-access', label: 'Full access' }
 ]
+
+const LOCAL_AGENT_PROVIDERS: Array<{ value: LocalAgentProvider; label: string }> = [
+  { value: 'codex', label: 'Codex' },
+  { value: 'claude', label: 'Claude' }
+]
+
+function localAgentProviderForAssistant(assistant: AssistantId): LocalAgentProvider {
+  return assistant.startsWith('claude') ? 'claude' : 'codex'
+}
+
+function localAgentDefaultAssistant(provider: LocalAgentProvider): AssistantId {
+  return provider === 'claude' ? 'claude' : 'codex'
+}
+
+function localAgentModelOptions(provider: LocalAgentProvider) {
+  return provider === 'claude' ? CLAUDE_MODEL_OPTIONS : CODEX_MODEL_OPTIONS
+}
+
+function localAgentLabel(provider: LocalAgentProvider): string {
+  return provider === 'claude' ? 'Claude' : 'Codex'
+}
+
+function LocalAgentBrandIcon({ provider, size = 18 }: { provider: LocalAgentProvider; size?: number }) {
+  if (provider === 'claude') {
+    return (
+      <svg className="changes-editor-agent-brand claude" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2.3l1.85 6.25 5.85-2.75-3.05 5.7 5.05 4.05-6.42 1.02.42 6.43L12 17.75 8.3 23l.42-6.43-6.42-1.02 5.05-4.05L4.3 5.8l5.85 2.75L12 2.3z" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg className="changes-editor-agent-brand codex" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3.2a8.8 8.8 0 1 0 8.8 8.8h-3.1a5.7 5.7 0 1 1-1.67-4.03l-2.18 2.18h7.35V2.8l-2.95 2.95A8.76 8.76 0 0 0 12 3.2z" />
+      <path d="M12 8.1a3.9 3.9 0 1 0 3.9 3.9h-2.45A1.45 1.45 0 1 1 12 10.55V8.1z" />
+    </svg>
+  )
+}
 
 interface SvgColorTarget {
   index: number
@@ -2810,14 +2849,18 @@ export function ChangesInternalEditor({
   const [codexAgentResult, setCodexAgentResult] = useState<CodexAgentResult | null>(null)
   const [codexAgentError, setCodexAgentError] = useState<string | null>(null)
   const [codexAgentImages, setCodexAgentImages] = useState<CodexAgentImageDraft[]>([])
+  const [codexAgentProvider, setCodexAgentProvider] = useState<LocalAgentProvider>(
+    localAgentProviderForAssistant(selectedAssistant)
+  )
   const [codexAgentAssistant, setCodexAgentAssistant] = useState<AssistantId>(
-    selectedAssistant.startsWith('codex') ? selectedAssistant : 'codex'
+    selectedAssistant.startsWith('claude') || selectedAssistant.startsWith('codex') ? selectedAssistant : 'codex'
   )
   const [codexAgentReasoning, setCodexAgentReasoning] = useState<CodexAgentReasoning>('high')
   const [codexAgentSandbox, setCodexAgentSandbox] = useState<CodexAgentSandbox>('read-only')
 
   useEffect(() => {
-    if (selectedAssistant.startsWith('codex')) {
+    if (selectedAssistant.startsWith('claude') || selectedAssistant.startsWith('codex')) {
+      setCodexAgentProvider(localAgentProviderForAssistant(selectedAssistant))
       setCodexAgentAssistant(selectedAssistant)
     }
   }, [selectedAssistant])
@@ -6268,6 +6311,14 @@ export function ChangesInternalEditor({
     applyEditorTextChange(nextText, { viewMode: 'code', resetJsonCollapse: true })
   }
 
+  const selectLocalAgentProvider = (provider: LocalAgentProvider, open = true) => {
+    setCodexAgentProvider(provider)
+    setCodexAgentAssistant((current) => (
+      localAgentProviderForAssistant(current) === provider ? current : localAgentDefaultAssistant(provider)
+    ))
+    if (open) setCodexAgentOpen(true)
+  }
+
   const addCodexAgentImages = async (event: ReactChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.currentTarget.files ?? [])
     event.currentTarget.value = ''
@@ -6277,7 +6328,7 @@ export function ChangesInternalEditor({
     const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, remainingSlots)
 
     if (imageFiles.length < selectedFiles.length) {
-      setNotice(remainingSlots === 0 ? 'Codex agent can attach up to 6 images.' : 'Only image files can be attached to Codex.')
+      setNotice(remainingSlots === 0 ? 'Agent can attach up to 6 images.' : 'Only image files can be attached to the agent.')
     }
 
     const nextImages = await Promise.all(imageFiles.map(async (file) => ({
@@ -6296,6 +6347,7 @@ export function ChangesInternalEditor({
 
   const runCodexAgentPanel = async () => {
     if (!api || !currentRepoPath || codexAgentRunning) return
+    const providerLabel = localAgentLabel(codexAgentProvider)
     const prompt = codexAgentPrompt.trim()
     if (!prompt && !selectedPath && codexAgentImages.length === 0) {
       setCodexAgentError('Enter a prompt, select a file, or attach an image.')
@@ -6305,10 +6357,10 @@ export function ChangesInternalEditor({
     if (codexAgentSandbox !== 'read-only') {
       const confirmed = await requestConfirmation(
         codexAgentSandbox === 'danger-full-access'
-          ? 'Run Codex with full access? It may edit files, run local commands, and push to remotes if your prompt asks for it.'
-          : 'Run Codex with workspace write access? It may edit files inside this repository.',
+          ? `Run ${providerLabel} with full access? It may edit files, run local commands, and push to remotes if your prompt asks for it.`
+          : `Run ${providerLabel} with workspace write access? It may edit files inside this repository.`,
         {
-          title: codexAgentSandbox === 'danger-full-access' ? 'Run Codex Full Access' : 'Run Codex Locally',
+          title: codexAgentSandbox === 'danger-full-access' ? `Run ${providerLabel} Full Access` : `Run ${providerLabel} Locally`,
           confirmLabel: codexAgentSandbox === 'danger-full-access' ? 'Run full access' : 'Run locally',
           variant: 'danger'
         }
@@ -6326,7 +6378,9 @@ export function ChangesInternalEditor({
     try {
       const result = await api.runCodexAgent({
         repoPath: currentRepoPath,
-        assistant: codexAgentAssistant,
+        assistant: localAgentProviderForAssistant(codexAgentAssistant) === codexAgentProvider
+          ? codexAgentAssistant
+          : localAgentDefaultAssistant(codexAgentProvider),
         prompt,
         filePath: selectedPath || undefined,
         fileText,
@@ -6346,18 +6400,18 @@ export function ChangesInternalEditor({
       })
 
       if (!result.ok) {
-        setCodexAgentError(friendlyIpcErrorMessage(result.error.message, 'Codex agent failed.'))
+        setCodexAgentError(friendlyIpcErrorMessage(result.error.message, `${providerLabel} agent failed.`))
         return
       }
 
       setCodexAgentResult(result.data)
-      setNotice(`Codex agent finished in ${Math.max(1, Math.round(result.data.durationMs / 1000))}s.`)
+      setNotice(`${providerLabel} agent finished in ${Math.max(1, Math.round(result.data.durationMs / 1000))}s.`)
 
       if (codexAgentSandbox !== 'read-only') {
-        await runSnapshotAction('Codex agent refreshed repository.', () => api.refreshRepository(currentRepoPath))
+        await runSnapshotAction(`${providerLabel} agent refreshed repository.`, () => api.refreshRepository(currentRepoPath))
       }
     } catch (error) {
-      setCodexAgentError(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Codex agent failed.'))
+      setCodexAgentError(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', `${providerLabel} agent failed.`))
     } finally {
       setCodexAgentRunning(false)
     }
@@ -6836,23 +6890,33 @@ export function ChangesInternalEditor({
                 </label>
               </div>
             </details>
-            <button
-              type="button"
-              className={[
-                'changes-editor-tool-button',
-                'compact-icon',
-                'changes-editor-codex-toggle',
-                codexAgentOpen ? 'active' : ''
-              ].filter(Boolean).join(' ')}
-              onClick={() => setCodexAgentOpen((open) => !open)}
-              disabled={!api || !currentRepoPath}
-              title={codexAgentOpen ? 'Hide Codex agent' : 'Open Codex agent'}
-              aria-label={codexAgentOpen ? 'Hide Codex agent' : 'Open Codex agent'}
-              aria-pressed={codexAgentOpen}
-            >
-              <img src={codexAgentIcon} alt="" aria-hidden="true" />
-              <span className="changes-editor-button-label">Codex</span>
-            </button>
+            {LOCAL_AGENT_PROVIDERS.map((provider) => (
+              <button
+                type="button"
+                className={[
+                  'changes-editor-tool-button',
+                  'compact-icon',
+                  'changes-editor-codex-toggle',
+                  `agent-${provider.value}`,
+                  codexAgentOpen && codexAgentProvider === provider.value ? 'active' : ''
+                ].filter(Boolean).join(' ')}
+                onClick={() => {
+                  if (codexAgentOpen && codexAgentProvider === provider.value) {
+                    setCodexAgentOpen(false)
+                    return
+                  }
+                  selectLocalAgentProvider(provider.value)
+                }}
+                disabled={!api || !currentRepoPath}
+                title={codexAgentOpen && codexAgentProvider === provider.value ? `Hide ${provider.label} agent` : `Open ${provider.label} agent`}
+                aria-label={codexAgentOpen && codexAgentProvider === provider.value ? `Hide ${provider.label} agent` : `Open ${provider.label} agent`}
+                aria-pressed={codexAgentOpen && codexAgentProvider === provider.value}
+                key={provider.value}
+              >
+                <LocalAgentBrandIcon provider={provider.value} />
+                <span className="changes-editor-button-label">{provider.label}</span>
+              </button>
+            ))}
             <button
               type="button"
               className="changes-editor-tool-button compact-icon"
@@ -6890,12 +6954,12 @@ export function ChangesInternalEditor({
         </header>
 
         {codexAgentOpen && (
-          <section className="changes-editor-codex-panel" aria-label="Codex agent">
+          <section className="changes-editor-codex-panel" aria-label={`${localAgentLabel(codexAgentProvider)} agent`}>
             <header className="changes-editor-codex-head">
               <div>
-                <img src={codexAgentIcon} alt="" aria-hidden="true" />
+                <LocalAgentBrandIcon provider={codexAgentProvider} size={34} />
                 <div>
-                  <strong>Codex agent</strong>
+                  <strong>{localAgentLabel(codexAgentProvider)} agent</strong>
                   <span>{selectedPath || 'Repository context'}</span>
                 </div>
               </div>

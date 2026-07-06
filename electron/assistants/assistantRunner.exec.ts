@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type {
   AssistantId,
+  CodexAgentReasoning,
   CodexAgentSandbox,
   InstalledAssistantId
 } from '../../src/shared/branchPilot.js'
@@ -415,6 +416,7 @@ export async function runCodexAgentExec(
     prompt: string
     imagePaths: string[]
     sandbox: CodexAgentSandbox
+    reasoning: CodexAgentReasoning
   }
 ): Promise<{ output: string; eventLog: string }> {
   if (assistant.id !== 'codex') {
@@ -424,12 +426,14 @@ export async function runCodexAgentExec(
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'branchpilot-codex-agent-'))
   const outputPath = path.join(tempDir, 'last-message.txt')
   const modelArgs = assistant.model ? ['--model', assistant.model] : []
+  const reasoningArgs = ['--config', `model_reasoning_effort="${codexReasoningEffort(options.reasoning)}"`]
   const imageArgs = options.imagePaths.flatMap((imagePath) => ['--image', imagePath])
 
   try {
     const result = await runner.run(assistant.executablePath, [
       'exec',
       ...modelArgs,
+      ...reasoningArgs,
       '--sandbox',
       options.sandbox,
       '--ask-for-approval',
@@ -464,6 +468,146 @@ export async function runCodexAgentExec(
   } finally {
     await fs.rm(tempDir, { force: true, recursive: true })
   }
+}
+
+export async function runClaudeAgentExec(
+  runner: CommandRunner,
+  assistant: ResolvedAssistantRunner,
+  options: {
+    rootPath: string
+    prompt: string
+    imagePaths: string[]
+    imageTempDir: string
+    sandbox: CodexAgentSandbox
+    reasoning: CodexAgentReasoning
+  }
+): Promise<{ output: string; eventLog: string }> {
+  if (assistant.id !== 'claude') {
+    throw new BranchPilotUserError('assistant_not_found', 'Claude Code is required for the Claude agent panel.')
+  }
+
+  const modelArgs = assistant.model ? ['--model', assistant.model] : []
+  const imageDirArgs = options.imagePaths.length > 0 ? ['--add-dir', options.imageTempDir] : []
+  const result = await runner.run(assistant.executablePath, [
+    ...modelArgs,
+    '--print',
+    '--input-format',
+    'text',
+    '--output-format',
+    'stream-json',
+    '--include-partial-messages',
+    '--no-session-persistence',
+    '--effort',
+    claudeReasoningEffort(options.reasoning),
+    ...imageDirArgs,
+    ...claudeAccessArgs(options.sandbox)
+  ], {
+    cwd: options.rootPath,
+    input: options.prompt,
+    timeoutMs: 300_000
+  })
+  const parsedEvents = parseClaudeStreamEvents(result.stdout)
+
+  return {
+    output: parsedEvents.map((event) => event.text).filter(Boolean).slice(-3).join('\n\n') || result.stdout.trim(),
+    eventLog: result.stdout
+  }
+}
+
+function codexReasoningEffort(reasoning: CodexAgentReasoning): string {
+  if (reasoning === 'light') return 'low'
+  if (reasoning === 'medium') return 'medium'
+  return 'high'
+}
+
+function claudeReasoningEffort(reasoning: CodexAgentReasoning): string {
+  if (reasoning === 'light') return 'low'
+  if (reasoning === 'medium') return 'medium'
+  if (reasoning === 'high') return 'high'
+  return 'xhigh'
+}
+
+function claudeAccessArgs(sandbox: CodexAgentSandbox): string[] {
+  if (sandbox === 'danger-full-access') {
+    return ['--dangerously-skip-permissions']
+  }
+
+  const readTools = [
+    'Read',
+    'Glob',
+    'Grep',
+    'LS',
+    'Bash(git status:*)',
+    'Bash(git diff:*)',
+    'Bash(git log:*)',
+    'Bash(git show:*)'
+  ]
+
+  if (sandbox === 'read-only') {
+    return [
+      '--permission-mode',
+      'dontAsk',
+      '--allowedTools',
+      readTools.join(',')
+    ]
+  }
+
+  return [
+    '--permission-mode',
+    'acceptEdits',
+    '--allowedTools',
+    [
+      ...readTools,
+      'Edit',
+      'MultiEdit',
+      'Write',
+      'Bash(npm test:*)',
+      'Bash(npm run lint:*)',
+      'Bash(npm run build:*)',
+      'Bash(node:*)'
+    ].join(',')
+  ]
+}
+
+function parseClaudeStreamEvents(eventLog: string): Array<{ type: string; text: string }> {
+  const events: Array<{ type: string; text: string }> = []
+
+  for (const line of eventLog.split('\n')) {
+    const trimmed = line.trim()
+
+    if (!trimmed) continue
+
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>
+      const text = extractClaudeStreamText(parsed)
+
+      if (text) events.push({ type: String(parsed.type ?? 'event'), text })
+    } catch {
+      events.push({ type: 'stdout', text: trimmed })
+    }
+  }
+
+  return events
+}
+
+function extractClaudeStreamText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return ''
+
+  const record = value as Record<string, unknown>
+  const direct = record.text ?? record.result ?? record.summary
+
+  if (typeof direct === 'string') return direct.trim()
+
+  if (record.message && typeof record.message === 'object') {
+    return extractClaudeStreamText(record.message)
+  }
+
+  if (Array.isArray(record.content)) {
+    return record.content.map(extractClaudeStreamText).filter(Boolean).join('\n').trim()
+  }
+
+  return ''
 }
 
 

@@ -54,6 +54,7 @@ import {
   resolveExecutablePath,
   runAssistant,
   runAssistantForRequest,
+  runClaudeAgentExec,
   runCodexAgentExec,
   resolveAssistantCandidates
 } from './assistantRunner.exec.js'
@@ -271,14 +272,22 @@ export async function runCodexAgent(
   const promptText = request.prompt.trim()
 
   if (!promptText && !request.filePath && (request.images?.length ?? 0) === 0) {
-    throw new BranchPilotUserError('codex_agent_prompt_required', 'Enter a Codex prompt or attach an image.')
+    throw new BranchPilotUserError('local_agent_prompt_required', 'Enter a prompt, select a file, or attach an image.')
   }
 
-  const requestedAssistant = request.assistant.startsWith('codex') ? request.assistant : 'codex'
-  const assistant = (await resolveAssistantCandidates(runner, requestedAssistant)).find((candidate) => candidate.id === 'codex')
+  const assistantBase = request.assistant.startsWith('claude') ? 'claude' : 'codex'
+  const requestedAssistant = request.assistant.startsWith('claude') || request.assistant.startsWith('codex')
+    ? request.assistant
+    : 'codex'
+  const assistant = (await resolveAssistantCandidates(runner, requestedAssistant)).find((candidate) => candidate.id === assistantBase)
 
   if (!assistant) {
-    throw new BranchPilotUserError('assistant_not_found', 'Codex CLI is required for the Codex agent panel.')
+    throw new BranchPilotUserError(
+      'assistant_not_found',
+      assistantBase === 'claude'
+        ? 'Claude Code is required for the Claude agent panel.'
+        : 'Codex CLI is required for the Codex agent panel.'
+    )
   }
 
   const branch = await getBranchLabel(runner, rootPath)
@@ -291,23 +300,35 @@ export async function runCodexAgent(
     allowedExitCodes: [0, 1],
     timeoutMs: 20_000
   })
+  const images = await writeCodexAgentImages(request.images ?? [])
   const prompt = buildCodexAgentPrompt({
+    assistant: assistant.id,
     branch,
     status: status.stdout,
     diffStat: diffStat.stdout,
+    imagePaths: images.paths,
     request,
     prompt: promptText
   })
-  const images = await writeCodexAgentImages(request.images ?? [])
   const startedAt = Date.now()
 
   try {
-    const result = await runCodexAgentExec(runner, assistant, {
-      rootPath,
-      prompt,
-      imagePaths: images.paths,
-      sandbox: request.sandbox
-    })
+    const result = assistant.id === 'claude'
+      ? await runClaudeAgentExec(runner, assistant, {
+          rootPath,
+          prompt,
+          imagePaths: images.paths,
+          imageTempDir: images.tempDir,
+          sandbox: request.sandbox,
+          reasoning: request.reasoning
+        })
+      : await runCodexAgentExec(runner, assistant, {
+          rootPath,
+          prompt,
+          imagePaths: images.paths,
+          sandbox: request.sandbox,
+          reasoning: request.reasoning
+        })
     const events = parseCodexAgentEvents(result.eventLog)
 
     return {
@@ -698,17 +719,23 @@ async function validateGeneratedBranchName(
 }
 
 function buildCodexAgentPrompt(context: {
+  assistant: 'claude' | 'codex'
   branch: string
   status: string
   diffStat: string
+  imagePaths: string[]
   request: CodexAgentRequest
   prompt: string
 }): string {
   const fileText = context.request.fileText
     ? truncateText(context.request.fileText, MAX_CODEX_AGENT_FILE_BYTES)
     : null
+  const assistantName = context.assistant === 'claude' ? 'Claude Code' : 'Codex'
+  const imageContext = context.imagePaths.length > 0
+    ? context.imagePaths.map((imagePath) => `- ${imagePath}`).join('\n')
+    : '(none)'
   const basePrompt = [
-    'You are Codex running inside BranchPilot, a local desktop Git client.',
+    `You are ${assistantName} running inside BranchPilot, a local desktop Git client.`,
     'Use the repository working directory as your source of truth. Prefer BranchPilot-provided context first, then inspect files as needed.',
     'Do not push, reset, delete branches, or rewrite history unless the user explicitly requested it in this prompt and the selected sandbox allows it.',
     'When you make changes, summarize what changed and which verification you ran. If you cannot make changes under the sandbox, explain the exact next step.',
@@ -718,6 +745,13 @@ function buildCodexAgentPrompt(context: {
     `Reasoning preset requested by user: ${context.request.reasoning}`,
     `Branch: ${context.branch}`,
     `Images attached: ${(context.request.images ?? []).length}`,
+    context.assistant === 'claude'
+      ? [
+          'Claude image file paths:',
+          imageContext,
+          'Use Read on those image files when the screenshot/photo content matters.'
+        ].join('\n')
+      : 'Codex receives attached images through the CLI image channel.',
     '',
     'Git status:',
     context.status.trim() || '(clean)',
@@ -846,9 +880,13 @@ function extractCodexEventText(value: unknown): string {
   if (!value || typeof value !== 'object') return ''
 
   const record = value as Record<string, unknown>
-  const direct = record.message ?? record.text ?? record.delta ?? record.summary ?? record.output
+  const direct = record.text ?? record.delta ?? record.summary ?? record.output ?? record.result
 
   if (typeof direct === 'string') return direct.trim()
+
+  if (record.message && typeof record.message === 'object') {
+    return extractCodexEventText(record.message)
+  }
 
   if (Array.isArray(record.content)) {
     return record.content.map(extractCodexEventText).filter(Boolean).join('\n').trim()

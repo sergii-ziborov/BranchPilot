@@ -504,7 +504,7 @@ export function useAppController() {
     const shortSha = targetCommit?.shortSha ?? commitSha.slice(0, 7)
     const branchName = snapshot?.summary.currentBranch ?? 'the current branch'
     const isCurrentHead = snapshot?.summary.headOid === commitSha
-    const resetMode = kind === 'reset-hard' ? 'hard' : 'mixed'
+    const resetMode: 'mixed' | 'hard' = kind === 'reset-hard' ? 'hard' : 'mixed'
     const isReset = kind === 'reset' || kind === 'reset-hard'
 
     if (isReset && isCurrentHead) {
