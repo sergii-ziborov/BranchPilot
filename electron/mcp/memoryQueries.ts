@@ -423,7 +423,7 @@ export function getPromptText(name: string): string {
   if (name === 'review-current-work') {
     return [
       'Use BranchPilot Project Memory to understand the repository structure before reviewing changes.',
-      'Start with project_summary and get_project_health, then search_symbols/search_files for affected modules.',
+      'Start with project_summary, get_project_health, get_repository_status, and get_repository_diff, then search_symbols/search_files for affected modules.',
       'Focus on consistency, security, correctness, and maintainability. Do not mutate files from MCP.'
     ].join('\n')
   }
@@ -431,8 +431,8 @@ export function getPromptText(name: string): string {
   if (name === 'prepare-change-plan') {
     return [
       'Use BranchPilot Project Memory to map relevant files, symbols, imports, and recent commits.',
-      'Use get_project_health to identify high-risk files, then return a concise implementation plan with risks, tests, and files likely to change.',
-      'Use shell/git separately only when live state is needed.'
+      'Use get_project_health and live repository tools to identify high-risk files, diffs, refs, and current worktree state.',
+      'Return a concise implementation plan with risks, tests, and files likely to change.'
     ].join('\n')
   }
 
@@ -446,8 +446,8 @@ export function getPromptText(name: string): string {
 
   if (name === 'summarize-recent-work') {
     return [
-      'Use get_recent_commits and project_summary to summarize recent project work.',
-      'Group changes by theme and identify follow-up work. Do not invent commits not present in Project Memory.'
+      'Use search_commit_history, get_recent_commits, get_agent_activity, and project_summary to summarize recent project work.',
+      'Group changes by theme and identify follow-up work. Do not invent commits not present in Git, Project Memory, or Activity Log.'
     ].join('\n')
   }
 
@@ -778,6 +778,16 @@ export type BranchPilotMcpToolName =
   | 'get_symbol_context'
   | 'get_recent_commits'
   | 'get_current_git_state'
+  | 'get_repository_status'
+  | 'list_repository_refs'
+  | 'list_repository_files'
+  | 'read_repository_file'
+  | 'search_repository_text'
+  | 'get_repository_diff'
+  | 'search_commit_history'
+  | 'get_commit_details'
+  | 'get_file_history'
+  | 'get_repository_blame'
   | 'get_agent_activity'
   | 'get_project_wiki'
   | 'get_wiki_page'
@@ -819,6 +829,46 @@ export const BRANCHPILOT_MCP_TOOLS: BranchPilotMcpToolDefinition[] = [
   {
     name: 'get_current_git_state',
     description: 'Return branch and remote state from the latest Project Memory snapshot.'
+  },
+  {
+    name: 'get_repository_status',
+    description: 'Return live local Git status, branch/upstream divergence, and changed files.'
+  },
+  {
+    name: 'list_repository_refs',
+    description: 'Return live local branches, remote branches, tags, remotes, and worktrees.'
+  },
+  {
+    name: 'list_repository_files',
+    description: 'List tracked and optionally untracked non-ignored files from the live repository worktree.'
+  },
+  {
+    name: 'read_repository_file',
+    description: 'Read a repository file from the working tree or a Git revision with line and byte limits.'
+  },
+  {
+    name: 'search_repository_text',
+    description: 'Search literal text across non-ignored repository files with optional path, extension, and context filters.'
+  },
+  {
+    name: 'get_repository_diff',
+    description: 'Return live Git diff/stat for the working tree, staged changes, one path, or a base/head comparison.'
+  },
+  {
+    name: 'search_commit_history',
+    description: 'Search live Git commit history by grep query and optional path filter.'
+  },
+  {
+    name: 'get_commit_details',
+    description: 'Return live Git commit metadata, changed files, stat text, and optional patch text.'
+  },
+  {
+    name: 'get_file_history',
+    description: 'Return live Git history for one file, following renames.'
+  },
+  {
+    name: 'get_repository_blame',
+    description: 'Return live Git blame metadata for a bounded range of one file.'
   },
   {
     name: 'get_agent_activity',

@@ -21,13 +21,27 @@ import {
   searchSymbols,
   toJsonText
 } from './memoryQueries.js'
+import {
+  REPOSITORY_RESOURCE_URIS,
+  getCommitDetails,
+  getFileHistory,
+  getRepositoryBlame,
+  getRepositoryDiff,
+  getRepositoryResourcePayload,
+  getRepositoryStatus,
+  listRepositoryFiles,
+  listRepositoryRefs,
+  readRepositoryFile,
+  searchCommitHistory,
+  searchRepositoryText
+} from './repositoryQueries.js'
 
 const SERVER_VERSION = '0.1.0'
 const SERVER_INSTRUCTIONS = [
-  'BranchPilot exposes read-only Project Memory for a local Git repository.',
-  'Use this server for indexed repo summary, health, file, symbol, import, and commit context.',
-  'Project Memory can be stale: every result includes scannedAt. Use shell/git separately for live mutable state.',
-  'This server never writes files, runs commands, edits Git state, or stores credentials.'
+  'BranchPilot exposes read-only Project Memory and live repository context for a local Git repository.',
+  'Use this server for indexed repo summary, health, wiki, file, symbol, import, commit, branch, diff, and working tree context.',
+  'Project Memory can be stale: every memory/wiki result includes scannedAt. Live repository tools read the current local worktree and run read-only Git commands.',
+  'This server never writes files, edits Git state, pushes, fetches, pulls, or stores credentials.'
 ].join(' ')
 
 const symbolKinds = [
@@ -92,14 +106,7 @@ const activityTypes = [
 const activityActors = ['user', 'branchpilot', 'assistant', 'provider'] as const
 const activityStatuses = ['success', 'failure'] as const
 const healthSeverities = ['critical', 'warning', 'notice', 'healthy'] as const
-const wikiPageIds = [
-  'overview',
-  'module_map',
-  'important_symbols',
-  'workflows',
-  'assistant_policy',
-  'recent_timeline'
-] as const
+const diffModes = ['all', 'staged', 'unstaged'] as const
 
 export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServer {
   const server = new McpServer({
@@ -184,6 +191,113 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     annotations: readOnlyAnnotations()
   }, async () => toolJson(await getCurrentGitState(options)))
 
+  server.registerTool('get_repository_status', {
+    title: 'Get Repository Status',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_repository_status')?.description,
+    annotations: readOnlyAnnotations()
+  }, async () => toolJson(await getRepositoryStatus(options)))
+
+  server.registerTool('list_repository_refs', {
+    title: 'List Repository Refs',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'list_repository_refs')?.description,
+    annotations: readOnlyAnnotations()
+  }, async () => toolJson(await listRepositoryRefs(options)))
+
+  server.registerTool('list_repository_files', {
+    title: 'List Repository Files',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'list_repository_files')?.description,
+    inputSchema: {
+      query: z.string().optional().describe('Case-insensitive repository-relative path filter.'),
+      extension: z.string().optional().describe('Optional extension filter, such as ts or .tsx.'),
+      includeUntracked: z.boolean().optional().describe('Include untracked non-ignored files. Defaults to true.'),
+      limit: z.number().int().min(1).max(200).optional().describe('Maximum number of files to return.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await listRepositoryFiles({ ...options, ...args })))
+
+  server.registerTool('read_repository_file', {
+    title: 'Read Repository File',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'read_repository_file')?.description,
+    inputSchema: {
+      path: z.string().min(1).describe('Repository-relative file path.'),
+      revision: z.string().optional().describe('Optional Git revision. Omit to read the working tree.'),
+      startLine: z.number().int().min(1).optional().describe('First 1-based line to return.'),
+      maxLines: z.number().int().min(1).max(2000).optional().describe('Maximum number of lines to return.'),
+      maxBytes: z.number().int().min(4000).max(1000000).optional().describe('Maximum bytes to read before line slicing.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await readRepositoryFile({ ...options, ...args })))
+
+  server.registerTool('search_repository_text', {
+    title: 'Search Repository Text',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'search_repository_text')?.description,
+    inputSchema: {
+      query: z.string().min(1).describe('Literal text to search in non-ignored repository files.'),
+      path: z.string().optional().describe('Optional file or directory path filter.'),
+      extension: z.string().optional().describe('Optional extension filter, such as ts or .tsx.'),
+      caseSensitive: z.boolean().optional().describe('Use case-sensitive matching. Defaults to false.'),
+      contextLines: z.number().int().min(0).max(5).optional().describe('Context lines before and after each match.'),
+      limit: z.number().int().min(1).max(200).optional().describe('Maximum matches to return.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await searchRepositoryText({ ...options, ...args })))
+
+  server.registerTool('get_repository_diff', {
+    title: 'Get Repository Diff',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_repository_diff')?.description,
+    inputSchema: {
+      mode: z.enum(diffModes).optional().describe('Diff mode when base/head are omitted. all means HEAD vs working tree.'),
+      path: z.string().optional().describe('Optional repository-relative path filter.'),
+      base: z.string().optional().describe('Optional base Git ref for comparing refs.'),
+      head: z.string().optional().describe('Optional head Git ref for comparing refs.'),
+      maxBytes: z.number().int().min(4000).max(1000000).optional().describe('Maximum bytes of stat/diff text to return.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getRepositoryDiff({ ...options, ...args })))
+
+  server.registerTool('search_commit_history', {
+    title: 'Search Commit History',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'search_commit_history')?.description,
+    inputSchema: {
+      query: z.string().optional().describe('Optional case-insensitive grep over commit subjects/bodies.'),
+      path: z.string().optional().describe('Optional repository-relative path filter.'),
+      limit: z.number().int().min(1).max(200).optional().describe('Maximum commits to return.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await searchCommitHistory({ ...options, ...args })))
+
+  server.registerTool('get_commit_details', {
+    title: 'Get Commit Details',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_commit_details')?.description,
+    inputSchema: {
+      ref: z.string().min(1).describe('Commit SHA or ref to inspect.'),
+      includePatch: z.boolean().optional().describe('Include patch text instead of only stat text.'),
+      maxBytes: z.number().int().min(4000).max(1000000).optional().describe('Maximum bytes of commit text to return.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getCommitDetails({ ...options, ...args })))
+
+  server.registerTool('get_file_history', {
+    title: 'Get File History',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_file_history')?.description,
+    inputSchema: {
+      path: z.string().min(1).describe('Repository-relative file path.'),
+      limit: z.number().int().min(1).max(200).optional().describe('Maximum commits to return.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getFileHistory({ ...options, ...args })))
+
+  server.registerTool('get_repository_blame', {
+    title: 'Get Repository Blame',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_repository_blame')?.description,
+    inputSchema: {
+      path: z.string().min(1).describe('Repository-relative file path.'),
+      startLine: z.number().int().min(1).optional().describe('First 1-based line to blame.'),
+      lineCount: z.number().int().min(1).max(200).optional().describe('Number of lines to blame.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getRepositoryBlame({ ...options, ...args })))
+
   server.registerTool('get_agent_activity', {
     title: 'Get Agent Activity',
     description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_agent_activity')?.description,
@@ -206,21 +320,21 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     title: 'Get Wiki Page',
     description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_wiki_page')?.description,
     inputSchema: {
-      pageId: z.enum(wikiPageIds).describe('Project Wiki page id.')
+      pageId: z.string().min(1).describe('Project Wiki page id, including generated module page ids.')
     },
     annotations: readOnlyAnnotations()
   }, async (args) => toolJson(await getWikiPage({ ...options, pageId: args.pageId })))
 
-  for (const uri of MCP_RESOURCE_URIS) {
+  for (const uri of [...MCP_RESOURCE_URIS, ...REPOSITORY_RESOURCE_URIS]) {
     server.registerResource(resourceName(uri), uri, {
       title: resourceTitle(uri),
-      description: `BranchPilot Project Memory resource for ${uri}.`,
+      description: `BranchPilot read-only repository resource for ${uri}.`,
       mimeType: 'application/json'
     }, async (resourceUri) => ({
       contents: [{
         uri: resourceUri.toString(),
         mimeType: 'application/json',
-        text: toJsonText(await getResourcePayload(options, resourceUri.toString()))
+        text: toJsonText(await getMcpResourcePayload(options, resourceUri.toString()))
       }]
     }))
   }
@@ -241,6 +355,14 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
   }
 
   return server
+}
+
+async function getMcpResourcePayload(options: MemoryQueryOptions, uri: string): Promise<unknown> {
+  if ((MCP_RESOURCE_URIS as readonly string[]).includes(uri)) {
+    return getResourcePayload(options, uri)
+  }
+
+  return getRepositoryResourcePayload(options, uri)
 }
 
 export function parseMcpServerArgs(argv: string[]): MemoryQueryOptions {

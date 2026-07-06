@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -7,6 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
 import { ActivityLogService } from '../electron/lib/activityLogService'
+import { GIT_EXECUTABLE } from '../electron/lib/platformExecutables'
 import { ProjectMemoryStore } from '../electron/lib/projectMemoryService'
 import { ProjectWikiStore } from '../electron/lib/projectWikiService'
 import { createProjectMemoryMcpConfig } from '../electron/mcp/config'
@@ -168,6 +170,18 @@ describe('BranchPilot MCP Project Memory bridge', () => {
 
   it('registers read-only MCP tools, resources, prompts, and serves project_summary', async () => {
     const { memoryDir, activityDir, wikiDir, repoPath } = await createStoredSnapshot()
+    writeFileSync(path.join(repoPath, 'src/App.tsx'), [
+      "import React from 'react'",
+      "import { ProjectScanner } from './service'",
+      '',
+      'export function App() {',
+      '  return <main data-changed="true" />',
+      '}',
+      '',
+      'export { ProjectScanner }',
+      ''
+    ].join('\n'))
+
     const server = createBranchPilotMcpServer({ memoryDir, activityDir, wikiDir, repoPath })
     const client = new Client({
       name: 'branchpilot-test-client',
@@ -190,6 +204,16 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       'get_symbol_context',
       'get_recent_commits',
       'get_current_git_state',
+      'get_repository_status',
+      'list_repository_refs',
+      'list_repository_files',
+      'read_repository_file',
+      'search_repository_text',
+      'get_repository_diff',
+      'search_commit_history',
+      'get_commit_details',
+      'get_file_history',
+      'get_repository_blame',
       'get_agent_activity',
       'get_project_wiki',
       'get_wiki_page'
@@ -201,6 +225,10 @@ describe('BranchPilot MCP Project Memory bridge', () => {
     expect(resources.resources.map((resource) => resource.uri)).toEqual(expect.arrayContaining([
       'branchpilot://repo/current/summary',
       'branchpilot://repo/current/health',
+      'branchpilot://repo/current/live-status',
+      'branchpilot://repo/current/worktree',
+      'branchpilot://repo/current/refs',
+      'branchpilot://repo/current/diff',
       'branchpilot://repo/current/tree',
       'branchpilot://repo/current/symbols',
       'branchpilot://repo/current/commits',
@@ -240,6 +268,79 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       summary: {
         totalFiles: 2
       }
+    })
+
+    const statusResult = await client.callTool({ name: 'get_repository_status', arguments: {} })
+    expect(JSON.parse(getTextResult(statusResult))).toMatchObject({
+      branch: {
+        name: 'main'
+      },
+      counts: {
+        changed: 1
+      }
+    })
+
+    const refsResult = await client.callTool({ name: 'list_repository_refs', arguments: {} })
+    expect(JSON.parse(getTextResult(refsResult))).toMatchObject({
+      localBranches: expect.arrayContaining([
+        expect.objectContaining({ name: 'main' })
+      ])
+    })
+
+    const filesResult = await client.callTool({ name: 'list_repository_files', arguments: { query: 'src', limit: 10 } })
+    expect(JSON.parse(getTextResult(filesResult))).toMatchObject({
+      files: expect.arrayContaining([
+        expect.objectContaining({ path: 'src/App.tsx' }),
+        expect.objectContaining({ path: 'src/service.ts' })
+      ])
+    })
+
+    const fileResult = await client.callTool({ name: 'read_repository_file', arguments: { path: 'src/App.tsx', maxLines: 20 } })
+    expect(JSON.parse(getTextResult(fileResult))).toMatchObject({
+      path: 'src/App.tsx',
+      text: expect.stringContaining('data-changed')
+    })
+
+    const searchResult = await client.callTool({ name: 'search_repository_text', arguments: { query: 'ProjectScanner', limit: 10 } })
+    expect(JSON.parse(getTextResult(searchResult))).toMatchObject({
+      matches: expect.arrayContaining([
+        expect.objectContaining({ path: 'src/App.tsx' })
+      ])
+    })
+
+    const diffResult = await client.callTool({ name: 'get_repository_diff', arguments: { path: 'src/App.tsx', maxBytes: 20000 } })
+    expect(JSON.parse(getTextResult(diffResult))).toMatchObject({
+      diff: expect.stringContaining('data-changed')
+    })
+
+    const historyResult = await client.callTool({ name: 'search_commit_history', arguments: { limit: 5 } })
+    const history = JSON.parse(getTextResult(historyResult))
+    expect(history.commits[0]).toMatchObject({
+      subject: 'Add MCP fixture'
+    })
+
+    const commitResult = await client.callTool({ name: 'get_commit_details', arguments: { ref: 'HEAD', maxBytes: 20000 } })
+    expect(JSON.parse(getTextResult(commitResult))).toMatchObject({
+      commit: {
+        subject: 'Add MCP fixture'
+      },
+      files: expect.arrayContaining([
+        expect.objectContaining({ path: 'src/App.tsx' })
+      ])
+    })
+
+    const fileHistoryResult = await client.callTool({ name: 'get_file_history', arguments: { path: 'src/service.ts', limit: 5 } })
+    expect(JSON.parse(getTextResult(fileHistoryResult))).toMatchObject({
+      commits: expect.arrayContaining([
+        expect.objectContaining({ subject: 'Add MCP fixture' })
+      ])
+    })
+
+    const blameResult = await client.callTool({ name: 'get_repository_blame', arguments: { path: 'src/service.ts', startLine: 1, lineCount: 2 } })
+    expect(JSON.parse(getTextResult(blameResult))).toMatchObject({
+      lines: expect.arrayContaining([
+        expect.objectContaining({ author: 'BranchPilot Test' })
+      ])
     })
 
     const activityResult = await client.callTool({ name: 'get_agent_activity', arguments: { limit: 10 } })
@@ -294,6 +395,7 @@ async function createStoredSnapshot(memoryDir = createTempDirectory('branchpilot
   const repoPath = createTempDirectory('branchpilot-mcp-repo-test-')
   const activityDir = createTempDirectory('branchpilot-mcp-activity-test-')
   const wikiDir = createTempDirectory('branchpilot-mcp-wiki-test-')
+  createGitRepositoryFixture(repoPath)
   const snapshot = makeSnapshot(repoPath)
   await new ProjectMemoryStore(memoryDir).write(snapshot)
   await new ProjectWikiStore(wikiDir).write(makeWikiSnapshot(snapshot))
@@ -325,6 +427,39 @@ async function createStoredSnapshot(memoryDir = createTempDirectory('branchpilot
     repoPath,
     snapshot
   }
+}
+
+function createGitRepositoryFixture(repoPath: string) {
+  mkdirSync(path.join(repoPath, 'src'), { recursive: true })
+  writeFileSync(path.join(repoPath, 'src/App.tsx'), [
+    "import React from 'react'",
+    "import { ProjectScanner } from './service'",
+    '',
+    'export function App() {',
+    '  return <main />',
+    '}',
+    '',
+    'export { ProjectScanner }',
+    ''
+  ].join('\n'))
+  writeFileSync(path.join(repoPath, 'src/service.ts'), [
+    'export class ProjectScanner {',
+    '  scan(target: string): string {',
+    '    return target',
+    '  }',
+    '}',
+    '',
+    'export function createScanner() {',
+    '  return new ProjectScanner()',
+    '}',
+    ''
+  ].join('\n'))
+
+  git(repoPath, ['init', '-b', 'main'])
+  git(repoPath, ['config', 'user.name', 'BranchPilot Test'])
+  git(repoPath, ['config', 'user.email', 'branchpilot@example.com'])
+  git(repoPath, ['add', '.'])
+  git(repoPath, ['commit', '-m', 'Add MCP fixture'])
 }
 
 function makeWikiSnapshot(snapshot: ProjectMemorySnapshot): ProjectWikiSnapshot {
@@ -486,4 +621,11 @@ function createTempDirectory(prefix: string) {
 
 function repositoryId(rootPath: string): string {
   return createHash('sha256').update(rootPath).digest('hex').slice(0, 16)
+}
+
+function git(cwd: string, args: string[]) {
+  return execFileSync(GIT_EXECUTABLE, args, {
+    cwd,
+    encoding: 'utf8'
+  }).trim()
 }

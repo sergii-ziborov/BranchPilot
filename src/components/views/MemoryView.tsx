@@ -478,6 +478,16 @@ export function McpSetupView({
   const prompt = mcpConnectionPrompt(projectMemoryMcpConfig, projectMemory, projectWiki, activityLog)
   const mcpResources = [
     {
+      title: 'Live status',
+      uri: 'branchpilot://repo/current/live-status',
+      detail: 'Current branch, upstream divergence, worktree counts, and changed paths.'
+    },
+    {
+      title: 'Working tree',
+      uri: 'branchpilot://repo/current/worktree',
+      detail: 'Tracked and untracked non-ignored local files for GitHub-like repo browsing.'
+    },
+    {
       title: 'Project health',
       uri: 'branchpilot://repo/current/health',
       detail: 'File-level risk map from Project Memory: large files, dense modules, configs, and entrypoints.'
@@ -498,6 +508,16 @@ export function McpSetupView({
       detail: 'Recent Git subjects and SHAs to explain what changed before reading files.'
     },
     {
+      title: 'Refs',
+      uri: 'branchpilot://repo/current/refs',
+      detail: 'Local branches, remote branches, tags, remotes, and worktrees.'
+    },
+    {
+      title: 'Current diff',
+      uri: 'branchpilot://repo/current/diff',
+      detail: 'Live Git diff/stat for current uncommitted work.'
+    },
+    {
       title: 'Code index',
       uri: 'branchpilot://repo/current/tree + symbols',
       detail: 'Indexed file tree, imports, and exported/local symbols for fast code navigation.'
@@ -506,15 +526,19 @@ export function McpSetupView({
   const mcpToolGroups = [
     {
       title: 'Orient',
-      tools: ['project_summary', 'get_project_health', 'get_current_git_state', 'get_project_wiki']
+      tools: ['project_summary', 'get_project_health', 'get_repository_status', 'list_repository_refs', 'get_project_wiki']
     },
     {
-      title: 'Find code',
-      tools: ['search_files', 'search_symbols', 'get_file_outline', 'get_symbol_context']
+      title: 'Browse repo',
+      tools: ['list_repository_files', 'read_repository_file', 'search_repository_text', 'search_files', 'search_symbols']
+    },
+    {
+      title: 'Review changes',
+      tools: ['get_repository_diff', 'get_commit_details', 'search_commit_history', 'get_file_history', 'get_repository_blame']
     },
     {
       title: 'Trace work',
-      tools: ['get_recent_commits', 'get_agent_activity', 'get_wiki_page']
+      tools: ['get_recent_commits', 'get_agent_activity', 'get_file_outline', 'get_symbol_context', 'get_wiki_page']
     }
   ]
   const mcpPrompts = ['review-current-work', 'prepare-change-plan', 'explain-module', 'summarize-recent-work']
@@ -549,7 +573,7 @@ export function McpSetupView({
     <section className="single-panel branchpilot-memory-panel mcp-panel">
       <MemoryPanelHeading
         title="MCP"
-        detail="Copy a connection prompt or config that exposes Memory, Project Wiki, and change history to local assistants."
+        detail="Copy a connection prompt or config that exposes live repo, Git history, Memory, Project Wiki, and change history to local assistants."
       />
 
       <div className="mcp-workbench">
@@ -849,7 +873,7 @@ function mcpConnectionPrompt(
   activity: ActivityLogSnapshot | null
 ): string {
   return [
-    'Use BranchPilot MCP as the first source of local project context for this assistant.',
+    'Use BranchPilot MCP as the first source of local repository context for this assistant.',
     '',
     `Repository: ${config.repoPath}`,
     `Memory: ${memory ? `${memory.files.length} files, ${memory.symbols.length} symbols, scanned ${formatDate(memory.scannedAt)}` : 'not loaded'}`,
@@ -857,15 +881,17 @@ function mcpConnectionPrompt(
     `Change history: ${activity?.totalCount ?? 0} BranchPilot activity events plus recent commits`,
     '',
     'Read order:',
-    '1. branchpilot://repo/current/health to spot risky files before planning edits.',
-    '2. branchpilot://repo/current/wiki for architecture and workflow intent.',
-    '3. branchpilot://repo/current/activity and branchpilot://repo/current/commits for recent work.',
-    '4. branchpilot://repo/current/tree and branchpilot://repo/current/symbols to narrow exploration.',
-    '5. Disk files only for exact implementation details.',
+    '1. branchpilot://repo/current/live-status and branchpilot://repo/current/diff for current local work.',
+    '2. branchpilot://repo/current/health to spot risky files before planning edits.',
+    '3. branchpilot://repo/current/wiki for architecture and workflow intent.',
+    '4. branchpilot://repo/current/worktree plus list_repository_files/read_repository_file/search_repository_text for GitHub-like browsing.',
+    '5. branchpilot://repo/current/refs, search_commit_history, get_commit_details, get_file_history, and get_repository_blame for history and ownership context.',
+    '6. branchpilot://repo/current/activity and branchpilot://repo/current/commits for BranchPilot timeline context.',
+    '7. branchpilot://repo/current/tree and branchpilot://repo/current/symbols to narrow indexed exploration.',
     '',
-    'Available workflow prompts: review-current-work, prepare-change-plan, explain-module, summarize-recent-work. Useful tools include project_summary, get_project_health, search_files, search_symbols, get_file_outline, get_symbol_context.',
+    'Available workflow prompts: review-current-work, prepare-change-plan, explain-module, summarize-recent-work. Useful tools include project_summary, get_project_health, get_repository_status, list_repository_refs, list_repository_files, read_repository_file, search_repository_text, get_repository_diff, search_commit_history, get_commit_details, get_file_history, get_repository_blame, search_files, search_symbols, get_file_outline, get_symbol_context.',
     '',
-    'Treat this as a read-only BranchPilot context bridge, not a graph/repo-lens view.',
+    'Treat this as a read-only BranchPilot repository bridge. It may read local files and run read-only Git commands, but it must not write files, push, pull, fetch, commit, or mutate Git state.',
     `Generic server command: ${config.serverCommand}`,
     `Codex CLI helper: ${config.codexCommand}`
   ].join('\n')
