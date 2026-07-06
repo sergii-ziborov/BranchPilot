@@ -68,7 +68,7 @@ html[data-theme='deus-ex'] :is(button, input, textarea, select):not(.line-select
   border-radius: 0 !important;
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.shell-sync-primary):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-dropdown-primary):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):not(:disabled) {
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.shell-sync-primary):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-branch-action-button):not(.shell-dropdown-primary):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):not(:disabled) {
   border-color: var(--dx-line) !important;
   color: var(--dx-cream) !important;
   background: var(--dx-flat-bg) !important;
@@ -109,12 +109,12 @@ html[data-theme='deus-ex'] .shell-branch-row.active :is(.shell-branch-pick, svg,
   stroke: var(--dx-ink) !important;
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.shell-sync-primary):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-dropdown-primary):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):not(:disabled)::before,
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.shell-sync-primary):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-dropdown-primary):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):not(:disabled)::after {
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.shell-sync-primary):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-branch-action-button):not(.shell-dropdown-primary):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):not(:disabled)::before,
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.shell-sync-primary):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-branch-action-button):not(.shell-dropdown-primary):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):not(:disabled)::after {
   content: none !important;
 }
 
-html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.shell-sync-primary):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-dropdown-primary):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):not(:disabled):hover,
+html[data-theme='deus-ex'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.shell-sync-primary):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-branch-action-button):not(.shell-dropdown-primary):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):not(:disabled):hover,
 html[data-theme='deus-ex'] :is(.shell-dropdown-item, .shell-dropdown-primary, .shell-theme-item):hover {
   border-color: var(--dx-amber-strong) !important;
   color: #ffffff !important;

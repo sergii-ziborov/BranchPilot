@@ -13,6 +13,7 @@ export type AssistantActionKind =
   | 'linkedin_project'
   | 'repository_starter'
   | 'file_beautify'
+  | 'codex_agent'
 
 export interface AssistantPolicySettings {
   repoPath: string
@@ -81,6 +82,7 @@ export type ActivityLogEventType =
   | 'assistant_repository_starter_generated'
   | 'assistant_file_beautified'
   | 'assistant_review_generated'
+  | 'assistant_codex_agent_ran'
   | 'daily_review_generated'
   | 'github_pr_created'
   | 'github_repository_created'

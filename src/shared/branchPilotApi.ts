@@ -10,6 +10,8 @@ import type {
   BranchComparison,
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
+  CodexAgentRequest,
+  CodexAgentResult,
   CloneRepositoryRequest,
   CommitCard,
   CommitDetails,
@@ -404,6 +406,7 @@ export interface BranchPilotApi {
   generateLinkedInProject: (request: LinkedInProjectGenerationRequest) => Promise<ApiResult<GeneratedLinkedInProject>>
   generateRepositoryStarter: (request: RepositoryStarterGenerationRequest) => Promise<ApiResult<GeneratedRepositoryStarter>>
   beautifyFileWithAssistant: (request: FileBeautifyRequest) => Promise<ApiResult<BeautifiedFile>>
+  runCodexAgent: (request: CodexAgentRequest) => Promise<ApiResult<CodexAgentResult>>
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   connectGitHub: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>

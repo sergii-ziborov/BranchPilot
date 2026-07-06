@@ -138,17 +138,17 @@ html[data-theme='pure-dark'] :is(.workspace-frameless, .workspace:has(> .changes
 
 /* Secondary workspaces should not sit inside a giant page frame. */
 :is(
-  .workspace:has(> .providers-page),
+  .workspace:has(> .providers-stack),
   .workspace:has(> .reports-stack),
-  .workspace:has(> .settings-page),
+  .workspace:has(> .settings-stack),
   .workspace:has(> .changes-editor-workspace),
   .workspace:has(> .history-preview-screen)
 ) {
   padding: 0;
 }
 
-.workspace > .providers-page,
-.workspace > .settings-page,
+.workspace > .providers-stack > .providers-page,
+.workspace > .settings-stack > .settings-page,
 .workspace > .reports-stack > .single-panel {
   border: 0 !important;
   border-radius: 0 !important;
@@ -156,12 +156,12 @@ html[data-theme='pure-dark'] :is(.workspace-frameless, .workspace:has(> .changes
   box-shadow: none !important;
 }
 
-.workspace > .reports-stack > .reports-topbar {
+.workspace > :is(.reports-stack, .providers-stack, .settings-stack) > .reports-topbar {
   margin-bottom: 0;
   padding: 10px 18px 0;
 }
 
-.workspace > .reports-stack > .single-panel {
+.workspace > :is(.reports-stack, .providers-stack, .settings-stack) > .single-panel {
   padding-top: 14px;
 }
 

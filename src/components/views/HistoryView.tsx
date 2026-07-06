@@ -75,7 +75,7 @@ export function HistoryView({
   commitFileDiff: DiffResult | null
   commitFileDiffLoading: boolean
   openExternalLink: (url: string | undefined, label?: string) => void
-  applyCommitOperation: (kind: 'revert' | 'cherry-pick' | 'reset', commitSha?: string) => void | Promise<void>
+  applyCommitOperation: (kind: 'revert' | 'cherry-pick' | 'reset' | 'reset-hard', commitSha?: string) => void | Promise<void>
   api: BranchPilotApi | undefined
   currentRepoPath: string | undefined
   setViewMode: (mode: ViewMode) => void
@@ -629,6 +629,19 @@ export function HistoryView({
           >
             <Trash2 size={15} />
             Reset here, keep changes
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="danger"
+            title={commitMenu.commit.sha === snapshot?.summary.headOid
+              ? 'Branch is already at this commit'
+              : 'Move the current branch here and discard later commits plus working tree changes'}
+            onClick={() => applyCommitOperationFromMenu('reset-hard')}
+            disabled={busy || commitMenu.commit.sha === snapshot?.summary.headOid || Boolean(snapshot?.status.counts.conflicted) || snapshot?.status.merge.operation !== 'none'}
+          >
+            <Trash2 size={15} />
+            Reset here, discard changes
           </button>
         </div>
       )}

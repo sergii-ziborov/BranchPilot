@@ -146,7 +146,8 @@ export function registerGitHandlers(
     repoPath: requestRepoPath,
     metadata: ([request], snapshot) => ({
       commit: request.commitSha.slice(0, 12),
-      branch: snapshot?.summary.currentBranch ?? 'unknown'
+      branch: snapshot?.summary.currentBranch ?? 'unknown',
+      mode: request.mode ?? 'mixed'
     })
   }, async (request: ConfirmedCommitReferenceRequest) =>
     withProjectMemoryRefresh(await repositoryService.commits.resetToCommit(request))

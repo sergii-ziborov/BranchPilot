@@ -60,22 +60,23 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
   }
 
   return (
-    <section className="single-panel settings-page">
-      <div className="panel-heading settings-panel-heading">
-        <div className="panel-heading-main">
-          <BackToChanges onClick={onBack} />
-          <div className="settings-heading-copy">
-            <div className="settings-title-tabs">
-              <h2>Settings</h2>
-              <SettingsTabs activeTab={settingsTab} counts={settingsTabCounts} onChange={setSettingsTab} />
-            </div>
-          </div>
-        </div>
+    <div className="settings-stack">
+      <div className="reports-topbar secondary-view-topbar settings-topbar">
+        <BackToChanges onClick={onBack} />
+        <SettingsTabs activeTab={settingsTab} counts={settingsTabCounts} onChange={setSettingsTab} />
         <button type="button" onClick={loadGitConfig} disabled={busy}>
           <RefreshCcw size={17} />
           Reload
         </button>
       </div>
+
+      <section className="single-panel settings-page">
+        <div className="panel-heading settings-panel-heading">
+          <div>
+            <h2>Settings</h2>
+            <p>Repository identity, assistants, remotes, submodules, LFS, worktrees, and tags.</p>
+          </div>
+        </div>
 
       <div className="config-grid">
         {settingsTab === 'identity' && (
@@ -469,8 +470,9 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
             panel={settingsTab}
           />
         )}
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   )
 }
 

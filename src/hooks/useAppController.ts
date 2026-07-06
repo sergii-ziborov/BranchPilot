@@ -498,26 +498,30 @@ export function useAppController() {
     }
   }, [api, currentRepoPath])
 
-  async function applyCommitOperation(kind: 'revert' | 'cherry-pick' | 'reset', commitSha = commitDetails?.sha) {
+  async function applyCommitOperation(kind: 'revert' | 'cherry-pick' | 'reset' | 'reset-hard', commitSha = commitDetails?.sha) {
     if (!api || !currentRepoPath || !commitSha) return
     const targetCommit = commitDetails?.sha === commitSha ? commitDetails : history.find((commit) => commit.sha === commitSha)
     const shortSha = targetCommit?.shortSha ?? commitSha.slice(0, 7)
     const branchName = snapshot?.summary.currentBranch ?? 'the current branch'
     const isCurrentHead = snapshot?.summary.headOid === commitSha
+    const resetMode = kind === 'reset-hard' ? 'hard' : 'mixed'
+    const isReset = kind === 'reset' || kind === 'reset-hard'
 
-    if (kind === 'reset' && isCurrentHead) {
+    if (isReset && isCurrentHead) {
       setNotice(`Branch is already at ${shortSha}. Pick an older commit to move later commits into Changes.`)
       return
     }
 
     const confirmed = await requestConfirmation(
-      kind === 'reset'
-        ? `Reset ${branchName} to ${shortSha}? This moves the branch pointer to that commit and keeps later commits as unstaged changes.`
+      isReset
+        ? resetMode === 'hard'
+          ? `Reset ${branchName} to ${shortSha} and discard later commits plus working tree changes? This cannot be undone by BranchPilot.`
+          : `Reset ${branchName} to ${shortSha}? This moves the branch pointer to that commit and keeps later commits as unstaged changes.`
         : kind === 'revert'
           ? `Revert ${shortSha}? This creates a new commit that reverses the selected commit.`
           : `Cherry-pick ${shortSha} onto ${branchName}?`,
-      kind === 'reset'
-        ? { title: 'Reset Branch', confirmLabel: 'Reset to commit', variant: 'danger' }
+      isReset
+        ? { title: resetMode === 'hard' ? 'Reset Branch and Discard Changes' : 'Reset Branch', confirmLabel: resetMode === 'hard' ? 'Discard and reset' : 'Reset to commit', variant: 'danger' }
         : kind === 'revert'
           ? { title: 'Revert Commit', confirmLabel: 'Revert commit', variant: 'danger' }
           : { title: 'Cherry-Pick Commit', confirmLabel: 'Cherry-pick' }
@@ -527,17 +531,20 @@ export function useAppController() {
     const request = {
       repoPath: currentRepoPath,
       commitSha,
-      confirmed
+      confirmed,
+      mode: resetMode
     }
 
     await runApiAction(
-      kind === 'reset' ? 'Resetting branch...' : kind === 'revert' ? 'Reverting commit...' : 'Cherry-picking commit...',
-      () => kind === 'reset' ? api.resetToCommit(request) : kind === 'revert' ? api.revertCommit(request) : api.cherryPickCommit(request),
+      isReset ? 'Resetting branch...' : kind === 'revert' ? 'Reverting commit...' : 'Cherry-picking commit...',
+      () => isReset ? api.resetToCommit(request) : kind === 'revert' ? api.revertCommit(request) : api.cherryPickCommit(request),
       (data) => {
         const hasConflicts = data.status.merge.operation !== 'none' || data.status.counts.conflicted > 0
         const conflictLabel = kind === 'revert' ? 'Revert has conflicts.' : 'Cherry-pick has conflicts.'
-        const cleanLabel = kind === 'reset'
-          ? data.status.counts.changed > 0 ? 'Branch reset. Changes restored as unstaged.' : 'Branch reset.'
+        const cleanLabel = isReset
+          ? resetMode === 'hard'
+            ? 'Branch reset. Later changes discarded.'
+            : data.status.counts.changed > 0 ? 'Branch reset. Changes restored as unstaged.' : 'Branch reset.'
           : kind === 'revert' ? 'Commit reverted.' : 'Commit cherry-picked.'
         applySnapshot(data, hasConflicts ? conflictLabel : cleanLabel)
         void loadHistory()

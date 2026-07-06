@@ -563,6 +563,12 @@
 }
 
 .assistant-policy-panel {
+  --assistant-good: var(--good, var(--diff-add-text, #166534));
+  --assistant-warn: var(--warn, var(--warning, #b45309));
+  --assistant-bad: var(--bad, var(--diff-remove-text, #991b1b));
+  --assistant-good-text: color-mix(in srgb, var(--assistant-good) 82%, var(--text-strong));
+  --assistant-warn-text: color-mix(in srgb, var(--assistant-warn) 82%, var(--text-strong));
+  --assistant-bad-text: color-mix(in srgb, var(--assistant-bad) 82%, var(--text-strong));
   display: grid;
   gap: 12px;
   padding: 14px;
@@ -608,7 +614,7 @@
 }
 
 .assistant-policy-modes button.locked {
-  color: #94a3b8;
+  color: var(--muted);
   background: var(--panel-2);
 }
 
@@ -633,23 +639,23 @@
 }
 
 .assistant-policy-actions > .allowed {
-  color: #166534;
-  border-color: #d6f5e0;
-  background: #f4fdf7;
+  color: var(--assistant-good-text);
+  border-color: color-mix(in srgb, var(--assistant-good) 42%, var(--border));
+  background: color-mix(in srgb, var(--assistant-good) 12%, var(--panel-2));
 }
 
 .assistant-policy-actions > .blocked {
-  color: #991b1b;
-  border-color: #fecaca;
-  background: #fef2f2;
+  color: var(--assistant-bad-text);
+  border-color: color-mix(in srgb, var(--assistant-bad) 42%, var(--border));
+  background: color-mix(in srgb, var(--assistant-bad) 12%, var(--panel-2));
 }
 
 .assistant-policy-note {
   padding: 8px 10px;
-  border: 1px solid #fecaca;
+  border: 1px solid color-mix(in srgb, var(--assistant-bad) 42%, var(--border));
   border-radius: 8px;
-  background: #fef2f2;
-  color: #991b1b;
+  background: color-mix(in srgb, var(--assistant-bad) 12%, var(--panel-2));
+  color: var(--assistant-bad-text);
 }
 
 .action-blockers {
@@ -687,21 +693,21 @@
 }
 
 .action-blockers.ready {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: color-mix(in srgb, var(--assistant-good) 42%, var(--border));
+  background: color-mix(in srgb, var(--assistant-good) 10%, var(--panel));
 }
 
 .action-blockers.ready svg {
-  color: #166534;
+  color: var(--assistant-good-text);
 }
 
 .action-blockers.blocked {
-  border-color: #fde68a;
-  background: #fffbeb;
+  border-color: color-mix(in srgb, var(--assistant-warn) 42%, var(--border));
+  background: color-mix(in srgb, var(--assistant-warn) 11%, var(--panel));
 }
 
 .action-blockers.blocked svg {
-  color: #92400e;
+  color: var(--assistant-warn-text);
 }
 
 .review-controls {

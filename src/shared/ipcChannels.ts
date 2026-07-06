@@ -14,6 +14,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'assistants:generateReviewReport',
   'assistants:getPolicy',
   'assistants:list',
+  'assistants:runCodexAgent',
   'assistants:setPolicy',
   'daily:generate',
   'editor:getSettings',

@@ -103,20 +103,22 @@ export function ProvidersView({
   }
 
   return (
-    <section className="single-panel providers-page">
-      <div className="panel-heading">
-        <div className="panel-heading-main">
-          <BackToChanges onClick={onBack} />
-          <div className="pr-page-title">
-            <h2>Pull requests</h2>
-            <span>GitHub uses authenticated gh when available, with Git credentials as a PR creation fallback.</span>
-          </div>
-        </div>
+    <div className="providers-stack">
+      <div className="reports-topbar secondary-view-topbar providers-topbar">
+        <BackToChanges onClick={onBack} />
         <button type="button" onClick={refreshProvidersPanel} disabled={busy}>
           <RefreshCcw size={17} />
           Refresh
         </button>
       </div>
+
+      <section className="single-panel providers-page">
+        <div className="panel-heading">
+          <div className="pr-page-title">
+            <h2>Pull requests</h2>
+            <span>GitHub uses authenticated gh when available, with Git credentials as a PR creation fallback.</span>
+          </div>
+        </div>
 
       <div className="providers-pr-layout">
         <aside className="providers-connection-column">
@@ -470,8 +472,9 @@ export function ProvidersView({
         <PlannedProviderWorkflowPanel remote={providerRemote} />
       )}
         </div>
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   )
 }
 

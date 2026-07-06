@@ -50,7 +50,7 @@ html[data-theme='deus-ex'] :is(
   .shell-sync-primary,
   .shell-menu > summary,
   .shell-segments .shell-sync-menu > summary
-):not(.shell-menu[open] > summary):not(.shell-theme[open] > summary):not(.shell-sync-menu[open] > summary):not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-dropdown-primary):not(:disabled):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']) {
+):not(.shell-menu[open] > summary):not(.shell-theme[open] > summary):not(.shell-sync-menu[open] > summary):not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-branch-action-button):not(.shell-dropdown-primary):not(:disabled):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']) {
   background: #080b07 !important;
   background-image: none !important;
   clip-path: none !important;
@@ -65,7 +65,7 @@ html[data-theme='deus-ex'] :is(
   .shell-sync-primary,
   .shell-menu > summary,
   .shell-segments .shell-sync-menu > summary
-):not(.shell-menu[open] > summary):not(.shell-theme[open] > summary):not(.shell-sync-menu[open] > summary):not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-dropdown-primary):not(:disabled):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):hover {
+):not(.shell-menu[open] > summary):not(.shell-theme[open] > summary):not(.shell-sync-menu[open] > summary):not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(.change-select):not(.commit-file-row):not(.history-row):not(.changes-editor-file-row):not(.history-preview-file-row):not(.pr-file-row):not(.memory-file-row):not(.shell-branch-pick):not(.shell-branch-action-button):not(.shell-dropdown-primary):not(:disabled):not(.active):not(.selected):not([aria-pressed='true']):not([aria-selected='true']):hover {
   background: rgba(196, 154, 19, 0.18) !important;
   background-image: none !important;
   box-shadow: inset 0 0 0 1px rgba(232, 197, 50, 0.28) !important;
@@ -117,13 +117,53 @@ html[data-theme='deus-ex'] .shell-dropdown-item.active :is(.shell-dropdown-prima
   stroke: #050602 !important;
 }
 
-html[data-theme='deus-ex'] .shell-branch-row.active .shell-branch-actions .icon-button,
-html[data-theme='deus-ex'] .shell-branch-row.active .shell-branch-actions .icon-button:not(:disabled),
-html[data-theme='deus-ex'] .shell-branch-row.active .shell-branch-actions .icon-button:hover:not(:disabled) {
-  border-color: rgba(5, 6, 2, 0.32) !important;
+html[data-theme='deus-ex'] .shell-branch-row .shell-branch-actions .shell-branch-action-button,
+html[data-theme='deus-ex'] .shell-branch-row .shell-branch-actions .shell-branch-action-button:not(:disabled) {
+  border-color: transparent !important;
+  color: inherit !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  opacity: 0.88 !important;
+}
+
+html[data-theme='deus-ex'] .shell-branch-row .shell-branch-actions .shell-branch-action-button:hover:not(:disabled) {
+  border-color: rgba(232, 197, 50, 0.38) !important;
+  color: #ffffff !important;
+  background: rgba(196, 154, 19, 0.16) !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 1px rgba(232, 197, 50, 0.24) !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='deus-ex'] .shell-branch-row .shell-branch-actions .shell-branch-action-button:disabled,
+html[data-theme='deus-ex'] .shell-branch-row .shell-branch-actions .shell-branch-action-button:disabled:hover,
+html[data-theme='deus-ex'] .shell-branch-row.active .shell-branch-actions .shell-branch-action-button:disabled,
+html[data-theme='deus-ex'] .shell-branch-row.active .shell-branch-actions .shell-branch-action-button:disabled:hover {
+  border-color: transparent !important;
+  color: currentColor !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  opacity: 0.42 !important;
+}
+
+html[data-theme='deus-ex'] .shell-branch-row.active .shell-branch-actions .shell-branch-action-button,
+html[data-theme='deus-ex'] .shell-branch-row.active .shell-branch-actions .shell-branch-action-button:not(:disabled) {
   color: #050602 !important;
   background: transparent !important;
   background-image: none !important;
+  box-shadow: none !important;
+  opacity: 0.86 !important;
+}
+
+html[data-theme='deus-ex'] .shell-branch-row.active .shell-branch-actions .shell-branch-action-button:hover:not(:disabled) {
+  border-color: rgba(5, 6, 2, 0.28) !important;
+  color: #050602 !important;
+  background: rgba(5, 6, 2, 0.12) !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 1px rgba(5, 6, 2, 0.20) !important;
+  opacity: 1 !important;
 }
 
 html[data-theme='deus-ex'] button.history-row,

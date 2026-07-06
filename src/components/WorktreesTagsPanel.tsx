@@ -1,4 +1,5 @@
-import { Code2, FolderOpen, Plus, Search, Trash2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, ChevronDown, Code2, FolderOpen, Plus, Search, Trash2, X } from 'lucide-react'
 import type {
   ApiResult, BranchPilotApi, GitOperationResult, RepositorySnapshot, TagSummary, WorktreeSummary
 } from '../shared/branchPilot'
@@ -37,14 +38,54 @@ export function WorktreesTagsPanel({
   deleteTag: (tag: TagSummary) => void | Promise<void>
   panel?: 'all' | 'worktrees' | 'tags'
 }) {
+  const [baseRefMenuOpen, setBaseRefMenuOpen] = useState(false)
+  const baseRefMenuRef = useRef<HTMLDivElement>(null)
   const worktrees = snapshot?.worktrees ?? []
   const branches = snapshot?.branches ?? []
   const remoteBranches = snapshot?.remoteBranches ?? []
   const tags = snapshot?.tags ?? []
+  const baseRefGroups = useMemo(() => [
+    {
+      label: 'Local branches',
+      refs: branches.map((branch) => branch.name)
+    },
+    {
+      label: 'Remote branches',
+      refs: remoteBranches.map((branch) => branch.name)
+    }
+  ], [branches, remoteBranches])
+  const selectedBaseRefKey = newWorktreeBaseRef.trim().toLowerCase()
   const query = tagFilter.trim().toLowerCase()
   const filteredTags = query
     ? tags.filter((tag) => [tag.name, tag.subject].filter(Boolean).some((v) => v!.toLowerCase().includes(query)))
     : tags
+
+  useEffect(() => {
+    if (!baseRefMenuOpen) return
+
+    function closeBaseRefMenu(event: PointerEvent) {
+      const target = event.target
+      if (target instanceof Node && baseRefMenuRef.current?.contains(target)) return
+      setBaseRefMenuOpen(false)
+    }
+
+    function closeBaseRefMenuOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setBaseRefMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', closeBaseRefMenu)
+    document.addEventListener('keydown', closeBaseRefMenuOnEscape)
+
+    return () => {
+      document.removeEventListener('pointerdown', closeBaseRefMenu)
+      document.removeEventListener('keydown', closeBaseRefMenuOnEscape)
+    }
+  }, [baseRefMenuOpen])
+
+  function selectBaseRef(refName: string) {
+    setNewWorktreeBaseRef(refName)
+    setBaseRefMenuOpen(false)
+  }
 
   return (
     <>
@@ -60,17 +101,62 @@ export function WorktreesTagsPanel({
               placeholder="experiment/safe-change"
             />
             <label htmlFor="worktree-base">Base ref</label>
-            <input
-              id="worktree-base"
-              list="worktree-base-refs"
-              value={newWorktreeBaseRef}
-              onChange={(event) => setNewWorktreeBaseRef(event.target.value)}
-              placeholder={snapshot?.summary.currentBranch ?? 'HEAD'}
-            />
-            <datalist id="worktree-base-refs">
-              {branches.map((branch) => <option value={branch.name} key={branch.name} />)}
-              {remoteBranches.map((branch) => <option value={branch.name} key={`remote-${branch.name}`} />)}
-            </datalist>
+            <div className="worktree-base-combobox" ref={baseRefMenuRef}>
+              <div className="worktree-base-input-row">
+                <input
+                  id="worktree-base"
+                  value={newWorktreeBaseRef}
+                  onChange={(event) => {
+                    setNewWorktreeBaseRef(event.target.value)
+                    setBaseRefMenuOpen(true)
+                  }}
+                  onFocus={() => setBaseRefMenuOpen(true)}
+                  placeholder={snapshot?.summary.currentBranch ?? 'HEAD'}
+                />
+                <button
+                  className="worktree-base-menu-button"
+                  type="button"
+                  aria-label="Show base refs"
+                  aria-expanded={baseRefMenuOpen}
+                  onClick={() => setBaseRefMenuOpen((open) => !open)}
+                >
+                  <ChevronDown size={16} />
+                </button>
+              </div>
+              {baseRefMenuOpen && (
+                <div className="worktree-base-menu" role="listbox" aria-label="Base refs">
+                  {baseRefGroups.every((group) => group.refs.length === 0) ? (
+                    <div className="worktree-base-option-empty">No branch refs loaded.</div>
+                  ) : (
+                    baseRefGroups.map((group) => (
+                      group.refs.length > 0 && (
+                        <div className="worktree-base-option-group" key={group.label}>
+                          <div className="worktree-base-option-group-label">{group.label}</div>
+                          {group.refs.map((refName) => {
+                            const selected = refName.toLowerCase() === selectedBaseRefKey
+
+                            return (
+                              <button
+                                className={selected ? 'worktree-base-option selected' : 'worktree-base-option'}
+                                type="button"
+                                role="option"
+                                aria-selected={selected}
+                                key={`${group.label}-${refName}`}
+                                onClick={() => selectBaseRef(refName)}
+                              >
+                                <span className="worktree-base-option-name">{refName}</span>
+                                {selected && <span className="worktree-base-option-kind">Selected</span>}
+                                {selected && <Check size={14} />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
             <div className="worktree-composer-actions">
               <button type="button" onClick={createWorktree} disabled={busy || !newWorktreeBranchName.trim()}>
                 <FolderOpen size={17} />

@@ -357,9 +357,9 @@ export function AppShellBar({
                         </span>
                       </button>
                       <span className="shell-branch-actions">
-                        <button type="button" className="icon-button" title="Rename branch" aria-label="Rename branch" disabled={busy} onClick={(event) => { event.stopPropagation(); startBranchAction(branch.name, 'rename', branch.name) }}><Pencil size={13} /></button>
-                        <button type="button" className="icon-button" title="Edit description" aria-label="Edit description" disabled={busy} onClick={(event) => { event.stopPropagation(); startBranchAction(branch.name, 'describe', branch.description ?? '') }}><AlignLeft size={13} /></button>
-                        <button type="button" className="icon-button danger" title="Delete branch" aria-label="Delete branch" disabled={busy || branch.name === currentBranch} onClick={(event) => { event.stopPropagation(); startBranchAction(branch.name, 'delete', '') }}><Trash2 size={13} /></button>
+                        <button type="button" className="icon-button shell-branch-action-button" title="Rename branch" aria-label="Rename branch" disabled={busy} onClick={(event) => { event.stopPropagation(); startBranchAction(branch.name, 'rename', branch.name) }}><Pencil size={13} /></button>
+                        <button type="button" className="icon-button shell-branch-action-button" title="Edit description" aria-label="Edit description" disabled={busy} onClick={(event) => { event.stopPropagation(); startBranchAction(branch.name, 'describe', branch.description ?? '') }}><AlignLeft size={13} /></button>
+                        <button type="button" className="icon-button shell-branch-action-button danger" title="Delete branch" aria-label="Delete branch" disabled={busy || branch.name === currentBranch} onClick={(event) => { event.stopPropagation(); startBranchAction(branch.name, 'delete', '') }}><Trash2 size={13} /></button>
                       </span>
                     </div>
                   )

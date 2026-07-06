@@ -91,7 +91,9 @@
   border-top: 1px solid var(--border);
 }
 
-.workspace > .reports-stack {
+.workspace > .reports-stack,
+.workspace > .providers-stack,
+.workspace > .settings-stack {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -131,6 +133,17 @@
   background: var(--surface);
   border-color: var(--border);
   border-bottom-color: var(--surface);
+}
+
+.secondary-view-topbar .settings-switch {
+  margin: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.secondary-view-topbar > button:not(.back-to-changes) {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .settings-switch {
@@ -215,7 +228,9 @@
   margin: 0;
 }
 
-.reports-stack > .single-panel {
+.reports-stack > .single-panel,
+.providers-stack > .single-panel,
+.settings-stack > .single-panel {
   flex: 1 1 auto;
   min-height: 0;
 }

@@ -151,9 +151,11 @@ export class RepositoryCommitService {
     const rootPath = await this.kernel.resolveRepositoryRoot(request.repoPath)
     const commitSha = normalizeCommitSha(request.commitSha)
 
+    const resetMode = request.mode === 'hard' ? '--hard' : '--mixed'
+
     await this.kernel.assertNoActiveOperation(rootPath)
     await this.kernel.assertNoConflicts(rootPath, 'resetting')
-    await this.kernel.git(rootPath, ['reset', '--mixed', commitSha], { timeoutMs: 120_000 })
+    await this.kernel.git(rootPath, ['reset', resetMode, commitSha], { timeoutMs: 120_000 })
 
     return this.kernel.getSnapshot(rootPath)
   }

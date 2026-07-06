@@ -415,6 +415,7 @@ export interface ConfirmedCommitReferenceRequest {
   repoPath: string
   commitSha: string
   confirmed: boolean
+  mode?: 'mixed' | 'hard'
 }
 
 export type PatchScope = 'working-tree' | 'staged'
@@ -579,6 +580,51 @@ export interface BeautifiedFile {
   content: string
   assistant: InstalledAssistantId
   truncated: boolean
+}
+
+export type CodexAgentSandbox = 'read-only' | 'workspace-write' | 'danger-full-access'
+export type CodexAgentReasoning = 'light' | 'medium' | 'high' | 'extra-high'
+
+export interface CodexAgentImageAttachment {
+  name: string
+  mimeType: string
+  dataUrl: string
+}
+
+export interface CodexAgentDiagnostic {
+  lineNumber: number
+  column: number
+  message: string
+  source: string
+}
+
+export interface CodexAgentRequest {
+  repoPath: string
+  assistant: AssistantId
+  prompt: string
+  filePath?: string
+  fileText?: string
+  diagnostics?: CodexAgentDiagnostic[]
+  sandbox: CodexAgentSandbox
+  reasoning: CodexAgentReasoning
+  images?: CodexAgentImageAttachment[]
+}
+
+export interface CodexAgentEvent {
+  type: string
+  text: string
+}
+
+export interface CodexAgentResult {
+  assistant: InstalledAssistantId
+  modelLabel?: string
+  output: string
+  events: CodexAgentEvent[]
+  sandbox: CodexAgentSandbox
+  reasoning: CodexAgentReasoning
+  imageCount: number
+  durationMs: number
+  generatedAt: string
 }
 
 export type ReviewMode = 'consistency' | 'security' | 'quality' | 'knip' | 'depcheck' | 'osv' | 'gitleaks'

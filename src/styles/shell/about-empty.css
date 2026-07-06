@@ -88,6 +88,16 @@
   margin-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }
+
+.secondary-view-topbar {
+  min-height: 48px;
+  align-items: flex-end;
+}
+
+.secondary-view-topbar > button:not(.back-to-changes) {
+  margin-bottom: 5px;
+}
+
 .reports-topbar .reports-switch {
   margin-bottom: 0;
   padding: 0;

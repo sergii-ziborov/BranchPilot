@@ -6,4 +6,9 @@ describe('repository operation labels', () => {
     expect(isRepositorySyncOperation('Committing and pushing...')).toBe(true)
     expect(repositorySyncOperationLabel('Committing and pushing...')).toBe('Committing and pushing')
   })
+
+  it('treats repository refresh as a repository sync operation', () => {
+    expect(isRepositorySyncOperation('Refreshing repository...')).toBe(true)
+    expect(repositorySyncOperationLabel('Refreshing repository...')).toBe('Refreshing repository')
+  })
 })

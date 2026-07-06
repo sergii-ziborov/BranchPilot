@@ -135,6 +135,7 @@ const branchPilot: BranchPilotApi = {
   generateLinkedInProject: (request) => invoke('assistants:generateLinkedInProject', request),
   generateRepositoryStarter: (request) => invoke('assistants:generateRepositoryStarter', request),
   beautifyFileWithAssistant: (request) => invoke('assistants:beautifyFile', request),
+  runCodexAgent: (request) => invoke('assistants:runCodexAgent', request),
   getGitHubCliStatus: (repoPath) => invoke('providers:githubCliStatus', repoPath),
   connectGitHub: (repoPath) => invoke('providers:connectGitHub', repoPath),
   generatePullRequestText: (request) => invoke('assistants:generatePullRequestText', request),

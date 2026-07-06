@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { BranchPilotApi, CommitSummary } from '../shared/branchPilot'
 
-type CommitOperationKind = 'revert' | 'cherry-pick' | 'reset'
+type CommitOperationKind = 'revert' | 'cherry-pick' | 'reset' | 'reset-hard'
 
 interface UseHistoryContextMenusOptions {
   api: BranchPilotApi | undefined

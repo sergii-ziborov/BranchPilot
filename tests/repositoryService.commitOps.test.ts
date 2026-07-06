@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -189,5 +189,27 @@ describe('RepositoryService commit operations', () => {
     expect(snapshot.status.counts.staged).toBe(0)
     expect(git(repoPath, ['rev-parse', 'HEAD'])).toBe(initialHead)
     expect(readText(path.join(repoPath, 'tracked.txt'))).toBe('reset target\n')
+  })
+
+  it('resets the current branch to a selected commit and discards later changes', async () => {
+    const repoPath = createTempRepository()
+    const service = createService()
+    const initialHead = git(repoPath, ['rev-parse', 'HEAD'])
+    const trackedPath = path.join(repoPath, 'tracked.txt')
+
+    writeFileSync(trackedPath, 'reset target\n')
+    git(repoPath, ['add', 'tracked.txt'])
+    git(repoPath, ['commit', '-m', 'Temporary reset commit'])
+
+    const snapshot = await service.commits.resetToCommit({
+      repoPath,
+      commitSha: initialHead,
+      confirmed: true,
+      mode: 'hard'
+    })
+
+    expect(snapshot.status.counts.changed).toBe(0)
+    expect(git(repoPath, ['rev-parse', 'HEAD'])).toBe(initialHead)
+    expect(existsSync(trackedPath)).toBe(false)
   })
 })
