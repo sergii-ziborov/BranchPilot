@@ -561,6 +561,18 @@ function textareaVisualLineCount(text: string): number {
   return Math.max(1, lineBreakCount(text) + 1)
 }
 
+function editorTextSourceKey(text: string): string {
+  if (!text) return '0'
+
+  const middle = Math.floor(text.length / 2)
+  return [
+    text.length,
+    text.charCodeAt(0),
+    text.charCodeAt(middle),
+    text.charCodeAt(text.length - 1)
+  ].join(':')
+}
+
 function chunkedTextPreviewFromResult(
   result: RepositoryFileChunkResult,
   options: { startLine: number; markers: ChunkedTextMarker[]; pageIndex: number }
@@ -2648,6 +2660,7 @@ export function ChangesInternalEditor({
   const editorSelectionStatusTimerRef = useRef<number | null>(null)
   const pendingHexOffsetRef = useRef<number | null>(null)
   const editorLineHeightRef = useRef(EDITOR_LINE_HEIGHT)
+  const editorVisualLineCountRef = useRef<{ text: string; count: number }>({ text: '', count: 1 })
   const [sidebarWidth, setSidebarWidth] = useState(readStoredEditorSidebarWidth)
   const [healthSettings, setHealthSettings] = useState(readStoredEditorHealthSettings)
   const [healthMenuOpen, setHealthMenuOpen] = useState(false)
@@ -2724,6 +2737,7 @@ export function ChangesInternalEditor({
   const chunkedTextActive = Boolean(chunkedTextPreview)
   const activeEditorText = chunkedTextPreview?.text ?? draftText
   const activeEditorLineBase = chunkedTextPreview?.startLine ?? 1
+  const editorSourceKey = useMemo(() => editorTextSourceKey(originalText), [originalText])
   const textDirty = activeEditorText !== originalText
   const liveChangesSourceText = liveChangesText ?? activeEditorText
   const liveChanges = useMemo(() => {
@@ -2953,6 +2967,20 @@ export function ChangesInternalEditor({
 
   useEffect(() => {
     editorDraftTextRef.current = activeEditorText
+    const textarea = textareaRef.current
+    if (textarea && textarea.value !== activeEditorText) {
+      const selectionStart = Math.min(activeEditorText.length, textarea.selectionStart)
+      const selectionEnd = Math.min(activeEditorText.length, textarea.selectionEnd)
+      textarea.value = activeEditorText
+      textarea.setSelectionRange(selectionStart, selectionEnd)
+      editorVisualLineCountRef.current = {
+        text: activeEditorText,
+        count: textareaVisualLineCount(activeEditorText)
+      }
+      window.requestAnimationFrame(() => {
+        syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
+      })
+    }
   }, [activeEditorText])
 
   useEffect(() => () => {
@@ -3301,7 +3329,11 @@ export function ChangesInternalEditor({
     const paddingTop = Number.parseFloat(computed.paddingTop)
     const paddingBottom = Number.parseFloat(computed.paddingBottom)
     const verticalPadding = (Number.isFinite(paddingTop) ? paddingTop : 0) + (Number.isFinite(paddingBottom) ? paddingBottom : 0)
-    const visualLineCount = textareaVisualLineCount(textarea.value)
+    let visualLineCount = editorVisualLineCountRef.current.count
+    if (editorVisualLineCountRef.current.text !== textarea.value) {
+      visualLineCount = textareaVisualLineCount(textarea.value)
+      editorVisualLineCountRef.current = { text: textarea.value, count: visualLineCount }
+    }
     const measuredLineHeight = visualLineCount > 8
       ? (textarea.scrollHeight - verticalPadding) / visualLineCount
       : 0
@@ -3524,7 +3556,7 @@ export function ChangesInternalEditor({
   }
 
   const flushActiveEditorDraftText = () => {
-    const nextText = textareaRef.current?.value ?? (editorDraftTextRef.current || activeEditorText)
+    const nextText = textareaRef.current?.value ?? editorDraftTextRef.current
     if (nextText !== activeEditorText) {
       setActiveEditorDraftText(nextText, { syncTextarea: false })
     }
@@ -3700,7 +3732,7 @@ export function ChangesInternalEditor({
     }
 
     const nextText = event.currentTarget.value
-    const previousText = editorDraftTextRef.current || activeEditorText
+    const previousText = editorDraftTextRef.current
     const previous = pendingEditorHistoryRef.current ?? (editorTypingHistoryActiveRef.current ? null : {
       text: previousText,
       selectionStart: Math.min(previousText.length, event.currentTarget.selectionStart),
@@ -4120,7 +4152,7 @@ export function ChangesInternalEditor({
         </pre>
         <textarea
           ref={textareaRef}
-          key={`${selectedPath}:${chunkedTextPreview?.startOffset ?? 0}:${chunkedTextPreview?.endOffset ?? 0}`}
+          key={`${currentRepoPath}:${selectedPath}:${chunkedTextPreview?.startOffset ?? 0}:${chunkedTextPreview?.endOffset ?? 0}:${editorSourceKey}`}
           className={dirty ? 'changes-editor-textarea is-dirty' : 'changes-editor-textarea'}
           spellCheck={false}
           wrap="off"
@@ -5162,6 +5194,7 @@ export function ChangesInternalEditor({
     setEditorViewportHeight(0)
     lastEditorScrollTopRef.current = 0
     lastHexScrollTopRef.current = 0
+    editorVisualLineCountRef.current = { text: '', count: 1 }
     suppressAutoChunkUntilRef.current = 0
     suppressAutoHexChunkUntilRef.current = 0
     if (textareaRef.current) {
