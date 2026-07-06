@@ -13,6 +13,7 @@ import type { RequestConfirmation } from '../lib/prompts'
 
 const completedActivityTypes = new Set<ActivityLogEventType>([
   'github_pr_created',
+  'assistant_codex_agent_ran',
   'daily_review_generated',
   'assistant_linkedin_generated',
   'merge_continued',

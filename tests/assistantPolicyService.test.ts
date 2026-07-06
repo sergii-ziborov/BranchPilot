@@ -18,9 +18,10 @@ const suggestOnlyActions: AssistantActionKind[] = [
   'branch_draft',
   'linkedin_project',
   'repository_starter',
-  'file_beautify'
+  'file_beautify',
+  'codex_agent'
 ]
-const reviewOnlyActions: AssistantActionKind[] = ['commit_message', 'review_report', 'linkedin_project', 'repository_starter', 'file_beautify']
+const reviewOnlyActions: AssistantActionKind[] = ['commit_message', 'review_report', 'linkedin_project', 'repository_starter', 'file_beautify', 'codex_agent']
 
 describe('AssistantPolicyService', () => {
   afterEach(() => {
@@ -144,7 +145,8 @@ async function expectAllowed(service: AssistantPolicyService, repoPath: string, 
     'branch_draft',
     'linkedin_project',
     'repository_starter',
-    'file_beautify'
+    'file_beautify',
+    'codex_agent'
   ]
 
   for (const action of allActions) {

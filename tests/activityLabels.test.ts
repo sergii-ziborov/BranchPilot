@@ -44,7 +44,7 @@ describe('activityEntryCategory', () => {
 
 describe('activityCategoryLabel', () => {
   it('labels each category', () => {
-    expect(activityCategoryLabel('git')).toBe('Git')
+    expect(activityCategoryLabel('git')).toBe('Git ops')
     expect(activityCategoryLabel('assistant')).toBe('Assistant')
     expect(activityCategoryLabel('provider')).toBe('Provider')
     expect(activityCategoryLabel('memory')).toBe('Memory')
@@ -62,6 +62,7 @@ describe('activityTypeLabel', () => {
 describe('completedWorkSource / completedWorkSourceLabel', () => {
   it('maps event types to a work source', () => {
     expect(completedWorkSource('github_pr_created')).toBe('provider')
+    expect(completedWorkSource('assistant_codex_agent_ran')).toBe('assistant')
     expect(completedWorkSource('daily_review_generated')).toBe('review')
     expect(completedWorkSource('assistant_linkedin_generated')).toBe('linkedin')
     expect(completedWorkSource('commit_created')).toBe('git')
@@ -72,6 +73,7 @@ describe('completedWorkSource / completedWorkSourceLabel', () => {
     expect(completedWorkSourceLabel('provider')).toBe('Provider')
     expect(completedWorkSourceLabel('review')).toBe('Review')
     expect(completedWorkSourceLabel('linkedin')).toBe('LinkedIn')
+    expect(completedWorkSourceLabel('assistant')).toBe('Assistant')
     expect(completedWorkSourceLabel('git')).toBe('Git')
   })
 })

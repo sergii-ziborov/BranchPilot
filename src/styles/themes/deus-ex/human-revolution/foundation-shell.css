@@ -94,6 +94,9 @@ html[data-theme='deus-ex'] :is(
   .memory-card,
   .pr-panel,
   .github-repo-browser,
+  .changes-editor-codex-panel,
+  .changes-editor-codex-composer,
+  .changes-editor-codex-output,
   .linkedin-card,
   .review-empty,
   .review-results,
@@ -233,7 +236,8 @@ html[data-theme='deus-ex'] :is(
   .github-repo-filter-panel,
   .report-scope-popover,
   .assistant-model-popover,
-  .changes-editor-lint-popover
+  .changes-editor-lint-popover,
+  .changes-editor-codex-panel
 ) {
   border: 1px solid var(--dx-line) !important;
   border-radius: 0 !important;

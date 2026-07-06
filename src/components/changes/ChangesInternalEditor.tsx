@@ -12,8 +12,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type UIEvent as ReactUIEvent
 } from 'react'
-import { Activity, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, CircleAlert, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Pencil, PlusSquare, RefreshCw, RotateCcw, Save, Search, Sparkles, Terminal, Trash2, TriangleAlert, WandSparkles, X } from 'lucide-react'
-import type { ApiResult, AssistantId, BranchPilotApi, DiffLine, DiffResult, FileChange, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
+import { Activity, ArrowLeft, BrainCircuit, ChevronDown, ChevronRight, ChevronUp, CircleAlert, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, ImagePlus, MinusSquare, Paperclip, Pencil, PlusSquare, RefreshCw, RotateCcw, Save, Search, SendHorizontal, SlidersHorizontal, Sparkles, Terminal, Trash2, TriangleAlert, WandSparkles, X } from 'lucide-react'
+import type { ApiResult, AssistantId, BranchPilotApi, CodexAgentReasoning, CodexAgentResult, CodexAgentSandbox, DiffLine, DiffResult, FileChange, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
 import type { ConfirmationOptions } from '../../lib/prompts'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
@@ -28,6 +28,8 @@ import {
   type CssColorEditDraft,
   type CssColorToken
 } from '../diff/CssColorSwatch'
+import codexAgentIcon from '../../assets/codex-agent-icon.png'
+import { CODEX_MODEL_OPTIONS, assistantSelectionLabel } from '../../lib/assistantLabels'
 
 interface ChangesInternalEditorProps {
   api: BranchPilotApi | undefined
@@ -113,6 +115,15 @@ function isNativeEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file.'))
+    reader.readAsDataURL(file)
+  })
 }
 
 function clampEditorSidebarWidth(width: number, containerWidth?: number): number {
@@ -435,6 +446,26 @@ interface EditorLintRunState {
   message: string
   detail: string
 }
+
+interface CodexAgentImageDraft {
+  id: string
+  name: string
+  mimeType: string
+  dataUrl: string
+}
+
+const CODEX_AGENT_REASONING_OPTIONS: Array<{ value: CodexAgentReasoning; label: string }> = [
+  { value: 'light', label: 'Light' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'extra-high', label: 'Extra High' }
+]
+
+const CODEX_AGENT_SANDBOX_OPTIONS: Array<{ value: CodexAgentSandbox; label: string }> = [
+  { value: 'read-only', label: 'Read only' },
+  { value: 'workspace-write', label: 'Work locally' },
+  { value: 'danger-full-access', label: 'Full access' }
+]
 
 interface SvgColorTarget {
   index: number
@@ -2772,6 +2803,24 @@ export function ChangesInternalEditor({
     message: 'Lint has not run yet.',
     detail: 'Open a supported file and run lint.'
   })
+  const [codexAgentOpen, setCodexAgentOpen] = useState(false)
+  const [codexAgentSettingsOpen, setCodexAgentSettingsOpen] = useState(false)
+  const [codexAgentPrompt, setCodexAgentPrompt] = useState('')
+  const [codexAgentRunning, setCodexAgentRunning] = useState(false)
+  const [codexAgentResult, setCodexAgentResult] = useState<CodexAgentResult | null>(null)
+  const [codexAgentError, setCodexAgentError] = useState<string | null>(null)
+  const [codexAgentImages, setCodexAgentImages] = useState<CodexAgentImageDraft[]>([])
+  const [codexAgentAssistant, setCodexAgentAssistant] = useState<AssistantId>(
+    selectedAssistant.startsWith('codex') ? selectedAssistant : 'codex'
+  )
+  const [codexAgentReasoning, setCodexAgentReasoning] = useState<CodexAgentReasoning>('high')
+  const [codexAgentSandbox, setCodexAgentSandbox] = useState<CodexAgentSandbox>('read-only')
+
+  useEffect(() => {
+    if (selectedAssistant.startsWith('codex')) {
+      setCodexAgentAssistant(selectedAssistant)
+    }
+  }, [selectedAssistant])
 
   useEffect(() => {
     setManualHealthByPath(new Map())
@@ -6219,6 +6268,101 @@ export function ChangesInternalEditor({
     applyEditorTextChange(nextText, { viewMode: 'code', resetJsonCollapse: true })
   }
 
+  const addCodexAgentImages = async (event: ReactChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.currentTarget.files ?? [])
+    event.currentTarget.value = ''
+    if (selectedFiles.length === 0) return
+
+    const remainingSlots = Math.max(0, 6 - codexAgentImages.length)
+    const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, remainingSlots)
+
+    if (imageFiles.length < selectedFiles.length) {
+      setNotice(remainingSlots === 0 ? 'Codex agent can attach up to 6 images.' : 'Only image files can be attached to Codex.')
+    }
+
+    const nextImages = await Promise.all(imageFiles.map(async (file) => ({
+      id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+      name: file.name,
+      mimeType: file.type || 'image/png',
+      dataUrl: await readFileAsDataUrl(file)
+    })))
+
+    setCodexAgentImages((current) => [...current, ...nextImages])
+  }
+
+  const removeCodexAgentImage = (id: string) => {
+    setCodexAgentImages((current) => current.filter((image) => image.id !== id))
+  }
+
+  const runCodexAgentPanel = async () => {
+    if (!api || !currentRepoPath || codexAgentRunning) return
+    const prompt = codexAgentPrompt.trim()
+    if (!prompt && !selectedPath && codexAgentImages.length === 0) {
+      setCodexAgentError('Enter a prompt, select a file, or attach an image.')
+      return
+    }
+
+    if (codexAgentSandbox !== 'read-only') {
+      const confirmed = await requestConfirmation(
+        codexAgentSandbox === 'danger-full-access'
+          ? 'Run Codex with full access? It may edit files, run local commands, and push to remotes if your prompt asks for it.'
+          : 'Run Codex with workspace write access? It may edit files inside this repository.',
+        {
+          title: codexAgentSandbox === 'danger-full-access' ? 'Run Codex Full Access' : 'Run Codex Locally',
+          confirmLabel: codexAgentSandbox === 'danger-full-access' ? 'Run full access' : 'Run locally',
+          variant: 'danger'
+        }
+      )
+
+      if (!confirmed) return
+    }
+
+    const includeFileText = selectedPath && viewMode !== 'image' && viewMode !== 'hex' && !textUnavailableMessage && !fileError
+    const fileText = includeFileText ? flushActiveEditorDraftText() : undefined
+
+    setCodexAgentRunning(true)
+    setCodexAgentError(null)
+
+    try {
+      const result = await api.runCodexAgent({
+        repoPath: currentRepoPath,
+        assistant: codexAgentAssistant,
+        prompt,
+        filePath: selectedPath || undefined,
+        fileText,
+        diagnostics: diagnostics.slice(0, 20).map((diagnostic) => ({
+          lineNumber: diagnostic.lineNumber,
+          column: diagnostic.column,
+          message: diagnostic.message,
+          source: diagnostic.source
+        })),
+        sandbox: codexAgentSandbox,
+        reasoning: codexAgentReasoning,
+        images: codexAgentImages.map((image) => ({
+          name: image.name,
+          mimeType: image.mimeType,
+          dataUrl: image.dataUrl
+        }))
+      })
+
+      if (!result.ok) {
+        setCodexAgentError(friendlyIpcErrorMessage(result.error.message, 'Codex agent failed.'))
+        return
+      }
+
+      setCodexAgentResult(result.data)
+      setNotice(`Codex agent finished in ${Math.max(1, Math.round(result.data.durationMs / 1000))}s.`)
+
+      if (codexAgentSandbox !== 'read-only') {
+        await runSnapshotAction('Codex agent refreshed repository.', () => api.refreshRepository(currentRepoPath))
+      }
+    } catch (error) {
+      setCodexAgentError(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Codex agent failed.'))
+    } finally {
+      setCodexAgentRunning(false)
+    }
+  }
+
   const beautifyFile = () => {
     if (!selectedPath || chunkedTextActive || fileLoading || fileError || textUnavailableMessage || viewMode === 'image') return
     const currentText = flushActiveEditorDraftText()
@@ -6694,6 +6838,23 @@ export function ChangesInternalEditor({
             </details>
             <button
               type="button"
+              className={[
+                'changes-editor-tool-button',
+                'compact-icon',
+                'changes-editor-codex-toggle',
+                codexAgentOpen ? 'active' : ''
+              ].filter(Boolean).join(' ')}
+              onClick={() => setCodexAgentOpen((open) => !open)}
+              disabled={!api || !currentRepoPath}
+              title={codexAgentOpen ? 'Hide Codex agent' : 'Open Codex agent'}
+              aria-label={codexAgentOpen ? 'Hide Codex agent' : 'Open Codex agent'}
+              aria-pressed={codexAgentOpen}
+            >
+              <img src={codexAgentIcon} alt="" aria-hidden="true" />
+              <span className="changes-editor-button-label">Codex</span>
+            </button>
+            <button
+              type="button"
               className="changes-editor-tool-button compact-icon"
               onClick={beautifyFile}
               disabled={!selectedPath || chunkedTextActive || beautifying || aiBeautifying || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image'}
@@ -6727,6 +6888,146 @@ export function ChangesInternalEditor({
             </button>
           </div>
         </header>
+
+        {codexAgentOpen && (
+          <section className="changes-editor-codex-panel" aria-label="Codex agent">
+            <header className="changes-editor-codex-head">
+              <div>
+                <img src={codexAgentIcon} alt="" aria-hidden="true" />
+                <div>
+                  <strong>Codex agent</strong>
+                  <span>{selectedPath || 'Repository context'}</span>
+                </div>
+              </div>
+              <div className="changes-editor-codex-head-actions">
+                {codexAgentResult && (
+                  <span className="changes-editor-codex-meta">
+                    {Math.max(1, Math.round(codexAgentResult.durationMs / 1000))}s · {codexAgentResult.sandbox}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="compact-icon"
+                  onClick={() => setCodexAgentSettingsOpen((open) => !open)}
+                  aria-pressed={codexAgentSettingsOpen}
+                  title={codexAgentSettingsOpen ? 'Hide Codex settings' : 'Show Codex settings'}
+                >
+                  <SlidersHorizontal size={15} />
+                  <span className="changes-editor-button-label">Settings</span>
+                </button>
+                <button type="button" className="compact-icon" onClick={() => setCodexAgentOpen(false)} title="Close Codex agent" aria-label="Close Codex agent">
+                  <X size={15} />
+                </button>
+              </div>
+            </header>
+
+            {codexAgentSettingsOpen && (
+              <div className="changes-editor-codex-settings">
+                <label>
+                  <span>Model</span>
+                  <select value={codexAgentAssistant} onChange={(event) => setCodexAgentAssistant(event.currentTarget.value as AssistantId)}>
+                    {CODEX_MODEL_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>{assistantSelectionLabel(option.id)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Reasoning</span>
+                  <select value={codexAgentReasoning} onChange={(event) => setCodexAgentReasoning(event.currentTarget.value as CodexAgentReasoning)}>
+                    {CODEX_AGENT_REASONING_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Access</span>
+                  <select value={codexAgentSandbox} onChange={(event) => setCodexAgentSandbox(event.currentTarget.value as CodexAgentSandbox)}>
+                    {CODEX_AGENT_SANDBOX_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+
+            <div className="changes-editor-codex-body">
+              <div className="changes-editor-codex-composer">
+                <textarea
+                  value={codexAgentPrompt}
+                  onChange={(event) => setCodexAgentPrompt(event.currentTarget.value)}
+                  placeholder="Ask Codex about this file, attach screenshots, or ask it to make a local change."
+                  rows={4}
+                  disabled={codexAgentRunning}
+                />
+                <div className="changes-editor-codex-attachments">
+                  {codexAgentImages.map((image) => (
+                    <span className="changes-editor-codex-attachment" key={image.id}>
+                      <img src={image.dataUrl} alt="" aria-hidden="true" />
+                      <span>{image.name}</span>
+                      <button type="button" onClick={() => removeCodexAgentImage(image.id)} aria-label={`Remove ${image.name}`}>
+                        <X size={13} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <footer>
+                  <label className="changes-editor-codex-upload">
+                    <input type="file" accept="image/*" multiple onChange={addCodexAgentImages} disabled={codexAgentRunning || codexAgentImages.length >= 6} />
+                    <ImagePlus size={15} />
+                    <span>{codexAgentImages.length ? `${codexAgentImages.length}/6 images` : 'Images'}</span>
+                  </label>
+                  <span className="changes-editor-codex-context">
+                    <Paperclip size={14} />
+                    {selectedPath ? 'file + diagnostics' : 'repo context'}
+                  </span>
+                  <button
+                    type="button"
+                    className="changes-editor-codex-run"
+                    onClick={runCodexAgentPanel}
+                    disabled={codexAgentRunning || !api || !currentRepoPath}
+                  >
+                    {codexAgentRunning ? <RefreshCw className="spin" size={15} /> : <SendHorizontal size={15} />}
+                    {codexAgentRunning ? 'Running...' : 'Run Codex'}
+                  </button>
+                </footer>
+              </div>
+
+              <div className="changes-editor-codex-output">
+                <header>
+                  <BrainCircuit size={15} />
+                  <span>{codexAgentRunning ? 'Working' : codexAgentResult ? 'Result' : 'Ready'}</span>
+                </header>
+                {codexAgentError ? (
+                  <div className="changes-editor-codex-error">{codexAgentError}</div>
+                ) : codexAgentRunning ? (
+                  <SignalStatus className="codex-agent-curtain" label="Running Codex" detail={`${assistantSelectionLabel(codexAgentAssistant)} · ${codexAgentSandbox}`} />
+                ) : codexAgentResult ? (
+                  <>
+                    <pre>{codexAgentResult.output}</pre>
+                    {codexAgentResult.events.length > 0 && (
+                      <details className="changes-editor-codex-trace">
+                        <summary>Trace · {codexAgentResult.events.length}</summary>
+                        <div>
+                          {codexAgentResult.events.map((event, index) => (
+                            <article key={`${event.type}-${index}`}>
+                              <strong>{event.type}</strong>
+                              <span>{event.text}</span>
+                            </article>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </>
+                ) : (
+                  <div className="changes-editor-codex-empty">
+                    <img src={codexAgentIcon} alt="" aria-hidden="true" />
+                    <span>{assistantSelectionLabel(codexAgentAssistant)} · {codexAgentReasoning}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         {fileError ? (
           <div className="quiet-box danger-text">{fileError}</div>

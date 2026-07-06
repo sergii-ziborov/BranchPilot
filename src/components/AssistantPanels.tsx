@@ -54,7 +54,7 @@ export function AssistantPolicyPanel({
 }) {
   const mode = assistantPolicy?.settings.mode ?? 'suggest-only'
   const lockedModes = assistantPolicy?.lockedModes ?? ['allow-local-commands', 'allow-file-edits']
-  const actions: AssistantActionKind[] = ['commit_message', 'branch_draft', 'pull_request_text', 'linkedin_project', 'repository_starter', 'file_beautify', 'review_report']
+  const actions: AssistantActionKind[] = ['commit_message', 'branch_draft', 'pull_request_text', 'linkedin_project', 'repository_starter', 'file_beautify', 'review_report', 'codex_agent']
 
   return (
     <section className="assistant-policy-panel">

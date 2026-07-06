@@ -95,6 +95,7 @@ const activityTypes = [
   'merge_aborted',
   'merge_resolved',
   'assistant_commit_generated',
+  'assistant_codex_agent_ran',
   'assistant_linkedin_generated',
   'assistant_pr_generated',
   'assistant_review_generated',

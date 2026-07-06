@@ -1,6 +1,7 @@
 import type {
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
+  CodexAgentRequest,
   CommitMessageGenerationRequest,
   FileBeautifyRequest,
   LinkedInProjectGenerationRequest,
@@ -18,7 +19,8 @@ import {
   generatePullRequestText,
   generateRepositoryStarter,
   generateReviewReport,
-  listAssistantStatuses
+  listAssistantStatuses,
+  runCodexAgent
 } from '../../assistants/assistantRunner.js'
 import type { createIpcHelpers } from '../ipcHelpers.js'
 import type { RegisterIpcHandlersServices } from '../ipcTypes.js'
@@ -61,6 +63,24 @@ export function registerAssistantHandlers(
     })
   }, (request: FileBeautifyRequest) =>
     beautifyFileWithAssistant(commandRunner, request)
+  )
+  handleAssistantAction('assistants:runCodexAgent', 'codex_agent', {
+    type: 'assistant_codex_agent_ran',
+    actor: 'assistant',
+    title: 'Codex agent ran',
+    repoPath: requestRepoPath,
+    metadata: ([request], generated) => ({
+      requested_assistant: request.assistant,
+      assistant: generated?.assistant ?? 'unknown',
+      file_path: request.filePath ?? '',
+      sandbox: request.sandbox,
+      reasoning: request.reasoning,
+      images: request.images?.length ?? 0,
+      output_length: generated?.output.length ?? 0,
+      duration_ms: generated?.durationMs ?? 0
+    })
+  }, (request: CodexAgentRequest) =>
+    runCodexAgent(commandRunner, request)
   )
   handleAssistantAction('assistants:generateBranchDraft', 'branch_draft', {
     type: 'assistant_branch_generated',

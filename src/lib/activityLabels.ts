@@ -1,7 +1,7 @@
 import type { ActivityLogEntry, ActivityLogEventType } from '../shared/branchPilot'
 
 export type ActivityCategory = 'all' | 'git' | 'assistant' | 'provider' | 'memory'
-export type CompletedWorkSource = 'commit' | 'provider' | 'review' | 'linkedin' | 'git'
+export type CompletedWorkSource = 'commit' | 'provider' | 'review' | 'linkedin' | 'assistant' | 'git'
 
 export interface CompletedWorkItem {
   id: string
@@ -48,6 +48,7 @@ export function activityTypeLabel(type: ActivityLogEventType): string {
 /** Map an event type to the completed-work source it represents. */
 export function completedWorkSource(type: ActivityLogEventType): CompletedWorkSource {
   if (type === 'github_pr_created') return 'provider'
+  if (type === 'assistant_codex_agent_ran') return 'assistant'
   if (type === 'daily_review_generated') return 'review'
   if (type === 'assistant_linkedin_generated') return 'linkedin'
   return 'git'
@@ -59,6 +60,7 @@ export function completedWorkSourceLabel(source: CompletedWorkSource): string {
   if (source === 'provider') return 'Provider'
   if (source === 'review') return 'Review'
   if (source === 'linkedin') return 'LinkedIn'
+  if (source === 'assistant') return 'Assistant'
   return 'Git'
 }
 

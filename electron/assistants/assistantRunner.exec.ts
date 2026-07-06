@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type {
   AssistantId,
+  CodexAgentSandbox,
   InstalledAssistantId
 } from '../../src/shared/branchPilot.js'
 import { CommandExecutionError, CommandRunner } from '../lib/commandRunner.js'
@@ -401,6 +402,65 @@ export async function runCodex(
     })
 
     return result.stdout
+  } finally {
+    await fs.rm(tempDir, { force: true, recursive: true })
+  }
+}
+
+export async function runCodexAgentExec(
+  runner: CommandRunner,
+  assistant: ResolvedAssistantRunner,
+  options: {
+    rootPath: string
+    prompt: string
+    imagePaths: string[]
+    sandbox: CodexAgentSandbox
+  }
+): Promise<{ output: string; eventLog: string }> {
+  if (assistant.id !== 'codex') {
+    throw new BranchPilotUserError('assistant_not_found', 'Codex CLI is required for the Codex agent panel.')
+  }
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'branchpilot-codex-agent-'))
+  const outputPath = path.join(tempDir, 'last-message.txt')
+  const modelArgs = assistant.model ? ['--model', assistant.model] : []
+  const imageArgs = options.imagePaths.flatMap((imagePath) => ['--image', imagePath])
+
+  try {
+    const result = await runner.run(assistant.executablePath, [
+      'exec',
+      ...modelArgs,
+      '--sandbox',
+      options.sandbox,
+      '--ask-for-approval',
+      'never',
+      '--cd',
+      options.rootPath,
+      '--skip-git-repo-check',
+      '--json',
+      '--color',
+      'never',
+      '--output-last-message',
+      outputPath,
+      ...imageArgs,
+      '-'
+    ], {
+      cwd: options.rootPath,
+      input: options.prompt,
+      timeoutMs: 300_000
+    })
+    let output = ''
+
+    try {
+      output = await fs.readFile(outputPath, 'utf8')
+    } catch {
+      output = ''
+    }
+
+    return {
+      output: output.trim() || result.stdout.trim(),
+      eventLog: result.stdout
+    }
   } finally {
     await fs.rm(tempDir, { force: true, recursive: true })
   }

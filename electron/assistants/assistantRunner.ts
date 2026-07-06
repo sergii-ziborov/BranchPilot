@@ -1,9 +1,14 @@
+import { promises as fs } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import type {
   AssistantStatus,
   BeautifiedFile,
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
+  CodexAgentEvent,
+  CodexAgentRequest,
+  CodexAgentResult,
   CommitMessageGenerationRequest,
   FileBeautifyRequest,
   GeneratedBranchDescription,
@@ -48,8 +53,15 @@ import {
   assistantHealthErrorMessage,
   resolveExecutablePath,
   runAssistant,
-  runAssistantForRequest
+  runAssistantForRequest,
+  runCodexAgentExec,
+  resolveAssistantCandidates
 } from './assistantRunner.exec.js'
+
+const MAX_CODEX_AGENT_FILE_BYTES = 120_000
+const MAX_CODEX_AGENT_PROMPT_BYTES = 180_000
+const MAX_CODEX_AGENT_IMAGES = 6
+const MAX_CODEX_AGENT_IMAGE_BYTES = 8 * 1024 * 1024
 
 
 export async function listAssistantStatuses(runner: CommandRunner): Promise<AssistantStatus[]> {
@@ -248,6 +260,69 @@ export async function beautifyFileWithAssistant(
     content: parseBeautifiedFile(output),
     assistant: assistant.id,
     truncated: false
+  }
+}
+
+export async function runCodexAgent(
+  runner: CommandRunner,
+  request: CodexAgentRequest
+): Promise<CodexAgentResult> {
+  const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
+  const promptText = request.prompt.trim()
+
+  if (!promptText && !request.filePath && (request.images?.length ?? 0) === 0) {
+    throw new BranchPilotUserError('codex_agent_prompt_required', 'Enter a Codex prompt or attach an image.')
+  }
+
+  const requestedAssistant = request.assistant.startsWith('codex') ? request.assistant : 'codex'
+  const assistant = (await resolveAssistantCandidates(runner, requestedAssistant)).find((candidate) => candidate.id === 'codex')
+
+  if (!assistant) {
+    throw new BranchPilotUserError('assistant_not_found', 'Codex CLI is required for the Codex agent panel.')
+  }
+
+  const branch = await getBranchLabel(runner, rootPath)
+  const status = await runner.run(GIT_EXECUTABLE, ['status', '--short'], {
+    cwd: rootPath,
+    timeoutMs: 10_000
+  })
+  const diffStat = await runner.run(GIT_EXECUTABLE, ['diff', '--stat'], {
+    cwd: rootPath,
+    allowedExitCodes: [0, 1],
+    timeoutMs: 20_000
+  })
+  const prompt = buildCodexAgentPrompt({
+    branch,
+    status: status.stdout,
+    diffStat: diffStat.stdout,
+    request,
+    prompt: promptText
+  })
+  const images = await writeCodexAgentImages(request.images ?? [])
+  const startedAt = Date.now()
+
+  try {
+    const result = await runCodexAgentExec(runner, assistant, {
+      rootPath,
+      prompt,
+      imagePaths: images.paths,
+      sandbox: request.sandbox
+    })
+    const events = parseCodexAgentEvents(result.eventLog)
+
+    return {
+      assistant: assistant.id,
+      modelLabel: assistant.modelLabel,
+      output: result.output || events.map((event) => event.text).filter(Boolean).slice(-3).join('\n\n'),
+      events,
+      sandbox: request.sandbox,
+      reasoning: request.reasoning,
+      imageCount: images.paths.length,
+      durationMs: Date.now() - startedAt,
+      generatedAt: new Date().toISOString()
+    }
+  } finally {
+    await fs.rm(images.tempDir, { force: true, recursive: true })
   }
 }
 
@@ -620,5 +695,177 @@ async function validateGeneratedBranchName(
   }
 
   return result.stdout.trim() || branchName
+}
+
+function buildCodexAgentPrompt(context: {
+  branch: string
+  status: string
+  diffStat: string
+  request: CodexAgentRequest
+  prompt: string
+}): string {
+  const fileText = context.request.fileText
+    ? truncateText(context.request.fileText, MAX_CODEX_AGENT_FILE_BYTES)
+    : null
+  const basePrompt = [
+    'You are Codex running inside BranchPilot, a local desktop Git client.',
+    'Use the repository working directory as your source of truth. Prefer BranchPilot-provided context first, then inspect files as needed.',
+    'Do not push, reset, delete branches, or rewrite history unless the user explicitly requested it in this prompt and the selected sandbox allows it.',
+    'When you make changes, summarize what changed and which verification you ran. If you cannot make changes under the sandbox, explain the exact next step.',
+    'Provide a concise visible reasoning summary, not hidden chain-of-thought.',
+    '',
+    `Sandbox: ${context.request.sandbox}`,
+    `Reasoning preset requested by user: ${context.request.reasoning}`,
+    `Branch: ${context.branch}`,
+    `Images attached: ${(context.request.images ?? []).length}`,
+    '',
+    'Git status:',
+    context.status.trim() || '(clean)',
+    '',
+    'Diff stat:',
+    context.diffStat.trim() || '(none)',
+    '',
+    context.request.filePath ? `Active file: ${context.request.filePath}` : 'Active file: (none)',
+    fileText
+      ? [
+          `Active file content${fileText.truncated ? ' (truncated)' : ''}:`,
+          fileText.text
+        ].join('\n')
+      : 'Active file content: (not included)',
+    '',
+    'Active diagnostics:',
+    formatCodexAgentDiagnostics(context.request.diagnostics ?? []),
+    '',
+    'User request:',
+    context.prompt || '(image/context-only request)'
+  ].join('\n')
+
+  return truncateText(basePrompt, MAX_CODEX_AGENT_PROMPT_BYTES).text
+}
+
+function formatCodexAgentDiagnostics(diagnostics: CodexAgentRequest['diagnostics']): string {
+  if (!diagnostics?.length) return '(none)'
+
+  return diagnostics
+    .slice(0, 20)
+    .map((diagnostic) => `- ${diagnostic.source} ${diagnostic.lineNumber}:${diagnostic.column} ${diagnostic.message}`)
+    .join('\n')
+}
+
+async function writeCodexAgentImages(images: CodexAgentRequest['images']): Promise<{ tempDir: string; paths: string[] }> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'branchpilot-codex-images-'))
+  const paths: string[] = []
+
+  try {
+    for (const [index, image] of (images ?? []).slice(0, MAX_CODEX_AGENT_IMAGES).entries()) {
+      const parsed = parseCodexAgentImage(image)
+      const fileName = `${String(index + 1).padStart(2, '0')}-${safeAttachmentName(image.name, parsed.extension)}`
+      const filePath = path.join(tempDir, fileName)
+
+      await fs.writeFile(filePath, parsed.buffer)
+      paths.push(filePath)
+    }
+
+    return { tempDir, paths }
+  } catch (error) {
+    await fs.rm(tempDir, { force: true, recursive: true })
+    throw error
+  }
+}
+
+function parseCodexAgentImage(image: NonNullable<CodexAgentRequest['images']>[number]): { buffer: Buffer; extension: string } {
+  const declaredMime = image.mimeType.trim().toLowerCase()
+  const match = /^data:(image\/[-+.\w]+);base64,(?<data>.+)$/i.exec(image.dataUrl)
+  const mimeType = match?.[1].toLowerCase() || declaredMime
+
+  if (!mimeType.startsWith('image/')) {
+    throw new BranchPilotUserError('codex_agent_invalid_attachment', 'Codex agent attachments must be images.')
+  }
+
+  const base64 = match?.groups?.data ?? image.dataUrl
+  const buffer = Buffer.from(base64, 'base64')
+
+  if (buffer.length > MAX_CODEX_AGENT_IMAGE_BYTES) {
+    throw new BranchPilotUserError(
+      'codex_agent_attachment_too_large',
+      'One Codex agent image is too large.',
+      'Keep each image under 8 MB.'
+    )
+  }
+
+  return {
+    buffer,
+    extension: extensionForMimeType(mimeType)
+  }
+}
+
+function extensionForMimeType(mimeType: string): string {
+  if (mimeType.includes('jpeg') || mimeType.includes('jpg')) return '.jpg'
+  if (mimeType.includes('webp')) return '.webp'
+  if (mimeType.includes('gif')) return '.gif'
+  if (mimeType.includes('bmp')) return '.bmp'
+  if (mimeType.includes('svg')) return '.svg'
+  return '.png'
+}
+
+function safeAttachmentName(name: string, extension: string): string {
+  const baseName = path.basename(name || 'image', path.extname(name || 'image'))
+    .replace(/[^\w.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'image'
+
+  return `${baseName}${extension}`
+}
+
+function parseCodexAgentEvents(eventLog: string): CodexAgentEvent[] {
+  const events: CodexAgentEvent[] = []
+
+  for (const line of eventLog.split('\n')) {
+    const trimmed = line.trim()
+
+    if (!trimmed) continue
+
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>
+      const type = String(parsed.type ?? parsed.event ?? parsed.kind ?? 'event')
+      const text = extractCodexEventText(parsed)
+
+      if (text) {
+        events.push({ type, text: text.slice(0, 4_000) })
+      }
+    } catch {
+      events.push({ type: 'stdout', text: trimmed.slice(0, 4_000) })
+    }
+  }
+
+  return events.slice(-120)
+}
+
+function extractCodexEventText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return ''
+
+  const record = value as Record<string, unknown>
+  const direct = record.message ?? record.text ?? record.delta ?? record.summary ?? record.output
+
+  if (typeof direct === 'string') return direct.trim()
+
+  if (Array.isArray(record.content)) {
+    return record.content.map(extractCodexEventText).filter(Boolean).join('\n').trim()
+  }
+
+  if (record.item && typeof record.item === 'object') {
+    return extractCodexEventText(record.item)
+  }
+
+  if (record.msg && typeof record.msg === 'object') {
+    return extractCodexEventText(record.msg)
+  }
+
+  if (String(record.type ?? '').toLowerCase().includes('error')) {
+    return JSON.stringify(record)
+  }
+
+  return ''
 }
 

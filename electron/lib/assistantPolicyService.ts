@@ -22,6 +22,7 @@ const ACTION_LABELS: Record<AssistantActionKind, string> = {
   branch_draft: 'branch draft generation',
   commit_message: 'commit text generation',
   file_beautify: 'file beautify',
+  codex_agent: 'Codex agent',
   linkedin_project: 'LinkedIn project generation',
   pull_request_text: 'pull request text generation',
   repository_starter: 'repository starter generation',
@@ -89,10 +90,10 @@ export function allowedActionsForMode(mode: AssistantPolicyMode): AssistantActio
   }
 
   if (mode === 'review-only') {
-    return ['commit_message', 'review_report', 'linkedin_project', 'repository_starter', 'file_beautify']
+    return ['commit_message', 'review_report', 'linkedin_project', 'repository_starter', 'file_beautify', 'codex_agent']
   }
 
-  return ['commit_message', 'pull_request_text', 'review_report', 'branch_draft', 'linkedin_project', 'repository_starter', 'file_beautify']
+  return ['commit_message', 'pull_request_text', 'review_report', 'branch_draft', 'linkedin_project', 'repository_starter', 'file_beautify', 'codex_agent']
 }
 
 function normalizePersistedPolicy(repoPath: string, settings?: AssistantPolicySettings): AssistantPolicySettings {
