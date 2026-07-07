@@ -1,6 +1,13 @@
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import type {
+  BrowserWindow as ElectronBrowserWindow,
+  OpenDialogOptions,
+  OpenDialogReturnValue,
+  SaveDialogOptions,
+  SaveDialogReturnValue
+} from 'electron'
+import type {
   ActivityLogActor, ActivityLogEventType, ActivityLogMetadata, ApiResult,
   AssistantActionKind, CreateWorktreeRequest, ExportPatchRequest, RepositorySnapshot
 } from '../../src/shared/branchPilot.js'
@@ -10,7 +17,7 @@ import type { ActivityLogAppendInput, ActivityLogService } from '../lib/activity
 import type { AssistantPolicyService } from '../lib/assistantPolicyService.js'
 
 const require = createRequire(import.meta.url)
-const { dialog, ipcMain } = require('electron') as typeof import('electron')
+const { BrowserWindow, dialog, ipcMain } = require('electron') as typeof import('electron')
 
 export interface ActivityDescriptor<Args extends unknown[], T> {
   type: ActivityLogEventType
@@ -24,6 +31,8 @@ export function createIpcHelpers({ assistantPolicyService, activityLogService }:
   assistantPolicyService: AssistantPolicyService
   activityLogService: ActivityLogService
 }) {
+  let nativeDialogInFlight = false
+
   function assertKnownIpcChannel(channel: BranchPilotIpcChannel): void {
     if (!isBranchPilotIpcChannel(channel)) {
       throw new Error(`Unknown BranchPilot IPC channel: ${channel}`)
@@ -198,10 +207,91 @@ export function createIpcHelpers({ assistantPolicyService, activityLogService }:
     return snapshot?.summary.rootPath
   }
 
+  function dialogOwnerWindow(): ElectronBrowserWindow | undefined {
+    const focusedWindow = BrowserWindow.getFocusedWindow()
+    if (focusedWindow && !focusedWindow.isDestroyed()) {
+      return focusedWindow
+    }
+
+    return BrowserWindow.getAllWindows().find((window) => !window.isDestroyed() && window.isVisible())
+  }
+
+  function emptyOpenDialogResult(): OpenDialogReturnValue {
+    return {
+      canceled: true,
+      filePaths: []
+    }
+  }
+
+  function emptySaveDialogResult(): SaveDialogReturnValue {
+    return {
+      canceled: true,
+      filePath: ''
+    }
+  }
+
+  function isDestroyedDialogError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message.toLowerCase() : ''
+    return message.includes('object has been destroyed') || message.includes('browserwindow')
+  }
+
+  async function showOpenDialogSafely(options: OpenDialogOptions): Promise<OpenDialogReturnValue> {
+    if (nativeDialogInFlight) {
+      return emptyOpenDialogResult()
+    }
+
+    nativeDialogInFlight = true
+    try {
+      const owner = dialogOwnerWindow()
+      return owner
+        ? await dialog.showOpenDialog(owner, options)
+        : await dialog.showOpenDialog(options)
+    } catch (error) {
+      if (isDestroyedDialogError(error)) {
+        return emptyOpenDialogResult()
+      }
+
+      throw error
+    } finally {
+      nativeDialogInFlight = false
+    }
+  }
+
+  async function showSaveDialogSafely(options: SaveDialogOptions): Promise<SaveDialogReturnValue> {
+    if (nativeDialogInFlight) {
+      return emptySaveDialogResult()
+    }
+
+    nativeDialogInFlight = true
+    try {
+      const owner = dialogOwnerWindow()
+      return owner
+        ? await dialog.showSaveDialog(owner, options)
+        : await dialog.showSaveDialog(options)
+    } catch (error) {
+      if (isDestroyedDialogError(error)) {
+        return emptySaveDialogResult()
+      }
+
+      throw error
+    } finally {
+      nativeDialogInFlight = false
+    }
+  }
+
+  async function chooseRepositoryPath(): Promise<string | undefined> {
+    const result = await showOpenDialogSafely({
+      title: 'Open repository',
+      properties: ['openDirectory']
+    })
+
+    return result.canceled || result.filePaths.length === 0 ? undefined : result.filePaths[0]
+  }
+
   async function choosePatchOutputPath(request: ExportPatchRequest): Promise<string | undefined> {
     const repoName = path.basename(request.repoPath)
     const scopeLabel = request.scope === 'staged' ? 'staged' : 'working-tree'
-    const result = await dialog.showSaveDialog({
+    const result = await showSaveDialogSafely({
       title: 'Export patch',
       defaultPath: `${repoName}-${scopeLabel}.patch`,
       filters: [
@@ -214,7 +304,7 @@ export function createIpcHelpers({ assistantPolicyService, activityLogService }:
   }
 
   async function choosePatchInputPath(): Promise<string | undefined> {
-    const result = await dialog.showOpenDialog({
+    const result = await showOpenDialogSafely({
       title: 'Apply patch',
       properties: ['openFile'],
       filters: [
@@ -233,7 +323,7 @@ export function createIpcHelpers({ assistantPolicyService, activityLogService }:
       .replace(/[^a-zA-Z0-9._-]+/g, '-')
       .replace(/^-+|-+$/g, '')
       || 'worktree'
-    const result = await dialog.showSaveDialog({
+    const result = await showSaveDialogSafely({
       title: 'Create worktree folder',
       defaultPath: path.join(path.dirname(request.repoPath), `${repoName}-${branchSlug}`),
       buttonLabel: 'Use folder'
@@ -243,7 +333,7 @@ export function createIpcHelpers({ assistantPolicyService, activityLogService }:
   }
 
   async function chooseCloneParentPath(): Promise<string | undefined> {
-    const result = await dialog.showOpenDialog({
+    const result = await showOpenDialogSafely({
       title: 'Clone repository into folder',
       buttonLabel: 'Clone here',
       properties: ['openDirectory', 'createDirectory']
@@ -255,6 +345,6 @@ export function createIpcHelpers({ assistantPolicyService, activityLogService }:
   return {
     handleUnwrapped, handle, handleLogged, handleAssistantAction, recordActivity,
     repoPathArg, requestRepoPath, snapshotRepoPath,
-    choosePatchOutputPath, choosePatchInputPath, chooseWorktreeTargetPath, chooseCloneParentPath
+    chooseRepositoryPath, choosePatchOutputPath, choosePatchInputPath, chooseWorktreeTargetPath, chooseCloneParentPath
   }
 }

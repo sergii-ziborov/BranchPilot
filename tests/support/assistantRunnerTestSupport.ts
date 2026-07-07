@@ -13,6 +13,7 @@ import { GIT_EXECUTABLE, WHICH_EXECUTABLE } from '../../electron/lib/platformExe
 interface AssistantTestRunnerOptions {
   available: Array<'claude' | 'codex'>
   failingAssistants?: Array<'claude' | 'codex'>
+  assistantFailureOutput?: string | Partial<Record<'claude' | 'codex', string>>
   assistantOutput?: string
 }
 
@@ -43,7 +44,7 @@ export class AssistantTestRunner extends CommandRunner {
       this.assistantInvocations.push({ command, args, cwd: options.cwd })
 
       if (this.options.failingAssistants?.includes(assistant)) {
-        throw new CommandExecutionError(`${assistant} failed`, makeResult(command, args, '', `${assistant} failed`, options.cwd, 1))
+        throw new CommandExecutionError(`${assistant} failed`, makeResult(command, args, '', this.failureOutput(assistant), options.cwd, 1))
       }
 
       return makeResult(
@@ -56,6 +57,16 @@ export class AssistantTestRunner extends CommandRunner {
     }
 
     return super.run(command, args, options)
+  }
+
+  private failureOutput(assistant: 'claude' | 'codex'): string {
+    const output = this.options.assistantFailureOutput
+
+    if (typeof output === 'string') {
+      return output
+    }
+
+    return output?.[assistant] ?? `${assistant} failed`
   }
 }
 

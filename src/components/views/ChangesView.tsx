@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Code2, Copy, Eye, FolderOpen, MinusSquare, PlusSquare, Terminal, Trash2 } from 'lucide-react'
 import type {
-  ApiResult, AssistantId, AssistantPolicyStatus, BranchPilotApi, DiffHunk, DiffResult, ImagePreview,
+  ApiResult, AssistantId, AssistantPolicyStatus, AssistantStatus, BranchPilotApi, DiffHunk, DiffResult, ImagePreview,
   FileChange, GitConfigSnapshot, GitHubAccountSummary, GitHubCliStatus, PatchScope, RepositorySnapshot
 } from '../../shared/branchPilot'
 import type { ChangeDiffMode } from '../../shared/changeStaging'
@@ -56,7 +56,7 @@ export function ChangesView({
   commitCoAuthors, setCommitCoAuthors,
   gitConfig, localUserName, setLocalUserName, localUserEmail, setLocalUserEmail,
   githubAccounts, githubCliStatus, assistantPolicy,
-  selectedAssistant,
+  selectedAssistant, assistants, assistantsChecking, checkAssistants,
   setNotice, onOpenReview, onOpenStash, stashCount,
   requestConfirmation,
   generateCommitText, canGenerateCommitText,
@@ -111,6 +111,9 @@ export function ChangesView({
   githubCliStatus: GitHubCliStatus | null
   assistantPolicy: AssistantPolicyStatus | null
   selectedAssistant: AssistantId
+  assistants: AssistantStatus[]
+  assistantsChecking: boolean
+  checkAssistants: () => void | Promise<void>
   setNotice: (message: string) => void
   onOpenReview: () => void
   onOpenStash: () => void
@@ -299,6 +302,9 @@ export function ChangesView({
           snapshot={snapshot}
           initialFilePath={internalEditorPath || null}
           selectedAssistant={selectedAssistant}
+          assistants={assistants}
+          assistantsChecking={assistantsChecking}
+          checkAssistants={checkAssistants}
           onBack={() => setInternalEditorPath(null)}
           setNotice={setNotice}
           requestConfirmation={requestConfirmation}

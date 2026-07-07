@@ -160,6 +160,9 @@ export function ChangesRoute({ changesTool, setChangesTool }: ChangesRouteProps)
         githubCliStatus={githubCliStatus}
         assistantPolicy={assistantPolicy}
         selectedAssistant={selectedAssistant}
+        assistants={assistants}
+        assistantsChecking={assistantsChecking}
+        checkAssistants={checkAssistants}
         setNotice={setNotice}
         requestConfirmation={requestConfirmation}
         generateCommitText={generateCommitText}

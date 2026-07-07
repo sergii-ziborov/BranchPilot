@@ -7,13 +7,14 @@ import {
   type ChangeEvent as ReactChangeEvent,
   type ClipboardEvent as ReactClipboardEvent,
   type CSSProperties,
+  type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type UIEvent as ReactUIEvent
 } from 'react'
-import { Activity, ArrowLeft, BrainCircuit, ChevronDown, ChevronRight, ChevronUp, CircleAlert, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, ImagePlus, MinusSquare, Paperclip, Pencil, PlusSquare, RefreshCw, RotateCcw, Save, Search, SendHorizontal, SlidersHorizontal, Sparkles, Terminal, Trash2, TriangleAlert, WandSparkles, X } from 'lucide-react'
-import type { ApiResult, AssistantId, BranchPilotApi, CodexAgentReasoning, CodexAgentResult, CodexAgentSandbox, DiffLine, DiffResult, FileChange, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
+import { Activity, ArrowLeft, BrainCircuit, ChevronDown, ChevronRight, ChevronUp, CircleAlert, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Paperclip, Pencil, PlusSquare, RefreshCw, RotateCcw, Save, Search, SendHorizontal, Sparkles, Terminal, Trash2, TriangleAlert, WandSparkles, X } from 'lucide-react'
+import type { ApiResult, AssistantId, AssistantStatus, BranchPilotApi, BranchPilotError, CodexAgentAttachment, CodexAgentReasoning, CodexAgentResult, CodexAgentSandbox, DiffLine, DiffResult, FileChange, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
 import type { ConfirmationOptions } from '../../lib/prompts'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
@@ -28,7 +29,7 @@ import {
   type CssColorEditDraft,
   type CssColorToken
 } from '../diff/CssColorSwatch'
-import { CLAUDE_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, assistantSelectionLabel } from '../../lib/assistantLabels'
+import { CLAUDE_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, assistantSelectionLabel, assistantStatusLabel } from '../../lib/assistantLabels'
 
 interface ChangesInternalEditorProps {
   api: BranchPilotApi | undefined
@@ -36,6 +37,9 @@ interface ChangesInternalEditorProps {
   snapshot: RepositorySnapshot | null
   initialFilePath: string | null
   selectedAssistant: AssistantId
+  assistants: AssistantStatus[]
+  assistantsChecking: boolean
+  checkAssistants: () => void | Promise<void>
   onBack: () => void
   setNotice: (message: string) => void
   requestConfirmation: (message: string, options?: ConfirmationOptions) => Promise<boolean>
@@ -58,6 +62,9 @@ const EDITOR_FILE_CONTENT_SEARCH_MIN_LENGTH = 2
 const EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT = 250
 const EDITOR_FILE_CONTENT_SEARCH_DEBOUNCE_MS = 260
 const EDITOR_HEALTH_LINT_CONCURRENCY = 6
+const CODEX_AGENT_ATTACHMENT_LIMIT = 8
+const CODEX_AGENT_TEXT_ATTACHMENT_MAX_CHARS = 80_000
+const TEXT_ATTACHMENT_FILE_RE = /\.(txt|md|mdx|json|jsonc|ya?ml|toml|ini|env|css|scss|sass|less|html?|xml|svg|csv|tsv|log|diff|patch|m?[jt]sx?|cts|mts|py|go|rs|java|cs|c|cc|cpp|h|hpp|php|rb|swift|kt|kts|vue|svelte|sql|sh|bash|ps1|bat|cmd)$/i
 const EDITOR_LINE_HEIGHT = 20
 const EDITOR_LINE_HEIGHT_EPSILON = 0.05
 const EDITOR_FILE_CHUNK_BYTES = 48_000
@@ -123,6 +130,52 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error('Failed to read file.'))
     reader.readAsDataURL(file)
   })
+}
+
+async function readFileAsTruncatedText(file: File): Promise<{ text: string; truncated: boolean }> {
+  const text = await file.text()
+
+  if (text.length <= CODEX_AGENT_TEXT_ATTACHMENT_MAX_CHARS) {
+    return { text, truncated: false }
+  }
+
+  return {
+    text: `${text.slice(0, CODEX_AGENT_TEXT_ATTACHMENT_MAX_CHARS)}\n... ${text.length - CODEX_AGENT_TEXT_ATTACHMENT_MAX_CHARS} more characters truncated`,
+    truncated: true
+  }
+}
+
+function isImageAttachmentFile(file: File): boolean {
+  return file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name)
+}
+
+function isTextAttachmentFile(file: File): boolean {
+  return file.type.startsWith('text/') ||
+    /(?:json|xml|yaml|javascript|typescript|css|html|markdown|csv|toml|x-sh|x-python)/i.test(file.type) ||
+    TEXT_ATTACHMENT_FILE_RE.test(file.name)
+}
+
+function filesFromTransferItems(items: DataTransferItemList): File[] {
+  return Array.from(items)
+    .filter((item) => item.kind === 'file')
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file))
+}
+
+function friendlyAgentErrorMessage(error: BranchPilotError, fallback: string): string {
+  const details = compactAgentErrorDetails(error.details ?? '')
+  return friendlyIpcErrorMessage(error.message, fallback, details)
+}
+
+function compactAgentErrorDetails(details: string): string {
+  const trimmed = details.trim()
+  const maxLength = 12_000
+
+  if (trimmed.length <= maxLength) {
+    return trimmed
+  }
+
+  return `${trimmed.slice(0, maxLength)}\n... ${trimmed.length - maxLength} more characters truncated`
 }
 
 function clampEditorSidebarWidth(width: number, containerWidth?: number): number {
@@ -446,11 +499,30 @@ interface EditorLintRunState {
   detail: string
 }
 
-interface CodexAgentImageDraft {
+interface CodexAgentAttachmentDraft {
   id: string
+  kind: 'image' | 'text'
   name: string
   mimeType: string
-  dataUrl: string
+  sizeBytes: number
+  dataUrl?: string
+  text?: string
+  truncated?: boolean
+}
+
+interface LocalAgentCommandContext {
+  agentLabel: string
+  modelLabel: string
+  reasoning: CodexAgentReasoning
+  access: CodexAgentSandbox
+  filePath?: string
+}
+
+interface LocalAgentCommand {
+  id: string
+  label: string
+  detail: string
+  insert: (context: LocalAgentCommandContext) => string
 }
 
 type LocalAgentProvider = 'codex' | 'claude'
@@ -473,6 +545,63 @@ const LOCAL_AGENT_PROVIDERS: Array<{ value: LocalAgentProvider; label: string }>
   { value: 'claude', label: 'Claude' }
 ]
 
+const LOCAL_AGENT_COMMANDS: LocalAgentCommand[] = [
+  {
+    id: 'login',
+    label: '/login',
+    detail: 'auth check',
+    insert: ({ agentLabel }) => `Check ${agentLabel} CLI authentication. If it is not logged in, give me the exact login command and where to run it.`
+  },
+  {
+    id: 'usage',
+    label: '/usage',
+    detail: 'quota state',
+    insert: ({ agentLabel }) => `Check ${agentLabel} usage, quota, and session limit status. Summarize what remains and any reset time you can infer.`
+  },
+  {
+    id: 'status',
+    label: '/status',
+    detail: 'repo state',
+    insert: () => 'Inspect the current repository status, branch, changed files, and immediate risks.'
+  },
+  {
+    id: 'models',
+    label: '/models',
+    detail: 'model fit',
+    insert: ({ agentLabel, modelLabel, reasoning }) => `Evaluate whether ${agentLabel} with ${modelLabel} and ${reasoning} reasoning is appropriate for this task. Recommend a better model only if needed.`
+  },
+  {
+    id: 'permissions',
+    label: '/permissions',
+    detail: 'access rules',
+    insert: ({ access }) => `Explain what the current access rules allow under ${access}, and what you cannot do without changing access.`
+  },
+  {
+    id: 'review',
+    label: '/review',
+    detail: 'active file',
+    insert: ({ filePath }) => `Review ${filePath ? `the active file ${filePath}` : 'the current repository context'} for bugs, risky assumptions, and missing checks.`
+  },
+  {
+    id: 'fix',
+    label: '/fix',
+    detail: 'make change',
+    insert: ({ filePath }) => `Fix the issue in ${filePath ? filePath : 'the relevant files'}, keep the change scoped, and tell me what verification you ran.`
+  },
+  {
+    id: 'test',
+    label: '/test',
+    detail: 'verify',
+    insert: () => 'Run or recommend the smallest useful verification for this change, then summarize the result.'
+  },
+  {
+    id: 'attach',
+    label: '/attach',
+    detail: 'use files',
+    insert: () => 'Use the attached files and images as primary context. Call out anything important you can infer from them.'
+  }
+]
+
 function localAgentProviderForAssistant(assistant: AssistantId): LocalAgentProvider {
   return assistant.startsWith('claude') ? 'claude' : 'codex'
 }
@@ -489,19 +618,77 @@ function localAgentLabel(provider: LocalAgentProvider): string {
   return provider === 'claude' ? 'Claude' : 'Codex'
 }
 
+function compactAssistantUsage(status: AssistantStatus | null, checking: boolean): string {
+  if (checking) return 'checking'
+  if (!status) return 'unknown'
+
+  const statusLabel = assistantStatusLabel(status)
+  const message = status.message.trim()
+  const resetLabel = compactAssistantResetLabel(message)
+  const usageMatch = /(usage\s+(?:remaining|left)[^·\n.]*)/i.exec(message)
+  const percentMatch = /(\d{1,3}%\s+(?:remaining|left))/i.exec(message)
+
+  if (statusLabel === 'limited') {
+    return resetLabel ? `limited - resets ${resetLabel}` : 'limited'
+  }
+
+  if (usageMatch) return usageMatch[1].trim()
+  if (percentMatch) return percentMatch[1].trim()
+  if (status.state === 'ready') return 'ready'
+  if (status.state === 'detected') return 'checking'
+
+  return statusLabel
+}
+
+function compactAssistantResetLabel(message: string): string | null {
+  const resetMatch =
+    /resets?\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)(?:\s*\([^)]*\))?)/i.exec(message) ||
+    /try again at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)(?:\s*\([^)]*\))?)/i.exec(message) ||
+    /resets?\s+(?:at\s+)?([^·\n,.]+)/i.exec(message)
+  const value = resetMatch?.[1]?.trim().replace(/[.,;:]+$/g, '').trim()
+
+  return value || null
+}
+
+function slashCommandQuery(prompt: string): string | null {
+  const match = /(?:^|\n)\/([a-z-]*)$/i.exec(prompt)
+  return match ? match[1].toLowerCase() : null
+}
+
 function LocalAgentBrandIcon({ provider, size = 18 }: { provider: LocalAgentProvider; size?: number }) {
   if (provider === 'claude') {
     return (
       <svg className="changes-editor-agent-brand claude" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 2.3l1.85 6.25 5.85-2.75-3.05 5.7 5.05 4.05-6.42 1.02.42 6.43L12 17.75 8.3 23l.42-6.43-6.42-1.02 5.05-4.05L4.3 5.8l5.85 2.75L12 2.3z" />
+        {Array.from({ length: 12 }).map((_, index) => (
+          <line
+            key={index}
+            x1="12"
+            y1="4.1"
+            x2="12"
+            y2="8.05"
+            stroke="currentColor"
+            strokeWidth="2.45"
+            strokeLinecap="round"
+            transform={`rotate(${index * 30} 12 12)`}
+          />
+        ))}
       </svg>
     )
   }
 
   return (
     <svg className="changes-editor-agent-brand codex" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3.2a8.8 8.8 0 1 0 8.8 8.8h-3.1a5.7 5.7 0 1 1-1.67-4.03l-2.18 2.18h7.35V2.8l-2.95 2.95A8.76 8.76 0 0 0 12 3.2z" />
-      <path d="M12 8.1a3.9 3.9 0 1 0 3.9 3.9h-2.45A1.45 1.45 0 1 1 12 10.55V8.1z" />
+      <g fill="none" stroke="currentColor" strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 4.15c1.72-1 3.95-.42 4.95 1.3.65 1.12.64 2.47.1 3.54l-2.2 3.86" />
+        <path d="M16.8 5.72c1.75.02 3.28 1.3 3.6 3.08.35 1.95-.94 3.83-2.89 4.18l-4.38.77" />
+        <path d="M20.12 11.02c.85 1.5.51 3.47-.88 4.6-1.53 1.26-3.8 1.03-5.05-.5l-2.85-3.5" />
+        <path d="M16.56 17.82c-.83 1.5-2.67 2.22-4.32 1.62-1.86-.67-2.83-2.73-2.16-4.59l1.53-4.24" />
+        <path d="M10.12 19.05c-1.72.98-3.95.4-4.94-1.32-.65-1.13-.63-2.49-.08-3.56l2.22-3.84" />
+        <path d="M5.18 17.08c-1.7-.08-3.16-1.35-3.48-3.08-.36-1.95.93-3.83 2.88-4.19l4.43-.8" />
+        <path d="M3.82 9.04c-.83-1.51-.48-3.46.9-4.58 1.54-1.25 3.8-1.02 5.05.52l2.82 3.48" />
+        <path d="M7.5 6.22c.84-1.49 2.66-2.18 4.29-1.59 1.86.68 2.81 2.74 2.13 4.6l-1.55 4.22" />
+        <path d="M8.05 9.02h5.48l2.7 4.68-2.72 4.7H8.07l-2.72-4.7 2.7-4.68z" />
+      </g>
     </svg>
   )
 }
@@ -2736,6 +2923,9 @@ export function ChangesInternalEditor({
   snapshot,
   initialFilePath,
   selectedAssistant,
+  assistants,
+  assistantsChecking,
+  checkAssistants,
   onBack,
   setNotice,
   requestConfirmation,
@@ -2743,6 +2933,8 @@ export function ChangesInternalEditor({
 }: ChangesInternalEditorProps) {
   const editorRef = useRef<HTMLElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const codexAgentTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const codexAgentAutoUsageCheckRef = useRef<Set<string>>(new Set())
   const fileSearchInputRef = useRef<HTMLInputElement | null>(null)
   const highlightInnerRef = useRef<HTMLDivElement | null>(null)
   const lineNumbersInnerRef = useRef<HTMLDivElement | null>(null)
@@ -2843,12 +3035,13 @@ export function ChangesInternalEditor({
     detail: 'Open a supported file and run lint.'
   })
   const [codexAgentOpen, setCodexAgentOpen] = useState(false)
-  const [codexAgentSettingsOpen, setCodexAgentSettingsOpen] = useState(false)
   const [codexAgentPrompt, setCodexAgentPrompt] = useState('')
+  const [codexAgentPromptFocused, setCodexAgentPromptFocused] = useState(false)
   const [codexAgentRunning, setCodexAgentRunning] = useState(false)
   const [codexAgentResult, setCodexAgentResult] = useState<CodexAgentResult | null>(null)
   const [codexAgentError, setCodexAgentError] = useState<string | null>(null)
-  const [codexAgentImages, setCodexAgentImages] = useState<CodexAgentImageDraft[]>([])
+  const [codexAgentAttachments, setCodexAgentAttachments] = useState<CodexAgentAttachmentDraft[]>([])
+  const [codexAgentPreviewAttachment, setCodexAgentPreviewAttachment] = useState<CodexAgentAttachmentDraft | null>(null)
   const [codexAgentProvider, setCodexAgentProvider] = useState<LocalAgentProvider>(
     localAgentProviderForAssistant(selectedAssistant)
   )
@@ -2866,12 +3059,44 @@ export function ChangesInternalEditor({
   }, [selectedAssistant])
 
   useEffect(() => {
+    if (!codexAgentOpen || assistantsChecking) return
+
+    const checkKey = `${currentRepoPath ?? 'no-repo'}:${codexAgentProvider}`
+    if (codexAgentAutoUsageCheckRef.current.has(checkKey)) return
+
+    codexAgentAutoUsageCheckRef.current.add(checkKey)
+    void checkAssistants()
+  }, [assistantsChecking, checkAssistants, codexAgentOpen, codexAgentProvider, currentRepoPath])
+
+  useEffect(() => {
     setManualHealthByPath(new Map())
     setHealthScanState({ status: 'idle', scanned: 0, linted: 0, signals: 0, error: null })
   }, [currentRepoPath])
 
   const changeByPath = useMemo(() => new Map((snapshot?.status.changes ?? []).map((change) => [change.path, change])), [snapshot])
   const selectedChange = selectedPath ? changeByPath.get(selectedPath) ?? null : null
+  const codexAgentStatus = useMemo(
+    () => assistants.find((assistant) => assistant.id === codexAgentProvider) ?? null,
+    [assistants, codexAgentProvider]
+  )
+  const codexAgentStatusLabel = assistantsChecking
+    ? 'checking'
+    : codexAgentStatus
+      ? assistantStatusLabel(codexAgentStatus)
+      : 'unknown'
+  const codexAgentStatusMessage = assistantsChecking
+    ? 'Checking assistant access and usage.'
+    : codexAgentStatus?.message ?? 'Run health check to load assistant access and usage.'
+  const codexAgentUsageText = compactAssistantUsage(codexAgentStatus, assistantsChecking)
+  const codexAgentCommandQuery = codexAgentPromptFocused ? slashCommandQuery(codexAgentPrompt) : null
+  const codexAgentCommandSuggestions = useMemo(() => (
+    codexAgentCommandQuery === null
+      ? []
+      : LOCAL_AGENT_COMMANDS.filter((command) =>
+          command.id.includes(codexAgentCommandQuery) ||
+          command.label.slice(1).includes(codexAgentCommandQuery)
+        ).slice(0, 6)
+  ), [codexAgentCommandQuery])
   const query = fileQuery.trim().toLowerCase()
   const contentMatchedPaths = useMemo(() => new Set(Object.keys(fileContentMatches)), [fileContentMatches])
   const fileContentMatchCount = contentMatchedPaths.size
@@ -6319,38 +6544,125 @@ export function ChangesInternalEditor({
     if (open) setCodexAgentOpen(true)
   }
 
-  const addCodexAgentImages = async (event: ReactChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.currentTarget.files ?? [])
-    event.currentTarget.value = ''
+  const addCodexAgentFiles = async (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) return
 
-    const remainingSlots = Math.max(0, 6 - codexAgentImages.length)
-    const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, remainingSlots)
+    const remainingSlots = Math.max(0, CODEX_AGENT_ATTACHMENT_LIMIT - codexAgentAttachments.length)
+    const supportedFiles = selectedFiles
+      .filter((file) => isImageAttachmentFile(file) || isTextAttachmentFile(file))
+      .slice(0, remainingSlots)
 
-    if (imageFiles.length < selectedFiles.length) {
-      setNotice(remainingSlots === 0 ? 'Agent can attach up to 6 images.' : 'Only image files can be attached to the agent.')
+    if (supportedFiles.length < selectedFiles.length) {
+      setNotice(remainingSlots === 0 ? `Agent can attach up to ${CODEX_AGENT_ATTACHMENT_LIMIT} files.` : 'Only images and text-like files can be attached to the agent.')
     }
 
-    const nextImages = await Promise.all(imageFiles.map(async (file) => ({
-      id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
-      name: file.name,
-      mimeType: file.type || 'image/png',
-      dataUrl: await readFileAsDataUrl(file)
-    })))
+    const nextAttachments = await Promise.all(supportedFiles.map(async (file): Promise<CodexAgentAttachmentDraft> => {
+      const id = `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`
 
-    setCodexAgentImages((current) => [...current, ...nextImages])
+      if (isImageAttachmentFile(file)) {
+        return {
+          id,
+          kind: 'image',
+          name: file.name,
+          mimeType: file.type || 'image/png',
+          sizeBytes: file.size,
+          dataUrl: await readFileAsDataUrl(file)
+        }
+      }
+
+      const text = await readFileAsTruncatedText(file)
+
+      return {
+        id,
+        kind: 'text',
+        name: file.name,
+        mimeType: file.type || 'text/plain',
+        sizeBytes: file.size,
+        text: text.text,
+        truncated: text.truncated
+      }
+    }))
+
+    setCodexAgentAttachments((current) => [...current, ...nextAttachments])
   }
 
-  const removeCodexAgentImage = (id: string) => {
-    setCodexAgentImages((current) => current.filter((image) => image.id !== id))
+  const addCodexAgentAttachments = async (event: ReactChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.currentTarget.files ?? [])
+    event.currentTarget.value = ''
+    await addCodexAgentFiles(selectedFiles)
+  }
+
+  const handleCodexAgentPaste = (event: ReactClipboardEvent<HTMLElement>) => {
+    if (codexAgentRunning) return
+    const pastedFiles = [
+      ...Array.from(event.clipboardData.files ?? []),
+      ...filesFromTransferItems(event.clipboardData.items)
+    ]
+    const uniqueFiles = Array.from(new Map(pastedFiles.map((file) => [`${file.name}:${file.size}:${file.lastModified}`, file])).values())
+
+    if (!uniqueFiles.some((file) => isImageAttachmentFile(file) || isTextAttachmentFile(file))) {
+      return
+    }
+
+    event.preventDefault()
+    void addCodexAgentFiles(uniqueFiles)
+  }
+
+  const handleCodexAgentDragOver = (event: ReactDragEvent<HTMLElement>) => {
+    if (codexAgentRunning || !Array.from(event.dataTransfer.types).includes('Files')) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+  }
+
+  const handleCodexAgentDrop = (event: ReactDragEvent<HTMLElement>) => {
+    if (codexAgentRunning) return
+    const droppedFiles = [
+      ...Array.from(event.dataTransfer.files ?? []),
+      ...filesFromTransferItems(event.dataTransfer.items)
+    ]
+    const uniqueFiles = Array.from(new Map(droppedFiles.map((file) => [`${file.name}:${file.size}:${file.lastModified}`, file])).values())
+
+    if (!uniqueFiles.some((file) => isImageAttachmentFile(file) || isTextAttachmentFile(file))) {
+      return
+    }
+
+    event.preventDefault()
+    void addCodexAgentFiles(uniqueFiles)
+  }
+
+  const removeCodexAgentAttachment = (id: string) => {
+    setCodexAgentAttachments((current) => current.filter((attachment) => attachment.id !== id))
+    setCodexAgentPreviewAttachment((current) => current?.id === id ? null : current)
+  }
+
+  const applyCodexAgentCommand = (command: LocalAgentCommand) => {
+    const commandText = command.insert({
+      agentLabel: localAgentLabel(codexAgentProvider),
+      modelLabel: assistantSelectionLabel(codexAgentAssistant),
+      reasoning: codexAgentReasoning,
+      access: codexAgentSandbox,
+      filePath: selectedPath || undefined
+    })
+    const nextPrompt = codexAgentPrompt.replace(/(?:^|\n)\/([a-z-]*)$/i, (match) => {
+      const prefix = match.startsWith('\n') ? '\n' : ''
+      return `${prefix}${commandText}`
+    })
+
+    setCodexAgentPrompt(nextPrompt)
+    window.setTimeout(() => {
+      const textarea = codexAgentTextareaRef.current
+      if (!textarea) return
+      textarea.focus()
+      textarea.setSelectionRange(nextPrompt.length, nextPrompt.length)
+    }, 0)
   }
 
   const runCodexAgentPanel = async () => {
     if (!api || !currentRepoPath || codexAgentRunning) return
     const providerLabel = localAgentLabel(codexAgentProvider)
     const prompt = codexAgentPrompt.trim()
-    if (!prompt && !selectedPath && codexAgentImages.length === 0) {
-      setCodexAgentError('Enter a prompt, select a file, or attach an image.')
+    if (!prompt && !selectedPath && codexAgentAttachments.length === 0) {
+      setCodexAgentError('Enter a prompt, select a file, or attach a file.')
       return
     }
 
@@ -6392,15 +6704,18 @@ export function ChangesInternalEditor({
         })),
         sandbox: codexAgentSandbox,
         reasoning: codexAgentReasoning,
-        images: codexAgentImages.map((image) => ({
-          name: image.name,
-          mimeType: image.mimeType,
-          dataUrl: image.dataUrl
+        attachments: codexAgentAttachments.map((attachment): CodexAgentAttachment => ({
+          kind: attachment.kind,
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          dataUrl: attachment.dataUrl,
+          text: attachment.text,
+          sizeBytes: attachment.sizeBytes
         }))
       })
 
       if (!result.ok) {
-        setCodexAgentError(friendlyIpcErrorMessage(result.error.message, `${providerLabel} agent failed.`))
+        setCodexAgentError(friendlyAgentErrorMessage(result.error, `${providerLabel} agent failed.`))
         return
       }
 
@@ -6963,38 +7278,7 @@ export function ChangesInternalEditor({
                   <span>{selectedPath || 'Repository context'}</span>
                 </div>
               </div>
-              <div className="changes-editor-codex-head-actions">
-                {codexAgentResult && (
-                  <span className="changes-editor-codex-meta">
-                    {Math.max(1, Math.round(codexAgentResult.durationMs / 1000))}s - {codexAgentResult.sandbox}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className="compact-icon"
-                  onClick={() => setCodexAgentSettingsOpen((open) => !open)}
-                  aria-pressed={codexAgentSettingsOpen}
-                  title={codexAgentSettingsOpen ? `Hide ${localAgentLabel(codexAgentProvider)} settings` : `Show ${localAgentLabel(codexAgentProvider)} settings`}
-                >
-                  <SlidersHorizontal size={15} />
-                  <span className="changes-editor-button-label">Settings</span>
-                </button>
-                <button type="button" className="compact-icon" onClick={() => setCodexAgentOpen(false)} title={`Close ${localAgentLabel(codexAgentProvider)} agent`} aria-label={`Close ${localAgentLabel(codexAgentProvider)} agent`}>
-                  <X size={15} />
-                </button>
-              </div>
-            </header>
-
-            {codexAgentSettingsOpen && (
-              <div className="changes-editor-codex-settings">
-                <label>
-                  <span>Provider</span>
-                  <select value={codexAgentProvider} onChange={(event) => selectLocalAgentProvider(event.currentTarget.value as LocalAgentProvider, false)}>
-                    {LOCAL_AGENT_PROVIDERS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
+              <div className="changes-editor-codex-inline-controls">
                 <label>
                   <span>Model</span>
                   <select value={codexAgentAssistant} onChange={(event) => setCodexAgentAssistant(event.currentTarget.value as AssistantId)}>
@@ -7019,34 +7303,106 @@ export function ChangesInternalEditor({
                     ))}
                   </select>
                 </label>
+                <button
+                  type="button"
+                  className={`changes-editor-codex-usage status-${codexAgentStatusLabel}`}
+                  onClick={() => void checkAssistants()}
+                  disabled={assistantsChecking}
+                  title={codexAgentStatusMessage}
+                  aria-label={`Refresh ${localAgentLabel(codexAgentProvider)} usage status`}
+                >
+                  <span>Usage</span>
+                  <strong>{codexAgentUsageText}</strong>
+                  <RefreshCw className={assistantsChecking ? 'spin' : ''} size={13} />
+                </button>
               </div>
-            )}
+              <div className="changes-editor-codex-head-actions">
+                {codexAgentResult && (
+                  <span className="changes-editor-codex-meta">
+                    {Math.max(1, Math.round(codexAgentResult.durationMs / 1000))}s - {codexAgentResult.sandbox}
+                  </span>
+                )}
+                <button type="button" className="compact-icon" onClick={() => setCodexAgentOpen(false)} title={`Close ${localAgentLabel(codexAgentProvider)} agent`} aria-label={`Close ${localAgentLabel(codexAgentProvider)} agent`}>
+                  <X size={15} />
+                </button>
+              </div>
+            </header>
 
             <div className="changes-editor-codex-body">
-              <div className="changes-editor-codex-composer">
+              <div
+                className="changes-editor-codex-composer"
+                onDragOver={handleCodexAgentDragOver}
+                onDrop={handleCodexAgentDrop}
+                onPaste={handleCodexAgentPaste}
+              >
                 <textarea
+                  ref={codexAgentTextareaRef}
                   value={codexAgentPrompt}
                   onChange={(event) => setCodexAgentPrompt(event.currentTarget.value)}
+                  onFocus={() => setCodexAgentPromptFocused(true)}
+                  onBlur={() => window.setTimeout(() => setCodexAgentPromptFocused(false), 120)}
                   placeholder={`Ask ${localAgentLabel(codexAgentProvider)} about this file, attach screenshots, or ask it to make a local change.`}
                   rows={4}
                   disabled={codexAgentRunning}
                 />
+                {codexAgentCommandSuggestions.length > 0 && (
+                  <div className="changes-editor-codex-command-menu" role="listbox" aria-label="Agent commands">
+                    {codexAgentCommandSuggestions.map((command) => (
+                      <button
+                        type="button"
+                        key={command.id}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => applyCodexAgentCommand(command)}
+                      >
+                        <strong>{command.label}</strong>
+                        <span>{command.detail}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="changes-editor-codex-attachments">
-                  {codexAgentImages.map((image) => (
-                    <span className="changes-editor-codex-attachment" key={image.id}>
-                      <img src={image.dataUrl} alt="" aria-hidden="true" />
-                      <span>{image.name}</span>
-                      <button type="button" onClick={() => removeCodexAgentImage(image.id)} aria-label={`Remove ${image.name}`}>
+                  {codexAgentAttachments.map((attachment) => (
+                    <span
+                      className={`changes-editor-codex-attachment attachment-${attachment.kind}${codexAgentPreviewAttachment?.id === attachment.id ? ' active' : ''}`}
+                      key={attachment.id}
+                    >
+                      <button
+                        type="button"
+                        className="changes-editor-codex-attachment-preview"
+                        onClick={() => setCodexAgentPreviewAttachment(attachment)}
+                        title={`Preview ${attachment.name}`}
+                      >
+                        {attachment.kind === 'image' && attachment.dataUrl
+                          ? <img src={attachment.dataUrl} alt="" aria-hidden="true" />
+                          : <FileCode2 size={14} aria-hidden="true" />}
+                        <span className="changes-editor-codex-attachment-name">{attachment.name}{attachment.truncated ? ' (truncated)' : ''}</span>
+                      </button>
+                      <button type="button" className="changes-editor-codex-attachment-remove" onClick={() => removeCodexAgentAttachment(attachment.id)} aria-label={`Remove ${attachment.name}`}>
                         <X size={13} />
                       </button>
                     </span>
                   ))}
                 </div>
+                {codexAgentPreviewAttachment && (
+                  <div className="changes-editor-codex-preview">
+                    <header>
+                      <strong>{codexAgentPreviewAttachment.name}</strong>
+                      <button type="button" onClick={() => setCodexAgentPreviewAttachment(null)} aria-label="Close attachment preview">
+                        <X size={13} />
+                      </button>
+                    </header>
+                    {codexAgentPreviewAttachment.kind === 'image' && codexAgentPreviewAttachment.dataUrl ? (
+                      <img src={codexAgentPreviewAttachment.dataUrl} alt={codexAgentPreviewAttachment.name} />
+                    ) : (
+                      <pre>{codexAgentPreviewAttachment.text || '(empty file)'}</pre>
+                    )}
+                  </div>
+                )}
                 <footer>
                   <label className="changes-editor-codex-upload">
-                    <input type="file" accept="image/*" multiple onChange={addCodexAgentImages} disabled={codexAgentRunning || codexAgentImages.length >= 6} />
-                    <ImagePlus size={15} />
-                    <span>{codexAgentImages.length ? `${codexAgentImages.length}/6 images` : 'Images'}</span>
+                    <input type="file" multiple onChange={addCodexAgentAttachments} disabled={codexAgentRunning || codexAgentAttachments.length >= CODEX_AGENT_ATTACHMENT_LIMIT} />
+                    <Paperclip size={15} />
+                    <span>{codexAgentAttachments.length ? `${codexAgentAttachments.length}/${CODEX_AGENT_ATTACHMENT_LIMIT} files` : 'Files'}</span>
                   </label>
                   <span className="changes-editor-codex-context">
                     <Paperclip size={14} />

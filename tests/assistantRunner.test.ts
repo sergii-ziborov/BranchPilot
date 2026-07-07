@@ -102,6 +102,29 @@ describe('assistant commit message generation', () => {
     }))
   })
 
+  it('summarizes noisy Codex usage-limit health failures with reset time', async () => {
+    const runner = new AssistantTestRunner({
+      available: ['codex'],
+      failingAssistants: ['codex'],
+      assistantFailureOutput: [
+        '2026-07-07T08:36:20.372660Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\\"OAuth\\", error=\\"invalid_token\\"" })',
+        "ERROR You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 11:52 AM.",
+        "ERROR You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 11:52 AM."
+      ].join('\n')
+    })
+
+    const statuses = await checkAssistantStatuses(runner)
+    const codex = statuses.find((status) => status.id === 'codex')
+
+    expect(codex).toEqual(expect.objectContaining({
+      detected: true,
+      state: 'unavailable'
+    }))
+    expect(codex?.message).toContain("You've hit your usage limit - resets 11:52 AM")
+    expect(codex?.message).not.toContain('rmcp::transport')
+    expect(codex?.message).not.toContain('invalid_token')
+  })
+
   it('rejects generation when nothing is staged', async () => {
     const repoPath = createTempRepository()
     const runner = new AssistantTestRunner({ available: ['claude'] })
@@ -494,9 +517,36 @@ describe('assistant commit message generation', () => {
     expect(invocation.args).toContain('gpt-5')
     expect(invocation.args).toContain('--sandbox')
     expect(invocation.args).toContain('workspace-write')
+    expect(invocation.args).not.toContain('--ask-for-approval')
     expect(invocation.args).toContain('model_reasoning_effort="high"')
     expect(invocation.args).toContain('--image')
     expect(runner.assistantPrompt).toContain('Codex receives attached images through the CLI image channel.')
+  })
+
+  it('includes text file attachments in the local agent prompt', async () => {
+    const repoPath = createTempRepository()
+    const runner = new AssistantTestRunner({ available: ['codex'] })
+
+    await runCodexAgent(runner, {
+      repoPath,
+      assistant: 'codex',
+      prompt: 'Compare this note with the repo.',
+      sandbox: 'read-only',
+      reasoning: 'medium',
+      attachments: [{
+        kind: 'text',
+        name: 'notes.md',
+        mimeType: 'text/markdown',
+        sizeBytes: 18,
+        text: '# Notes\ncheck this\n'
+      }]
+    })
+
+    expect(runner.assistantInvocations).toHaveLength(1)
+    expect(runner.assistantInvocations[0].args).not.toContain('--image')
+    expect(runner.assistantPrompt).toContain('Attachments: 1')
+    expect(runner.assistantPrompt).toContain('--- notes.md (text/markdown, 18 bytes) ---')
+    expect(runner.assistantPrompt).toContain('# Notes')
   })
 
   it('runs the Claude local agent with Claude Code access and effort controls', async () => {
@@ -522,6 +572,7 @@ describe('assistant commit message generation', () => {
     expect(invocation.command).toBe('/tmp/branchpilot-claude')
     expect(path.basename(invocation.cwd ?? '')).toBe(path.basename(repoPath))
     expect(invocation.args).toContain('--print')
+    expect(invocation.args).toContain('--verbose')
     expect(invocation.args).toContain('--model')
     expect(invocation.args).toContain('sonnet')
     expect(invocation.args).toContain('--effort')

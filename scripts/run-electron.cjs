@@ -63,7 +63,7 @@ function restartElectron(reason) {
 
     previous.once('exit', startNext)
     previous.kill()
-  }, 180)
+  }, 650)
 }
 
 function watchDistElectron() {

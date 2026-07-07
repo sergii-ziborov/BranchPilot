@@ -8,6 +8,7 @@ import {
   getGitHubPullRequestDiff,
   listGitHubPullRequests
 } from '../electron/providers/githubCliService'
+import { normalizeGitHubRepository } from '../electron/providers/githubCliService.parsers'
 import { registerGitHubAuthRepositorySpecs } from './githubCliService.authRepositorySpecs'
 import {
   FakeGitHubApiClient,
@@ -22,6 +23,23 @@ import {
 
 describe('GitHub CLI bridge', () => {
   registerGitHubAuthRepositorySpecs()
+
+  it('normalizes GitHub API repository URLs to browser URLs', () => {
+    expect(normalizeGitHubRepository({
+      name: 'BranchPilot',
+      full_name: 'sergii-ziborov/BranchPilot',
+      owner: { login: 'sergii-ziborov' },
+      private: true,
+      url: 'https://api.github.com/repos/sergii-ziborov/BranchPilot',
+      html_url: 'https://github.com/sergii-ziborov/BranchPilot',
+      ssh_url: 'git@github.com:sergii-ziborov/BranchPilot.git',
+      default_branch: 'main'
+    })).toMatchObject({
+      nameWithOwner: 'sergii-ziborov/BranchPilot',
+      url: 'https://github.com/sergii-ziborov/BranchPilot',
+      sshUrl: 'git@github.com:sergii-ziborov/BranchPilot.git'
+    })
+  })
 
   it('creates a pull request for HTTPS GitHub remotes with argv-only body file flow', async () => {
     const runner = new GitHubCliTestRunner({

@@ -5,7 +5,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
-const { app, BrowserWindow, dialog } = require('electron') as typeof import('electron')
+const { app, BrowserWindow } = require('electron') as typeof import('electron')
 // ESM module: `__dirname` is not defined, so derive it from the module URL.
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 import type {
@@ -55,7 +55,7 @@ export function registerRepositoryHandlers(
   helpers: ReturnType<typeof createIpcHelpers>,
   services: RegisterIpcHandlersServices
 ) {
-  const { handle, handleLogged, handleUnwrapped, repoPathArg, requestRepoPath, snapshotRepoPath, chooseCloneParentPath } = helpers
+  const { handle, handleLogged, handleUnwrapped, repoPathArg, requestRepoPath, snapshotRepoPath, chooseRepositoryPath, chooseCloneParentPath } = helpers
   const { repositoryService, assistantPolicyService, activityLogService, projectMemoryService, projectWikiService, dailyReviewService, projectMemoryDir, projectWikiDir, activityLogDir } = services
 
   handleUnwrapped('app:version', () => app.getVersion())
@@ -84,16 +84,13 @@ export function registerRepositoryHandlers(
       remote: snapshot.summary.remoteName ?? 'none'
     } : undefined
   }, async () => {
-    const result = await dialog.showOpenDialog({
-      title: 'Open repository',
-      properties: ['openDirectory']
-    })
+    const repoPath = await chooseRepositoryPath()
 
-    if (result.canceled || result.filePaths.length === 0) {
+    if (!repoPath) {
       return null
     }
 
-    return withProjectMemoryRefresh(await repositoryService.openRepository(result.filePaths[0]))
+    return withProjectMemoryRefresh(await repositoryService.openRepository(repoPath))
   })
 
   handleLogged('repository:clone', {

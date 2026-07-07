@@ -220,7 +220,7 @@ export function GitHubRepositoryBrowser({
                   <ArrowDownToLine size={15} />
                   Clone HTTPS
                 </button>
-                <button type="button" onClick={() => void cloneGitHubRepository(repository, 'ssh')} disabled={busy || !repository.sshUrl}>
+                <button type="button" onClick={() => void cloneGitHubRepository(repository, 'ssh')} disabled={busy}>
                   <ArrowDownToLine size={15} />
                   Clone SSH
                 </button>

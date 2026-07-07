@@ -591,6 +591,17 @@ export interface CodexAgentImageAttachment {
   dataUrl: string
 }
 
+export type CodexAgentAttachmentKind = 'image' | 'text'
+
+export interface CodexAgentAttachment {
+  kind: CodexAgentAttachmentKind
+  name: string
+  mimeType: string
+  dataUrl?: string
+  text?: string
+  sizeBytes?: number
+}
+
 export interface CodexAgentDiagnostic {
   lineNumber: number
   column: number
@@ -607,6 +618,7 @@ export interface CodexAgentRequest {
   diagnostics?: CodexAgentDiagnostic[]
   sandbox: CodexAgentSandbox
   reasoning: CodexAgentReasoning
+  attachments?: CodexAgentAttachment[]
   images?: CodexAgentImageAttachment[]
 }
 
@@ -623,6 +635,7 @@ export interface CodexAgentResult {
   sandbox: CodexAgentSandbox
   reasoning: CodexAgentReasoning
   imageCount: number
+  attachmentCount?: number
   durationMs: number
   generatedAt: string
 }

@@ -264,13 +264,18 @@ export function normalizeGitHubRepository(value: unknown): GitHubRepositorySumma
     : nameWithOwnerParts[1] ?? ''
   const owner = normalizeRepositoryOwner(record.owner) || nameWithOwnerParts[0] || ''
   const normalizedPath = normalizeGitHubRepositoryPath(owner, name)
-  const url = typeof record.url === 'string'
-    ? record.url.trim()
-    : typeof record.html_url === 'string'
-      ? record.html_url.trim()
-      : ''
 
-  if (!normalizedPath || !url) {
+  if (!normalizedPath) {
+    throw new BranchPilotUserError('github_repo_parse_failed', 'GitHub CLI returned an incomplete repository.')
+  }
+
+  const rawUrl = optionalString(record.url) ?? ''
+  const htmlUrl = optionalString(record.html_url)
+  const url = htmlUrl ?? (rawUrl.startsWith('https://api.github.com/repos/')
+    ? `https://github.com/${normalizedPath.owner}/${normalizedPath.repo}`
+    : rawUrl)
+
+  if (!url) {
     throw new BranchPilotUserError('github_repo_parse_failed', 'GitHub CLI returned an incomplete repository.')
   }
 

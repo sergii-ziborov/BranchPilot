@@ -9,6 +9,7 @@ import { assistantLabel, assistantPolicyAllows, assistantPolicyBlockedLabel } fr
 import { defaultPullRequestBaseBranch, normalizePullRequestBaseBranch } from '../lib/pullRequestBranches'
 import type { RequestConfirmation } from '../lib/prompts'
 import type { ViewMode } from '../lib/viewMode'
+import { githubHttpsCloneUrl, githubSshCloneUrl } from '../lib/githubCloneUrls'
 
 /** Owns provider/GitHub status, repository browser, and pull-request workflows. */
 export function useProviders({
@@ -255,7 +256,7 @@ export function useProviders({
 
   async function cloneGitHubRepository(repository: GitHubRepositorySummary, protocol: 'https' | 'ssh') {
     if (!api) return
-    const remoteUrl = protocol === 'ssh' ? repository.sshUrl : repository.url
+    const remoteUrl = protocol === 'ssh' ? githubSshCloneUrl(repository) : githubHttpsCloneUrl(repository)
 
     if (!remoteUrl) {
       setNotice(`${protocol.toUpperCase()} clone URL is not available for ${repository.nameWithOwner}.`)

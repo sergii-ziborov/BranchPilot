@@ -6,6 +6,7 @@ import type {
   BeautifiedFile,
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
+  CodexAgentAttachment,
   CodexAgentEvent,
   CodexAgentRequest,
   CodexAgentResult,
@@ -62,7 +63,9 @@ import {
 const MAX_CODEX_AGENT_FILE_BYTES = 120_000
 const MAX_CODEX_AGENT_PROMPT_BYTES = 180_000
 const MAX_CODEX_AGENT_IMAGES = 6
+const MAX_CODEX_AGENT_ATTACHMENTS = 8
 const MAX_CODEX_AGENT_IMAGE_BYTES = 8 * 1024 * 1024
+const MAX_CODEX_AGENT_ATTACHMENT_TEXT_BYTES = 80_000
 
 
 export async function listAssistantStatuses(runner: CommandRunner): Promise<AssistantStatus[]> {
@@ -270,9 +273,11 @@ export async function runCodexAgent(
 ): Promise<CodexAgentResult> {
   const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
   const promptText = request.prompt.trim()
+  const attachments = normalizeCodexAgentAttachments(request)
+  const imageAttachments = attachments.filter((attachment) => attachment.kind === 'image')
 
-  if (!promptText && !request.filePath && (request.images?.length ?? 0) === 0) {
-    throw new BranchPilotUserError('local_agent_prompt_required', 'Enter a prompt, select a file, or attach an image.')
+  if (!promptText && !request.filePath && attachments.length === 0) {
+    throw new BranchPilotUserError('local_agent_prompt_required', 'Enter a prompt, select a file, or attach a file.')
   }
 
   const assistantBase = request.assistant.startsWith('claude') ? 'claude' : 'codex'
@@ -300,14 +305,17 @@ export async function runCodexAgent(
     allowedExitCodes: [0, 1],
     timeoutMs: 20_000
   })
-  const images = await writeCodexAgentImages(request.images ?? [])
+  const images = await writeCodexAgentImages(imageAttachments)
   const prompt = buildCodexAgentPrompt({
     assistant: assistant.id,
     branch,
     status: status.stdout,
     diffStat: diffStat.stdout,
     imagePaths: images.paths,
-    request,
+    request: {
+      ...request,
+      attachments
+    },
     prompt: promptText
   })
   const startedAt = Date.now()
@@ -339,6 +347,7 @@ export async function runCodexAgent(
       sandbox: request.sandbox,
       reasoning: request.reasoning,
       imageCount: images.paths.length,
+      attachmentCount: attachments.length,
       durationMs: Date.now() - startedAt,
       generatedAt: new Date().toISOString()
     }
@@ -731,6 +740,8 @@ function buildCodexAgentPrompt(context: {
     ? truncateText(context.request.fileText, MAX_CODEX_AGENT_FILE_BYTES)
     : null
   const assistantName = context.assistant === 'claude' ? 'Claude Code' : 'Codex'
+  const attachments = normalizeCodexAgentAttachments(context.request)
+  const textAttachmentContext = formatCodexAgentTextAttachments(attachments)
   const imageContext = context.imagePaths.length > 0
     ? context.imagePaths.map((imagePath) => `- ${imagePath}`).join('\n')
     : '(none)'
@@ -744,7 +755,8 @@ function buildCodexAgentPrompt(context: {
     `Sandbox: ${context.request.sandbox}`,
     `Reasoning preset requested by user: ${context.request.reasoning}`,
     `Branch: ${context.branch}`,
-    `Images attached: ${(context.request.images ?? []).length}`,
+    `Attachments: ${attachments.length}`,
+    `Images attached: ${context.imagePaths.length}`,
     context.assistant === 'claude'
       ? [
           'Claude image file paths:',
@@ -752,6 +764,9 @@ function buildCodexAgentPrompt(context: {
           'Use Read on those image files when the screenshot/photo content matters.'
         ].join('\n')
       : 'Codex receives attached images through the CLI image channel.',
+    '',
+    'Attached text files:',
+    textAttachmentContext,
     '',
     'Git status:',
     context.status.trim() || '(clean)',
@@ -786,7 +801,43 @@ function formatCodexAgentDiagnostics(diagnostics: CodexAgentRequest['diagnostics
     .join('\n')
 }
 
-async function writeCodexAgentImages(images: CodexAgentRequest['images']): Promise<{ tempDir: string; paths: string[] }> {
+function normalizeCodexAgentAttachments(request: Pick<CodexAgentRequest, 'attachments' | 'images'>): CodexAgentAttachment[] {
+  const attachments = (request.attachments ?? []).slice(0, MAX_CODEX_AGENT_ATTACHMENTS)
+
+  if (attachments.length > 0) {
+    return attachments
+  }
+
+  return (request.images ?? []).slice(0, MAX_CODEX_AGENT_IMAGES).map((image) => ({
+    kind: 'image',
+    name: image.name,
+    mimeType: image.mimeType,
+    dataUrl: image.dataUrl
+  }))
+}
+
+function formatCodexAgentTextAttachments(attachments: CodexAgentAttachment[]): string {
+  const textAttachments = attachments.filter((attachment) => attachment.kind === 'text')
+
+  if (textAttachments.length === 0) {
+    return '(none)'
+  }
+
+  return textAttachments
+    .slice(0, MAX_CODEX_AGENT_ATTACHMENTS)
+    .map((attachment) => {
+      const content = truncateText(attachment.text ?? '', MAX_CODEX_AGENT_ATTACHMENT_TEXT_BYTES)
+      const sizeLabel = typeof attachment.sizeBytes === 'number' ? `, ${attachment.sizeBytes} bytes` : ''
+
+      return [
+        `--- ${attachment.name} (${attachment.mimeType || 'text/plain'}${sizeLabel}${content.truncated ? ', truncated' : ''}) ---`,
+        content.text || '(empty file)'
+      ].join('\n')
+    })
+    .join('\n\n')
+}
+
+async function writeCodexAgentImages(images: CodexAgentAttachment[]): Promise<{ tempDir: string; paths: string[] }> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'branchpilot-codex-images-'))
   const paths: string[] = []
 
@@ -807,17 +858,21 @@ async function writeCodexAgentImages(images: CodexAgentRequest['images']): Promi
   }
 }
 
-function parseCodexAgentImage(image: NonNullable<CodexAgentRequest['images']>[number]): { buffer: Buffer; extension: string } {
+function parseCodexAgentImage(image: CodexAgentAttachment): { buffer: Buffer; extension: string } {
   const declaredMime = image.mimeType.trim().toLowerCase()
-  const match = /^data:(image\/[-+.\w]+);base64,(?<data>.+)$/i.exec(image.dataUrl)
+  const match = /^data:(image\/[-+.\w]+);base64,(?<data>.+)$/i.exec(image.dataUrl ?? '')
   const mimeType = match?.[1].toLowerCase() || declaredMime
 
   if (!mimeType.startsWith('image/')) {
     throw new BranchPilotUserError('codex_agent_invalid_attachment', 'Agent attachments must be images.')
   }
 
-  const base64 = match?.groups?.data ?? image.dataUrl
+  const base64 = match?.groups?.data ?? image.dataUrl ?? ''
   const buffer = Buffer.from(base64, 'base64')
+
+  if (buffer.length === 0) {
+    throw new BranchPilotUserError('codex_agent_invalid_attachment', 'Agent image attachment is empty.')
+  }
 
   if (buffer.length > MAX_CODEX_AGENT_IMAGE_BYTES) {
     throw new BranchPilotUserError(
