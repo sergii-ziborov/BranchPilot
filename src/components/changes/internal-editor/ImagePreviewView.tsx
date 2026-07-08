@@ -3,7 +3,7 @@ import type { ImagePreview } from '../../../shared/branchPilot'
 import { SignalStatus } from '../../SignalStatus'
 import { formatBytes } from './editorPrimitives'
 
-interface ImagePreviewViewProps {
+export interface ImagePreviewViewProps {
   selectedPath: string
   selectedIsSvg: boolean
   draftText: string

@@ -2,28 +2,23 @@ import { useState } from 'react'
 import { Bot, Code2, Database, FolderOpen, GitBranch, Loader2, Pencil, Plus, RefreshCcw, Save, Trash2, X } from 'lucide-react'
 import { BranchPilotLogo } from '../BrandIcons'
 import { BackToChanges } from '../BackToChanges'
-import type { EditorPreference, TerminalPreference } from '../../shared/branchPilot'
+import type { EditorPreference, GitBackendPreference, TerminalPreference } from '../../shared/branchPilot'
 import { useController } from '../../hooks/AppControllerContext'
 import { WorktreesTagsPanel } from '../WorktreesTagsPanel'
 import { SettingsTabs, type SettingsTab } from '../settings/SettingsTabs'
 import { AssistantSettingsPanel } from '../settings/AssistantSettingsPanel'
+import { IntegrationSettingsPanel } from '../settings/IntegrationSettingsPanel'
 import { gitDefaultBranchLabel, gitSigningLabel } from '../../lib/gitConfigLabels'
-import {
-  editorPreferenceCommandHint,
-  editorPreferenceLabel,
-  terminalPreferenceCommandHint,
-  terminalPreferenceLabel
-} from '../../lib/editorLabels'
 import { gitLfsFileLabel, submoduleStatusLabel } from '../../lib/gitEntityLabels'
-import { formatDate } from '../../lib/format'
 import { InfoRow } from '../primitives'
 import { SelectableChipGroup } from '../SelectableChipGroup'
 import { assistantPolicyModes } from '../../lib/appOptions'
 
-export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
+export function ConfigView({ onBack, editorPreferences, terminalPreferences, gitBackendPreferences }: {
   onBack: () => void
   editorPreferences: EditorPreference[]
   terminalPreferences: TerminalPreference[]
+  gitBackendPreferences: GitBackendPreference[]
 }) {
   const api = window.branchPilot
   const {
@@ -31,10 +26,7 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
     assistants, assistantsChecking, checkAssistants, assistantPolicy, assistantPolicyLoading, updateAssistantPolicy,
     githubAccounts, githubAccountsLoading, githubCliStatus, loadGitHubAccounts,
     localUserName, setLocalUserName, localUserEmail, setLocalUserEmail, saveLocalGitIdentity,
-    gitConfig, editorPreference, setEditorPreference, editorCustomCommand, setEditorCustomCommand,
-    saveEditorSettings, editorSettings, editorSettingsLoading,
-    terminalPreference, setTerminalPreference, terminalCustomCommand, setTerminalCustomCommand,
-    saveTerminalSettings, terminalSettings,
+    gitConfig,
     remoteName, setRemoteName, remoteUrl, setRemoteUrl, saveRemote, editingRemoteName,
     cancelRemoteEdit, startRemoteEdit, removeRemote, snapshot,
     updateSubmodule, openSubmodule, runOperationAction, pullGitLfs,
@@ -185,87 +177,11 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences }: {
           </div>
         </section>
 
-        <section className="config-card editor-settings-card">
-          <h3>Editor</h3>
-          <label htmlFor="editor-preference">Default editor</label>
-          <select
-            id="editor-preference"
-            value={editorPreference}
-            onChange={(event) => setEditorPreference(event.target.value as EditorPreference)}
-            disabled={editorSettingsLoading || busy}
-          >
-            {editorPreferences.map((preference) => (
-              <option value={preference} key={preference}>
-                {editorPreferenceLabel(preference)}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="editor-custom-command">Custom command</label>
-          <input
-            id="editor-custom-command"
-            value={editorPreference === 'custom' ? editorCustomCommand : editorPreferenceCommandHint(editorPreference)}
-            onChange={(event) => setEditorCustomCommand(event.target.value)}
-            placeholder={editorPreferenceCommandHint(editorPreference) || 'code --goto %TARGET_PATH%'}
-            disabled={editorPreference !== 'custom' || editorSettingsLoading || busy}
-          />
-          <p className="muted-text">
-            BranchPilot also checks standard install locations on Windows, macOS, and Linux. Use <code>%TARGET_PATH%</code> only for custom commands.
-          </p>
-          <div className="config-save-row">
-            <button
-              type="button"
-              onClick={saveEditorSettings}
-              disabled={editorSettingsLoading || busy || (editorPreference === 'custom' && !editorCustomCommand.trim())}
-            >
-              <Save size={17} />
-              Save editor settings
-            </button>
-            {editorSettings?.updatedAt && (
-              <span className="config-updated-note">Updated {formatDate(editorSettings.updatedAt)}</span>
-            )}
-          </div>
-        </section>
-
-        <section className="config-card terminal-settings-card">
-          <h3>Terminal</h3>
-          <label htmlFor="terminal-preference">Default terminal</label>
-          <select
-            id="terminal-preference"
-            value={terminalPreference}
-            onChange={(event) => setTerminalPreference(event.target.value as TerminalPreference)}
-            disabled={editorSettingsLoading || busy}
-          >
-            {terminalPreferences.map((preference) => (
-              <option value={preference} key={preference}>
-                {terminalPreferenceLabel(preference)}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="terminal-custom-command">Custom command</label>
-          <input
-            id="terminal-custom-command"
-            value={terminalPreference === 'custom' ? terminalCustomCommand : terminalPreferenceCommandHint(terminalPreference)}
-            onChange={(event) => setTerminalCustomCommand(event.target.value)}
-            placeholder={terminalPreferenceCommandHint(terminalPreference) || 'wt.exe -d %TARGET_PATH%'}
-            disabled={terminalPreference !== 'custom' || editorSettingsLoading || busy}
-          />
-          <p className="muted-text">
-            BranchPilot opens the selected terminal in the repository or file folder. Use <code>%TARGET_PATH%</code> only for custom commands.
-          </p>
-          <div className="config-save-row">
-            <button
-              type="button"
-              onClick={saveTerminalSettings}
-              disabled={editorSettingsLoading || busy || (terminalPreference === 'custom' && !terminalCustomCommand.trim())}
-            >
-              <Save size={17} />
-              Save terminal settings
-            </button>
-            {terminalSettings?.updatedAt && (
-              <span className="config-updated-note">Updated {formatDate(terminalSettings.updatedAt)}</span>
-            )}
-          </div>
-        </section>
+        <IntegrationSettingsPanel
+          editorPreferences={editorPreferences}
+          terminalPreferences={terminalPreferences}
+          gitBackendPreferences={gitBackendPreferences}
+        />
           </>
         )}
 

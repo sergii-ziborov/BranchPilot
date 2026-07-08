@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { DiffLine } from '../../shared/branchPilot'
-import { buildSplitDiffRows } from '../../shared/diffView'
+import { buildSplitDiffRows, type SplitDiffRow } from '../../shared/diffView'
 import { highlight } from '../../lib/highlight'
 import { renderSegs, shouldWordDiff, wordDiff } from '../../lib/wordDiff'
 import { renderCssColorizedContent, type CssColorEditDraft } from './CssColorSwatch'
@@ -11,6 +11,7 @@ import {
   eventIsInLineSelectGutter,
   formatLineNumber,
   hasActiveTextSelection,
+  splitRowSelectKeys,
   targetIsInlineControl
 } from './diffLineUtils'
 import type { DiffLineContextMenuTarget, DiffLineEditorTarget } from './diffViewTypes'
@@ -117,6 +118,102 @@ function SplitDiffCell({
   )
 }
 
+/**
+ * Shared props for the extracted single-row views. These views hold no list
+ * state so they can be rendered both by the eager list components below and by
+ * the virtualized body, guaranteeing identical output between the two paths.
+ */
+interface DiffRowViewCommon {
+  lang: string
+  filePath: string
+  canEditCssColors?: boolean
+  onUpdateCssColor?: (request: CssColorEditDraft) => Promise<void> | void
+  onOpenLine?: (target: DiffLineEditorTarget) => void
+  selectable?: boolean
+  selected?: Set<string>
+  selectedDiscardPatch?: string
+  selectedLineStaged?: boolean
+  onLineSelect?: (key: string, shift: boolean) => void
+  onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
+}
+
+/** Renders a single side-by-side row (old/new pair) of the split diff view. */
+export function SplitDiffRowView({
+  row,
+  oldKey,
+  newKey,
+  lang,
+  filePath,
+  canEditCssColors,
+  onUpdateCssColor,
+  onOpenLine,
+  selected,
+  selectedDiscardPatch,
+  selectedLineStaged,
+  onLineSelect,
+  onOpenContextMenu
+}: DiffRowViewCommon & {
+  row: SplitDiffRow
+  oldKey?: string
+  newKey?: string
+}) {
+  const { oldLine, newLine } = row
+  let oldContent: ReactNode = oldLine ? highlight(oldLine.content, lang) : ''
+  let newContent: ReactNode = newLine
+    ? renderCssColorizedContent({
+        content: newLine.content,
+        lang,
+        filePath,
+        lineNumber: newLine.newLineNumber,
+        canEditCssColors,
+        onUpdateCssColor
+      })
+    : ''
+  if (
+    !canEditCssColors &&
+    oldLine?.type === 'remove' &&
+    newLine?.type === 'add' &&
+    shouldWordDiff(oldLine.content, newLine.content)
+  ) {
+    const { oldSegs, newSegs } = wordDiff(oldLine.content, newLine.content)
+    oldContent = renderSegs(oldSegs, lang, 'del')
+    newContent = renderSegs(newSegs, lang, 'add')
+  }
+
+  return (
+    <div className="split-diff-row">
+      <SplitDiffCell
+        line={oldLine}
+        side="old"
+        content={oldContent}
+        filePath={filePath}
+        selectKey={oldKey}
+        selected={Boolean(oldKey && selected?.has(oldKey))}
+        selectedLineCount={selected?.size ?? 0}
+        selectedDiscardPatch={selectedDiscardPatch}
+        selectedLineStaged={selectedLineStaged}
+        onLineSelect={onLineSelect}
+        onOpenLine={onOpenLine}
+        onOpenContextMenu={onOpenContextMenu}
+      />
+      <SplitDiffCell
+        line={newLine}
+        side="new"
+        content={newContent}
+        filePath={filePath}
+        selectKey={newKey}
+        selected={Boolean(newKey && selected?.has(newKey))}
+        selectedLineCount={selected?.size ?? 0}
+        selectedDiscardPatch={selectedDiscardPatch}
+        selectedLineStaged={selectedLineStaged}
+        onLineSelect={onLineSelect}
+        onOpenLine={onOpenLine}
+        onOpenContextMenu={onOpenContextMenu}
+      />
+    </div>
+  )
+}
+
 export function SplitDiffLines({
   lines,
   lang,
@@ -131,91 +228,106 @@ export function SplitDiffLines({
   selectedLineStaged,
   onLineSelect,
   onOpenContextMenu
-}: {
+}: DiffRowViewCommon & {
   lines: DiffLine[]
-  lang: string
-  filePath: string
-  canEditCssColors?: boolean
-  onUpdateCssColor?: (request: CssColorEditDraft) => Promise<void> | void
-  onOpenLine?: (target: DiffLineEditorTarget) => void
   keyPrefix?: string
-  selectable?: boolean
-  selected?: Set<string>
-  selectedDiscardPatch?: string
-  selectedLineStaged?: boolean
-  onLineSelect?: (key: string, shift: boolean) => void
-  onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
 }) {
-  const lineIndexes = new Map<DiffLine, number>()
-  lines.forEach((line, lineIndex) => lineIndexes.set(line, lineIndex))
-
-  const selectableKey = (line?: DiffLine): string | undefined => {
-    if (!selectable || !keyPrefix || !line || (line.type !== 'add' && line.type !== 'remove')) return undefined
-    const lineIndex = lineIndexes.get(line)
-    return lineIndex === undefined ? undefined : `${keyPrefix}:${lineIndex}`
-  }
+  const rows = buildSplitDiffRows(lines)
+  const keys = splitRowSelectKeys(lines, rows, keyPrefix, selectable)
 
   return (
     <div className="split-diff-lines">
-      {buildSplitDiffRows(lines).map((row, rowIndex) => {
-        const { oldLine, newLine } = row
-        const oldKey = selectableKey(oldLine)
-        const newKey = selectableKey(newLine)
-        let oldContent: ReactNode = oldLine ? highlight(oldLine.content, lang) : ''
-        let newContent: ReactNode = newLine
+      {rows.map((row, rowIndex) => (
+        <SplitDiffRowView
+          key={`${rowIndex}-${row.oldLine?.content ?? ''}-${row.newLine?.content ?? ''}`}
+          row={row}
+          oldKey={keys[rowIndex].oldKey}
+          newKey={keys[rowIndex].newKey}
+          lang={lang}
+          filePath={filePath}
+          canEditCssColors={canEditCssColors}
+          onUpdateCssColor={onUpdateCssColor}
+          onOpenLine={onOpenLine}
+          selected={selected}
+          selectedDiscardPatch={selectedDiscardPatch}
+          selectedLineStaged={selectedLineStaged}
+          onLineSelect={onLineSelect}
+          onOpenContextMenu={onOpenContextMenu}
+        />
+      ))}
+    </div>
+  )
+}
+
+/** Renders a single line of the unified diff view. */
+export function UnifiedDiffLineView({
+  line,
+  selectKey,
+  wordContent,
+  lang,
+  filePath,
+  canEditCssColors,
+  onUpdateCssColor,
+  onOpenLine,
+  selectable,
+  selected,
+  selectedDiscardPatch,
+  selectedLineStaged,
+  onLineSelect,
+  onOpenContextMenu
+}: DiffRowViewCommon & {
+  line: DiffLine
+  selectKey: string
+  wordContent?: ReactNode
+}) {
+  const changeLine = line.type === 'add' || line.type === 'remove'
+  const canSelect = Boolean(selectable && changeLine && onLineSelect)
+  const isSelected = Boolean(selected?.has(selectKey))
+
+  return (
+    <code
+      className={`diff-line line-${line.type}${canSelect ? ' selectable' : ''}${isSelected ? ' line-selected' : ''}`}
+      onClick={(event) => {
+        if (!canSelect || !eventIsInLineSelectGutter(event) || targetIsInlineControl(event.target) || hasActiveTextSelection()) return
+        onLineSelect!(selectKey, event.shiftKey)
+      }}
+      onContextMenu={(event) => {
+        if (!onOpenContextMenu) return
+        event.preventDefault()
+        event.stopPropagation()
+        onOpenContextMenu({
+          x: event.clientX,
+          y: event.clientY,
+          filePath,
+          line: line.newLineNumber,
+          lineText: line.content,
+          ...(isSelected && selectedDiscardPatch?.trim()
+            ? {
+                selectedLineCount: selected?.size ?? 0,
+                selectedLinePatch: selectedDiscardPatch,
+                selectedLineStaged
+              }
+            : {}),
+          ...browserSelectionForLine(line.content)
+        })
+      }}
+    >
+      <DiffLineNumber filePath={filePath} lineNumber={line.oldLineNumber} openLine={line.newLineNumber} lineText={line.content} selectable={canSelect} onOpenLine={onOpenLine} />
+      <DiffLineNumber filePath={filePath} lineNumber={line.newLineNumber} openLine={line.newLineNumber} lineText={line.content} selectable={canSelect} onOpenLine={onOpenLine} />
+      <span className="line-marker">{diffLinePrefix(line)}</span>
+      <span className="line-content">
+        {canEditCssColors
           ? renderCssColorizedContent({
-              content: newLine.content,
+              content: line.content,
               lang,
               filePath,
-              lineNumber: newLine.newLineNumber,
+              lineNumber: line.newLineNumber,
               canEditCssColors,
               onUpdateCssColor
             })
-          : ''
-        if (
-          !canEditCssColors &&
-          oldLine?.type === 'remove' &&
-          newLine?.type === 'add' &&
-          shouldWordDiff(oldLine.content, newLine.content)
-        ) {
-          const { oldSegs, newSegs } = wordDiff(oldLine.content, newLine.content)
-          oldContent = renderSegs(oldSegs, lang, 'del')
-          newContent = renderSegs(newSegs, lang, 'add')
-        }
-        return (
-          <div className="split-diff-row" key={`${rowIndex}-${oldLine?.content ?? ''}-${newLine?.content ?? ''}`}>
-            <SplitDiffCell
-              line={oldLine}
-              side="old"
-              content={oldContent}
-              filePath={filePath}
-              selectKey={oldKey}
-              selected={Boolean(oldKey && selected?.has(oldKey))}
-              selectedLineCount={selected?.size ?? 0}
-              selectedDiscardPatch={selectedDiscardPatch}
-              selectedLineStaged={selectedLineStaged}
-              onLineSelect={onLineSelect}
-              onOpenLine={onOpenLine}
-              onOpenContextMenu={onOpenContextMenu}
-            />
-            <SplitDiffCell
-              line={newLine}
-              side="new"
-              content={newContent}
-              filePath={filePath}
-              selectKey={newKey}
-              selected={Boolean(newKey && selected?.has(newKey))}
-              selectedLineCount={selected?.size ?? 0}
-              selectedDiscardPatch={selectedDiscardPatch}
-              selectedLineStaged={selectedLineStaged}
-              onLineSelect={onLineSelect}
-              onOpenLine={onOpenLine}
-              onOpenContextMenu={onOpenContextMenu}
-            />
-          </div>
-        )
-      })}
-    </div>
+          : wordContent ?? highlight(line.content, lang)}
+      </span>
+    </code>
   )
 }
 
@@ -233,76 +345,32 @@ export function UnifiedDiffLines({
   selectedLineStaged,
   onLineSelect,
   onOpenContextMenu
-}: {
+}: DiffRowViewCommon & {
   lines: DiffLine[]
-  lang: string
-  filePath: string
-  canEditCssColors?: boolean
-  onUpdateCssColor?: (request: CssColorEditDraft) => Promise<void> | void
-  onOpenLine?: (target: DiffLineEditorTarget) => void
   keyPrefix?: string
-  selectable?: boolean
-  selected?: Set<string>
-  selectedDiscardPatch?: string
-  selectedLineStaged?: boolean
-  onLineSelect?: (key: string, shift: boolean) => void
-  onOpenContextMenu?: (target: DiffLineContextMenuTarget) => void
 }) {
   const wordContent = buildUnifiedWordDiff(lines, lang)
   return (
     <div className="diff-lines">
-      {lines.map((line, lineIndex) => {
-        const changeLine = line.type === 'add' || line.type === 'remove'
-        const key = `${keyPrefix}:${lineIndex}`
-        const canSelect = Boolean(selectable && changeLine && onLineSelect)
-        const isSelected = Boolean(selected?.has(key))
-        return (
-          <code
-            className={`diff-line line-${line.type}${canSelect ? ' selectable' : ''}${isSelected ? ' line-selected' : ''}`}
-            key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}
-            onClick={(event) => {
-              if (!canSelect || !eventIsInLineSelectGutter(event) || targetIsInlineControl(event.target) || hasActiveTextSelection()) return
-              onLineSelect!(key, event.shiftKey)
-            }}
-            onContextMenu={(event) => {
-              if (!onOpenContextMenu) return
-              event.preventDefault()
-              event.stopPropagation()
-              onOpenContextMenu({
-                x: event.clientX,
-                y: event.clientY,
-                filePath,
-                line: line.newLineNumber,
-                lineText: line.content,
-                ...(isSelected && selectedDiscardPatch?.trim()
-                  ? {
-                      selectedLineCount: selected?.size ?? 0,
-                      selectedLinePatch: selectedDiscardPatch,
-                      selectedLineStaged
-                    }
-                  : {}),
-                ...browserSelectionForLine(line.content)
-              })
-            }}
-          >
-            <DiffLineNumber filePath={filePath} lineNumber={line.oldLineNumber} openLine={line.newLineNumber} lineText={line.content} selectable={canSelect} onOpenLine={onOpenLine} />
-            <DiffLineNumber filePath={filePath} lineNumber={line.newLineNumber} openLine={line.newLineNumber} lineText={line.content} selectable={canSelect} onOpenLine={onOpenLine} />
-            <span className="line-marker">{diffLinePrefix(line)}</span>
-            <span className="line-content">
-              {canEditCssColors
-                ? renderCssColorizedContent({
-                    content: line.content,
-                    lang,
-                    filePath,
-                    lineNumber: line.newLineNumber,
-                    canEditCssColors,
-                    onUpdateCssColor
-                  })
-                : wordContent.get(lineIndex) ?? highlight(line.content, lang)}
-            </span>
-          </code>
-        )
-      })}
+      {lines.map((line, lineIndex) => (
+        <UnifiedDiffLineView
+          key={`${lineIndex}-${line.type}-${line.content.slice(0, 20)}`}
+          line={line}
+          selectKey={`${keyPrefix}:${lineIndex}`}
+          wordContent={wordContent.get(lineIndex)}
+          lang={lang}
+          filePath={filePath}
+          canEditCssColors={canEditCssColors}
+          onUpdateCssColor={onUpdateCssColor}
+          onOpenLine={onOpenLine}
+          selectable={selectable}
+          selected={selected}
+          selectedDiscardPatch={selectedDiscardPatch}
+          selectedLineStaged={selectedLineStaged}
+          onLineSelect={onLineSelect}
+          onOpenContextMenu={onOpenContextMenu}
+        />
+      ))}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckSquare, FileImage, FileText, Plus, Trash2, X } from 'lucide-react'
 import type { DiffContextResult, DiffFile, DiffHunk, DiffResult, ImagePreview } from '../shared/branchPilot'
 import { langFromPath } from '../lib/highlight'
@@ -7,6 +7,8 @@ import { RawDiffPreview } from './diff/RawDiffPreview'
 import { isCssColorFile, type CssColorEditDraft } from './diff/CssColorSwatch'
 import { DiffStatBadges } from './DiffStatBadges'
 import { SplitDiffLines, UnifiedDiffLines } from './diff/DiffLines'
+import { buildDiffRows } from './diff/diffRowModel'
+import { VirtualizedDiffBody } from './diff/VirtualizedDiffBody'
 import { DiffContextExpander } from './diff/DiffContextExpander'
 import {
   alignLoadedContextLineNumbers,
@@ -30,6 +32,11 @@ import type {
 } from './diff/diffViewTypes'
 
 export type { DiffLineEditorTarget, DiffLineContextMenuTarget } from './diff/diffViewTypes'
+
+// Diffs at or below this line count render eagerly (exactly as before). Larger
+// diffs switch to the windowed body so only visible lines are in the DOM. The
+// threshold keeps small/typical diffs on the battle-tested eager path.
+const VIRTUALIZE_LINE_THRESHOLD = 400
 
 export function DiffPreview({
   diff,
@@ -203,6 +210,29 @@ export function DiffPreview({
     })
   }
 
+  // Flatten the diff into a windowable row list. Recomputed only when the diff,
+  // display mode, expansion, or loaded context change (never on selection). Only
+  // built for the standalone (own scroll container) case — the mixed side-by-side
+  // layout uses `display: contents`, so it has no scrollport of its own to window.
+  const canSelectLinesModel = Boolean(onStageLines || onUnstageLines || onDiscardLines)
+  const canLoadMoreContextModel = Boolean(onLoadContext || onExpandContext)
+  const hasCssColorEditor = Boolean(onUpdateCssColor)
+  const diffRowModel = useMemo(() => {
+    if (!diff || diff.binary || !diff.text.trim() || diff.tooLarge || diff.files.length === 0) return null
+    if (sectionLabel) return null
+    return buildDiffRows({
+      files: diff.files,
+      displayMode,
+      hideFileHeading,
+      extraContext,
+      expanded,
+      canSelectLines: canSelectLinesModel,
+      canLoadMoreContext: canLoadMoreContextModel,
+      hasCssColorEditor
+    })
+  }, [diff, displayMode, hideFileHeading, extraContext, expanded, sectionLabel, canSelectLinesModel, canLoadMoreContextModel, hasCssColorEditor])
+  const shouldVirtualize = diffRowModel !== null && diffRowModel.lineCount > VIRTUALIZE_LINE_THRESHOLD
+
   if (!diff) {
     return (
       <div className="diff-empty">
@@ -253,6 +283,66 @@ export function DiffPreview({
     sectionLabel ? 'structured-diff-sectioned' : '',
     sectionTone ? `diff-section-${sectionTone}` : ''
   ].filter(Boolean).join(' ')
+
+  const selectionBar = selected.size > 0 ? (
+    <div className="diff-selection-bar">
+      <span><CheckSquare size={15} /> {selected.size} line{selected.size === 1 ? '' : 's'} selected</span>
+      <div className="diff-selection-actions">
+        {mode === 'unstaged' && onStageLines && (
+          <button type="button" onClick={stageSelected} disabled={busy}>
+            <Plus size={15} />
+            Stage selected
+          </button>
+        )}
+        {mode === 'unstaged' && onDiscardLines && (
+          <button type="button" className="danger" onClick={discardSelected} disabled={busy}>
+            <Trash2 size={15} />
+            Discard selected
+          </button>
+        )}
+        {mode === 'staged' && onUnstageLines && (
+          <button type="button" onClick={unstageSelected} disabled={busy} title="Exclude selected lines from the commit">
+            <X size={15} />
+            Unstage selected
+          </button>
+        )}
+        {mode === 'staged' && onDiscardLines && (
+          <button type="button" className="danger" onClick={discardSelected} disabled={busy} title="Unstage and permanently discard selected lines">
+            <Trash2 size={15} />
+            Discard selected
+          </button>
+        )}
+        <button type="button" className="secondary" onClick={() => { setSelected(new Set()); anchorRef.current = null }}>
+          Clear
+        </button>
+      </div>
+    </div>
+  ) : null
+
+  if (shouldVirtualize && diffRowModel) {
+    return (
+      <VirtualizedDiffBody
+        className={sectionClassName}
+        model={diffRowModel}
+        displayMode={displayMode}
+        resetKey={`${diff.filePath}:${diff.staged}`}
+        mode={mode}
+        busy={busy}
+        onStageHunk={onStageHunk}
+        onUnstageHunk={onUnstageHunk}
+        onDiscardHunk={onDiscardHunk}
+        onExpand={(file, hunk, hunkIndex, direction) => { void loadAdditionalContext(file, hunk, hunkIndex, direction) }}
+        onOpenLine={onOpenLine}
+        onOpenContextMenu={onOpenContextMenu}
+        onUpdateCssColor={onUpdateCssColor}
+        selected={selected}
+        selectedDiscardPatch={selectedDiscardPatch}
+        selectedLineStaged={selectedLineStaged}
+        onLineSelect={selectLine}
+        footer={selectionBar}
+      />
+    )
+  }
 
   return (
     <div className={sectionClassName}>
@@ -362,40 +452,7 @@ export function DiffPreview({
         </section>
       ))}
 
-      {selected.size > 0 && (
-        <div className="diff-selection-bar">
-          <span><CheckSquare size={15} /> {selected.size} line{selected.size === 1 ? '' : 's'} selected</span>
-          <div className="diff-selection-actions">
-            {mode === 'unstaged' && onStageLines && (
-              <button type="button" onClick={stageSelected} disabled={busy}>
-                <Plus size={15} />
-                Stage selected
-              </button>
-            )}
-            {mode === 'unstaged' && onDiscardLines && (
-              <button type="button" className="danger" onClick={discardSelected} disabled={busy}>
-                <Trash2 size={15} />
-                Discard selected
-              </button>
-            )}
-            {mode === 'staged' && onUnstageLines && (
-              <button type="button" onClick={unstageSelected} disabled={busy} title="Exclude selected lines from the commit">
-                <X size={15} />
-                Unstage selected
-              </button>
-            )}
-            {mode === 'staged' && onDiscardLines && (
-              <button type="button" className="danger" onClick={discardSelected} disabled={busy} title="Unstage and permanently discard selected lines">
-                <Trash2 size={15} />
-                Discard selected
-              </button>
-            )}
-            <button type="button" className="secondary" onClick={() => { setSelected(new Set()); anchorRef.current = null }}>
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
+      {selectionBar}
     </div>
   )
 }

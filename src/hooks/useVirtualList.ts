@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getVirtualListWindow } from '../shared/virtualList'
 
 const VIRTUAL_LIST_OVERSCAN = 8
@@ -12,6 +12,12 @@ export function useVirtualList<T>(items: T[], itemHeight: number, resetKey = '')
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(VIRTUAL_LIST_FALLBACK_HEIGHT)
+  const scrollFrameRef = useRef<number | null>(null)
+  const pendingScrollTopRef = useRef(0)
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current)
+  }, [])
 
   useEffect(() => {
     const element = containerElement
@@ -72,6 +78,17 @@ export function useVirtualList<T>(items: T[], itemHeight: number, resetKey = '')
     containerRef: setContainerElement,
     window,
     items: visibleItems,
-    onScroll: (event: { currentTarget: HTMLDivElement }) => setScrollTop(event.currentTarget.scrollTop)
+    // Coalesce scroll events into one state update per animation frame so a fast
+    // scroll doesn't re-render the parent (and any open diff panel) on every tick.
+    onScroll: (event: { currentTarget: HTMLDivElement }) => {
+      pendingScrollTopRef.current = event.currentTarget.scrollTop
+
+      if (scrollFrameRef.current !== null) return
+
+      scrollFrameRef.current = requestAnimationFrame(() => {
+        scrollFrameRef.current = null
+        setScrollTop((current) => (current === pendingScrollTopRef.current ? current : pendingScrollTopRef.current))
+      })
+    }
   }
 }

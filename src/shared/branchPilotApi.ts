@@ -67,6 +67,10 @@ import type {
   EditorOpenRequest,
   EditorSettings,
   EditorSettingsUpdate,
+  GitBackendSettings,
+  GitBackendSettingsUpdate,
+  GitMonitorSettings,
+  GitMonitorSettingsUpdate,
   TerminalSettings,
   TerminalSettingsUpdate,
   ExportPatchRequest,
@@ -159,6 +163,7 @@ export interface GitHubPullRequestDetails extends GitHubPullRequest {
   additions: number
   deletions: number
   changedFiles: number
+  reviewDecision?: string
 }
 
 export interface GitHubPullRequestCheck {
@@ -338,6 +343,10 @@ export interface BranchPilotApi {
   setEditorSettings: (update: EditorSettingsUpdate) => Promise<ApiResult<EditorSettings>>
   getTerminalSettings: () => Promise<ApiResult<TerminalSettings>>
   setTerminalSettings: (update: TerminalSettingsUpdate) => Promise<ApiResult<TerminalSettings>>
+  getGitBackendSettings: () => Promise<ApiResult<GitBackendSettings>>
+  setGitBackendSettings: (update: GitBackendSettingsUpdate) => Promise<ApiResult<GitBackendSettings>>
+  getGitMonitorSettings: () => Promise<ApiResult<GitMonitorSettings>>
+  setGitMonitorSettings: (update: GitMonitorSettingsUpdate) => Promise<ApiResult<GitMonitorSettings>>
   getActivityLog: (query: ActivityLogQuery) => Promise<ApiResult<ActivityLogSnapshot>>
   clearActivityLog: (repoPath: string, confirmed: boolean) => Promise<ApiResult<ActivityLogSnapshot>>
   generateDailyReview: (request: DailyReviewRequest) => Promise<ApiResult<DailyReviewReport>>

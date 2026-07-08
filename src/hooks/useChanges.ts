@@ -18,6 +18,12 @@ import { useVirtualList } from './useVirtualList'
 type DiffDisplayMode = 'unified' | 'split'
 type ChangeSearchMode = 'path' | 'content' | 'all'
 
+interface DiffCacheEntry {
+  diff: DiffResult
+  relatedDiff: DiffResult | null
+  imagePreview: ImagePreview | null
+}
+
 const CHANGE_CONTENT_SEARCH_LIMIT = 120
 const DEFAULT_DIFF_CONTEXT_LINES = 3
 const EXPANDED_DIFF_CONTEXT_LINES = 20
@@ -93,6 +99,7 @@ export function useChanges({
   const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
   const [diffExpanded, setDiffExpanded] = useState(false)
   const [diff, setDiff] = useState<DiffResult | null>(null)
+  const [diffLoading, setDiffLoading] = useState(false)
   const [relatedDiff, setRelatedDiff] = useState<DiffResult | null>(null)
   const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null)
   const [patchScope, setPatchScope] = useState<PatchScope>('working-tree')
@@ -104,6 +111,10 @@ export function useChanges({
   const diffRequestIdRef = useRef(0)
   const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
   const changeIndexKey = useMemo(() => getChangeIndexKey(snapshot), [snapshot])
+  // Diff cache: instant re-clicks within one snapshot. Invalidated whenever the
+  // snapshot's change set changes (any stage/unstage/edit) so a stale diff never shows.
+  const diffCacheRef = useRef<Map<string, DiffCacheEntry>>(new Map())
+  const diffCacheKeyRef = useRef(changeIndexKey)
 
   const filteredChanges = useMemo(() => {
     // Stable alphabetical order so staging/unstaging a file never reorders the
@@ -148,6 +159,22 @@ export function useChanges({
     const requestId = diffRequestIdRef.current + 1
     diffRequestIdRef.current = requestId
     const staged = mode === 'staged' && change.staged
+
+    // Drop the cache whenever the working tree changed, so no stale diff survives.
+    if (diffCacheKeyRef.current !== changeIndexKey) {
+      diffCacheRef.current.clear()
+      diffCacheKeyRef.current = changeIndexKey
+    }
+
+    const cacheKey = `${change.path}|${staged ? 'S' : 'U'}|${diffIgnoreWhitespace ? 'W' : 'w'}|${diffExpanded ? 'E' : 'e'}`
+    const cached = diffCacheRef.current.get(cacheKey)
+    if (cached) {
+      setDiff(cached.diff)
+      setRelatedDiff(cached.relatedDiff)
+      setImagePreview(cached.imagePreview)
+      return
+    }
+
     const diffRequest = {
       repoPath: currentRepoPath,
       filePath: change.path,
@@ -156,32 +183,54 @@ export function useChanges({
     }
     const relatedMode = getRelatedDiffMode(change, mode)
     const relatedStaged = relatedMode === 'staged'
-    const relatedPromise = relatedMode
-      ? api.getDiff({ ...diffRequest, staged: relatedStaged }).catch(() => null)
-      : Promise.resolve(null)
-    const result = await api.getDiff({ ...diffRequest, staged })
 
-    if (diffRequestIdRef.current !== requestId) return
+    // Cache missed: an actual fetch follows, so raise the curtain now. The finally
+    // clears it only when this request is still the newest, so a stale response
+    // can't hide a curtain that a newer load just raised.
+    setDiffLoading(true)
+    try {
+      const relatedPromise = relatedMode
+        ? api.getDiff({ ...diffRequest, staged: relatedStaged }).catch(() => null)
+        : Promise.resolve(null)
+      const result = await api.getDiff({ ...diffRequest, staged })
 
-    if (result.ok) {
-      setDiff(result.data)
-
-      if (result.data.binary && typeof api.getImagePreview === 'function' && /\.(png|jpe?g|gif|webp|bmp|svg|ico|avif)$/i.test(change.path)) {
-        const preview = await api.getImagePreview({ repoPath: currentRepoPath, filePath: change.path }).catch(() => null)
-        if (diffRequestIdRef.current !== requestId) return
-        setImagePreview(preview && preview.ok ? preview.data : null)
-      } else {
-        setImagePreview(null)
-      }
-
-      const relatedResult = await relatedPromise
       if (diffRequestIdRef.current !== requestId) return
-      setRelatedDiff(relatedResult?.ok && relatedResult.data.text.trim() ? relatedResult.data : null)
-    } else {
-      setDiff(null)
-      setRelatedDiff(null)
-      setImagePreview(null)
-      setError(result.error.message)
+
+      if (result.ok) {
+        setDiff(result.data)
+        let resolvedImagePreview: ImagePreview | null = null
+
+        if (result.data.binary && typeof api.getImagePreview === 'function' && /\.(png|jpe?g|gif|webp|bmp|svg|ico|avif)$/i.test(change.path)) {
+          const preview = await api.getImagePreview({ repoPath: currentRepoPath, filePath: change.path }).catch(() => null)
+          if (diffRequestIdRef.current !== requestId) return
+          resolvedImagePreview = preview && preview.ok ? preview.data : null
+          setImagePreview(resolvedImagePreview)
+        } else {
+          setImagePreview(null)
+        }
+
+        const relatedResult = await relatedPromise
+        if (diffRequestIdRef.current !== requestId) return
+        const resolvedRelatedDiff = relatedResult?.ok && relatedResult.data.text.trim() ? relatedResult.data : null
+        setRelatedDiff(resolvedRelatedDiff)
+
+        // Only cache once still the current snapshot, so a mid-flight stage can't poison it.
+        if (diffCacheKeyRef.current === changeIndexKey) {
+          diffCacheRef.current.set(cacheKey, {
+            diff: result.data,
+            relatedDiff: resolvedRelatedDiff,
+            imagePreview: resolvedImagePreview
+          })
+        }
+      } else {
+        setDiff(null)
+        setRelatedDiff(null)
+        setImagePreview(null)
+        setError(result.error.message)
+      }
+    } finally {
+      // Guard so a stale request can't clear a curtain a newer load just raised.
+      if (diffRequestIdRef.current === requestId) setDiffLoading(false)
     }
   }
 
@@ -513,7 +562,7 @@ export function useChanges({
     changeSearchMode, setChangeSearchMode, changeContentIndexing,
     diffMode, setDiffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
     diffExpanded, setDiffExpanded,
-    diff, relatedDiff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
+    diff, diffLoading, relatedDiff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
     filteredChanges, selectedChange, selectedDiffStats, selectedRelatedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
     stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked,
     loadDiff, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,

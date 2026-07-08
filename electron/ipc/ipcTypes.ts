@@ -4,6 +4,7 @@ import type { AssistantPolicyService } from '../lib/assistantPolicyService.js'
 import type { CommandRunner } from '../lib/commandRunner.js'
 import type { DailyReviewService } from '../lib/dailyReviewService.js'
 import type { ExternalEditorService } from '../lib/editorService.js'
+import type { GitMonitorService } from '../lib/gitMonitorService.js'
 import type { ProjectMemoryService } from '../lib/projectMemoryService.js'
 import type { ProjectWikiService } from '../lib/projectWikiService.js'
 import type { RepositoryService } from '../lib/repositoryService.js'
@@ -17,6 +18,7 @@ export interface RegisterIpcHandlersServices {
   projectMemoryService: ProjectMemoryService
   projectWikiService: ProjectWikiService
   dailyReviewService: DailyReviewService
+  gitMonitorService: GitMonitorService
   settingsStore: SettingsStore
   commandRunner: CommandRunner
   projectMemoryDir: string

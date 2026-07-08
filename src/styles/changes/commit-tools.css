@@ -375,7 +375,10 @@
   position: absolute;
   z-index: 220;
   left: 0;
-  top: calc(100% + 8px);
+  /* Opens upward: the identity menu sits at the bottom of the changes panel, so a
+     downward popover would spill off-screen. */
+  bottom: calc(100% + 8px);
+  top: auto;
   display: grid;
   width: min(330px, calc(100vw - 28px));
   gap: 10px;
@@ -391,11 +394,12 @@
   content: '';
   position: absolute;
   left: 13px;
-  top: -6px;
+  bottom: -6px;
+  top: auto;
   width: 10px;
   height: 10px;
-  border-left: 1px solid var(--border);
-  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   background: var(--panel);
   transform: rotate(45deg);
 }
@@ -512,9 +516,11 @@
   position: fixed;
   left: 24px;
   top: auto;
-  bottom: 70px;
-  max-height: min(360px, calc(100vh - 110px));
-  overflow: hidden;
+  /* Raised above the commit composer/buttons so the identity list is comfortably
+     clear of the bottom controls. */
+  bottom: 132px;
+  max-height: min(360px, calc(100vh - 180px));
+  overflow: auto;
 }
 
 .changes-panel-compact .commit-identity-popover::after {

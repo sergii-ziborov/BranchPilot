@@ -100,6 +100,52 @@
   stroke: currentColor;
 }
 
+/* Git backend: a two-option segmented control. Each option shows its title plus a
+   short capability line, so it overrides the accent-filled default .config-card button. */
+.git-backend-options {
+  display: grid;
+  gap: 8px;
+}
+
+.config-card .git-backend-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 3px;
+  min-height: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  text-align: left;
+}
+
+.config-card .git-backend-option strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.config-card .git-backend-option span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-transform: none;
+  white-space: normal;
+}
+
+.config-card .git-backend-option.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+}
+
+.config-card .git-backend-option:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .config-save-row {
   display: flex;
   align-items: center;

@@ -5,6 +5,11 @@ import type {
   EditorPreference,
   EditorSettings,
   EditorSettingsUpdate,
+  GitBackendPreference,
+  GitBackendSettings,
+  GitBackendSettingsUpdate,
+  GitMonitorSettings,
+  GitMonitorSettingsUpdate,
   TerminalPreference,
   TerminalSettings,
   TerminalSettingsUpdate,
@@ -17,6 +22,8 @@ interface PersistedSettings {
   assistantPolicies: Record<string, AssistantPolicySettings>
   editorSettings: EditorSettings
   terminalSettings: TerminalSettings
+  gitBackendSettings: GitBackendSettings
+  gitMonitorSettings: GitMonitorSettings
 }
 
 const DEFAULT_SETTINGS: PersistedSettings = {
@@ -28,6 +35,16 @@ const DEFAULT_SETTINGS: PersistedSettings = {
   },
   terminalSettings: {
     preference: 'auto'
+  },
+  gitBackendSettings: {
+    preference: 'console'
+  },
+  gitMonitorSettings: {
+    enabled: false,
+    intervalSeconds: 60,
+    notifyMerged: true,
+    notifyChecks: true,
+    notifyReviews: true
   }
 }
 
@@ -136,6 +153,45 @@ export class SettingsStore {
     return settings
   }
 
+  async getGitBackendSettings(): Promise<GitBackendSettings> {
+    return (await this.read()).gitBackendSettings
+  }
+
+  async setGitBackendSettings(update: GitBackendSettingsUpdate): Promise<GitBackendSettings> {
+    const persisted = await this.read()
+    const settings: GitBackendSettings = {
+      preference: normalizeGitBackendPreference(update.preference),
+      updatedAt: new Date().toISOString()
+    }
+
+    persisted.gitBackendSettings = settings
+    await this.write(persisted)
+
+    return settings
+  }
+
+  async getGitMonitorSettings(): Promise<GitMonitorSettings> {
+    return (await this.read()).gitMonitorSettings
+  }
+
+  async setGitMonitorSettings(update: GitMonitorSettingsUpdate): Promise<GitMonitorSettings> {
+    const persisted = await this.read()
+    const current = persisted.gitMonitorSettings
+    const settings: GitMonitorSettings = normalizeGitMonitorSettings({
+      enabled: update.enabled ?? current.enabled,
+      intervalSeconds: update.intervalSeconds ?? current.intervalSeconds,
+      notifyMerged: update.notifyMerged ?? current.notifyMerged,
+      notifyChecks: update.notifyChecks ?? current.notifyChecks,
+      notifyReviews: update.notifyReviews ?? current.notifyReviews,
+      updatedAt: new Date().toISOString()
+    })
+
+    persisted.gitMonitorSettings = settings
+    await this.write(persisted)
+
+    return settings
+  }
+
   private async read(): Promise<PersistedSettings> {
     try {
       const raw = await fs.readFile(this.filePath, 'utf8')
@@ -149,7 +205,9 @@ export class SettingsStore {
         pinnedRepositoryPaths,
         assistantPolicies: isAssistantPolicyRecord(parsed.assistantPolicies) ? parsed.assistantPolicies : {},
         editorSettings: normalizeEditorSettings(parsed.editorSettings),
-        terminalSettings: normalizeTerminalSettings(parsed.terminalSettings)
+        terminalSettings: normalizeTerminalSettings(parsed.terminalSettings),
+        gitBackendSettings: normalizeGitBackendSettings(parsed.gitBackendSettings),
+        gitMonitorSettings: normalizeGitMonitorSettings(parsed.gitMonitorSettings)
       }
     } catch {
       return {
@@ -157,7 +215,9 @@ export class SettingsStore {
         pinnedRepositoryPaths: [...DEFAULT_SETTINGS.pinnedRepositoryPaths],
         assistantPolicies: { ...DEFAULT_SETTINGS.assistantPolicies },
         editorSettings: { ...DEFAULT_SETTINGS.editorSettings },
-        terminalSettings: { ...DEFAULT_SETTINGS.terminalSettings }
+        terminalSettings: { ...DEFAULT_SETTINGS.terminalSettings },
+        gitBackendSettings: { ...DEFAULT_SETTINGS.gitBackendSettings },
+        gitMonitorSettings: { ...DEFAULT_SETTINGS.gitMonitorSettings }
       }
     }
   }
@@ -275,6 +335,59 @@ function isTerminalPreference(value: unknown): value is TerminalPreference {
     value === 'alacritty' ||
     value === 'wezterm' ||
     value === 'custom'
+}
+
+function normalizeGitBackendSettings(value: unknown): GitBackendSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...DEFAULT_SETTINGS.gitBackendSettings }
+  }
+
+  const candidate = value as Partial<GitBackendSettings>
+
+  return {
+    preference: normalizeGitBackendPreference(candidate.preference),
+    updatedAt: normalizeOptionalString(candidate.updatedAt)
+  }
+}
+
+function normalizeGitBackendPreference(value: unknown): GitBackendPreference {
+  return isGitBackendPreference(value) ? value : DEFAULT_SETTINGS.gitBackendSettings.preference
+}
+
+function isGitBackendPreference(value: unknown): value is GitBackendPreference {
+  return value === 'console' || value === 'builtin'
+}
+
+const GIT_MONITOR_MIN_INTERVAL_SECONDS = 20
+const GIT_MONITOR_MAX_INTERVAL_SECONDS = 600
+
+function normalizeGitMonitorSettings(value: unknown): GitMonitorSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...DEFAULT_SETTINGS.gitMonitorSettings }
+  }
+
+  const candidate = value as Partial<GitMonitorSettings>
+  const defaults = DEFAULT_SETTINGS.gitMonitorSettings
+
+  return {
+    enabled: normalizeBoolean(candidate.enabled, defaults.enabled),
+    intervalSeconds: normalizeIntervalSeconds(candidate.intervalSeconds),
+    notifyMerged: normalizeBoolean(candidate.notifyMerged, defaults.notifyMerged),
+    notifyChecks: normalizeBoolean(candidate.notifyChecks, defaults.notifyChecks),
+    notifyReviews: normalizeBoolean(candidate.notifyReviews, defaults.notifyReviews),
+    updatedAt: normalizeOptionalString(candidate.updatedAt)
+  }
+}
+
+function normalizeBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function normalizeIntervalSeconds(value: unknown): number {
+  const fallback = DEFAULT_SETTINGS.gitMonitorSettings.intervalSeconds
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  const rounded = Math.round(value)
+  return Math.min(GIT_MONITOR_MAX_INTERVAL_SECONDS, Math.max(GIT_MONITOR_MIN_INTERVAL_SECONDS, rounded))
 }
 
 function isAssistantPolicyRecord(value: unknown): value is Record<string, AssistantPolicySettings> {

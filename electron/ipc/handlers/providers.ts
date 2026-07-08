@@ -7,6 +7,8 @@ import type {
   CreatePullRequestRequest,
   EditorOpenRequest,
   EditorSettingsUpdate,
+  GitBackendSettingsUpdate,
+  GitMonitorSettingsUpdate,
   TerminalSettingsUpdate,
   GitHubCoAuthorSearchRequest,
   ListGitHubRepositoriesRequest,
@@ -41,7 +43,7 @@ export function registerProviderHandlers(
   services: RegisterIpcHandlersServices
 ) {
   const { handle, handleLogged, requestRepoPath } = helpers
-  const { repositoryService, editorService, settingsStore, commandRunner } = services
+  const { repositoryService, editorService, settingsStore, commandRunner, gitMonitorService } = services
 
   handle('editor:getSettings', () => settingsStore.getEditorSettings())
   handle('editor:setSettings', (update: EditorSettingsUpdate) => settingsStore.setEditorSettings(update))
@@ -57,6 +59,16 @@ export function registerProviderHandlers(
   handle('terminal:getSettings', () => settingsStore.getTerminalSettings())
   handle('terminal:setSettings', (update: TerminalSettingsUpdate) => settingsStore.setTerminalSettings(update))
   handle('terminal:open', async (targetPath: string) => editorService.openTerminal(targetPath, await settingsStore.getTerminalSettings()))
+  handle('settings:getGitBackend', () => settingsStore.getGitBackendSettings())
+  handle('settings:setGitBackend', (update: GitBackendSettingsUpdate) => settingsStore.setGitBackendSettings(update))
+  handle('settings:getGitMonitor', () => settingsStore.getGitMonitorSettings())
+  handle('settings:setGitMonitor', async (update: GitMonitorSettingsUpdate) => {
+    const settings = await settingsStore.setGitMonitorSettings(update)
+    // Re-arm the background monitor immediately so toggling it on/off or changing
+    // the interval takes effect without an app restart.
+    gitMonitorService.applySettings(settings)
+    return settings
+  })
   handle('filesystem:openFolder', async (targetPath: string) => {
     const absolutePath = path.resolve(targetPath)
     const folderPath = existsSync(absolutePath) && statSync(absolutePath).isDirectory()

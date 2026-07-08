@@ -9,7 +9,7 @@ import { isSafeGitHubPathSegment, normalizeApiBranchRef, normalizeGitHubReposito
 /** Parsers and normalizers for GitHub CLI/API output. */
 
 export const PR_JSON_FIELDS = 'number,title,url,state,headRefName,baseRefName,isDraft'
-export const PR_DETAILS_JSON_FIELDS = 'number,title,body,url,state,headRefName,baseRefName,isDraft,author,createdAt,updatedAt,additions,deletions,changedFiles'
+export const PR_DETAILS_JSON_FIELDS = 'number,title,body,url,state,headRefName,baseRefName,isDraft,author,createdAt,updatedAt,additions,deletions,changedFiles,reviewDecision'
 export const PR_CHECK_JSON_FIELDS = 'name,state,bucket,workflow,description,link,startedAt,completedAt'
 export const REPOSITORY_JSON_FIELDS = 'name,nameWithOwner,owner,description,visibility,isPrivate,isFork,isArchived,url,sshUrl,defaultBranchRef,updatedAt,pushedAt'
 
@@ -308,7 +308,8 @@ export function normalizeGitHubPullRequestDetails(value: unknown): GitHubPullReq
     updatedAt: optionalString(record.updatedAt) ?? optionalString(record.updated_at) ?? '',
     additions: normalizeNonNegativeNumber(record.additions),
     deletions: normalizeNonNegativeNumber(record.deletions),
-    changedFiles: normalizeNonNegativeNumber(record.changedFiles ?? record.changed_files)
+    changedFiles: normalizeNonNegativeNumber(record.changedFiles ?? record.changed_files),
+    reviewDecision: optionalString(record.reviewDecision ?? record.review_decision)
   }
 }
 

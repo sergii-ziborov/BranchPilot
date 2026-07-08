@@ -178,6 +178,11 @@
 
   .changes-editor-codex-body {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .changes-editor-codex-splitter {
+    display: none;
   }
 
   .changes-editor-codex-usage {

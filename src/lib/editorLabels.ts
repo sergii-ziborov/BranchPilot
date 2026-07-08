@@ -1,4 +1,4 @@
-import type { EditorPreference, TerminalPreference } from '../shared/branchPilot'
+import type { EditorPreference, GitBackendPreference, TerminalPreference } from '../shared/branchPilot'
 
 /** Display label for a configured external-editor preference. */
 export function editorPreferenceLabel(preference: EditorPreference): string {
@@ -36,6 +36,18 @@ export function terminalPreferenceLabel(preference: TerminalPreference): string 
   if (preference === 'alacritty') return 'Alacritty'
   if (preference === 'wezterm') return 'WezTerm'
   return 'Custom command'
+}
+
+/** Display label for a Git read-backend preference. */
+export function gitBackendPreferenceLabel(preference: GitBackendPreference): string {
+  return preference === 'builtin' ? 'Built-in git' : 'Console git'
+}
+
+/** Short capability summary shown under each Git backend option. */
+export function gitBackendPreferenceDescription(preference: GitBackendPreference): string {
+  return preference === 'builtin'
+    ? 'Portable. Works without a system git install. Limited: some statuses fall back to console.'
+    : 'Accurate. Default. Uses your installed git.'
 }
 
 /** Human-readable command shape shown in Settings for built-in terminal presets. */

@@ -1,7 +1,30 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import type { DiffLine } from '../../shared/branchPilot'
+import type { SplitDiffRow } from '../../shared/diffView'
 import { renderSegs, shouldWordDiff, wordDiff } from '../../lib/wordDiff'
 import type { DiffLineEditorTarget } from './diffViewTypes'
+
+/**
+ * Precomputed select keys for the split rows of a line group. Keys refer to the
+ * index of each line within the original `lines` array (add/remove lines only).
+ */
+export function splitRowSelectKeys(
+  lines: DiffLine[],
+  rows: SplitDiffRow[],
+  keyPrefix: string | undefined,
+  selectable: boolean | undefined
+): { oldKey?: string; newKey?: string }[] {
+  const lineIndexes = new Map<DiffLine, number>()
+  lines.forEach((line, lineIndex) => lineIndexes.set(line, lineIndex))
+
+  const selectableKey = (line?: DiffLine): string | undefined => {
+    if (!selectable || !keyPrefix || !line || (line.type !== 'add' && line.type !== 'remove')) return undefined
+    const lineIndex = lineIndexes.get(line)
+    return lineIndex === undefined ? undefined : `${keyPrefix}:${lineIndex}`
+  }
+
+  return rows.map((row) => ({ oldKey: selectableKey(row.oldLine), newKey: selectableKey(row.newLine) }))
+}
 
 /** Word-level highlight map for the unified view: line index → highlighted content. */
 export function buildUnifiedWordDiff(lines: DiffLine[], lang: string): Map<number, ReactNode> {

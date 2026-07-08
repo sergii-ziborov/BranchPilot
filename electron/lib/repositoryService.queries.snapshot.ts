@@ -6,7 +6,10 @@ import type {
   RepositoryStatus,
   RepositorySummary
 } from '../../src/shared/branchPilot.js'
-import { parseGitStatus } from './gitStatusParser.js'
+import { deriveConflicts, deriveCounts, parseGitStatus } from './gitStatusParser.js'
+import type { ParsedGitStatus } from './gitStatusParser.js'
+import { BuiltinGitReadBackend } from './gitReadBackend/index.js'
+import type { GitReadBackend } from './gitReadBackend/index.js'
 import {
   normalizeRelativePath,
   pathExists
@@ -14,6 +17,8 @@ import {
 import { RepositoryServiceBase } from './repositoryService.base.js'
 
 export abstract class RepositoryServiceSnapshotQueries extends RepositoryServiceBase {
+  private readonly builtinGitReadBackend: GitReadBackend = new BuiltinGitReadBackend()
+
   async getRecentRepositories(): Promise<RecentRepository[]> {
     return this.settings.getRecentRepositories()
   }
@@ -68,12 +73,10 @@ export abstract class RepositoryServiceSnapshotQueries extends RepositoryService
     summary: RepositorySummary
     status: RepositoryStatus
   }> {
-    let statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'])
-    let parsedStatus = parseGitStatus(statusOutput.stdout)
+    let parsedStatus = await this.readWorkingTreeStatus(rootPath)
 
     if (await this.pruneMissingStagedAdds(rootPath, parsedStatus.changes)) {
-      statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'])
-      parsedStatus = parseGitStatus(statusOutput.stdout)
+      parsedStatus = await this.readWorkingTreeStatus(rootPath)
     }
     const gitUserName = options.includeGitIdentity ? this.getConfig(rootPath, 'user.name') : Promise.resolve(undefined)
     const gitUserEmail = options.includeGitIdentity ? this.getConfig(rootPath, 'user.email') : Promise.resolve(undefined)
@@ -107,6 +110,41 @@ export abstract class RepositoryServiceSnapshotQueries extends RepositoryService
         counts: parsedStatus.counts,
         merge
       }
+    }
+  }
+
+  /**
+   * Read the working-tree status, routing the change list through the selected
+   * git read backend. The console path (`git status --porcelain=v2 --branch`)
+   * always runs — it supplies branch metadata (branch, ahead/behind, upstream,
+   * headOid) and is the fallback for the change list. When the user selected the
+   * built-in backend, its faithful `FileChange[]` replaces the console changes
+   * (with counts/conflicts re-derived to stay consistent); on
+   * {@link BuiltinBackendUnsupported} or any error it silently keeps the console
+   * changes. The default 'console' preference leaves behaviour untouched.
+   */
+  private async readWorkingTreeStatus(rootPath: string): Promise<ParsedGitStatus> {
+    const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'])
+    const parsedStatus = parseGitStatus(statusOutput.stdout)
+
+    const backend = await this.settings.getGitBackendSettings()
+    if (backend.preference !== 'builtin') {
+      return parsedStatus
+    }
+
+    try {
+      const changes = await this.builtinGitReadBackend.readWorkingTreeStatus(rootPath)
+      const conflicts = deriveConflicts(changes)
+      return {
+        ...parsedStatus,
+        changes,
+        conflicts,
+        counts: deriveCounts(changes, conflicts)
+      }
+    } catch {
+      // Built-in backend cannot faithfully represent this repo state (or errored);
+      // fall back to the accurate console result.
+      return parsedStatus
     }
   }
 

@@ -1,4 +1,4 @@
-import type { AssistantPolicyMode, EditorPreference, TerminalPreference } from '../shared/branchPilot'
+import type { AssistantPolicyMode, EditorPreference, GitBackendPreference, TerminalPreference } from '../shared/branchPilot'
 
 export const assistantPolicyModes: AssistantPolicyMode[] = [
   'disabled',
@@ -9,6 +9,11 @@ export const assistantPolicyModes: AssistantPolicyMode[] = [
 ]
 
 export const editorPreferences: EditorPreference[] = ['vscode', 'auto', 'cursor', 'webstorm', 'rider', 'sublime', 'custom']
+
+// Console git shells out to the installed git CLI (accurate default); built-in
+// git uses isomorphic-git and falls back to console for anything it can't
+// represent faithfully. Console stays first so it reads as the recommended option.
+export const gitBackendPreferences: GitBackendPreference[] = ['console', 'builtin']
 
 export const terminalPreferences: TerminalPreference[] = [
   'auto',

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type {
-  ApiResult, BranchPilotApi, EditorPreference, EditorSettings,
-  GitConfigSnapshot, RemoteSummary, RepositorySnapshot, TerminalPreference, TerminalSettings
+  ApiResult, BranchPilotApi, EditorPreference, EditorSettings, GitBackendPreference, GitBackendSettings,
+  GitConfigSnapshot, GitMonitorSettings, GitMonitorSettingsUpdate, RemoteSummary, RepositorySnapshot,
+  TerminalPreference, TerminalSettings
 } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
-import { editorPreferenceLabel, terminalPreferenceLabel } from '../lib/editorLabels'
+import { editorPreferenceLabel, gitBackendPreferenceLabel, terminalPreferenceLabel } from '../lib/editorLabels'
 import type { RequestConfirmation } from '../lib/prompts'
 
 /** Owns Git identity, editor settings, and remote management state + handlers. */
@@ -34,6 +35,9 @@ export function useGitConfig({
   const [terminalSettings, setTerminalSettings] = useState<TerminalSettings | null>(null)
   const [terminalPreference, setTerminalPreference] = useState<TerminalPreference>('auto')
   const [terminalCustomCommand, setTerminalCustomCommand] = useState('')
+  const [gitBackendSettings, setGitBackendSettings] = useState<GitBackendSettings | null>(null)
+  const [gitBackendPreference, setGitBackendPreference] = useState<GitBackendPreference>('console')
+  const [gitMonitorSettings, setGitMonitorSettings] = useState<GitMonitorSettings | null>(null)
   const [editorSettingsLoading, setEditorSettingsLoading] = useState(false)
   const [localUserName, setLocalUserName] = useState('')
   const [localUserEmail, setLocalUserEmail] = useState('')
@@ -44,9 +48,11 @@ export function useGitConfig({
   async function loadEditorSettings() {
     if (!api) return
     setEditorSettingsLoading(true)
-    const [editorResult, terminalResult] = await Promise.all([
+    const [editorResult, terminalResult, gitBackendResult, gitMonitorResult] = await Promise.all([
       api.getEditorSettings(),
-      api.getTerminalSettings()
+      api.getTerminalSettings(),
+      api.getGitBackendSettings(),
+      api.getGitMonitorSettings()
     ])
 
     if (editorResult.ok) {
@@ -65,6 +71,58 @@ export function useGitConfig({
     } else {
       setError(terminalResult.error.message)
       setNotice(branchPilotErrorText(terminalResult.error))
+    }
+
+    if (gitBackendResult.ok) {
+      setGitBackendSettings(gitBackendResult.data)
+      setGitBackendPreference(gitBackendResult.data.preference)
+    } else {
+      setError(gitBackendResult.error.message)
+      setNotice(branchPilotErrorText(gitBackendResult.error))
+    }
+
+    if (gitMonitorResult.ok) {
+      setGitMonitorSettings(gitMonitorResult.data)
+    } else {
+      setError(gitMonitorResult.error.message)
+      setNotice(branchPilotErrorText(gitMonitorResult.error))
+    }
+
+    setEditorSettingsLoading(false)
+  }
+
+  // PR-notification monitor settings persist immediately on each toggle/interval
+  // change. Merge the partial update onto current state optimistically.
+  async function saveGitMonitorSettings(update: GitMonitorSettingsUpdate) {
+    if (!api) return
+    setGitMonitorSettings((current) => (current ? { ...current, ...update } : current))
+    setError(null)
+    const result = await api.setGitMonitorSettings(update)
+
+    if (result.ok) {
+      setGitMonitorSettings(result.data)
+    } else {
+      setError(result.error.message)
+      setNotice(branchPilotErrorText(result.error))
+    }
+  }
+
+  // Git backend persists immediately on change (no separate save button). Update
+  // the selection optimistically so the segmented control reacts without waiting.
+  async function saveGitBackendSettings(preference: GitBackendPreference) {
+    if (!api) return
+    setGitBackendPreference(preference)
+    setEditorSettingsLoading(true)
+    setError(null)
+    const result = await api.setGitBackendSettings({ preference })
+
+    if (result.ok) {
+      setGitBackendSettings(result.data)
+      setGitBackendPreference(result.data.preference)
+      setNotice(`Git backend set to ${gitBackendPreferenceLabel(result.data.preference)}.`)
+    } else {
+      setError(result.error.message)
+      setNotice(branchPilotErrorText(result.error))
     }
 
     setEditorSettingsLoading(false)
@@ -222,6 +280,8 @@ export function useGitConfig({
     editorCustomCommand, setEditorCustomCommand, editorSettingsLoading,
     terminalSettings, terminalPreference, setTerminalPreference,
     terminalCustomCommand, setTerminalCustomCommand, saveTerminalSettings,
+    gitBackendSettings, gitBackendPreference, saveGitBackendSettings,
+    gitMonitorSettings, saveGitMonitorSettings,
     localUserName, setLocalUserName, localUserEmail, setLocalUserEmail,
     remoteName, setRemoteName, remoteUrl, setRemoteUrl, editingRemoteName,
     loadEditorSettings, saveEditorSettings, loadGitConfig, saveLocalGitIdentity,

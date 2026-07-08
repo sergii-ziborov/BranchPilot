@@ -7,7 +7,7 @@ import {
   type JsonTreeNode
 } from './jsonTreeUtils'
 
-interface JsonViewerViewProps {
+export interface JsonViewerViewProps {
   textUnavailableMessage: string | null
   draftText: string
   jsonParseResult: { rows: JsonTreeNode[]; expandablePaths: string[]; error: string | null }

@@ -56,7 +56,7 @@ export function registerRepositoryHandlers(
   services: RegisterIpcHandlersServices
 ) {
   const { handle, handleLogged, handleUnwrapped, repoPathArg, requestRepoPath, snapshotRepoPath, chooseRepositoryPath, chooseCloneParentPath } = helpers
-  const { repositoryService, assistantPolicyService, activityLogService, projectMemoryService, projectWikiService, dailyReviewService, projectMemoryDir, projectWikiDir, activityLogDir } = services
+  const { repositoryService, assistantPolicyService, activityLogService, projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService, projectMemoryDir, projectWikiDir, activityLogDir } = services
 
   handleUnwrapped('app:version', () => app.getVersion())
   handleUnwrapped('app:setChromeTheme', (request: ChromeThemeRequest) => {
@@ -90,7 +90,9 @@ export function registerRepositoryHandlers(
       return null
     }
 
-    return withProjectMemoryRefresh(await repositoryService.openRepository(repoPath))
+    const snapshot = await repositoryService.openRepository(repoPath)
+    gitMonitorService.setActiveRepo(snapshot.summary.rootPath)
+    return withProjectMemoryRefresh(snapshot)
   })
 
   handleLogged('repository:clone', {
@@ -125,9 +127,11 @@ export function registerRepositoryHandlers(
       branch: snapshot.summary.currentBranch,
       remote: snapshot.summary.remoteName ?? 'none'
     } : undefined
-  }, async (repoPath: string) =>
-    withProjectMemoryRefresh(await repositoryService.openRepository(repoPath))
-  )
+  }, async (repoPath: string) => {
+    const snapshot = await repositoryService.openRepository(repoPath)
+    gitMonitorService.setActiveRepo(snapshot.summary.rootPath)
+    return withProjectMemoryRefresh(snapshot)
+  })
   handleLogged('repository:init', {
     type: 'repository_opened',
     actor: 'user',
@@ -138,9 +142,11 @@ export function registerRepositoryHandlers(
       branch: snapshot.summary.currentBranch,
       remote: snapshot.summary.remoteName ?? 'none'
     } : undefined
-  }, async (repoPath: string) =>
-    withProjectMemoryRefresh(await repositoryService.initializeRepository(repoPath))
-  )
+  }, async (repoPath: string) => {
+    const snapshot = await repositoryService.initializeRepository(repoPath)
+    gitMonitorService.setActiveRepo(snapshot.summary.rootPath)
+    return withProjectMemoryRefresh(snapshot)
+  })
   handle('repository:recent', () => repositoryService.getRecentRepositories())
   handle('repository:browseDirectory', (request?: RepositoryBrowserRequest) => browseRepositoryDirectory(request))
   handle('repository:setPinned', (request: RepositoryPinRequest) => repositoryService.setRepositoryPinned(request))
@@ -167,7 +173,12 @@ export function registerRepositoryHandlers(
   )
   // A status refresh is not a meaningful user action — don't spam the activity log
   // (auto-refresh polls it, and the log feeds AI generation).
-  handle('repository:refresh', (repoPath: string) => repositoryService.getSnapshot(repoPath))
+  handle('repository:refresh', (repoPath: string) => {
+    // Auto-refresh polls the currently viewed repo — treat it as the active repo
+    // so the monitor follows repository switches without a dedicated channel.
+    gitMonitorService.setActiveRepo(repoPath)
+    return repositoryService.getSnapshot(repoPath)
+  })
   handle('repository:diff', (request: DiffRequest) => repositoryService.getDiff(request))
   handle('repository:diffContext', (request: DiffContextRequest) => repositoryService.getDiffContext(request))
   handle('repository:updateCssColor', async (request: CssColorEditRequest) =>

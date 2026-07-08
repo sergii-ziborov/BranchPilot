@@ -8,6 +8,7 @@ import type { AssistantId, CodexAgentEvent, CodexAgentReasoning, CodexAgentResul
 import { assistantSelectionLabel } from '../../../lib/assistantLabels'
 import { SignalStatus } from '../../SignalStatus'
 import { LocalAgentBrandIcon } from './LocalAgentBrandIcon'
+import { useLocalAgentComposerResize } from './useLocalAgentComposerResize'
 import {
   CODEX_AGENT_ATTACHMENT_LIMIT,
   CODEX_AGENT_REASONING_OPTIONS,
@@ -97,6 +98,16 @@ export function LocalAgentPanel({
   runCodexAgentPanel,
   onClose
 }: LocalAgentPanelProps) {
+  const {
+    bodyRef,
+    composerWidth,
+    composerStyle,
+    startComposerResize,
+    handleComposerResizeKeyDown,
+    minComposerWidth,
+    maxComposerWidth
+  } = useLocalAgentComposerResize()
+
   return (
     <section className="changes-editor-codex-panel" aria-label={`${localAgentLabel(codexAgentProvider)} agent`}>
       <header className="changes-editor-codex-head">
@@ -157,7 +168,7 @@ export function LocalAgentPanel({
         </div>
       </header>
 
-      <div className="changes-editor-codex-body">
+      <div className="changes-editor-codex-body" ref={bodyRef} style={composerStyle}>
         <div
           className="changes-editor-codex-composer"
           onDragOver={handleCodexAgentDragOver}
@@ -259,6 +270,21 @@ export function LocalAgentPanel({
               {codexAgentRunning ? 'Running...' : `Run ${localAgentLabel(codexAgentProvider)}`}
             </button>
           </footer>
+        </div>
+
+        <div
+          className="changes-editor-codex-splitter"
+          role="separator"
+          aria-label="Resize prompt and output panels"
+          aria-orientation="vertical"
+          aria-valuemin={minComposerWidth}
+          aria-valuemax={maxComposerWidth}
+          aria-valuenow={composerWidth}
+          tabIndex={0}
+          onPointerDown={startComposerResize}
+          onKeyDown={handleComposerResizeKeyDown}
+        >
+          <span />
         </div>
 
         <div className="changes-editor-codex-output">

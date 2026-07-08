@@ -82,6 +82,7 @@ export function ChangesRoute({ changesTool, setChangesTool }: ChangesRouteProps)
     diffExpanded,
     setDiffExpanded,
     diff,
+    diffLoading,
     relatedDiff,
     imagePreview,
     stageSelectedHunk,
@@ -187,6 +188,7 @@ export function ChangesRoute({ changesTool, setChangesTool }: ChangesRouteProps)
         diffExpanded={diffExpanded}
         setDiffExpanded={setDiffExpanded}
         diff={diff}
+        diffLoading={diffLoading}
         relatedDiff={relatedDiff}
         imagePreview={imagePreview}
         stageSelectedHunk={stageSelectedHunk}

@@ -43,6 +43,34 @@ export interface TerminalSettingsUpdate {
   customCommand?: string
 }
 
+export type GitBackendPreference = 'console' | 'builtin'
+
+export interface GitBackendSettings {
+  preference: GitBackendPreference
+  updatedAt?: string
+}
+
+export interface GitBackendSettingsUpdate {
+  preference: GitBackendPreference
+}
+
+export interface GitMonitorSettings {
+  enabled: boolean
+  intervalSeconds: number
+  notifyMerged: boolean
+  notifyChecks: boolean
+  notifyReviews: boolean
+  updatedAt?: string
+}
+
+export interface GitMonitorSettingsUpdate {
+  enabled?: boolean
+  intervalSeconds?: number
+  notifyMerged?: boolean
+  notifyChecks?: boolean
+  notifyReviews?: boolean
+}
+
 export type GitHubCliState = 'missing' | 'unauthenticated' | 'authenticated'
 export type GitHubAuthProvider = 'none' | 'gh' | 'git-credential'
 

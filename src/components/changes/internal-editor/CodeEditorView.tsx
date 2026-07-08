@@ -23,7 +23,7 @@ import { textRangesForLine, type EditorTextRange, type FileSearchMatch } from '.
 import { EditorCssColorSwatch } from './EditorCssColorSwatch'
 import { EditorOverviewMap } from './EditorOverviewMap'
 
-interface CodeEditorViewProps {
+export interface CodeEditorViewProps {
   textUnavailableMessage: string | null
   dirty: boolean
   chunkedTextActive: boolean

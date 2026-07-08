@@ -2,7 +2,7 @@ import { GitCommitHorizontal, Pencil, ShieldCheck, UploadCloud, Users } from 'lu
 import { IconButton } from '../IconButton'
 import type { CommitComposerProps } from './CommitComposer.types'
 
-export function actionTooltip(
+function actionTooltip(
   actionLabel: string,
   blockedLabel: string,
   state: { enabled: boolean; reasons: string[] },

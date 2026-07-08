@@ -48,6 +48,7 @@ interface ChangesDiffPanelProps {
   diffExpanded: boolean
   setDiffExpanded: (value: boolean) => void
   diff: DiffResult | null
+  diffLoading: boolean
   relatedDiff: DiffResult | null
   imagePreview: ImagePreview | null
   stageSelectedHunk: (hunk: DiffHunk) => void
@@ -78,6 +79,7 @@ export function ChangesDiffPanel({
   diffExpanded,
   setDiffExpanded,
   diff,
+  diffLoading,
   relatedDiff,
   imagePreview,
   stageSelectedHunk,
@@ -88,6 +90,9 @@ export function ChangesDiffPanel({
   runSnapshotAction
 }: ChangesDiffPanelProps) {
   const operationStatusLabel = inlineOperationLabel?.replace(/\.\.\.$/, '').trim() || null
+  // A newly selected file's diff is fetching: overlay the same curtain History uses,
+  // so the previous diff stays underneath and fades. An in-flight operation curtain wins.
+  const showDiffLoadingCurtain = diffLoading && Boolean(selectedChange) && !operationStatusLabel
   const primaryDiffMode: ChangeDiffMode = diff?.staged ? 'staged' : 'unstaged'
   const relatedDiffMode: ChangeDiffMode = relatedDiff?.staged ? 'staged' : 'unstaged'
   const showRelatedDiff = Boolean(
@@ -182,7 +187,7 @@ export function ChangesDiffPanel({
 
   return (
     <div
-      className={`diff-panel${operationStatusLabel ? ' has-diff-operation-curtain' : ''}`}
+      className={`diff-panel${operationStatusLabel || showDiffLoadingCurtain ? ' has-diff-operation-curtain' : ''}`}
       onContextMenu={(event) => {
         if (!selectedChange) return
         event.preventDefault()
@@ -299,6 +304,13 @@ export function ChangesDiffPanel({
         <SignalStatus
           className="diff-operation-curtain"
           label={operationStatusLabel}
+          detail="BranchPilot"
+        />
+      )}
+      {showDiffLoadingCurtain && (
+        <SignalStatus
+          className="diff-operation-curtain"
+          label="Loading diff"
           detail="BranchPilot"
         />
       )}

@@ -172,10 +172,48 @@
 }
 
 .changes-editor-codex-body {
+  --changes-agent-composer-width: 360px;
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
-  gap: 12px;
+  grid-template-columns:
+    minmax(240px, var(--changes-agent-composer-width))
+    10px
+    minmax(300px, 1fr);
+  align-items: stretch;
+  gap: 0;
   min-height: 220px;
+}
+
+.changes-editor-codex-splitter {
+  display: flex;
+  width: 10px;
+  min-width: 10px;
+  align-items: stretch;
+  justify-content: center;
+  align-self: stretch;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.changes-editor-codex-splitter span {
+  width: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.changes-editor-codex-splitter:hover span,
+.changes-editor-codex-splitter:focus-visible span,
+.is-resizing-agent-composer .changes-editor-codex-splitter span {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.is-resizing-agent-composer {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .changes-editor-codex-composer,

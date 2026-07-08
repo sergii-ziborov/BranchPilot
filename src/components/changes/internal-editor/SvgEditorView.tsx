@@ -1,7 +1,7 @@
 import { FileImage } from 'lucide-react'
 import { normalizePickerColor, type SvgAnalysis, type SvgColorTarget } from './svgUtils'
 
-interface SvgEditorViewProps {
+export interface SvgEditorViewProps {
   selectedPath: string
   draftText: string
   textUnavailableMessage: string | null

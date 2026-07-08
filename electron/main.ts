@@ -8,6 +8,7 @@ import { CommandRunner } from './lib/commandRunner.js'
 import { DailyReviewService } from './lib/dailyReviewService.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { isSafeExternalUrl } from './lib/externalUrl.js'
+import { GitMonitorService } from './lib/gitMonitorService.js'
 import { ProjectMemoryService, ProjectMemoryStore } from './lib/projectMemoryService.js'
 import { ProjectWikiService, ProjectWikiStore } from './lib/projectWikiService.js'
 import { RepositoryService } from './lib/repositoryService.js'
@@ -81,6 +82,7 @@ const projectWikiService = new ProjectWikiService(
   commandRunner
 )
 const dailyReviewService = new DailyReviewService(repositoryService, activityLogService)
+const gitMonitorService = new GitMonitorService({ commandRunner, focusWindow: focusMainWindow })
 
 function createMainWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -164,10 +166,16 @@ app.whenReady().then(() => {
   const ipcHelpers = createIpcHelpers({ assistantPolicyService, activityLogService })
   registerIpcHandlers(ipcHelpers, {
     repositoryService, editorService, assistantPolicyService, activityLogService,
-    projectMemoryService, projectWikiService, dailyReviewService, settingsStore, commandRunner,
-    projectMemoryDir, projectWikiDir, activityLogDir
+    projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService,
+    settingsStore, commandRunner, projectMemoryDir, projectWikiDir, activityLogDir
   })
   createMainWindow()
+
+  // Arm the PR monitor from persisted settings (default OFF — no-op until the
+  // user enables it and a repository is opened).
+  settingsStore.getGitMonitorSettings()
+    .then((settings) => gitMonitorService.applySettings(settings))
+    .catch(() => { /* monitor stays idle if settings can't be read */ })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -176,6 +184,10 @@ app.whenReady().then(() => {
       focusMainWindow()
     }
   })
+})
+
+app.on('will-quit', () => {
+  gitMonitorService.stop()
 })
 
 app.on('window-all-closed', () => {

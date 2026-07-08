@@ -66,7 +66,7 @@ export function ChangesView({
   selectedChange, selectedDiffStats, selectedRelatedDiffStats, discardSelected,
   diffMode, diffDisplayMode, setDiffDisplayMode, diffIgnoreWhitespace, setDiffIgnoreWhitespace,
   diffExpanded, setDiffExpanded,
-  diff, relatedDiff, imagePreview, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelectedLines
+  diff, diffLoading, relatedDiff, imagePreview, stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelectedLines
 }: {
   snapshot: RepositorySnapshot | null
   counts: RepositorySnapshot['status']['counts'] | undefined
@@ -141,6 +141,7 @@ export function ChangesView({
   diffExpanded: boolean
   setDiffExpanded: (value: boolean) => void
   diff: DiffResult | null
+  diffLoading: boolean
   relatedDiff: DiffResult | null
   imagePreview: ImagePreview | null
   stageSelectedHunk: (hunk: DiffHunk) => void
@@ -422,6 +423,7 @@ export function ChangesView({
         diffExpanded={diffExpanded}
         setDiffExpanded={setDiffExpanded}
         diff={diff}
+        diffLoading={diffLoading}
         relatedDiff={relatedDiff}
         imagePreview={imagePreview}
         stageSelectedHunk={stageSelectedHunk}

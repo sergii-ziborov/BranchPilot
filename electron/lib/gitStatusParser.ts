@@ -93,22 +93,8 @@ export function parseGitStatus(output: string): ParsedGitStatus {
     }
   }
 
-  const conflicts = changes
-    .filter((change) => change.conflicted)
-    .map<ConflictFile>((change) => ({
-      path: change.path,
-      type: classifyConflict(change.stagedStatus ?? 'U', change.unstagedStatus ?? 'U'),
-      ours: true,
-      theirs: true
-    }))
-
-  const counts: RepositoryCounts = {
-    changed: changes.length,
-    staged: changes.filter((change) => change.staged).length,
-    unstaged: changes.filter((change) => change.unstaged).length,
-    untracked: changes.filter((change) => change.untracked).length,
-    conflicted: conflicts.length
-  }
+  const conflicts = deriveConflicts(changes)
+  const counts = deriveCounts(changes, conflicts)
 
   const isDetached = branch === '(detached)'
 
@@ -122,6 +108,36 @@ export function parseGitStatus(output: string): ParsedGitStatus {
     changes,
     counts,
     conflicts
+  }
+}
+
+/**
+ * Derive the conflict list from a set of working-tree changes. Shared by the
+ * console parser and the built-in backend routing so both paths produce an
+ * identical `ConflictFile[]` for the same `FileChange[]`.
+ */
+export function deriveConflicts(changes: FileChange[]): ConflictFile[] {
+  return changes
+    .filter((change) => change.conflicted)
+    .map<ConflictFile>((change) => ({
+      path: change.path,
+      type: classifyConflict(change.stagedStatus ?? 'U', change.unstagedStatus ?? 'U'),
+      ours: true,
+      theirs: true
+    }))
+}
+
+/**
+ * Derive repository counts from a set of working-tree changes and their
+ * conflicts. Shared by the console parser and the built-in backend routing.
+ */
+export function deriveCounts(changes: FileChange[], conflicts: ConflictFile[]): RepositoryCounts {
+  return {
+    changed: changes.length,
+    staged: changes.filter((change) => change.staged).length,
+    unstaged: changes.filter((change) => change.unstaged).length,
+    untracked: changes.filter((change) => change.untracked).length,
+    conflicted: conflicts.length
   }
 }
 

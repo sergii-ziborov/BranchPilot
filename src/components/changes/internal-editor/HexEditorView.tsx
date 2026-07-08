@@ -14,7 +14,7 @@ import {
   type HexSearchMatch
 } from './hexUtils'
 
-interface HexEditorViewProps {
+export interface HexEditorViewProps {
   selectedPath: string
   hexLoading: boolean
   hexError: string | null
