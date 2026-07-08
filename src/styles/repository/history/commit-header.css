@@ -1,0 +1,104 @@
+.history-commit-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-commit-headline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.history-commit-headline > div:first-child {
+  min-width: 0;
+}
+
+.history-commit-headline > div:first-child > p {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.history-commit-inline-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.history-commit-inline-copy:hover:not(:disabled) {
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
+}
+
+.history-commit-description {
+  display: flex;
+  flex-direction: column;
+  min-height: 86px;
+  max-height: clamp(116px, 24vh, 240px);
+  margin: 12px 0 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel-2) 82%, transparent), transparent),
+    color-mix(in srgb, var(--panel) 94%, black);
+}
+
+.history-commit-description header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.history-commit-description header strong {
+  color: var(--text);
+  font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.history-commit-description-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px;
+  overflow: auto;
+  color: var(--text-strong);
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.history-commit-description.empty .history-commit-description-body {
+  color: var(--muted);
+  font-family: inherit;
+}
+
+.history-detail .commit-branch-strip {
+  margin: 12px 0 0;
+}
+
+.history-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.4fr) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+

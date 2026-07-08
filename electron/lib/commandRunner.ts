@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { readdirSync } from 'node:fs'
 import { gitArgsWithCredentialManager, isGitExecutable } from './platformExecutables.js'
 
@@ -8,6 +8,8 @@ export interface CommandRunOptions {
   timeoutMs?: number
   allowedExitCodes?: number[]
   maxOutputBytes?: number
+  onStdout?: (chunk: string) => void
+  signal?: AbortSignal
 }
 
 export interface CommandRunResult {
@@ -19,6 +21,7 @@ export interface CommandRunResult {
   stderr: string
   stdoutTruncated?: boolean
   stderrTruncated?: boolean
+  cancelled?: boolean
   durationMs: number
 }
 
@@ -100,11 +103,23 @@ export class CommandRunner {
       let stdoutTruncated = false
       let stderrTruncated = false
       let timedOut = false
+      let cancelled = false
 
       const timeout = setTimeout(() => {
         timedOut = true
-        child.kill('SIGTERM')
+        killProcessTree(child)
       }, timeoutMs)
+
+      const onAbort = () => {
+        cancelled = true
+        killProcessTree(child)
+      }
+
+      if (options.signal?.aborted) {
+        onAbort()
+      } else {
+        options.signal?.addEventListener('abort', onAbort, { once: true })
+      }
 
       child.stdout.setEncoding('utf8')
       child.stderr.setEncoding('utf8')
@@ -114,6 +129,7 @@ export class CommandRunner {
         stdout = appended.text
         stdoutBytes = appended.bytes
         stdoutTruncated = stdoutTruncated || appended.truncated
+        options.onStdout?.(chunk)
       })
 
       child.stderr.on('data', (chunk: string) => {
@@ -125,20 +141,28 @@ export class CommandRunner {
 
       child.on('error', (error) => {
         clearTimeout(timeout)
+        options.signal?.removeEventListener('abort', onAbort)
         reject(error)
       })
 
       child.on('close', (exitCode) => {
         clearTimeout(timeout)
+        options.signal?.removeEventListener('abort', onAbort)
+        const stderrNote = timedOut
+          ? `${stderr}\nCommand timed out after ${timeoutMs}ms.`
+          : cancelled
+            ? `${stderr}\nCommand was cancelled.`
+            : stderr
         const safeResult: CommandRunResult = {
           command,
           args: spawnArgs,
           cwd: options.cwd,
           exitCode: exitCode ?? 1,
           stdout: redact(stdout),
-          stderr: redact(timedOut ? `${stderr}\nCommand timed out after ${timeoutMs}ms.` : stderr),
+          stderr: redact(stderrNote),
           stdoutTruncated,
           stderrTruncated,
+          cancelled,
           durationMs: Date.now() - startedAt
         }
 
@@ -161,6 +185,28 @@ export class CommandRunner {
 
     return result
   }
+}
+
+function killProcessTree(child: ChildProcess): void {
+  if (child.exitCode !== null || child.signalCode !== null || !child.pid) {
+    child.kill('SIGTERM')
+    return
+  }
+
+  if (process.platform === 'win32') {
+    // SIGTERM only reaches the direct child (often a cmd.exe wrapper); taskkill /T kills the whole tree.
+    spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { shell: false, stdio: 'ignore' }).on('error', () => {
+      child.kill('SIGTERM')
+    })
+    return
+  }
+
+  child.kill('SIGTERM')
+  setTimeout(() => {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL')
+    }
+  }, 3_000).unref()
 }
 
 function buildSpawnRequest(

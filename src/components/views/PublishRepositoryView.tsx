@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bot, Building2, GitBranch, Loader2, RefreshCw, UploadCloud, UserRound, Wand2 } from 'lucide-react'
+import { Loader2, RefreshCw, UploadCloud } from 'lucide-react'
 import type {
   AssistantId,
   AssistantPolicyStatus,
@@ -11,9 +11,19 @@ import type {
 } from '../../shared/branchPilot'
 import { branchPilotErrorText } from '../../shared/branchPilot'
 import { assistantPolicyAllows, assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
-import { SelectableChipGroup } from '../SelectableChipGroup'
-
-type OwnerKind = GitHubAccountSummary['type']
+import { PublishDestinationCard } from './publish/PublishDestinationCard'
+import { PublishStarterCard } from './publish/PublishStarterCard'
+import {
+  buildLocalGitignore,
+  buildLocalReadme,
+  buildRepositoryNameSuggestions,
+  createRepositoryBlockedReason,
+  normalizeEmailInput,
+  sanitizeRepositoryName,
+  titleFromRepositoryName,
+  uniqueStrings
+} from './publish/publishRepositoryHelpers'
+import type { OwnerKind } from './publish/publishRepositoryHelpers'
 
 export function PublishRepositoryView({
   api,
@@ -293,183 +303,58 @@ export function PublishRepositoryView({
       </div>
 
       <div className="publish-grid">
-        <div className="publish-card publish-settings-card">
-          <div className="publish-card-heading publish-card-heading-compact">
-            <div>
-              <h3>Destination</h3>
-              <p>Choose where GitHub should create the remote repository.</p>
-            </div>
-          </div>
+        <PublishDestinationCard
+          githubStatus={githubStatus}
+          gitConfig={gitConfig}
+          accounts={accounts}
+          ownerAccounts={ownerAccounts}
+          organizationAccounts={organizationAccounts}
+          ownerKind={ownerKind}
+          setOwnerKind={setOwnerKind}
+          owner={owner}
+          setOwner={setOwner}
+          name={name}
+          setName={setName}
+          repoNameSuggestions={repoNameSuggestions}
+          description={description}
+          setDescription={setDescription}
+          visibility={visibility}
+          setVisibility={setVisibility}
+          remoteProtocol={remoteProtocol}
+          setRemoteProtocol={setRemoteProtocol}
+          remoteName={remoteName}
+          setRemoteName={setRemoteName}
+          currentBranch={snapshot?.summary.currentBranch ?? ''}
+          commitAuthorPreview={commitAuthorPreview}
+          gitIdentityEmailOptions={gitIdentityEmailOptions}
+          gitUserName={gitUserName}
+          setGitUserName={setGitUserName}
+          gitUserEmail={gitUserEmail}
+          setGitUserEmail={setGitUserEmail}
+        />
 
-          <div className="publish-status">
-            <GitBranch size={18} />
-            <div>
-              <strong>{githubStatus?.authenticated ? `Signed in${githubStatus.username ? ` as ${githubStatus.username}` : ''}` : 'GitHub auth required'}</strong>
-              <span>{githubStatus?.message ?? 'Checking GitHub authentication.'}</span>
-            </div>
-          </div>
-
-          <div className="publish-segmented" aria-label="Owner type">
-            <button type="button" className={ownerKind === 'user' ? 'active' : ''} onClick={() => setOwnerKind('user')}>
-              <UserRound size={15} />
-              User
-            </button>
-            <button type="button" className={ownerKind === 'organization' ? 'active' : ''} onClick={() => setOwnerKind('organization')}>
-              <Building2 size={15} />
-              Organization
-            </button>
-          </div>
-
-          <label>
-            <span>{ownerKind === 'user' ? 'GitHub account' : 'Organization'}</span>
-            {ownerAccounts.length > 0 ? (
-              <select value={owner} onChange={(event) => setOwner(event.target.value)}>
-                {ownerAccounts.map((account) => (
-                  <option key={account.login} value={account.login}>{account.login} - {account.label}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                value={owner}
-                onChange={(event) => setOwner(event.target.value)}
-                placeholder={ownerKind === 'user' ? 'GitHub username' : 'GitHub organization'}
-              />
-            )}
-          </label>
-
-          {ownerKind === 'organization' && accounts.length > 0 && organizationAccounts.length === 0 && (
-            <div className="publish-inline-note">No organizations were returned for the authenticated account.</div>
-          )}
-
-          <label>
-            <span>Repository name</span>
-            <input value={name} onChange={(event) => setName(sanitizeRepositoryName(event.target.value))} placeholder="repository-name" />
-          </label>
-
-          <SelectableChipGroup
-            options={repoNameSuggestions}
-            selected={name}
-            onSelect={setName}
-            variant="name-suggestions"
-            ariaLabel="Repository name suggestions"
-          />
-
-          <label>
-            <span>Description</span>
-            <textarea className="publish-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Short GitHub repository description" />
-          </label>
-
-          <div className="publish-two-col">
-            <label>
-              <span>Visibility</span>
-              <select value={visibility} onChange={(event) => setVisibility(event.target.value as 'private' | 'public')}>
-                <option value="private">Private</option>
-                <option value="public">Public</option>
-              </select>
-            </label>
-            <label>
-              <span>Protocol</span>
-              <select value={remoteProtocol} onChange={(event) => setRemoteProtocol(event.target.value as 'https' | 'ssh')}>
-                <option value="https">HTTPS</option>
-                <option value="ssh">SSH</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="publish-two-col">
-            <label>
-              <span>Remote name</span>
-              <input value={remoteName} onChange={(event) => setRemoteName(event.target.value)} placeholder="origin" />
-            </label>
-            <label>
-              <span>Current branch</span>
-              <input value={snapshot?.summary.currentBranch ?? ''} readOnly />
-            </label>
-          </div>
-
-          <div className="publish-identity-block">
-            <strong>Commit author</strong>
-            <p>Used for the optional README/.gitignore starter commit. Pick the GitHub email intentionally.</p>
-            <div className="publish-commit-as">
-              <UserRound size={16} />
-              <div>
-                <span>Starter commit will be authored as</span>
-                <strong>{commitAuthorPreview}</strong>
-              </div>
-            </div>
-            {gitIdentityEmailOptions.length > 0 && (
-              <SelectableChipGroup
-                options={gitIdentityEmailOptions}
-                selected={gitIdentityEmailOptions.find((email) => isSameEmail(gitUserEmail, email)) ?? ''}
-                onSelect={setGitUserEmail}
-                variant="email-options"
-                ariaLabel="Known GitHub and Git config emails"
-                titleFor={(email) => `Use ${email} as the starter commit author`}
-              />
-            )}
-            <div className="publish-two-col">
-              <label>
-                <span>Name</span>
-                <input value={gitUserName} onChange={(event) => setGitUserName(event.target.value)} placeholder={gitConfig?.globalUserName ?? 'Name'} />
-              </label>
-              <label>
-                <span>Custom email</span>
-                <input value={gitUserEmail} onChange={(event) => setGitUserEmail(event.target.value)} placeholder={gitConfig?.globalUserEmail ?? 'email@example.com'} />
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div className="publish-card publish-starter-card">
-          <div className="publish-card-heading">
-            <div>
-              <h3>Starter files</h3>
-              <p>Draft README.md, .gitignore, and description before BranchPilot writes anything.</p>
-            </div>
-            <div className="publish-starter-actions">
-              <button type="button" className="secondary" onClick={draftStarterLocally} disabled={submitting}>
-                <Wand2 size={16} />
-                Draft locally
-              </button>
-              <button
-                type="button"
-                onClick={generateStarter}
-                disabled={!api || !repoPath || generating || submitting || !canGenerateStarter}
-                title={generateStarterTitle}
-              >
-                {generating ? <Loader2 className="spin" size={16} /> : <Bot size={16} />}
-                Generate with AI
-              </button>
-            </div>
-          </div>
-
-          {!canGenerateStarter && (
-            <div className="assistant-policy-note">{starterBlockedText}</div>
-          )}
-
-          <label className="publish-check">
-            <input type="checkbox" checked={includeReadme} onChange={(event) => setIncludeReadme(event.target.checked)} />
-            <span>Write README.md if missing</span>
-          </label>
-          <textarea className="publish-readme" value={readme} onChange={(event) => setReadme(event.target.value)} placeholder="# README.md" />
-
-          <label className="publish-check">
-            <input type="checkbox" checked={includeGitignore} onChange={(event) => setIncludeGitignore(event.target.checked)} />
-            <span>Write .gitignore if missing</span>
-          </label>
-          <textarea className="publish-gitignore" value={gitignore} onChange={(event) => setGitignore(event.target.value)} placeholder={'node_modules/\ndist/'} />
-
-          <div className="publish-options">
-            <label className="publish-check">
-              <input type="checkbox" checked={commitStarterFiles} onChange={(event) => setCommitStarterFiles(event.target.checked)} />
-              <span>Commit generated starter files</span>
-            </label>
-            <label className="publish-check">
-              <input type="checkbox" checked={pushAfterCreate} onChange={(event) => setPushAfterCreate(event.target.checked)} />
-              <span>Push current branch after creating remote</span>
-            </label>
-          </div>
-        </div>
+        <PublishStarterCard
+          generating={generating}
+          submitting={submitting}
+          canGenerateStarter={canGenerateStarter}
+          starterBlockedText={starterBlockedText}
+          generateStarterTitle={generateStarterTitle}
+          generateDisabled={!api || !repoPath || generating || submitting || !canGenerateStarter}
+          onDraftLocally={draftStarterLocally}
+          onGenerate={generateStarter}
+          includeReadme={includeReadme}
+          setIncludeReadme={setIncludeReadme}
+          readme={readme}
+          setReadme={setReadme}
+          includeGitignore={includeGitignore}
+          setIncludeGitignore={setIncludeGitignore}
+          gitignore={gitignore}
+          setGitignore={setGitignore}
+          commitStarterFiles={commitStarterFiles}
+          setCommitStarterFiles={setCommitStarterFiles}
+          pushAfterCreate={pushAfterCreate}
+          setPushAfterCreate={setPushAfterCreate}
+        />
       </div>
 
       <div className="publish-actions">
@@ -486,102 +371,4 @@ export function PublishRepositoryView({
       </div>
     </section>
   )
-}
-
-function sanitizeRepositoryName(value: string): string {
-  return value
-    .trim()
-    .replace(/\.git$/i, '')
-    .replace(/[^A-Za-z0-9_.-]+/g, '-')
-    .replace(/^-+/, '')
-    .replace(/-+$/, '')
-    .slice(0, 100)
-}
-
-function buildRepositoryNameSuggestions(defaultName: string): string[] {
-  const compact = sanitizeRepositoryName(defaultName.replace(/[\s_]+/g, '-'))
-  const lower = sanitizeRepositoryName(compact.toLowerCase())
-  const dotted = sanitizeRepositoryName(lower.replaceAll('-', '.'))
-  return uniqueStrings([compact, lower, dotted]).filter(Boolean).slice(0, 3)
-}
-
-function titleFromRepositoryName(repositoryName: string): string {
-  const words = repositoryName
-    .replace(/[._-]+/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean)
-
-  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || 'Repository'
-}
-
-function buildLocalReadme(title: string, description: string): string {
-  return `# ${title}
-
-${description}
-
-## Development
-
-Install dependencies and run the project using the commands defined by this repository.
-
-## Repository
-
-This repository was published from BranchPilot.
-`
-}
-
-function buildLocalGitignore(snapshot: RepositorySnapshot | null): string {
-  const paths = snapshot?.status.changes.map((change) => change.path).join('\n') ?? ''
-  const patterns = [
-    'node_modules/',
-    'dist/',
-    'build/',
-    '.env',
-    '.env.local',
-    '*.log'
-  ]
-
-  if (/\.py\b|pyproject\.toml|requirements\.txt/i.test(paths)) {
-    patterns.push('__pycache__/', '*.py[cod]', '.venv/')
-  }
-
-  if (/\.rs\b|Cargo\.toml/i.test(paths)) {
-    patterns.push('target/')
-  }
-
-  return uniqueStrings(patterns).join('\n') + '\n'
-}
-
-function uniqueStrings(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))]
-}
-
-function normalizeEmailInput(value: string | undefined): string {
-  return value?.trim() ?? ''
-}
-
-function isSameEmail(left: string, right: string): boolean {
-  return left.trim().toLowerCase() === right.trim().toLowerCase()
-}
-
-function createRepositoryBlockedReason({
-  apiReady,
-  repoPath,
-  authenticated,
-  authMessage,
-  owner,
-  name
-}: {
-  apiReady: boolean
-  repoPath?: string
-  authenticated: boolean
-  authMessage?: string
-  owner: string
-  name: string
-}): string {
-  if (!apiReady) return 'BranchPilot API is not available.'
-  if (!repoPath) return 'Open a local Git repository first.'
-  if (!authenticated) return authMessage || 'Sign in to GitHub with gh or Git credentials first.'
-  if (!owner.trim()) return 'Choose a GitHub user or organization.'
-  if (!name.trim()) return 'Enter a repository name.'
-  return ''
 }

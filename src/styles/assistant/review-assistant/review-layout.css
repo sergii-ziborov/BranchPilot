@@ -1,0 +1,62 @@
+.panel-heading > button,
+.review-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.review-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.review-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.review-panel > .panel-heading {
+  margin-bottom: 0;
+}
+
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.86fr) minmax(500px, 1.34fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.review-sidebar,
+.review-main {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  align-content: start;
+}
+
+.review-sidebar {
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.review-main {
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.review-main .review-controls {
+  grid-template-columns: minmax(170px, 1fr) minmax(170px, 1fr) minmax(150px, 0.85fr);
+}
+

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { BranchPilotApi } from '../src/shared/branchPilot.js'
+import type { BranchPilotApi, CodexAgentStreamBatch } from '../src/shared/branchPilot.js'
 import type { BranchPilotIpcChannel } from '../src/shared/ipcChannels.js'
 
 const invoke = <T,>(channel: BranchPilotIpcChannel, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args) as Promise<T>
@@ -136,6 +136,12 @@ const branchPilot: BranchPilotApi = {
   generateRepositoryStarter: (request) => invoke('assistants:generateRepositoryStarter', request),
   beautifyFileWithAssistant: (request) => invoke('assistants:beautifyFile', request),
   runCodexAgent: (request) => invoke('assistants:runCodexAgent', request),
+  cancelCodexAgent: (runId) => invoke('assistants:cancelCodexAgent', runId),
+  onCodexAgentEvent: (callback) => {
+    const listener = (_event: unknown, batch: CodexAgentStreamBatch) => callback(batch)
+    ipcRenderer.on('assistants:codexAgentEvent', listener)
+    return () => ipcRenderer.removeListener('assistants:codexAgentEvent', listener)
+  },
   getGitHubCliStatus: (repoPath) => invoke('providers:githubCliStatus', repoPath),
   connectGitHub: (repoPath) => invoke('providers:connectGitHub', repoPath),
   generatePullRequestText: (request) => invoke('assistants:generatePullRequestText', request),

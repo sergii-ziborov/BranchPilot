@@ -1,0 +1,94 @@
+.branchpilot-memory-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.memory-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.memory-panel-heading > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.memory-panel-heading h2 {
+  font-size: 20px;
+}
+
+.memory-panel-heading p {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-index-panel .memory-panel-heading {
+  align-items: center;
+}
+
+.memory-index-panel .memory-panel-heading > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.memory-index-panel .memory-panel-heading p {
+  display: flex;
+  min-width: 0;
+  overflow: visible;
+  white-space: normal;
+}
+
+.memory-heading-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.memory-heading-metrics span {
+  overflow: hidden;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--metric-color, var(--accent)) 32%, var(--border));
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--metric-color, var(--accent)) 72%, var(--text-strong));
+  background: color-mix(in srgb, var(--metric-color, var(--accent)) 10%, var(--panel));
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-heading-metrics .metric-files {
+  --metric-color: #60a5fa;
+}
+
+.memory-heading-metrics .metric-symbols {
+  --metric-color: #a78bfa;
+}
+
+.memory-heading-metrics .metric-imports {
+  --metric-color: #22c55e;
+}
+
+.memory-heading-metrics .metric-scan {
+  --metric-color: #f59e0b;
+}
+
+.memory-actions {
+  flex: 0 0 auto;
+}
+

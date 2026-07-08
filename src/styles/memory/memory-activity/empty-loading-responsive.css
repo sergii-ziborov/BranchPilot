@@ -1,0 +1,77 @@
+.memory-empty-board {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 140px;
+  padding: 18px;
+}
+
+.memory-empty-board svg {
+  color: var(--muted);
+}
+
+.memory-empty-board h3 {
+  margin-bottom: 3px;
+}
+
+.memory-empty-board p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.signal-status.memory-data-loading {
+  min-height: 180px;
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background:
+    radial-gradient(circle at 74% 24%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 34%),
+    color-mix(in srgb, var(--panel-2) 88%, transparent);
+}
+
+.signal-status.memory-data-loading .signal-status-copy strong {
+  font-size: 12px;
+  letter-spacing: 0.09em;
+}
+
+.signal-status.memory-data-loading .signal-status-copy span {
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 980px) {
+  .memory-layout-grid,
+  .wiki-browser-grid,
+  .mcp-main-grid,
+  .wiki-command-bar,
+  .wiki-command-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-source-grid,
+  .mcp-resource-row,
+  .completed-work-list.compact,
+  .memory-stat-rail,
+  .memory-stat-rail.wiki,
+  .memory-meta.memory-meta-compact,
+  .memory-meta.mcp-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .branchpilot-memory-panel {
+    overflow-y: auto;
+  }
+
+  .mcp-tool-groups,
+  .mcp-diagnostic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wiki-title-block > div {
+    display: grid;
+    gap: 3px;
+  }
+
+  .wiki-actions {
+    justify-content: flex-start;
+  }
+}

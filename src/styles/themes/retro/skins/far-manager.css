@@ -1,0 +1,264 @@
+html[data-theme='far-manager'] {
+  --retro-radius: 2px;
+  --retro-line: color-mix(in srgb, var(--accent) 42%, transparent);
+  --retro-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+html[data-theme='far-manager'] {
+  --retro-panel-bg:
+    linear-gradient(180deg, rgba(0, 255, 255, 0.08), rgba(0, 20, 96, 0.88)),
+    #001a70;
+  --retro-panel-bg-2:
+    linear-gradient(180deg, #0030a8, #001a70),
+    #002287;
+  --retro-grid: rgba(255, 255, 255, 0.055);
+  --retro-scanline: rgba(255, 255, 255, 0.045);
+}
+
+html[data-theme='far-manager'] body {
+  background:
+    radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
+    var(--surface);
+}
+
+html[data-theme='far-manager'] .app-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(90deg, var(--retro-grid) 1px, transparent 1px),
+    linear-gradient(180deg, var(--retro-grid) 1px, transparent 1px),
+    var(--surface);
+  background-size: 24px 24px, 24px 24px, auto;
+}
+
+html[data-theme='far-manager'] .app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 0 56%, var(--retro-scanline) 56% 60%, transparent 60% 100%);
+  background-size: auto 6px;
+}
+
+html[data-theme='far-manager'] .shell-bar {
+  border-bottom-color: var(--retro-line);
+  background: var(--shell-bar);
+  box-shadow: var(--retro-glow);
+}
+
+html[data-theme='far-manager'] .single-panel,
+html[data-theme='far-manager'] .changes-panel,
+html[data-theme='far-manager'] .diff-panel,
+html[data-theme='far-manager'] .dashboard-section,
+html[data-theme='far-manager'] .config-card,
+html[data-theme='far-manager'] .tool-modal,
+html[data-theme='far-manager'] .review-fix-prompt-modal,
+html[data-theme='far-manager'] .review-empty,
+html[data-theme='far-manager'] .review-results,
+html[data-theme='far-manager'] .linkedin-card,
+html[data-theme='far-manager'] .pr-panel,
+html[data-theme='far-manager'] .quiet-box {
+  border-color: var(--retro-line);
+  border-radius: var(--retro-radius);
+  background: var(--retro-panel-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+html[data-theme='far-manager'] .shell-segments,
+html[data-theme='far-manager'] .shell-menu > summary,
+html[data-theme='far-manager'] .shell-dropdown,
+html[data-theme='far-manager'] .changes-actions-popover {
+  border-color: var(--retro-line);
+  border-radius: var(--retro-radius);
+  background: var(--retro-panel-bg-2);
+  box-shadow: var(--retro-glow);
+}
+
+html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled),
+html[data-theme='far-manager'] input,
+html[data-theme='far-manager'] textarea,
+html[data-theme='far-manager'] select {
+  border-radius: var(--retro-radius);
+}
+
+html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled) {
+  border-color: #00ffff;
+  color: #ffffff;
+  background:
+    linear-gradient(180deg, #0030a8, #001a70);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.20), inset -1px -1px 0 rgba(0, 0, 0, 0.36);
+}
+
+html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
+html[data-theme='far-manager'] .shell-dropdown-item:hover,
+html[data-theme='far-manager'] .change-row:hover,
+html[data-theme='far-manager'] .history-row:hover {
+  border-color: #ffff00;
+  color: #ffff00;
+  background: #0052d6;
+}
+
+html[data-theme='far-manager'] .shell-theme-item.active,
+html[data-theme='far-manager'] .segmented button.active,
+html[data-theme='far-manager'] .search-scope-toggle button.active,
+html[data-theme='far-manager'] .github-filter-segment button.active {
+  border-color: #ffff00;
+  color: #000080;
+  background: #ffff00;
+  box-shadow: none;
+}
+
+html[data-theme='far-manager'] .shell-theme-dot {
+  box-shadow: 0 0 14px currentColor;
+}
+
+html[data-theme='far-manager'] {
+  --retro-radius: 0;
+  --retro-line: #00ffff;
+  --retro-glow: none;
+  --retro-panel-bg: #000080;
+  --retro-panel-bg-2: #000080;
+  --retro-grid: transparent;
+  --retro-scanline: transparent;
+}
+
+html[data-theme='far-manager'] body {
+  background: #000080;
+}
+
+html[data-theme='far-manager'] .app-shell {
+  background: #000080;
+}
+
+html[data-theme='far-manager'] .app-shell::before {
+  display: none;
+}
+
+html[data-theme='far-manager'] .shell-bar,
+html[data-theme='far-manager'] .single-panel,
+html[data-theme='far-manager'] .changes-panel,
+html[data-theme='far-manager'] .diff-panel,
+html[data-theme='far-manager'] .dashboard-section,
+html[data-theme='far-manager'] .config-card,
+html[data-theme='far-manager'] .tool-modal,
+html[data-theme='far-manager'] .review-fix-prompt-modal,
+html[data-theme='far-manager'] .review-empty,
+html[data-theme='far-manager'] .review-results,
+html[data-theme='far-manager'] .linkedin-card,
+html[data-theme='far-manager'] .pr-panel,
+html[data-theme='far-manager'] .quiet-box,
+html[data-theme='far-manager'] .shell-segments,
+html[data-theme='far-manager'] .shell-menu > summary,
+html[data-theme='far-manager'] .shell-dropdown,
+html[data-theme='far-manager'] .shell-dropdown-item,
+html[data-theme='far-manager'] .shell-dropdown-primary,
+html[data-theme='far-manager'] .changes-actions-popover {
+  border-color: #00ffff;
+  border-radius: 0;
+  background: #000080;
+  box-shadow: none;
+  text-shadow: none;
+  backdrop-filter: none;
+}
+
+html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled),
+html[data-theme='far-manager'] input,
+html[data-theme='far-manager'] textarea,
+html[data-theme='far-manager'] select {
+  border-color: #00ffff;
+  border-radius: 0;
+  color: #ffffff;
+  background: #000080;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+html[data-theme='far-manager'] button:not(.line-select-control):not(.line-number-button):not(.heatmap-cell-button):not(:disabled):hover,
+html[data-theme='far-manager'] .shell-dropdown-item:hover,
+html[data-theme='far-manager'] .change-row:hover,
+html[data-theme='far-manager'] .history-row:hover {
+  border-color: #ffff00;
+  color: #ffff00;
+  background: #0000aa;
+  box-shadow: none;
+}
+
+html[data-theme='far-manager'] .view-switch-tab.active,
+html[data-theme='far-manager'] .shell-theme-item.active,
+html[data-theme='far-manager'] .segmented button.active,
+html[data-theme='far-manager'] .search-scope-toggle button.active,
+html[data-theme='far-manager'] .github-filter-segment button.active {
+  border-color: #ffff00;
+  color: #000080;
+  background: #ffff00;
+  box-shadow: none;
+}
+
+html[data-theme='far-manager'] .shell-theme-dot {
+  box-shadow: none;
+}
+
+html[data-theme='far-manager'] .signal-status,
+html[data-theme='far-manager'] .signal-status.diff-operation-curtain,
+html[data-theme='far-manager'] .signal-status.linkedin-generation-curtain,
+html[data-theme='far-manager'] .signal-status.daily-review-curtain {
+  --signal-main: #00ffff;
+  --signal-alt: #ffff00;
+  --signal-hot: #ffffff;
+  color: #ffffff;
+  background: #000080;
+  backdrop-filter: none;
+}
+
+html[data-theme='far-manager'] .signal-status::before {
+  opacity: 1;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 18px, rgba(0, 255, 255, 0.38) 18px 19px, transparent 19px 36px);
+  background-size: 72px 100%;
+  animation: far-signal-march 0.9s steps(8, end) infinite;
+}
+
+html[data-theme='far-manager'] .signal-status::after {
+  inset: auto 0 0;
+  height: 2px;
+  background: #ffff00;
+  mix-blend-mode: normal;
+  animation: far-signal-cursor 0.72s steps(2, end) infinite;
+}
+
+html[data-theme='far-manager'] .signal-status-copy strong,
+html[data-theme='far-manager'] .signal-status-copy span {
+  text-shadow: none;
+}
+
+html[data-theme='far-manager'] :is(
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  .changes-editor-view-tabs button.active,
+  .changes-drawer-tabs button.active,
+  .reports-switch button.active,
+  .settings-switch button.active,
+  button[aria-selected='true']
+) {
+  border-color: #ffffff !important;
+  color: #000080 !important;
+  background: #ffff00 !important;
+  box-shadow:
+    inset 0 0 0 2px #000080,
+    0 0 0 1px #ffffff !important;
+  text-shadow: none !important;
+}
+
+html[data-theme='far-manager'] :is(
+  .view-switch-tab.active,
+  .tool-view-switch .view-switch-tab.active,
+  .shell-tab.active,
+  button[aria-selected='true']
+) .view-switch-badge,
+html[data-theme='far-manager'] .shell-tab.active .shell-tab-badge {
+  color: #ffff00 !important;
+  background: #000080 !important;
+}
+

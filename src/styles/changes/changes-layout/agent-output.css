@@ -1,0 +1,326 @@
+.changes-editor-codex-output {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.changes-editor-codex-output > header {
+  gap: 7px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.changes-editor-codex-output pre {
+  min-height: 0;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  color: var(--text);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+.changes-editor-codex-error {
+  padding: 12px;
+  overflow: auto;
+  color: var(--bad);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 800;
+  white-space: pre-wrap;
+}
+
+.changes-editor-codex-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.changes-editor-codex-empty .changes-editor-agent-brand {
+  width: 58px;
+  height: 58px;
+  opacity: 0.72;
+}
+
+.signal-status.codex-agent-curtain {
+  position: absolute;
+  inset: 38px 0 0;
+  width: auto;
+  max-width: none;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.changes-editor-codex-trace {
+  border-top: 1px solid var(--border);
+}
+
+.changes-editor-codex-trace summary {
+  padding: 9px 12px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.changes-editor-codex-trace > div {
+  display: grid;
+  gap: 6px;
+  max-height: 210px;
+  overflow: auto;
+  padding: 0 12px 12px;
+}
+
+.changes-editor-codex-trace article {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.changes-editor-codex-trace article strong {
+  color: var(--accent-soft);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.changes-editor-codex-trace article span {
+  color: var(--text);
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+.changes-editor-save-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 68%, var(--border));
+  border-radius: 7px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 18%, transparent);
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.changes-editor-save-button:hover:not(:disabled) {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 84%, var(--accent-strong));
+}
+
+.changes-editor-save-button:disabled {
+  color: var(--muted);
+  background: var(--panel-2);
+  border-color: var(--border);
+  box-shadow: none;
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+@container (max-width: 980px) {
+  .changes-editor-header {
+    align-items: stretch;
+    gap: 8px;
+    padding-block: 8px;
+  }
+
+  .changes-editor-header-main,
+  .changes-editor-header-actions {
+    flex: 1 1 100%;
+  }
+
+  .changes-editor-header-main {
+    justify-content: flex-start;
+  }
+
+  .changes-editor-header-actions {
+    justify-content: flex-start;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  }
+
+  .changes-editor-file-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .changes-editor-codex-head {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .changes-editor-codex-head > div:first-child {
+    flex: 1 1 220px;
+  }
+
+  .changes-editor-codex-inline-controls {
+    flex: 1 1 100%;
+    grid-template-columns: 1fr;
+    order: 3;
+  }
+
+  .changes-editor-codex-body {
+    grid-template-columns: 1fr;
+  }
+
+  .changes-editor-codex-usage {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .changes-editor-lint-menu,
+  .changes-editor-tool-button,
+  .changes-editor-save-button {
+    flex: 1 1 138px;
+  }
+
+  .changes-editor-lint-menu summary,
+  .changes-editor-tool-button,
+  .changes-editor-save-button {
+    width: 100%;
+  }
+
+  .changes-editor-tool-button.compact-icon,
+  .changes-editor-save-button.compact-icon {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 10px;
+  }
+
+  .changes-editor-tool-button.compact-icon .changes-editor-button-label,
+  .changes-editor-save-button.compact-icon .changes-editor-button-label {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    clip: auto;
+    clip-path: none;
+    overflow: visible;
+  }
+}
+
+@container (max-width: 560px) {
+  .changes-editor-header-main {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .changes-editor-header h3 {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .changes-editor-header p {
+    flex: 1 1 auto;
+  }
+
+  .changes-editor-view-tabs {
+    margin-left: auto;
+  }
+
+  .changes-editor-lint-menu,
+  .changes-editor-tool-button,
+  .changes-editor-save-button {
+    flex-basis: calc(50% - 4px);
+  }
+}
+
+@container (max-width: 400px) {
+  .changes-editor-lint-menu,
+  .changes-editor-tool-button,
+  .changes-editor-save-button {
+    flex-basis: 100%;
+  }
+}
+
+/* Live agent stream: column-reverse keeps the newest event pinned without scroll scripting. */
+.changes-editor-codex-live {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+  min-height: 0;
+  padding: 12px;
+  overflow: auto;
+}
+
+.codex-live-event {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.codex-live-event strong {
+  color: var(--accent-soft);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.codex-live-event pre {
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  color: var(--text);
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.codex-live-thinking pre {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.codex-live-tool strong {
+  color: var(--accent);
+}
+
+.codex-live-result {
+  border-color: color-mix(in srgb, var(--accent-soft) 45%, var(--border));
+}
+
+.changes-editor-codex-stop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--danger, #c0392b) 55%, var(--border));
+  border-radius: 7px;
+  color: var(--danger, #c0392b);
+  background: var(--panel-2);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.changes-editor-codex-stop:hover:not(:disabled) {
+  border-color: var(--danger, #c0392b);
+  background: color-mix(in srgb, var(--danger, #c0392b) 12%, var(--panel-2));
+}
+
+.changes-editor-codex-stop:disabled {
+  color: var(--muted);
+  opacity: 0.62;
+  cursor: wait;
+}
+

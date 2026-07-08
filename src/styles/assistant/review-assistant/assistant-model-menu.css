@@ -1,0 +1,197 @@
+.assistant-select-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.assistant-select-row select {
+  min-width: 0;
+}
+
+.assistant-check-button {
+  width: auto;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 10px !important;
+}
+
+.assistant-select {
+  box-shadow: inset 3px 0 0 transparent;
+}
+
+.assistant-model-menu {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
+}
+
+.assistant-model-trigger {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  text-align: left;
+}
+
+.assistant-model-trigger svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.assistant-model-prompts-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  min-width: 92px;
+  min-height: 38px;
+  padding: 0 10px !important;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.assistant-model-prompts-button svg {
+  flex: 0 0 auto;
+}
+
+.assistant-model-prompts-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assistant-model-trigger-copy,
+.assistant-model-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.assistant-model-trigger-copy strong,
+.assistant-model-copy strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-model-trigger-copy span,
+.assistant-model-copy span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-model-popover {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  max-height: min(420px, 64vh);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 18px 44px rgb(10 12 24 / 32%);
+}
+
+.assistant-prompts-popover {
+  max-height: min(520px, 68vh);
+}
+
+.assistant-prompts-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  overflow: auto;
+}
+
+.assistant-prompt-card {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--panel-2) 58%, transparent);
+}
+
+.assistant-prompt-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.assistant-prompt-card header > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.assistant-prompt-card strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-prompt-card header span {
+  width: max-content;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.assistant-prompt-card header button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.assistant-prompt-card textarea {
+  width: 100%;
+  min-height: 230px;
+  max-height: 46vh;
+  padding: 8px;
+  resize: vertical;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+  border-radius: 6px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel) 84%, transparent);
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+

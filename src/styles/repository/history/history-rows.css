@@ -1,0 +1,53 @@
+.commit-file-row {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-2);
+  text-align: left;
+}
+
+.history-row {
+  display: grid;
+  width: 100%;
+  min-height: var(--history-row-height, 46px);
+  border: 0;
+  border-radius: 0;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.history-row.has-graph {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  padding: 0 10px 0 var(--history-graph-text-start, 36px);
+  overflow: hidden;
+}
+
+.history-graph-canvas {
+  --history-graph-trunk: #ffb000;
+  --history-graph-lane-1: #58a6ff;
+  --history-graph-lane-2: #ff7eb6;
+  --history-graph-lane-3: #39d98a;
+  --history-graph-lane-4: #a78bfa;
+  --history-graph-lane-5: #4dd0e1;
+  --history-graph-lane-6: #ff7a59;
+  --history-graph-lane-7: #b8f566;
+  --history-graph-lane-8: #d2a8ff;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: var(--history-graph-width, 48px);
+  background: transparent;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+

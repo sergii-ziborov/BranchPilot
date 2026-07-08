@@ -1,0 +1,404 @@
+.changes-editor-workspace {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.changes-editor-workspace .changes-internal-editor {
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+}
+
+.changes-internal-editor {
+  display: grid;
+  --changes-editor-sidebar-width: 460px;
+  grid-template-columns:
+    minmax(260px, var(--changes-editor-sidebar-width))
+    10px
+    minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.changes-editor-sidebar {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--panel-2);
+}
+
+.changes-editor-splitter {
+  display: flex;
+  width: 10px;
+  min-width: 10px;
+  align-items: stretch;
+  justify-content: center;
+  align-self: stretch;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.changes-editor-splitter span {
+  width: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.changes-editor-splitter:hover span,
+.changes-editor-splitter:focus-visible span,
+.is-resizing-editor-sidebar .changes-editor-splitter span {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.is-resizing-editor-sidebar {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.changes-editor-back {
+  justify-content: flex-start;
+  width: fit-content;
+}
+
+.changes-editor-sidebar-actions {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.changes-editor-health-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.changes-editor-health-trigger {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.changes-editor-health-trigger strong {
+  display: inline-flex;
+  min-width: 24px;
+  min-height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--good);
+  background: var(--tint-good);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.changes-editor-health-menu.health-warning .changes-editor-health-trigger strong {
+  color: var(--warning);
+  background: var(--tint-warn);
+}
+
+.changes-editor-health-menu.health-critical .changes-editor-health-trigger strong {
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 18%, transparent);
+}
+
+.changes-editor-health-menu.is-disabled .changes-editor-health-trigger {
+  color: var(--muted);
+}
+
+.changes-editor-health-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  width: min(560px, calc(100vw - 28px));
+  max-height: min(680px, calc(100vh - 120px));
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  box-shadow: var(--shadow-pop);
+}
+
+.changes-editor-health-panel header,
+.changes-editor-health-panel section {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.changes-editor-health-panel header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.changes-editor-health-panel header div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.changes-editor-health-panel header .changes-editor-health-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 148px;
+}
+
+.changes-editor-health-panel header span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.changes-editor-health-panel header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+.changes-editor-health-panel header button:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.changes-editor-health-panel section > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.changes-editor-health-panel section > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-editor-health-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.changes-editor-health-mode-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.changes-editor-health-mode-grid > span {
+  grid-column: 1 / -1;
+}
+
+.changes-editor-health-panel .health-mode-card {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel-2) 54%, transparent);
+}
+
+.changes-editor-health-panel .health-mode-card b {
+  color: var(--text-strong);
+}
+
+.changes-editor-health-panel .health-issue {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel-2) 72%, transparent);
+}
+
+.changes-editor-health-panel .health-issue-head {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.changes-editor-health-panel .health-issue b {
+  color: var(--text-strong);
+}
+
+.changes-editor-health-panel .health-run-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-height: 17px;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, var(--border));
+  border-radius: 999px;
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.changes-editor-health-panel .health-run-opened {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.changes-editor-health-panel .health-run-manual {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.changes-editor-health-panel .health-warning {
+  border-color: color-mix(in srgb, var(--warning) 48%, var(--border));
+}
+
+.changes-editor-health-panel .health-critical {
+  border-color: color-mix(in srgb, var(--bad) 58%, var(--border));
+}
+
+.changes-editor-health-settings {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.changes-editor-health-settings > span {
+  grid-column: 1 / -1;
+}
+
+.changes-editor-health-setting,
+.changes-editor-health-number {
+  display: grid;
+  min-height: 42px;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel-2) 54%, transparent);
+}
+
+.changes-editor-health-setting {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.changes-editor-health-number {
+  grid-template-columns: minmax(0, 1fr) 86px;
+}
+
+.changes-editor-health-setting input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.changes-editor-health-number input {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-strong);
+  background: var(--panel);
+}
+
+.changes-editor-health-setting span,
+.changes-editor-health-number span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.changes-editor-health-setting b,
+.changes-editor-health-number b {
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.changes-editor-health-setting small,
+.changes-editor-health-number small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.changes-editor-health-settings > button {
+  min-height: 32px;
+}
+
+.changes-editor-health-panel section > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 8px;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 6px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.changes-editor-health-panel section > button:hover,
+.changes-editor-health-panel section > button:focus-visible {
+  border-color: var(--accent);
+  color: var(--text-strong);
+  background: var(--sel-bg);
+}
+
+.changes-editor-health-panel section > button strong,
+.changes-editor-health-panel section > button small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-editor-health-panel section > button small {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.changes-editor-health-panel section > button small .health-run-badge {
+  margin-right: 6px;
+}
+

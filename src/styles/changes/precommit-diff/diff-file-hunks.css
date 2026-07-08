@@ -1,0 +1,131 @@
+.diff-file {
+  display: grid;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.diff-file-heading,
+.diff-hunk-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--diff-border);
+}
+
+.diff-file-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--diff-file-bg);
+}
+
+.structured-diff-sectioned .diff-file-heading {
+  top: 38px;
+  z-index: 2;
+}
+
+.diff-file-heading strong {
+  overflow-wrap: anywhere;
+  color: var(--diff-file-text);
+  font-size: 13px;
+}
+
+.diff-file-heading span {
+  color: var(--diff-muted);
+  font-size: 12px;
+}
+
+.diff-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.diff-stats span {
+  min-width: 28px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.diff-stats .additions {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.diff-stats .deletions {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.diff-hunk-heading {
+  background: var(--diff-hunk-bg);
+}
+
+.diff-hunk-heading code {
+  overflow: hidden;
+  color: var(--diff-hunk-text);
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-hunk-heading button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--diff-border);
+  border-radius: 6px;
+  color: var(--diff-hunk-text);
+  background: var(--diff-button-bg);
+  font-size: 12px;
+}
+
+/* Hunk heading: header truncates with "…" so the action icons never get pushed off. */
+.diff-hunk-heading code {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.diff-hunk-actions {
+  display: inline-flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.diff-hunk-heading .hunk-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--diff-border);
+  border-radius: 6px;
+  color: var(--diff-hunk-text);
+  background: var(--diff-button-bg);
+  cursor: pointer;
+}
+.diff-hunk-heading .hunk-icon-btn:hover:not(:disabled) {
+  background: var(--sel-bg);
+  color: var(--diff-file-text);
+}
+.diff-hunk-heading .hunk-icon-btn.danger {
+  color: #fca5a5;
+}
+.diff-hunk-heading .hunk-icon-btn.danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.2);
+  color: var(--diff-remove-text);
+}
+

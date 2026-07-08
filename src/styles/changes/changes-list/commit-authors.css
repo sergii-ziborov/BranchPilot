@@ -1,0 +1,95 @@
+.changes-panel-compact .commit-box .commit-coauthors,
+.commit-box .commit-coauthors {
+  min-height: 42px;
+}
+
+.commit-author-strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.commit-author-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.commit-author-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  max-height: 84px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 2px;
+}
+
+.commit-author-chip {
+  display: inline-grid;
+  flex: 0 1 190px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-2);
+  cursor: pointer;
+}
+
+.commit-author-chip:hover {
+  border-color: var(--accent);
+  background: var(--sel-bg);
+}
+
+.commit-author-chip.active {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--sel-bg);
+}
+
+.commit-author-chip:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.commit-author-chip span:not(.commit-author-dot) {
+  display: grid;
+  min-width: 0;
+  text-align: left;
+}
+
+.commit-author-chip strong,
+.commit-author-chip small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-author-chip strong {
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.commit-author-chip small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.commit-author-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+

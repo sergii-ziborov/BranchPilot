@@ -275,7 +275,7 @@ export function PullRequestDetailsPanel({
           <h3>{details ? `#${details.number} ${details.title}` : 'Pull request details'}</h3>
           <p>
             {details
-              ? `${details.baseBranch} â† ${details.headBranch} Â· ${details.state}${details.draft ? ' Â· draft' : ''}`
+              ? `${details.baseBranch} ← ${details.headBranch} · ${details.state}${details.draft ? ' · draft' : ''}`
               : selectedPullRequestNumber
                 ? `Loading PR #${selectedPullRequestNumber}`
                 : 'Select a pull request to inspect details, checks, and diff.'}

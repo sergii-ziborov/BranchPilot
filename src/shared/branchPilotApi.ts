@@ -12,6 +12,7 @@ import type {
   BranchDraftGenerationRequest,
   CodexAgentRequest,
   CodexAgentResult,
+  CodexAgentStreamBatch,
   CloneRepositoryRequest,
   CommitCard,
   CommitDetails,
@@ -407,6 +408,8 @@ export interface BranchPilotApi {
   generateRepositoryStarter: (request: RepositoryStarterGenerationRequest) => Promise<ApiResult<GeneratedRepositoryStarter>>
   beautifyFileWithAssistant: (request: FileBeautifyRequest) => Promise<ApiResult<BeautifiedFile>>
   runCodexAgent: (request: CodexAgentRequest) => Promise<ApiResult<CodexAgentResult>>
+  cancelCodexAgent: (runId: string) => Promise<ApiResult<boolean>>
+  onCodexAgentEvent: (callback: (batch: CodexAgentStreamBatch) => void) => () => void
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   connectGitHub: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>

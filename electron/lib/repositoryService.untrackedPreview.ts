@@ -19,7 +19,7 @@ export async function readUntrackedFilePreview(
     return {
       filePath,
       staged: false,
-      text: 'Untracked directory â€” open it to see individual files.',
+      text: 'Untracked directory — open it to see individual files.',
       binary: false,
       tooLarge: false,
       files: []

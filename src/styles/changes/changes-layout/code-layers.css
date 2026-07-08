@@ -1,0 +1,359 @@
+.changes-editor-highlight,
+.changes-editor-line-numbers,
+.changes-editor-textarea {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: var(--changes-editor-pad-top) 16px var(--changes-editor-pad-bottom);
+  border: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--changes-editor-font-size);
+  line-height: var(--changes-editor-line-height);
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+  font-kerning: none;
+  tab-size: 2;
+}
+
+.changes-editor-line-numbers {
+  z-index: 2;
+  right: auto;
+  width: var(--changes-editor-gutter-width);
+  padding: var(--changes-editor-pad-top) 8px var(--changes-editor-pad-bottom) 6px;
+  border-right: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  color: color-mix(in srgb, var(--muted) 82%, var(--text));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--panel) 86%, transparent), color-mix(in srgb, var(--panel) 62%, transparent));
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.changes-editor-line-numbers-inner {
+  will-change: transform;
+}
+
+.changes-editor-line-numbers span {
+  display: block;
+  min-height: var(--changes-editor-line-height);
+  line-height: var(--changes-editor-line-height);
+  padding-right: 8px;
+  text-align: right;
+  user-select: none;
+}
+
+.changes-editor-line-numbers span.line-diagnostic-error {
+  color: var(--bad);
+  font-weight: 900;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--bad) 32%, transparent);
+}
+
+.changes-editor-line-numbers span.line-added,
+.changes-editor-line-numbers span.line-modified,
+.changes-editor-line-numbers span.line-removed {
+  position: relative;
+  font-weight: 800;
+}
+
+.changes-editor-line-numbers span.line-added {
+  color: var(--good);
+  box-shadow: inset 3px 0 var(--good);
+}
+
+.changes-editor-line-numbers span.line-modified {
+  color: var(--warning);
+  box-shadow: inset 3px 0 var(--warning);
+}
+
+.changes-editor-line-numbers span.line-removed {
+  color: var(--bad);
+  box-shadow: inset 3px 0 var(--bad);
+}
+
+.changes-editor-line-numbers span.line-multi-edit {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 3px 0 var(--accent);
+}
+
+.changes-editor-highlight {
+  z-index: 1;
+  padding-left: var(--changes-editor-code-left);
+  color: var(--diff-code-text, var(--text-strong));
+  background: transparent;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.changes-editor-highlight-inner {
+  width: max-content;
+  min-width: 100%;
+  transform: translate(0, 0);
+  will-change: transform;
+}
+
+.changes-editor-color-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: var(--changes-editor-pad-top) 16px var(--changes-editor-pad-bottom) var(--changes-editor-code-left);
+  overflow: hidden;
+  pointer-events: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--changes-editor-font-size);
+  line-height: var(--changes-editor-line-height);
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+  font-kerning: none;
+  tab-size: 2;
+}
+
+.changes-editor-color-layer-inner {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+  transform: translate(0, 0);
+  will-change: transform;
+}
+
+.changes-editor-color-swatch-slot {
+  position: absolute;
+  top: calc(var(--editor-color-line) * var(--changes-editor-line-height) + 4px);
+  left: calc(var(--editor-color-column) * 1ch);
+  display: inline-flex;
+  pointer-events: auto;
+}
+
+.changes-editor-color-swatch-slot .css-color-swatch {
+  width: 12px;
+  height: 12px;
+  border-color: color-mix(in srgb, var(--diff-code-text, var(--text-strong)) 62%, transparent);
+}
+
+.changes-editor-highlight-line {
+  display: block;
+  min-height: var(--changes-editor-line-height);
+  line-height: var(--changes-editor-line-height);
+  padding: 0 0 0 0;
+  white-space: pre;
+}
+
+.changes-editor-highlight-line *,
+.changes-editor-color-layer * {
+  line-height: inherit;
+}
+
+.changes-editor-highlight-line.line-added {
+  background: var(--diff-add-bg);
+}
+
+.changes-editor-highlight-line.line-modified {
+  background: var(--diff-hunk-bg);
+}
+
+.changes-editor-highlight-line.line-removed {
+  background: var(--diff-remove-bg);
+}
+
+.changes-editor-highlight-line.line-diagnostic-error {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--bad) 24%, transparent), transparent 64%),
+    color-mix(in srgb, var(--bad) 12%, transparent);
+  box-shadow: inset 3px 0 var(--bad);
+}
+
+.changes-editor-highlight-line.line-multi-edit {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), transparent 58%),
+    color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: inset 3px 0 var(--accent);
+}
+
+.changes-editor-textarea {
+  z-index: 3;
+  padding-left: var(--changes-editor-code-left);
+  resize: none;
+  outline: none;
+  color: transparent !important;
+  caret-color: var(--diff-code-text, var(--text-strong));
+  background: transparent !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--changes-editor-font-size);
+  line-height: var(--changes-editor-line-height);
+  tab-size: 2;
+  -webkit-text-fill-color: transparent !important;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.changes-editor-textarea::selection {
+  color: transparent !important;
+  background: color-mix(in srgb, var(--accent) 36%, transparent);
+  -webkit-text-fill-color: transparent !important;
+}
+
+.changes-editor-textarea:disabled {
+  cursor: wait;
+}
+
+.changes-editor-overview {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  bottom: 10px;
+  z-index: 8;
+  width: 82px;
+  border-radius: 3px;
+  overflow: hidden;
+  cursor: pointer;
+  background:
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--diff-bg, var(--panel)) 62%, transparent)),
+    color-mix(in srgb, var(--panel-2) 48%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--border) 74%, transparent),
+    -14px 0 22px color-mix(in srgb, var(--diff-bg, var(--panel)) 82%, transparent);
+  opacity: 0.96;
+}
+
+.changes-editor-highlight,
+.changes-editor-textarea {
+  padding-right: var(--changes-editor-pad-right);
+}
+
+.changes-editor-code-shell.is-chunked .changes-editor-overview {
+  top: 50px;
+}
+
+.changes-editor-overview-lines {
+  position: absolute;
+  inset: 4px;
+}
+
+.changes-editor-overview-viewport {
+  position: absolute;
+  right: 4px;
+  left: 4px;
+  z-index: 2;
+  border: 1px solid color-mix(in srgb, var(--text-strong) 38%, transparent);
+  background: color-mix(in srgb, var(--text-strong) 9%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--panel) 32%, transparent),
+    0 0 10px color-mix(in srgb, var(--accent) 16%, transparent);
+  pointer-events: none;
+}
+
+.changes-editor-overview-lines {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.changes-editor-minimap-line {
+  position: absolute;
+  left: 7px;
+  height: 1px;
+  min-height: 1px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: color-mix(in srgb, var(--diff-code-text, var(--text)) 42%, transparent);
+  opacity: 0.72;
+}
+
+.changes-editor-minimap-line.minimap-added {
+  background: color-mix(in srgb, var(--good) 86%, var(--text-strong));
+  opacity: 0.95;
+}
+
+.changes-editor-minimap-line.minimap-modified {
+  background: color-mix(in srgb, var(--warning) 88%, var(--text-strong));
+  opacity: 0.95;
+}
+
+.changes-editor-minimap-line.minimap-removed,
+.changes-editor-minimap-line.minimap-diagnostic {
+  background: color-mix(in srgb, var(--bad) 88%, var(--text-strong));
+  opacity: 0.95;
+}
+
+.changes-editor-minimap-line.minimap-search,
+.changes-editor-minimap-line.minimap-multi-edit {
+  background: color-mix(in srgb, var(--accent) 90%, var(--text-strong));
+  opacity: 1;
+}
+
+.changes-editor-overview-marker {
+  position: absolute;
+  right: 4px;
+  z-index: 3;
+  width: 16px;
+  min-width: 16px;
+  height: 4px;
+  min-height: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  transform: translateY(-50%);
+  background: var(--muted);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--diff-bg, var(--panel)) 50%, transparent),
+    0 0 8px color-mix(in srgb, currentColor 32%, transparent);
+  cursor: pointer;
+}
+
+.changes-editor-overview-marker.marker-added {
+  color: var(--good);
+  background: var(--good);
+}
+
+.changes-editor-overview-marker.marker-modified {
+  color: var(--warning);
+  background: var(--warning);
+}
+
+.changes-editor-overview-marker.marker-removed,
+.changes-editor-overview-marker.marker-diagnostic {
+  color: var(--bad);
+  background: var(--bad);
+}
+
+.changes-editor-overview-marker.marker-search {
+  color: var(--accent);
+  background: var(--accent);
+}
+
+.changes-editor-overview-marker.is-active {
+  width: 24px;
+  height: 6px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--text-strong) 88%, transparent),
+    0 0 14px color-mix(in srgb, currentColor 62%, transparent);
+}
+
+.changes-editor-overview-marker:hover,
+.changes-editor-overview-marker:focus-visible {
+  width: 24px;
+  height: 6px;
+  outline: 1px solid color-mix(in srgb, var(--text-strong) 72%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 980px) {
+  .changes-editor-overview {
+    width: 18px;
+  }
+
+  .changes-editor-highlight,
+  .changes-editor-textarea {
+    padding-right: 44px;
+  }
+
+  .changes-editor-minimap-line {
+    display: none;
+  }
+}
+

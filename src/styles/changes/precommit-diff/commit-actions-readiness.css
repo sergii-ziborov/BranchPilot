@@ -1,0 +1,94 @@
+﻿/* The modal already shows the tool title, so drop the panel's own title block. */
+.tool-modal-body .panel-heading > div:first-child {
+  display: none;
+}
+
+.tool-modal-body .panel-heading {
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.commit-actions button:first-child {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.commit-actions button:first-child svg {
+  color: currentColor;
+  stroke: currentColor;
+}
+
+
+.assistant-readiness {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.assistant-readiness span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.assistant-readiness strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.assistant-readiness p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.assistant-readiness button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.assistant-readiness.state-ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.assistant-readiness.state-unavailable {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.assistant-readiness.state-missing {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.assistant-readiness.state-detected {
+  border-color: #bfdbfe;
+  background: var(--sel-bg);
+}
+
+.assistant-readiness.state-unknown {
+  border-color: var(--border);
+  background: var(--panel-2);
+}
+

@@ -1,0 +1,58 @@
+.diff-selection-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--diff-border);
+  background: var(--diff-selection-bg);
+  color: var(--diff-selection-text);
+  font-size: 13px;
+}
+
+.diff-selection-bar > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+}
+
+.diff-selection-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.diff-selection-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.diff-selection-actions button.secondary {
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #c9d1d9;
+  background: transparent;
+}
+
+.diff-selection-actions button.danger {
+  border-color: rgba(248, 81, 73, 0.6);
+  color: #ffd7d7;
+  background: rgba(248, 81, 73, 0.18);
+}
+
+.diff-selection-actions button.danger:hover:not(:disabled) {
+  color: #ffffff;
+  background: #da3633;
+}
+

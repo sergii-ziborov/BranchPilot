@@ -1,0 +1,86 @@
+.info-row {
+  display: grid;
+  gap: 4px;
+}
+
+.info-row strong {
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+}
+
+.remotes-card,
+.submodules-card,
+.lfs-card {
+  grid-column: 1 / -1;
+}
+
+.config-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.config-card-heading p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.config-card-heading button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.remote-composer {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.28fr) minmax(220px, 1fr) auto auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.remote-composer label {
+  display: grid;
+  gap: 6px;
+}
+
+.remote-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.remote-row-details {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.remote-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.remote-row span,
+.muted-text {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 13px;
+}
+

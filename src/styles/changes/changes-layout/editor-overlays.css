@@ -1,0 +1,397 @@
+.changes-editor-search-hit {
+  border-radius: 3px;
+  color: inherit;
+  background: color-mix(in srgb, var(--warning, #f59e0b) 50%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning, #f59e0b) 34%, transparent);
+}
+
+.changes-editor-search-hit.active {
+  color: var(--on-accent);
+  background: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 12px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.changes-editor-multi-edit-hit {
+  border-radius: 2px;
+  color: inherit;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  box-shadow:
+    inset 0 -1px 0 color-mix(in srgb, var(--accent) 70%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.changes-editor-multi-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.25em;
+  margin: 0 -1px;
+  vertical-align: -0.18em;
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.changes-editor-diagnostics {
+  position: absolute;
+  left: 88px;
+  right: 18px;
+  bottom: 18px;
+  z-index: 8;
+  display: grid;
+  max-height: 158px;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--bad) 72%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: var(--shadow-pop);
+}
+
+.changes-editor-diagnostics header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--bad) 42%, var(--border));
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--bad) 12%, transparent);
+}
+
+.changes-editor-diagnostics header span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-editor-diagnostics button {
+  display: grid;
+  grid-template-columns: 52px 64px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+  border-radius: 0;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.changes-editor-diagnostics button:hover,
+.changes-editor-diagnostics button:focus-visible {
+  color: var(--text-strong);
+  background: var(--sel-bg);
+}
+
+.changes-editor-diagnostics button span {
+  color: var(--bad);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.changes-editor-diagnostics button code {
+  color: var(--muted);
+  font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.changes-editor-diagnostics button strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-internal-editor .signal-status.changes-editor-file-curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 74% 18%, color-mix(in srgb, var(--signal-alt) 18%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 70%, transparent), color-mix(in srgb, var(--panel) 90%, transparent));
+  backdrop-filter: blur(2px) saturate(1.18);
+}
+
+.changes-internal-editor .signal-status.changes-editor-file-curtain-static {
+  position: absolute;
+  border: 0;
+  border-radius: 0;
+}
+
+.changes-internal-editor .signal-status.changes-editor-media-loading {
+  inset: auto 16px 16px auto;
+  min-width: 260px;
+  min-height: 72px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.changes-editor-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.changes-internal-editor .changes-editor-body > .signal-status.changes-editor-body-curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 14;
+  pointer-events: auto;
+}
+
+.changes-editor-body.has-live-diff {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 32%);
+}
+
+.changes-editor-live-diff {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel-2) 86%, transparent);
+}
+
+.changes-editor-live-diff header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.changes-editor-live-diff header span {
+  display: inline-flex;
+  min-width: 26px;
+  min-height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--good);
+  background: var(--tint-good);
+  font-weight: 800;
+}
+
+.changes-editor-live-close {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  margin-left: auto;
+  padding: 0;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 6px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+}
+
+.changes-editor-live-close:hover,
+.changes-editor-live-close:focus-visible {
+  border-color: var(--accent);
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+}
+
+.changes-editor-live-diff > div {
+  display: grid;
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+}
+
+.changes-editor-live-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.changes-editor-live-jump {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.changes-editor-live-jump:hover,
+.changes-editor-live-jump:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 48%, transparent);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.changes-editor-live-jump > span {
+  color: var(--muted);
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-align: right;
+}
+
+.changes-editor-live-jump code,
+.changes-editor-live-row small {
+  min-width: 0;
+  overflow: hidden;
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-editor-live-jump code {
+  color: var(--text-strong);
+}
+
+.changes-editor-live-row small {
+  grid-column: 1 / 2;
+  padding-left: 52px;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.changes-editor-live-revert {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 6px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  opacity: 0.72;
+}
+
+.changes-editor-live-revert:hover,
+.changes-editor-live-revert:focus-visible {
+  border-color: var(--bad);
+  color: var(--bad);
+  background: var(--tint-bad);
+  opacity: 1;
+}
+
+.changes-editor-live-row.added {
+  background: var(--diff-add-bg);
+}
+
+.changes-editor-live-row.removed {
+  background: var(--diff-remove-bg);
+}
+
+.changes-editor-live-row.modified {
+  background: var(--diff-hunk-bg);
+}
+
+.changes-editor-live-diff p {
+  margin: 0;
+  padding: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.changes-editor-status-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel-2) 88%, transparent);
+  font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.changes-editor-status-position {
+  margin-right: auto;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.changes-editor-status-bar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.changes-editor-status-bar label > span,
+.changes-editor-status-bar > span {
+  white-space: nowrap;
+}
+
+.changes-editor-status-bar select {
+  min-height: 22px;
+  padding: 0 22px 0 7px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 5px;
+  color: var(--text-strong);
+  background: var(--panel);
+  font: inherit;
+  font-weight: 800;
+}
+
+.changes-editor-status-bar select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.changes-editor-code-shell.is-dirty {
+  background:
+    linear-gradient(90deg, var(--accent), transparent 24%) 0 0 / 100% 2px no-repeat,
+    var(--diff-bg, var(--panel));
+}
+
+@media (max-width: 900px) {
+  .changes-internal-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .changes-editor-sidebar {
+    max-height: 260px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .changes-editor-splitter {
+    display: none;
+  }
+
+  .changes-editor-body.has-live-diff {
+    grid-template-columns: 1fr;
+  }
+
+  .changes-editor-live-diff {
+    max-height: 240px;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+

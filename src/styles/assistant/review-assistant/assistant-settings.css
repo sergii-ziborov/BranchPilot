@@ -1,0 +1,83 @@
+.assistant-settings-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.assistant-default-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.assistant-settings-panel > .assistant-default-panel,
+.assistant-settings-panel > .assistant-policy-panel {
+  min-height: 100%;
+}
+
+.assistant-default-panel > label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.assistant-default-panel .assistant-model-trigger,
+.assistant-default-panel .assistant-check-button,
+.assistant-default-panel .assistant-model-option {
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: var(--panel);
+}
+
+.assistant-default-panel .assistant-model-trigger,
+.assistant-default-panel .assistant-model-option {
+  display: grid;
+}
+
+.assistant-default-panel .assistant-model-trigger {
+  padding: 0 10px;
+}
+
+.assistant-default-panel .assistant-check-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.assistant-default-panel .assistant-model-option:hover {
+  border-color: var(--border-strong);
+  background: var(--panel-2);
+}
+
+.assistant-default-panel .assistant-model-option.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+}
+
+.assistant-option-ready {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.assistant-option-detected {
+  color: #2563eb;
+}
+
+.assistant-option-limited,
+.assistant-option-unavailable {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.assistant-option-missing {
+  color: #b91c1c;
+  font-weight: 700;
+}
+

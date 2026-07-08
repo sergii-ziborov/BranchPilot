@@ -1,0 +1,273 @@
+.changes-editor-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.changes-editor-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.changes-editor-header-main {
+  display: flex;
+  flex: 1 1 320px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.changes-editor-header h3 {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-width: 180px;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-editor-header p {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.changes-editor-view-tabs {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel-2);
+}
+
+.changes-editor-view-tabs button {
+  min-height: 22px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.changes-editor-view-tabs button.active {
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.changes-editor-header-actions {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.changes-editor-file-search {
+  display: grid;
+  flex: 1 1 260px;
+  grid-template-columns: auto minmax(96px, 1fr) auto auto auto auto;
+  align-items: center;
+  gap: 6px;
+  max-width: 410px;
+  min-height: 32px;
+  padding: 0 6px 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--muted);
+  background: var(--panel-2);
+}
+
+.changes-editor-file-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.changes-editor-file-search input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+}
+
+.changes-editor-file-search button {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.changes-editor-file-search button:hover:not(:disabled) {
+  border-color: var(--border);
+  color: var(--text-strong);
+  background: var(--sel-bg);
+}
+
+.changes-editor-file-search button:disabled {
+  opacity: 0.42;
+}
+
+.changes-editor-search-count {
+  min-width: 50px;
+  color: var(--muted);
+  font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-align: right;
+}
+
+.changes-editor-tool-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-strong);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 54%),
+    var(--panel-2);
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.changes-editor-tool-button.ai {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.changes-editor-tool-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text-strong);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent 58%),
+    var(--sel-bg);
+}
+
+.changes-editor-tool-button:disabled {
+  color: var(--muted);
+  background: var(--panel-2);
+  border-color: var(--border);
+  box-shadow: none;
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.changes-editor-tool-button.compact-icon,
+.changes-editor-save-button.compact-icon {
+  position: relative;
+  width: 34px;
+  min-width: 34px;
+  padding-inline: 0;
+}
+
+.changes-editor-tool-button.compact-icon .changes-editor-button-label,
+.changes-editor-save-button.compact-icon .changes-editor-button-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.changes-editor-agent-brand {
+  display: block;
+  flex: 0 0 auto;
+  fill: currentColor;
+}
+
+.changes-editor-agent-brand.codex {
+  color: var(--text-strong);
+}
+
+.changes-editor-agent-brand.claude {
+  color: #e06f4f;
+}
+
+.changes-editor-codex-toggle .changes-editor-agent-brand {
+  width: 21px;
+  height: 21px;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, currentColor 24%, transparent));
+}
+
+.changes-editor-codex-toggle.active {
+  border-color: color-mix(in srgb, var(--accent-soft) 58%, var(--border));
+  color: var(--accent-soft);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 18%, transparent), transparent 58%),
+    var(--panel-2);
+}
+
+.changes-editor-codex-toggle.agent-claude.active {
+  border-color: color-mix(in srgb, #ff7448 58%, var(--border));
+  color: #ff7448;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #ff7448 16%, transparent), transparent 58%),
+    var(--panel-2);
+}
+
+.changes-editor-live-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  background: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.changes-editor-icon-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--panel) 86%, transparent);
+  border-radius: 999px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  font: 900 9px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  pointer-events: none;
+}
+

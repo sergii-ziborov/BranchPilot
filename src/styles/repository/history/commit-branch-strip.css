@@ -1,0 +1,52 @@
+.commit-branch-strip {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.commit-branch-strip > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.commit-branch-strip > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.commit-branch-strip strong {
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  background: var(--panel-2);
+  font-size: 12px;
+}
+
+.commit-file-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.45fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.commit-file-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.commit-file-row {
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  min-height: 42px;
+}
+

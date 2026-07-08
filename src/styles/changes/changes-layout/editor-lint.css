@@ -1,0 +1,242 @@
+.changes-editor-lint-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.changes-editor-lint-menu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-strong);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 54%),
+    var(--panel-2);
+  cursor: pointer;
+  font-weight: 800;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.changes-editor-lint-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.changes-editor-lint-menu.has-issues summary {
+  border-color: color-mix(in srgb, var(--bad) 70%, var(--border));
+  color: var(--bad);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--bad) 20%, transparent), transparent 58%),
+    var(--panel-2);
+}
+
+.changes-editor-lint-menu.is-clean summary {
+  border-color: color-mix(in srgb, var(--good) 72%, var(--border));
+  color: var(--good);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--good) 18%, transparent), transparent 58%),
+    var(--panel-2);
+}
+
+.changes-editor-lint-menu.is-blocked summary {
+  border-color: color-mix(in srgb, var(--warn) 68%, var(--border));
+  color: var(--warn);
+}
+
+.changes-editor-lint-menu.is-running summary {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+}
+
+.changes-editor-lint-menu.disabled summary {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.5;
+}
+
+.changes-editor-lint-menu summary span {
+  display: inline-grid;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--bad);
+  background: var(--tint-bad);
+  font: 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.changes-editor-lint-menu.is-clean summary span {
+  color: var(--good);
+  background: var(--tint-good);
+}
+
+.changes-editor-lint-menu.is-blocked summary span {
+  color: var(--warn);
+  background: var(--tint-warn);
+}
+
+.changes-editor-lint-menu.is-running summary span {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.changes-editor-lint-menu[open] summary {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.changes-editor-lint-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  width: 320px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  box-shadow: var(--shadow-pop);
+}
+
+.changes-editor-lint-popover button {
+  min-height: 30px;
+  border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--border));
+  border-radius: 7px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  font-weight: 800;
+}
+
+.changes-editor-lint-popover button:disabled {
+  border-color: var(--border);
+  color: var(--muted);
+  background: var(--panel-2);
+  opacity: 0.52;
+}
+
+.changes-editor-lint-status {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--panel-2) 86%, transparent);
+}
+
+.changes-editor-lint-status strong,
+.changes-editor-lint-status span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-editor-lint-status strong {
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.changes-editor-lint-status span {
+  color: var(--muted);
+  font: 11px/1.25 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.changes-editor-lint-status.clean {
+  border-color: color-mix(in srgb, var(--good) 56%, var(--border));
+  background: color-mix(in srgb, var(--tint-good) 62%, var(--panel-2));
+}
+
+.changes-editor-lint-status.clean strong {
+  color: var(--good);
+}
+
+.changes-editor-lint-status.issues {
+  border-color: color-mix(in srgb, var(--bad) 62%, var(--border));
+  background: color-mix(in srgb, var(--tint-bad) 62%, var(--panel-2));
+}
+
+.changes-editor-lint-status.issues strong {
+  color: var(--bad);
+}
+
+.changes-editor-lint-status.blocked {
+  border-color: color-mix(in srgb, var(--warn) 58%, var(--border));
+  background: color-mix(in srgb, var(--tint-warn) 56%, var(--panel-2));
+}
+
+.changes-editor-lint-status.blocked strong {
+  color: var(--warn);
+}
+
+.changes-editor-lint-status.running {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+}
+
+.changes-editor-lint-issues {
+  display: grid;
+  gap: 5px;
+}
+
+.changes-editor-lint-issues button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border-color: color-mix(in srgb, var(--bad) 50%, var(--border));
+  color: var(--text);
+  background: color-mix(in srgb, var(--bad) 12%, var(--panel-2));
+  text-align: left;
+}
+
+.changes-editor-lint-issues button:hover,
+.changes-editor-lint-issues button:focus-visible {
+  border-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 18%, var(--panel-2));
+}
+
+.changes-editor-lint-issues code {
+  color: var(--bad);
+  font: 800 11px/1.1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.changes-editor-lint-issues span,
+.changes-editor-lint-issues small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-editor-lint-issues small {
+  color: var(--muted);
+}
+
+.changes-editor-lint-popover label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.changes-editor-lint-popover label:has(input:disabled) {
+  opacity: 0.55;
+}
+
+.changes-editor-lint-popover input {
+  accent-color: var(--accent);
+}
+

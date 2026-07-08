@@ -372,13 +372,13 @@
 }
 
 .config-collapsible > summary::before {
-  content: 'â–¸';
+  content: '▸';
   color: var(--muted);
   font-size: 11px;
 }
 
 .config-collapsible[open] > summary::before {
-  content: 'â–¾';
+  content: '▾';
 }
 
 .config-collapsible[open] > summary {
@@ -415,13 +415,13 @@
 }
 
 .branch-collapsible > summary::before {
-  content: 'â–¸';
+  content: '▸';
   color: var(--muted);
   font-size: 11px;
 }
 
 .branch-collapsible[open] > summary::before {
-  content: 'â–¾';
+  content: '▾';
 }
 
 .branch-collapsible > summary span {

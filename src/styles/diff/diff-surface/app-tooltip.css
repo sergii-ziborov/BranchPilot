@@ -1,0 +1,55 @@
+.app-tooltip {
+  position: fixed;
+  z-index: 100;
+  transform: translateX(-50%);
+  max-width: min(280px, calc(100vw - 24px));
+  width: max-content;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.35);
+  animation: tooltip-fade 0.12s ease both;
+}
+
+/* Flipped above the anchor (used near the bottom edge of the window). */
+.app-tooltip-above {
+  transform: translate(-50%, -100%);
+}
+
+/* Small diamond pointer toward the anchored element. */
+.app-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.app-tooltip:not(.app-tooltip-above)::after {
+  top: -4px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.app-tooltip-above::after {
+  bottom: -4px;
+  border-left: 0;
+  border-top: 0;
+}
+
+@keyframes tooltip-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+

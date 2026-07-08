@@ -1,0 +1,153 @@
+.diff-preview {
+  overflow: auto;
+  max-height: calc(100vh - 360px);
+  min-height: 360px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--diff-bg);
+}
+
+.diff-preview code {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 26px;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--diff-text);
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.diff-preview .marker-add {
+  color: var(--diff-add-text);
+  background: var(--diff-add-bg);
+}
+
+.diff-preview .marker-remove {
+  color: var(--diff-remove-text);
+  background: var(--diff-remove-bg);
+}
+
+.structured-diff {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100vh - 360px);
+  min-height: 360px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--diff-bg);
+}
+
+.mixed-diff-stack {
+  display: flex;
+  min-height: 360px;
+  max-height: calc(100vh - 360px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--diff-bg);
+}
+
+.mixed-diff-stack .structured-diff {
+  display: contents;
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+}
+
+.changes-workflow-grid .diff-panel .mixed-diff-stack .structured-diff {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.mixed-diff-file-heading {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--diff-file-bg);
+}
+
+.mixed-diff-file-heading strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mixed-diff-stack .structured-diff + .structured-diff .diff-section-heading {
+  border-top: 1px solid var(--diff-border);
+}
+
+.mixed-diff-stack .diff-section-heading {
+  position: relative;
+  top: auto;
+  min-height: 30px;
+  padding: 4px 10px;
+  box-shadow: inset 3px 0 0 var(--diff-section-accent);
+  background: color-mix(in srgb, var(--diff-section-bg) 72%, var(--diff-bg));
+}
+
+.structured-diff-sectioned {
+  --diff-section-accent: var(--accent);
+  --diff-section-bg: color-mix(in srgb, var(--accent) 10%, var(--diff-file-bg));
+}
+
+.structured-diff-sectioned.diff-section-staged {
+  --diff-section-accent: var(--diff-add-text);
+  --diff-section-bg: color-mix(in srgb, var(--diff-add-bg) 52%, var(--diff-file-bg));
+}
+
+.structured-diff-sectioned.diff-section-unstaged {
+  --diff-section-accent: var(--warning, #f59e0b);
+  --diff-section-bg: color-mix(in srgb, var(--warning, #f59e0b) 14%, var(--diff-file-bg));
+}
+
+.diff-section-heading {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--diff-section-accent) 42%, var(--diff-border));
+  box-shadow: inset 4px 0 0 var(--diff-section-accent);
+  background: var(--diff-section-bg);
+}
+
+.diff-section-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.diff-section-title strong {
+  color: var(--diff-file-text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.diff-section-title span {
+  overflow: hidden;
+  color: var(--diff-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-section-heading .diff-stats {
+  flex: 0 0 auto;
+  margin: 0;
+}
+

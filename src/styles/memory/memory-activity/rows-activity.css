@@ -1,0 +1,290 @@
+.memory-file-row,
+.memory-symbol-row,
+.memory-commit-row,
+.activity-row,
+.project-wiki-page,
+.completed-work-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.memory-file-row {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  min-height: 34px;
+  padding: 5px 8px;
+  color: var(--text);
+  text-align: left;
+}
+
+.memory-file-row:hover,
+.memory-file-row.selected,
+.project-wiki-page:hover,
+.project-wiki-page.selected {
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
+}
+
+.memory-file-row strong,
+.memory-file-row span,
+.memory-commit-row strong,
+.memory-commit-row span,
+.activity-row strong,
+.activity-row span,
+.activity-row code,
+.completed-work-row strong,
+.completed-work-row span,
+.project-wiki-page strong,
+.project-wiki-page span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-file-row strong,
+.memory-commit-row strong,
+.activity-row strong,
+.completed-work-row strong,
+.project-wiki-page strong {
+  color: var(--text-strong);
+}
+
+.memory-file-row strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.memory-file-row span,
+.memory-commit-row span,
+.activity-row span,
+.activity-row code,
+.completed-work-row span,
+.project-wiki-page span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.memory-file-row span {
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.memory-symbol-row {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 2px 9px;
+  min-height: 40px;
+  padding: 7px 9px;
+}
+
+.memory-symbol-row span {
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.memory-symbol-row strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-symbol-row strong small {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--sel-bg) 70%, transparent);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.memory-symbol-row code {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-import-stack code {
+  display: block;
+  overflow: hidden;
+  min-height: 30px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel-2);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 46px;
+  padding: 7px 8px;
+  border-left: 4px solid var(--sel-border);
+}
+
+.memory-history-cell .activity-row {
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--panel-2);
+}
+
+.activity-row.activity-failure {
+  border-left-color: #f87171;
+}
+
+.memory-commit-row {
+  display: grid;
+  gap: 3px;
+  min-height: 44px;
+  padding: 7px 9px;
+}
+
+.memory-activity-filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 0;
+  padding: 3px;
+}
+
+.memory-activity-filters button {
+  min-height: 28px !important;
+  padding: 0 8px !important;
+  font-size: 11px;
+}
+
+.memory-history-head .icon-button {
+  min-width: 31px;
+  min-height: 31px;
+  padding: 0;
+}
+
+.memory-activity-section,
+.memory-commits-section {
+  display: grid;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.memory-activity-section .memory-scroll-list,
+.memory-commits-section .memory-scroll-list {
+  min-height: 0;
+  overflow: auto;
+}
+
+.memory-completed-strip {
+  display: grid;
+  gap: 7px;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.completed-work-list {
+  display: grid;
+  gap: 7px;
+}
+
+.completed-work-list.compact {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.completed-work-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 7px 8px;
+}
+
+.memory-completed-strip .completed-work-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.activity-row > div,
+.completed-work-row > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.memory-history-cell .activity-row > div,
+.memory-history-cell .activity-row > code {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.memory-history-cell .activity-row span {
+  margin-top: 0;
+  line-height: 1.2;
+}
+
+.memory-history-cell .activity-row code {
+  display: block;
+  line-height: 1.2;
+}
+
+.completed-work-row em {
+  min-width: 52px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--panel);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.completed-work-row.source-commit em {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.completed-work-row.source-provider em {
+  color: var(--accent-strong);
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--border));
+  background: var(--sel-bg);
+}
+
+.completed-work-row.source-review em {
+  color: #7c2d12;
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.completed-work-row.source-linkedin em {
+  color: #0f766e;
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+

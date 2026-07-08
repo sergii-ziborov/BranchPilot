@@ -1,0 +1,180 @@
+.history-preview-screen {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.history-preview-workspace {
+  display: grid;
+  --history-preview-sidebar-width: 390px;
+  grid-template-columns:
+    minmax(260px, var(--history-preview-sidebar-width))
+    10px
+    minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.history-preview-workspace.compare-mode {
+  grid-template-columns:
+    minmax(260px, var(--history-preview-sidebar-width))
+    10px
+    minmax(650px, 1fr);
+}
+
+.history-preview-sidebar {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--panel) 84%, var(--surface));
+}
+
+.history-preview-splitter,
+.history-preview-stage-splitter {
+  display: flex;
+  width: 10px;
+  min-width: 10px;
+  align-items: stretch;
+  justify-content: center;
+  align-self: stretch;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.history-preview-splitter span,
+.history-preview-stage-splitter span {
+  width: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.history-preview-splitter:hover span,
+.history-preview-splitter:focus-visible span,
+.history-preview-stage-splitter:hover span,
+.history-preview-stage-splitter:focus-visible span,
+.is-resizing-history-preview-sidebar .history-preview-splitter span,
+.is-resizing-history-preview-primary .history-preview-stage-splitter span {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.is-resizing-history-preview-sidebar,
+.is-resizing-history-preview-primary {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.history-preview-back {
+  justify-content: center;
+}
+
+.history-preview-sidebar-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.history-preview-sidebar-title strong {
+  color: var(--text-strong);
+}
+
+.history-preview-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.history-preview-search {
+  padding: 0 10px;
+}
+
+.history-preview-search input,
+.history-compare-combobox input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  outline: 0;
+}
+
+.history-preview-search input {
+  height: 36px;
+}
+
+.history-preview-file-list {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.signal-status.history-preview-list-curtain {
+  min-height: 240px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 72% 20%, color-mix(in srgb, var(--signal-alt) 18%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 70%, transparent), color-mix(in srgb, var(--panel) 90%, transparent));
+}
+
+.history-preview-file-row {
+  display: grid;
+  grid-template-columns: 24px 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+}
+
+.history-preview-file-row:hover {
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
+}
+
+.history-preview-file-row.selected {
+  border-color: var(--diff-selected-accent, var(--accent));
+  background: color-mix(in srgb, var(--diff-selected-accent, var(--accent)) 13%, var(--panel));
+}
+
+.history-preview-file-row.intersects:not(.selected) {
+  border-color: color-mix(in srgb, var(--ok, #2ea043) 42%, transparent);
+}
+
+.history-preview-intersection {
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--ok, #2ea043) 45%, transparent);
+  border-radius: 999px;
+  color: var(--ok, #2ea043);
+  font-size: 10px;
+  font-weight: 700;
+}
+

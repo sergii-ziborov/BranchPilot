@@ -3,33 +3,118 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
-  type ChangeEvent as ReactChangeEvent,
-  type ClipboardEvent as ReactClipboardEvent,
-  type CSSProperties,
-  type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
   type UIEvent as ReactUIEvent
 } from 'react'
-import { Activity, ArrowLeft, BrainCircuit, ChevronDown, ChevronRight, ChevronUp, CircleAlert, Code2, Copy, FileCode2, FileImage, Folder, FolderOpen, MinusSquare, Paperclip, Pencil, PlusSquare, RefreshCw, RotateCcw, Save, Search, SendHorizontal, Sparkles, Terminal, Trash2, TriangleAlert, WandSparkles, X } from 'lucide-react'
-import type { ApiResult, AssistantId, AssistantStatus, BranchPilotApi, BranchPilotError, CodexAgentAttachment, CodexAgentReasoning, CodexAgentResult, CodexAgentSandbox, DiffLine, DiffResult, FileChange, ImagePreview, RepositoryFileChunkResult, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
+import { FileCode2 } from 'lucide-react'
+import type { ApiResult, AssistantId, AssistantStatus, BranchPilotApi, ImagePreview, RepositoryFileEntry, RepositorySnapshot } from '../../shared/branchPilot'
 import type { ConfirmationOptions } from '../../lib/prompts'
-import { fileStatusToken } from '../../lib/fileChangeLabels'
 import { fileTypeIconForPath } from '../../lib/fileTypeIcons'
 import { friendlyIpcErrorMessage } from '../../lib/ipcErrorMessage'
-import { highlight, langFromPath } from '../../lib/highlight'
+import { langFromPath } from '../../lib/highlight'
 import { SignalStatus } from '../SignalStatus'
 import {
   findCssColorTokens,
-  isCssColorFile,
-  openCssColorPicker,
-  rewriteCssColorValue,
-  type CssColorEditDraft,
-  type CssColorToken
+  isCssColorFile
 } from '../diff/CssColorSwatch'
-import { CLAUDE_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, assistantSelectionLabel, assistantStatusLabel } from '../../lib/assistantLabels'
+import { clamp, formatBytes } from './internal-editor/editorPrimitives'
+import type {
+  ChunkedTextPreview,
+  EditorCssColorToken,
+  EditorDiagnostic,
+  EditorFileMenu,
+  EditorMinimapLine,
+  EditorOverviewMarker,
+  LiveLineChange
+} from './internal-editor/editorTypes'
+import { byteToHex } from './internal-editor/hexUtils'
+import {
+  analyzeSvgText,
+  parseSvgDocument,
+  safeSvgDataUrl,
+  serializeSvgDocument,
+  svgElements,
+  type SvgColorTarget
+} from './internal-editor/svgUtils'
+import {
+  buildJsonLineNumberMap,
+  collectJsonExpandablePaths,
+  flattenJsonTree,
+  jsonEditInitialValue,
+  jsonEditableKind,
+  parseJsonEditValue,
+  updateJsonValueAtPath,
+  type JsonEditCell,
+  type JsonTreeNode
+} from './internal-editor/jsonTreeUtils'
+import { beautifyJsoncText } from './internal-editor/editorBeautify'
+import {
+  JSON_RE,
+  isJsoncFilePath,
+  parseEditorJsonText,
+  utf8ByteOffset
+} from './internal-editor/editorLintHelpers'
+import {
+  buildLiveLineChanges,
+  revertLiveChangeInText,
+  textLines
+} from './internal-editor/liveLineChanges'
+import { buildRepositoryFileTree } from './internal-editor/fileTree'
+import type {
+  RepositoryContentSearchMatch,
+  RepositoryContentSearchState
+} from './internal-editor/editorStateTypes'
+import { CodeEditorView } from './internal-editor/CodeEditorView'
+import { EditorFileContextMenu } from './internal-editor/EditorFileContextMenu'
+import { EditorHeaderActions } from './internal-editor/EditorHeaderActions'
+import { EditorSidebar } from './internal-editor/EditorSidebar'
+import { EditorStatusBar } from './internal-editor/EditorStatusBar'
+import { HexEditorView } from './internal-editor/HexEditorView'
+import { ImagePreviewView } from './internal-editor/ImagePreviewView'
+import { JsonViewerView } from './internal-editor/JsonViewerView'
+import { LiveChangesPanel } from './internal-editor/LiveChangesPanel'
+import { LocalAgentPanel } from './internal-editor/LocalAgentPanel'
+import { SvgEditorView } from './internal-editor/SvgEditorView'
+import { useEditorDataLoading } from './internal-editor/useEditorDataLoading'
+import { useEditorFileActions } from './internal-editor/useEditorFileActions'
+import { useEditorHealth } from './internal-editor/useEditorHealth'
+import { useEditorLint } from './internal-editor/useEditorLint'
+import { useEditorSaveActions } from './internal-editor/useEditorSaveActions'
+import { useEditorSidebarResize } from './internal-editor/useEditorSidebarResize'
+import { useHexEditor } from './internal-editor/useHexEditor'
+import { useLocalAgentPanel } from './internal-editor/useLocalAgentPanel'
+import { useEditorMultiEdit } from './internal-editor/useEditorMultiEdit'
+import { useEditorTextHistory } from './internal-editor/useEditorTextHistory'
+import { useEditorViewport } from './internal-editor/useEditorViewport'
+import {
+  EDITOR_FILE_CHUNK_BYTES,
+  EDITOR_LIVE_CHANGES_DEBOUNCE_MS,
+  EDITOR_MINIMAP_LINE_LIMIT,
+  EDITOR_SEARCH_MATCH_LIMIT,
+  EDITOR_SIDEBAR_MAX_WIDTH,
+  EDITOR_SIDEBAR_MIN_WIDTH,
+  PREVIEWABLE_IMAGE_RE,
+  SVG_RE
+} from './internal-editor/editorViewConstants'
+import {
+  buildLineOffsets,
+  chunkedTextPreviewFromResult,
+  closeOpenEditorDetails,
+  defaultViewModeForPath,
+  detectEditorIndent,
+  detectEditorLineEnding,
+  editorTextSourceKey,
+  findFileSearchMatches,
+  isNativeEditableTarget,
+  lineBreakCount,
+  parseFileLineSearchQuery,
+  rangesOverlap,
+  selectedSearchText,
+  shortcutKey,
+  type EditorTextRange,
+  type EditorViewMode
+} from './internal-editor/editorViewHelpers'
 
 interface ChangesInternalEditorProps {
   api: BranchPilotApi | undefined
@@ -46,2876 +131,6 @@ interface ChangesInternalEditorProps {
   runSnapshotAction: (label: string, action: () => Promise<ApiResult<RepositorySnapshot>>) => boolean | void | Promise<boolean>
 }
 
-const EDITOR_SIDEBAR_STORAGE_KEY = 'branchpilot:changes-editor-sidebar-width'
-const EDITOR_HEALTH_STORAGE_KEY = 'branchpilot:changes-editor-health-enabled'
-const EDITOR_SIDEBAR_DEFAULT_WIDTH = 460
-const EDITOR_SIDEBAR_MIN_WIDTH = 280
-const EDITOR_SIDEBAR_MAX_WIDTH = 760
-const EDITOR_DETAIL_MIN_WIDTH = 520
-const EDITOR_SPLITTER_WIDTH = 10
-const EDITOR_LARGE_FILE_LINE_THRESHOLD = 260
-const EDITOR_INITIAL_RENDER_LINES = 240
-const EDITOR_RENDER_BATCH_SIZE = 120
-const EDITOR_RENDER_LOOKAHEAD = 48
-const EDITOR_SEARCH_MATCH_LIMIT = 5000
-const EDITOR_FILE_CONTENT_SEARCH_MIN_LENGTH = 2
-const EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT = 250
-const EDITOR_FILE_CONTENT_SEARCH_DEBOUNCE_MS = 260
-const EDITOR_HEALTH_LINT_CONCURRENCY = 6
-const CODEX_AGENT_ATTACHMENT_LIMIT = 8
-const CODEX_AGENT_TEXT_ATTACHMENT_MAX_CHARS = 80_000
-const TEXT_ATTACHMENT_FILE_RE = /\.(txt|md|mdx|json|jsonc|ya?ml|toml|ini|env|css|scss|sass|less|html?|xml|svg|csv|tsv|log|diff|patch|m?[jt]sx?|cts|mts|py|go|rs|java|cs|c|cc|cpp|h|hpp|php|rb|swift|kt|kts|vue|svelte|sql|sh|bash|ps1|bat|cmd)$/i
-const EDITOR_LINE_HEIGHT = 20
-const EDITOR_LINE_HEIGHT_EPSILON = 0.05
-const EDITOR_FILE_CHUNK_BYTES = 48_000
-const EDITOR_LIVE_DIFF_LCS_CELL_LIMIT = 240_000
-const EDITOR_TYPING_HISTORY_GROUP_MS = 900
-const EDITOR_SELECTION_STATUS_DEBOUNCE_MS = 80
-const EDITOR_LIVE_CHANGES_DEBOUNCE_MS = 1600
-const EDITOR_TEXT_HISTORY_LIMIT = 200
-const EDITOR_MINIMAP_LINE_LIMIT = 720
-const HEX_BYTES_PER_ROW = 16
-const HEX_CHUNK_BYTES = 16 * 1024
-const HEX_SEARCH_MATCH_LIMIT = 500
-const PREVIEWABLE_IMAGE_RE = /\.(png|jpe?g|gif|webp|bmp|svg|ico|icns|avif)$/i
-const SVG_RE = /\.svg$/i
-const JSON_RE = /\.(json|jsonc)$/i
-const JSONC_RE = /\.jsonc$/i
-const TSCONFIG_JSON_RE = /(^|\/)tsconfig[^/]*\.json$/i
-const SCRIPT_RE = /\.(m?[jt]sx?|cts|mts)$/i
-const JSX_TSX_RE = /\.(jsx|tsx)$/i
-const PLAIN_SCRIPT_RE = /\.(js|mjs|cjs|ts|mts|cts)$/i
-const HEALTH_LANGUAGE_FILE_RE = /\.(m?[jt]sx?|cts|mts|css|scss|sass|less|html?|jsonc?|ya?ml|md|py|go|rs|java|cs|c|cc|cpp|h|hpp|php|rb|swift|kt|kts|vue|svelte)$/i
-const EDITOR_LINT_SETTINGS_STORAGE_KEY = 'branchpilot:changes-editor-lint-settings'
-
-type EditorViewMode = 'code' | 'image' | 'json' | 'svg-editor' | 'hex'
-
-const DEFAULT_EDITOR_HEALTH_SETTINGS: EditorHealthSettings = {
-  enabled: true,
-  rowSignals: true,
-  mainConflicts: true,
-  mainChurn: true,
-  fileChunkedRanges: true,
-  fileDiagnostics: true,
-  fileDirtyDraft: true,
-  fileLoadLimits: true,
-  fileDenseChunk: true,
-  churnWarning: 30,
-  churnCritical: 80,
-  denseChunkWarning: 1200
-}
-
-interface EditorFileMenu {
-  x: number
-  y: number
-  path: string
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
-
-function isNativeEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  return target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result ?? ''))
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file.'))
-    reader.readAsDataURL(file)
-  })
-}
-
-async function readFileAsTruncatedText(file: File): Promise<{ text: string; truncated: boolean }> {
-  const text = await file.text()
-
-  if (text.length <= CODEX_AGENT_TEXT_ATTACHMENT_MAX_CHARS) {
-    return { text, truncated: false }
-  }
-
-  return {
-    text: `${text.slice(0, CODEX_AGENT_TEXT_ATTACHMENT_MAX_CHARS)}\n... ${text.length - CODEX_AGENT_TEXT_ATTACHMENT_MAX_CHARS} more characters truncated`,
-    truncated: true
-  }
-}
-
-function isImageAttachmentFile(file: File): boolean {
-  return file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name)
-}
-
-function isTextAttachmentFile(file: File): boolean {
-  return file.type.startsWith('text/') ||
-    /(?:json|xml|yaml|javascript|typescript|css|html|markdown|csv|toml|x-sh|x-python)/i.test(file.type) ||
-    TEXT_ATTACHMENT_FILE_RE.test(file.name)
-}
-
-function filesFromTransferItems(items: DataTransferItemList): File[] {
-  return Array.from(items)
-    .filter((item) => item.kind === 'file')
-    .map((item) => item.getAsFile())
-    .filter((file): file is File => Boolean(file))
-}
-
-function friendlyAgentErrorMessage(error: BranchPilotError, fallback: string): string {
-  const details = compactAgentErrorDetails(error.details ?? '')
-  return friendlyIpcErrorMessage(error.message, fallback, details)
-}
-
-function compactAgentErrorDetails(details: string): string {
-  const trimmed = details.trim()
-  const maxLength = 12_000
-
-  if (trimmed.length <= maxLength) {
-    return trimmed
-  }
-
-  return `${trimmed.slice(0, maxLength)}\n... ${trimmed.length - maxLength} more characters truncated`
-}
-
-function clampEditorSidebarWidth(width: number, containerWidth?: number): number {
-  const maxForContainer = containerWidth && containerWidth > 0
-    ? Math.max(EDITOR_SIDEBAR_MIN_WIDTH, containerWidth - EDITOR_SPLITTER_WIDTH - EDITOR_DETAIL_MIN_WIDTH)
-    : EDITOR_SIDEBAR_MAX_WIDTH
-
-  return Math.round(clamp(width, EDITOR_SIDEBAR_MIN_WIDTH, Math.min(EDITOR_SIDEBAR_MAX_WIDTH, maxForContainer)))
-}
-
-function editorLineWindowForScroll(
-  totalLines: number,
-  scrollTop: number,
-  viewportHeight: number,
-  lineHeight = EDITOR_LINE_HEIGHT
-): EditorLineWindow {
-  if (totalLines <= 0) {
-    return { start: 0, end: 0, offsetTop: 0, rendered: 0, virtual: false }
-  }
-
-  if (totalLines <= EDITOR_LARGE_FILE_LINE_THRESHOLD) {
-    return { start: 0, end: totalLines, offsetTop: 0, rendered: totalLines, virtual: false }
-  }
-
-  const safeLineHeight = Number.isFinite(lineHeight) && lineHeight > 4 ? lineHeight : EDITOR_LINE_HEIGHT
-  const viewportLines = Math.max(
-    1,
-    Math.ceil((viewportHeight || EDITOR_INITIAL_RENDER_LINES * safeLineHeight) / safeLineHeight)
-  )
-  const firstVisibleLine = Math.max(0, Math.floor(scrollTop / safeLineHeight))
-  const rawStart = Math.max(0, firstVisibleLine - EDITOR_RENDER_LOOKAHEAD)
-  const rawEnd = Math.min(totalLines, firstVisibleLine + viewportLines + EDITOR_RENDER_LOOKAHEAD)
-  const start = Math.floor(rawStart / EDITOR_RENDER_BATCH_SIZE) * EDITOR_RENDER_BATCH_SIZE
-  const end = Math.min(
-    totalLines,
-    Math.max(start + EDITOR_RENDER_BATCH_SIZE, Math.ceil(rawEnd / EDITOR_RENDER_BATCH_SIZE) * EDITOR_RENDER_BATCH_SIZE)
-  )
-
-  return {
-    start,
-    end,
-    offsetTop: start * safeLineHeight,
-    rendered: Math.max(0, end - start),
-    virtual: true
-  }
-}
-
-function readStoredEditorHealthSettings(): EditorHealthSettings {
-  try {
-    const rawValue = window.localStorage.getItem(EDITOR_HEALTH_STORAGE_KEY)
-    if (!rawValue) return DEFAULT_EDITOR_HEALTH_SETTINGS
-    if (rawValue === 'false') return { ...DEFAULT_EDITOR_HEALTH_SETTINGS, enabled: false }
-    if (rawValue === 'true') return DEFAULT_EDITOR_HEALTH_SETTINGS
-
-    const stored = JSON.parse(rawValue) as Partial<EditorHealthSettings>
-    const legacyDefaultChurn = stored.churnWarning === 250 && stored.churnCritical === 900
-    return {
-      ...DEFAULT_EDITOR_HEALTH_SETTINGS,
-      ...stored,
-      churnWarning: clamp(Number(legacyDefaultChurn ? DEFAULT_EDITOR_HEALTH_SETTINGS.churnWarning : stored.churnWarning ?? DEFAULT_EDITOR_HEALTH_SETTINGS.churnWarning), 20, 10_000),
-      churnCritical: clamp(Number(legacyDefaultChurn ? DEFAULT_EDITOR_HEALTH_SETTINGS.churnCritical : stored.churnCritical ?? DEFAULT_EDITOR_HEALTH_SETTINGS.churnCritical), 40, 20_000),
-      denseChunkWarning: clamp(Number(stored.denseChunkWarning ?? DEFAULT_EDITOR_HEALTH_SETTINGS.denseChunkWarning), 100, 20_000)
-    }
-  } catch {
-    return DEFAULT_EDITOR_HEALTH_SETTINGS
-  }
-}
-
-function storeEditorHealthSettings(settings: EditorHealthSettings): void {
-  try {
-    window.localStorage.setItem(EDITOR_HEALTH_STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-    /* ignore unavailable storage */
-  }
-}
-
-function closeOpenEditorDetails(root: HTMLElement | null, except?: Element | null): void {
-  if (!root) return
-  root.querySelectorAll<HTMLDetailsElement>('details[open]').forEach((details) => {
-    if (except && details.contains(except)) return
-    details.removeAttribute('open')
-  })
-}
-
-function readStoredEditorSidebarWidth(): number {
-  try {
-    const rawWidth = window.localStorage.getItem(EDITOR_SIDEBAR_STORAGE_KEY)
-    if (rawWidth === null) return EDITOR_SIDEBAR_DEFAULT_WIDTH
-
-    const stored = Number(rawWidth)
-    if (Number.isFinite(stored)) return clampEditorSidebarWidth(stored)
-  } catch {
-    /* ignore unavailable storage */
-  }
-
-  return EDITOR_SIDEBAR_DEFAULT_WIDTH
-}
-
-interface LiveLineChange {
-  lineNumber: number
-  kind: 'added' | 'removed' | 'modified'
-  before: string
-  after: string
-}
-
-interface EditorOverviewMarker {
-  lineNumber: number
-  kind: 'added' | 'removed' | 'modified' | 'search' | 'diagnostic'
-  title: string
-}
-
-interface EditorMinimapLine {
-  lineNumber: number
-  widthPercent: number
-  kind: 'added' | 'removed' | 'modified' | 'search' | 'diagnostic' | 'multi-edit' | 'plain'
-}
-
-interface EditorCssColorToken extends CssColorToken {
-  lineNumber: number
-  renderLineIndex: number
-}
-
-interface EditorLineWindow {
-  start: number
-  end: number
-  offsetTop: number
-  rendered: number
-  virtual: boolean
-}
-
-interface HexEditorRow {
-  offset: number
-  bytes: number[]
-}
-
-interface HexBytePreview {
-  filePath: string
-  byteSize: number
-  startOffset: number
-  endOffset: number
-  hasMore: boolean
-  fullFileLoaded: boolean
-}
-
-interface HexSearchMatch {
-  offset: number
-  length: number
-}
-
-interface EditorTextHistoryEntry {
-  text: string
-  selectionStart: number
-  selectionEnd: number
-}
-
-interface EditorTextRange {
-  start: number
-  end: number
-}
-
-interface EditorSelectionStatus {
-  lineNumber: number
-  column: number
-  selectedChars: number
-  selectedLines: number
-}
-
-type EditorHealthSeverity = 'healthy' | 'warning' | 'critical'
-type EditorHealthRun = 'live' | 'opened' | 'manual'
-
-interface EditorHealthIssue {
-  severity: EditorHealthSeverity
-  run: EditorHealthRun
-  category: 'batch' | 'churn' | 'diagnostics' | 'dirty' | 'git' | 'load' | 'preview'
-  title: string
-  detail: string
-}
-
-interface EditorHealthReport {
-  severity: EditorHealthSeverity
-  issues: EditorHealthIssue[]
-}
-
-interface EditorHealthScanState {
-  status: 'idle' | 'running' | 'done'
-  scanned: number
-  linted: number
-  signals: number
-  error: string | null
-}
-
-interface EditorHealthSettings {
-  enabled: boolean
-  rowSignals: boolean
-  mainConflicts: boolean
-  mainChurn: boolean
-  fileChunkedRanges: boolean
-  fileDiagnostics: boolean
-  fileDirtyDraft: boolean
-  fileLoadLimits: boolean
-  fileDenseChunk: boolean
-  churnWarning: number
-  churnCritical: number
-  denseChunkWarning: number
-}
-
-type EditorHealthBooleanSetting = {
-  [Key in keyof EditorHealthSettings]: EditorHealthSettings[Key] extends boolean ? Key : never
-}[keyof EditorHealthSettings]
-
-type EditorLineEnding = 'LF' | 'CRLF' | 'CR' | 'Mixed'
-type EditorIndentKind = 'spaces' | 'tabs' | 'mixed' | 'none'
-
-interface EditorLineEndingInfo {
-  kind: EditorLineEnding
-  lf: number
-  crlf: number
-  cr: number
-}
-
-interface EditorIndentInfo {
-  kind: EditorIndentKind
-  size: number
-}
-
-interface EditableTextLines {
-  lines: string[]
-  hasTrailingNewline: boolean
-}
-
-interface FileSearchMatch {
-  lineNumber: number
-  column: number
-  length: number
-}
-
-interface EditorLineDecoration {
-  start: number
-  end: number
-  className: string
-}
-
-interface FileLineSearchTarget {
-  lineNumber: number
-  column: number
-}
-
-interface RepositoryContentSearchMatch {
-  filePath: string
-  lineNumber: number
-  column: number
-  length: number
-  byteOffset: number
-  preview: string
-}
-
-interface RepositoryContentSearchState {
-  status: 'idle' | 'searching' | 'done'
-  scanned: number
-  truncated: boolean
-  error: string | null
-}
-
-interface ChunkedTextMarker {
-  offset: number
-  lineNumber: number
-}
-
-interface ChunkedTextPreview {
-  filePath: string
-  text: string
-  byteSize: number
-  startOffset: number
-  endOffset: number
-  startLine: number
-  hasMore: boolean
-  markers: ChunkedTextMarker[]
-  pageIndex: number
-  loading: boolean
-  error: string | null
-}
-
-interface JsonTreeNode {
-  keyName?: string
-  value: unknown
-  depth: number
-  path: string
-  lineNumber?: number
-  expandable: boolean
-  childCount: number
-}
-
-interface JsonEditCell {
-  path: string
-  kind: 'string' | 'number' | 'boolean'
-  value: string
-}
-
-interface EditorDiagnostic {
-  lineNumber: number
-  column: number
-  message: string
-  source: 'JSON' | 'JSONC' | 'JS/TS' | 'JSX/TSX'
-}
-
-interface EditorLintSettings {
-  autoValidate: boolean
-  validateJson: boolean
-  allowJsonComments: boolean
-  allowJsonTrailingCommas: boolean
-  validateScripts: boolean
-  validateJsxTsx: boolean
-  validateRegexLiterals: boolean
-}
-
-type EditorLintRunStatus = 'idle' | 'running' | 'clean' | 'issues' | 'blocked'
-
-interface EditorLintRunState {
-  status: EditorLintRunStatus
-  message: string
-  detail: string
-}
-
-interface CodexAgentAttachmentDraft {
-  id: string
-  kind: 'image' | 'text'
-  name: string
-  mimeType: string
-  sizeBytes: number
-  dataUrl?: string
-  text?: string
-  truncated?: boolean
-}
-
-interface LocalAgentCommandContext {
-  agentLabel: string
-  modelLabel: string
-  reasoning: CodexAgentReasoning
-  access: CodexAgentSandbox
-  filePath?: string
-}
-
-interface LocalAgentCommand {
-  id: string
-  label: string
-  detail: string
-  insert: (context: LocalAgentCommandContext) => string
-}
-
-type LocalAgentProvider = 'codex' | 'claude'
-
-const CODEX_AGENT_REASONING_OPTIONS: Array<{ value: CodexAgentReasoning; label: string }> = [
-  { value: 'light', label: 'Light' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'extra-high', label: 'Extra High' }
-]
-
-const CODEX_AGENT_SANDBOX_OPTIONS: Array<{ value: CodexAgentSandbox; label: string }> = [
-  { value: 'read-only', label: 'Read only' },
-  { value: 'workspace-write', label: 'Work locally' },
-  { value: 'danger-full-access', label: 'Full access' }
-]
-
-const LOCAL_AGENT_PROVIDERS: Array<{ value: LocalAgentProvider; label: string }> = [
-  { value: 'codex', label: 'Codex' },
-  { value: 'claude', label: 'Claude' }
-]
-
-const LOCAL_AGENT_COMMANDS: LocalAgentCommand[] = [
-  {
-    id: 'login',
-    label: '/login',
-    detail: 'auth check',
-    insert: ({ agentLabel }) => `Check ${agentLabel} CLI authentication. If it is not logged in, give me the exact login command and where to run it.`
-  },
-  {
-    id: 'usage',
-    label: '/usage',
-    detail: 'quota state',
-    insert: ({ agentLabel }) => `Check ${agentLabel} usage, quota, and session limit status. Summarize what remains and any reset time you can infer.`
-  },
-  {
-    id: 'status',
-    label: '/status',
-    detail: 'repo state',
-    insert: () => 'Inspect the current repository status, branch, changed files, and immediate risks.'
-  },
-  {
-    id: 'models',
-    label: '/models',
-    detail: 'model fit',
-    insert: ({ agentLabel, modelLabel, reasoning }) => `Evaluate whether ${agentLabel} with ${modelLabel} and ${reasoning} reasoning is appropriate for this task. Recommend a better model only if needed.`
-  },
-  {
-    id: 'permissions',
-    label: '/permissions',
-    detail: 'access rules',
-    insert: ({ access }) => `Explain what the current access rules allow under ${access}, and what you cannot do without changing access.`
-  },
-  {
-    id: 'review',
-    label: '/review',
-    detail: 'active file',
-    insert: ({ filePath }) => `Review ${filePath ? `the active file ${filePath}` : 'the current repository context'} for bugs, risky assumptions, and missing checks.`
-  },
-  {
-    id: 'fix',
-    label: '/fix',
-    detail: 'make change',
-    insert: ({ filePath }) => `Fix the issue in ${filePath ? filePath : 'the relevant files'}, keep the change scoped, and tell me what verification you ran.`
-  },
-  {
-    id: 'test',
-    label: '/test',
-    detail: 'verify',
-    insert: () => 'Run or recommend the smallest useful verification for this change, then summarize the result.'
-  },
-  {
-    id: 'attach',
-    label: '/attach',
-    detail: 'use files',
-    insert: () => 'Use the attached files and images as primary context. Call out anything important you can infer from them.'
-  }
-]
-
-function localAgentProviderForAssistant(assistant: AssistantId): LocalAgentProvider {
-  return assistant.startsWith('claude') ? 'claude' : 'codex'
-}
-
-function localAgentDefaultAssistant(provider: LocalAgentProvider): AssistantId {
-  return provider === 'claude' ? 'claude' : 'codex'
-}
-
-function localAgentModelOptions(provider: LocalAgentProvider) {
-  return provider === 'claude' ? CLAUDE_MODEL_OPTIONS : CODEX_MODEL_OPTIONS
-}
-
-function localAgentLabel(provider: LocalAgentProvider): string {
-  return provider === 'claude' ? 'Claude' : 'Codex'
-}
-
-function compactAssistantUsage(status: AssistantStatus | null, checking: boolean): string {
-  if (checking) return 'checking'
-  if (!status) return 'unknown'
-
-  const statusLabel = assistantStatusLabel(status)
-  const message = status.message.trim()
-  const resetLabel = compactAssistantResetLabel(message)
-  const usageMatch = /(usage\s+(?:remaining|left)[^·\n.]*)/i.exec(message)
-  const percentMatch = /(\d{1,3}%\s+(?:remaining|left))/i.exec(message)
-
-  if (statusLabel === 'limited') {
-    return resetLabel ? `limited - resets ${resetLabel}` : 'limited'
-  }
-
-  if (usageMatch) return usageMatch[1].trim()
-  if (percentMatch) return percentMatch[1].trim()
-  if (status.state === 'ready') return 'ready'
-  if (status.state === 'detected') return 'checking'
-
-  return statusLabel
-}
-
-function compactAssistantResetLabel(message: string): string | null {
-  const resetMatch =
-    /resets?\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)(?:\s*\([^)]*\))?)/i.exec(message) ||
-    /try again at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)(?:\s*\([^)]*\))?)/i.exec(message) ||
-    /resets?\s+(?:at\s+)?([^·\n,.]+)/i.exec(message)
-  const value = resetMatch?.[1]?.trim().replace(/[.,;:]+$/g, '').trim()
-
-  return value || null
-}
-
-function slashCommandQuery(prompt: string): string | null {
-  const match = /(?:^|\n)\/([a-z-]*)$/i.exec(prompt)
-  return match ? match[1].toLowerCase() : null
-}
-
-function LocalAgentBrandIcon({ provider, size = 18 }: { provider: LocalAgentProvider; size?: number }) {
-  if (provider === 'claude') {
-    return (
-      <svg className="changes-editor-agent-brand claude" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-        {Array.from({ length: 12 }).map((_, index) => (
-          <line
-            key={index}
-            x1="12"
-            y1="4.1"
-            x2="12"
-            y2="8.05"
-            stroke="currentColor"
-            strokeWidth="2.45"
-            strokeLinecap="round"
-            transform={`rotate(${index * 30} 12 12)`}
-          />
-        ))}
-      </svg>
-    )
-  }
-
-  return (
-    <svg className="changes-editor-agent-brand codex" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 4.15c1.72-1 3.95-.42 4.95 1.3.65 1.12.64 2.47.1 3.54l-2.2 3.86" />
-        <path d="M16.8 5.72c1.75.02 3.28 1.3 3.6 3.08.35 1.95-.94 3.83-2.89 4.18l-4.38.77" />
-        <path d="M20.12 11.02c.85 1.5.51 3.47-.88 4.6-1.53 1.26-3.8 1.03-5.05-.5l-2.85-3.5" />
-        <path d="M16.56 17.82c-.83 1.5-2.67 2.22-4.32 1.62-1.86-.67-2.83-2.73-2.16-4.59l1.53-4.24" />
-        <path d="M10.12 19.05c-1.72.98-3.95.4-4.94-1.32-.65-1.13-.63-2.49-.08-3.56l2.22-3.84" />
-        <path d="M5.18 17.08c-1.7-.08-3.16-1.35-3.48-3.08-.36-1.95.93-3.83 2.88-4.19l4.43-.8" />
-        <path d="M3.82 9.04c-.83-1.51-.48-3.46.9-4.58 1.54-1.25 3.8-1.02 5.05.52l2.82 3.48" />
-        <path d="M7.5 6.22c.84-1.49 2.66-2.18 4.29-1.59 1.86.68 2.81 2.74 2.13 4.6l-1.55 4.22" />
-        <path d="M8.05 9.02h5.48l2.7 4.68-2.72 4.7H8.07l-2.72-4.7 2.7-4.68z" />
-      </g>
-    </svg>
-  )
-}
-
-interface SvgColorTarget {
-  index: number
-  element: string
-  label: string
-  attr: string
-  value: string
-}
-
-interface SvgAnalysis {
-  error: string | null
-  width: string
-  height: string
-  viewBox: string
-  elementCount: number
-  colors: SvgColorTarget[]
-}
-
-interface FileTreeFolder {
-  name: string
-  path: string
-  files: RepositoryFileEntry[]
-  children: FileTreeFolder[]
-}
-
-interface MutableFileTreeFolder extends FileTreeFolder {
-  children: MutableFileTreeFolder[]
-  childMap: Map<string, MutableFileTreeFolder>
-}
-
-const DEFAULT_LINT_SETTINGS: EditorLintSettings = {
-  autoValidate: true,
-  validateJson: true,
-  allowJsonComments: true,
-  allowJsonTrailingCommas: true,
-  validateScripts: true,
-  validateJsxTsx: true,
-  validateRegexLiterals: true
-}
-
-function readStoredLintSettings(): EditorLintSettings {
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(EDITOR_LINT_SETTINGS_STORAGE_KEY) ?? '') as Partial<EditorLintSettings>
-    return {
-      autoValidate: typeof parsed.autoValidate === 'boolean' ? parsed.autoValidate : DEFAULT_LINT_SETTINGS.autoValidate,
-      validateJson: typeof parsed.validateJson === 'boolean' ? parsed.validateJson : DEFAULT_LINT_SETTINGS.validateJson,
-      allowJsonComments: typeof parsed.allowJsonComments === 'boolean' ? parsed.allowJsonComments : DEFAULT_LINT_SETTINGS.allowJsonComments,
-      allowJsonTrailingCommas: typeof parsed.allowJsonTrailingCommas === 'boolean' ? parsed.allowJsonTrailingCommas : DEFAULT_LINT_SETTINGS.allowJsonTrailingCommas,
-      validateScripts: typeof parsed.validateScripts === 'boolean' ? parsed.validateScripts : DEFAULT_LINT_SETTINGS.validateScripts,
-      validateJsxTsx: typeof parsed.validateJsxTsx === 'boolean' ? parsed.validateJsxTsx : DEFAULT_LINT_SETTINGS.validateJsxTsx,
-      validateRegexLiterals: typeof parsed.validateRegexLiterals === 'boolean' ? parsed.validateRegexLiterals : DEFAULT_LINT_SETTINGS.validateRegexLiterals
-    }
-  } catch {
-    return DEFAULT_LINT_SETTINGS
-  }
-}
-
-function persistLintSettings(settings: EditorLintSettings) {
-  try {
-    window.localStorage.setItem(EDITOR_LINT_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-    /* ignore unavailable storage */
-  }
-}
-
-function createFileTreeFolder(name: string, path: string): MutableFileTreeFolder {
-  return {
-    name,
-    path,
-    files: [],
-    children: [],
-    childMap: new Map()
-  }
-}
-
-function fileDisplayName(filePath: string, folderPath: string): string {
-  return folderPath ? filePath.slice(folderPath.length + 1) : filePath
-}
-
-function comparePathPart(left: string, right: string): number {
-  return left.localeCompare(right, undefined, { sensitivity: 'base', numeric: true })
-}
-
-function sortFileTreeFolder(folder: MutableFileTreeFolder) {
-  folder.files.sort((left, right) => {
-    const byName = comparePathPart(fileDisplayName(left.path, folder.path), fileDisplayName(right.path, folder.path))
-    return byName || comparePathPart(left.path, right.path)
-  })
-  folder.children.sort((left, right) => comparePathPart(left.name, right.name) || comparePathPart(left.path, right.path))
-  folder.children.forEach(sortFileTreeFolder)
-}
-
-function buildRepositoryFileTree(files: RepositoryFileEntry[]): FileTreeFolder {
-  const root = createFileTreeFolder('', '')
-
-  for (const file of files) {
-    const parts = file.path.split('/').filter(Boolean)
-    if (parts.length <= 1) {
-      root.files.push(file)
-      continue
-    }
-
-    let folder = root
-    for (let index = 0; index < parts.length - 1; index += 1) {
-      const name = parts[index]
-      const path = parts.slice(0, index + 1).join('/')
-      let child = folder.childMap.get(name)
-      if (!child) {
-        child = createFileTreeFolder(name, path)
-        folder.childMap.set(name, child)
-        folder.children.push(child)
-      }
-      folder = child
-    }
-
-    folder.files.push(file)
-  }
-
-  sortFileTreeFolder(root)
-  return root
-}
-
-function textLines(text: string): string[] {
-  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const trimmed = normalized.endsWith('\n') ? normalized.slice(0, -1) : normalized
-  return trimmed ? trimmed.split('\n') : ['']
-}
-
-function lineBreakCount(text: string): number {
-  return text.match(/\n/g)?.length ?? 0
-}
-
-function textareaVisualLineCount(text: string): number {
-  return Math.max(1, lineBreakCount(text) + 1)
-}
-
-function editorTextSourceKey(text: string): string {
-  if (!text) return '0'
-
-  const middle = Math.floor(text.length / 2)
-  return [
-    text.length,
-    text.charCodeAt(0),
-    text.charCodeAt(middle),
-    text.charCodeAt(text.length - 1)
-  ].join(':')
-}
-
-function chunkedTextPreviewFromResult(
-  result: RepositoryFileChunkResult,
-  options: { startLine: number; markers: ChunkedTextMarker[]; pageIndex: number }
-): ChunkedTextPreview {
-  return {
-    filePath: result.filePath,
-    text: result.text,
-    byteSize: result.byteSize,
-    startOffset: result.startOffset,
-    endOffset: result.endOffset,
-    startLine: options.startLine,
-    hasMore: result.hasMore,
-    markers: options.markers,
-    pageIndex: options.pageIndex,
-    loading: false,
-    error: null
-  }
-}
-
-function defaultViewModeForPath(filePath: string): EditorViewMode {
-  if (PREVIEWABLE_IMAGE_RE.test(filePath)) return 'image'
-  return 'code'
-}
-
-function lineColumnFromOffset(text: string, offset: number): { lineNumber: number; column: number } {
-  const before = text.slice(0, Math.max(0, offset))
-  const lines = before.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
-  return {
-    lineNumber: lines.length,
-    column: lines[lines.length - 1].length + 1
-  }
-}
-
-function editorSelectionStatusFromOffsets(text: string, selectionStart: number, selectionEnd: number, lineBase: number): EditorSelectionStatus {
-  const start = clamp(Math.min(selectionStart, selectionEnd), 0, text.length)
-  const end = clamp(Math.max(selectionStart, selectionEnd), 0, text.length)
-  const startLocation = lineColumnFromOffset(text, start)
-  const endLocation = lineColumnFromOffset(text, end)
-
-  return {
-    lineNumber: lineBase + startLocation.lineNumber - 1,
-    column: startLocation.column,
-    selectedChars: end - start,
-    selectedLines: end > start ? Math.max(1, endLocation.lineNumber - startLocation.lineNumber + 1) : 0
-  }
-}
-
-function detectEditorLineEnding(text: string): EditorLineEndingInfo {
-  const crlf = text.match(/\r\n/g)?.length ?? 0
-  const withoutCrlf = text.replace(/\r\n/g, '')
-  const lf = withoutCrlf.match(/\n/g)?.length ?? 0
-  const cr = withoutCrlf.match(/\r/g)?.length ?? 0
-  const used = [crlf > 0, lf > 0, cr > 0].filter(Boolean).length
-  const kind: EditorLineEnding = used > 1
-    ? 'Mixed'
-    : crlf > 0
-      ? 'CRLF'
-      : cr > 0
-        ? 'CR'
-        : 'LF'
-
-  return { kind, lf, crlf, cr }
-}
-
-function convertEditorLineEnding(text: string, target: Exclude<EditorLineEnding, 'Mixed'>): string {
-  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  if (target === 'CRLF') return normalized.replace(/\n/g, '\r\n')
-  if (target === 'CR') return normalized.replace(/\n/g, '\r')
-  return normalized
-}
-
-function detectEditorIndent(text: string): EditorIndentInfo {
-  const spaceRuns = new Map<number, number>()
-  let tabLines = 0
-  let mixedLines = 0
-
-  for (const line of textLines(text)) {
-    const match = line.match(/^([ \t]+)\S/)
-    if (!match) continue
-
-    const indent = match[1]
-    const hasTabs = indent.includes('\t')
-    const hasSpaces = indent.includes(' ')
-    if (hasTabs && hasSpaces) {
-      mixedLines += 1
-      continue
-    }
-    if (hasTabs) {
-      tabLines += 1
-      continue
-    }
-
-    spaceRuns.set(indent.length, (spaceRuns.get(indent.length) ?? 0) + 1)
-  }
-
-  const sortedSpaceRuns = [...spaceRuns.entries()].sort((left, right) => right[1] - left[1] || left[0] - right[0])
-  const commonSpaceSize = sortedSpaceRuns[0]?.[0] ?? 2
-  if (mixedLines > 0 || (tabLines > 0 && spaceRuns.size > 0)) return { kind: 'mixed', size: commonSpaceSize }
-  if (tabLines > 0) return { kind: 'tabs', size: commonSpaceSize }
-  if (spaceRuns.size > 0) return { kind: 'spaces', size: commonSpaceSize }
-  return { kind: 'none', size: 2 }
-}
-
-function convertEditorIndent(text: string, target: 'tabs' | 'spaces', size: number): string {
-  const safeSize = clamp(Math.round(size), 1, 8)
-  return text.replace(/^[ \t]+/gm, (indent) => {
-    const columns = [...indent].reduce((total, char) => total + (char === '\t' ? safeSize : 1), 0)
-    if (target === 'tabs') {
-      return `${'\t'.repeat(Math.floor(columns / safeSize))}${' '.repeat(columns % safeSize)}`
-    }
-    return ' '.repeat(columns)
-  })
-}
-
-function utf8ByteOffset(text: string, charOffset: number): number {
-  return new TextEncoder().encode(text.slice(0, Math.max(0, Math.min(charOffset, text.length)))).length
-}
-
-function parseJsonErrorLocation(message: string, text: string): { lineNumber: number; column: number } {
-  const lineColumnMatch = message.match(/line\s+(\d+)\s+column\s+(\d+)/i)
-  if (lineColumnMatch) {
-    return {
-      lineNumber: Number(lineColumnMatch[1]),
-      column: Number(lineColumnMatch[2])
-    }
-  }
-
-  const positionMatch = message.match(/position\s+(\d+)/i)
-  if (positionMatch) {
-    return lineColumnFromOffset(text, Number(positionMatch[1]))
-  }
-
-  return { lineNumber: 1, column: 1 }
-}
-
-function isJsoncFilePath(filePath: string): boolean {
-  const normalizedPath = filePath.replace(/\\/g, '/')
-  return JSONC_RE.test(normalizedPath) || TSCONFIG_JSON_RE.test(normalizedPath)
-}
-
-function stripJsonComments(text: string): string {
-  let result = ''
-  let state: 'code' | 'string' | 'line-comment' | 'block-comment' = 'code'
-  let escaped = false
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index]
-    const next = text[index + 1] ?? ''
-
-    if (state === 'line-comment') {
-      if (char === '\n') {
-        result += char
-        state = 'code'
-      } else {
-        result += ' '
-      }
-      continue
-    }
-
-    if (state === 'block-comment') {
-      if (char === '*' && next === '/') {
-        result += '  '
-        index += 1
-        state = 'code'
-      } else {
-        result += char === '\n' ? '\n' : ' '
-      }
-      continue
-    }
-
-    if (state === 'string') {
-      result += char
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === '"') {
-        state = 'code'
-      }
-      continue
-    }
-
-    if (char === '"') {
-      result += char
-      state = 'string'
-    } else if (char === '/' && next === '/') {
-      result += '  '
-      index += 1
-      state = 'line-comment'
-    } else if (char === '/' && next === '*') {
-      result += '  '
-      index += 1
-      state = 'block-comment'
-    } else {
-      result += char
-    }
-  }
-
-  return result
-}
-
-function stripJsonTrailingCommas(text: string): string {
-  let result = ''
-  let state: 'code' | 'string' = 'code'
-  let escaped = false
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index]
-
-    if (state === 'string') {
-      result += char
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === '"') {
-        state = 'code'
-      }
-      continue
-    }
-
-    if (char === '"') {
-      result += char
-      state = 'string'
-      continue
-    }
-
-    if (char === ',') {
-      let cursor = index + 1
-      while (/\s/.test(text[cursor] ?? '')) cursor += 1
-      if (text[cursor] === '}' || text[cursor] === ']') {
-        result += ' '
-      } else {
-        result += char
-      }
-      continue
-    }
-
-    result += char
-  }
-
-  return result
-}
-
-function jsonLintText(filePath: string, text: string, settings: EditorLintSettings): { text: string; source: EditorDiagnostic['source'] } {
-  const allowJsonc = isJsoncFilePath(filePath)
-  let nextText = text
-
-  if (allowJsonc && settings.allowJsonComments) nextText = stripJsonComments(nextText)
-  if (allowJsonc && settings.allowJsonTrailingCommas) nextText = stripJsonTrailingCommas(nextText)
-
-  return {
-    text: nextText,
-    source: allowJsonc ? 'JSONC' : 'JSON'
-  }
-}
-
-function validateJsonText(filePath: string, text: string, settings: EditorLintSettings): EditorDiagnostic[] {
-  if (!text.trim()) return []
-
-  const prepared = jsonLintText(filePath, text, settings)
-
-  try {
-    JSON.parse(prepared.text)
-    return []
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid JSON.'
-    const location = parseJsonErrorLocation(message, prepared.text)
-    return [{
-      ...location,
-      message,
-      source: prepared.source
-    }]
-  }
-}
-
-function parseEditorJsonText(filePath: string, text: string, settings: EditorLintSettings): { value: unknown; preparedText: string; source: EditorDiagnostic['source'] } {
-  const prepared = jsonLintText(filePath, text, settings)
-  return {
-    value: JSON.parse(prepared.text) as unknown,
-    preparedText: prepared.text,
-    source: prepared.source
-  }
-}
-
-function previousSignificantChar(text: string, index: number): string {
-  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
-    const char = text[cursor]
-    if (!/\s/.test(char)) return char
-  }
-  return ''
-}
-
-function slashStartsRegex(text: string, index: number): boolean {
-  const previous = previousSignificantChar(text, index)
-  return !previous || '([{=,:;!&|?+-*~^<>'.includes(previous)
-}
-
-function validateScriptStructure(text: string, options: { source: Extract<EditorDiagnostic['source'], 'JS/TS' | 'JSX/TSX'>; validateRegexLiterals: boolean }): EditorDiagnostic[] {
-  type StackEntry = { expected: string; lineNumber: number; column: number }
-  const stack: StackEntry[] = []
-  const pairs: Record<string, string> = { '(': ')', '[': ']', '{': '}' }
-  const closers = new Set(Object.values(pairs))
-  let state: 'code' | 'line-comment' | 'block-comment' | 'string' | 'template' | 'regex' = 'code'
-  let quote = ''
-  let escaped = false
-  let regexClass = false
-  let stateLine = 1
-  let stateColumn = 1
-  let lineNumber = 1
-  let column = 0
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index]
-    const next = text[index + 1] ?? ''
-    column += 1
-
-    if (state === 'line-comment') {
-      if (char === '\n') state = 'code'
-    } else if (state === 'block-comment') {
-      if (char === '*' && next === '/') {
-        index += 1
-        column += 1
-        state = 'code'
-      }
-    } else if (state === 'string') {
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === quote) {
-        state = 'code'
-      } else if (char === '\n') {
-        return [{
-          lineNumber: stateLine,
-          column: stateColumn,
-          source: options.source,
-          message: 'Unterminated string literal.'
-        }]
-      }
-    } else if (state === 'template') {
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === '`') {
-        state = 'code'
-      }
-    } else if (state === 'regex') {
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === '[') {
-        regexClass = true
-      } else if (char === ']') {
-        regexClass = false
-      } else if (char === '/' && !regexClass) {
-        state = 'code'
-      } else if (char === '\n') {
-        return [{
-          lineNumber: stateLine,
-          column: stateColumn,
-          source: options.source,
-          message: 'Unterminated regular expression literal.'
-        }]
-      }
-    } else if (char === '/' && next === '/') {
-      state = 'line-comment'
-      index += 1
-      column += 1
-    } else if (char === '/' && next === '*') {
-      state = 'block-comment'
-      stateLine = lineNumber
-      stateColumn = column
-      index += 1
-      column += 1
-    } else if (options.validateRegexLiterals && char === '/' && slashStartsRegex(text, index)) {
-      state = 'regex'
-      stateLine = lineNumber
-      stateColumn = column
-      regexClass = false
-    } else if (char === '"' || char === "'") {
-      state = 'string'
-      quote = char
-      stateLine = lineNumber
-      stateColumn = column
-      escaped = false
-    } else if (char === '`') {
-      state = 'template'
-      stateLine = lineNumber
-      stateColumn = column
-      escaped = false
-    } else if (pairs[char]) {
-      stack.push({ expected: pairs[char], lineNumber, column })
-    } else if (closers.has(char)) {
-      const opener = stack.pop()
-      if (!opener || opener.expected !== char) {
-        return [{
-          lineNumber,
-          column,
-          source: options.source,
-          message: `Unexpected "${char}".`
-        }]
-      }
-    }
-
-    if (char === '\n') {
-      lineNumber += 1
-      column = 0
-    }
-  }
-
-  if (state === 'block-comment') {
-    return [{ lineNumber: stateLine, column: stateColumn, source: options.source, message: 'Unterminated block comment.' }]
-  }
-  if (state === 'string') {
-    return [{ lineNumber: stateLine, column: stateColumn, source: options.source, message: 'Unterminated string literal.' }]
-  }
-  if (state === 'template') {
-    return [{ lineNumber: stateLine, column: stateColumn, source: options.source, message: 'Unterminated template literal.' }]
-  }
-  if (state === 'regex') {
-    return [{ lineNumber: stateLine, column: stateColumn, source: options.source, message: 'Unterminated regular expression literal.' }]
-  }
-
-  const unclosed = stack.pop()
-  if (unclosed) {
-    return [{
-      lineNumber: unclosed.lineNumber,
-      column: unclosed.column,
-      source: options.source,
-      message: `Missing "${unclosed.expected}".`
-    }]
-  }
-
-  return []
-}
-
-function validateEditorText(filePath: string, text: string, settings: EditorLintSettings): EditorDiagnostic[] {
-  if (settings.validateJson && JSON_RE.test(filePath)) return validateJsonText(filePath, text, settings)
-  if (settings.validateJsxTsx && JSX_TSX_RE.test(filePath)) return validateScriptStructure(text, { source: 'JSX/TSX', validateRegexLiterals: false })
-  if (settings.validateScripts && PLAIN_SCRIPT_RE.test(filePath)) {
-    return validateScriptStructure(text, { source: 'JS/TS', validateRegexLiterals: settings.validateRegexLiterals })
-  }
-  return []
-}
-
-function lintRulesEnabledForFile(filePath: string, settings: EditorLintSettings): boolean {
-  if (JSON_RE.test(filePath)) return settings.validateJson
-  if (JSX_TSX_RE.test(filePath)) return settings.validateJsxTsx
-  if (PLAIN_SCRIPT_RE.test(filePath)) return settings.validateScripts
-  return false
-}
-
-function lintCheckedAt(): string {
-  return new Date().toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-}
-
-function lintStateFromDiagnostics(diagnostics: EditorDiagnostic[], filePath: string, source: 'Manual' | 'Auto'): EditorLintRunState {
-  const checkedAt = lintCheckedAt()
-  if (diagnostics.length > 0) {
-    return {
-      status: 'issues',
-      message: `${source} lint found ${diagnostics.length} issue${diagnostics.length === 1 ? '' : 's'}.`,
-      detail: `${filePath} · ${checkedAt}`
-    }
-  }
-
-  return {
-    status: 'clean',
-    message: `${source} lint passed. No issues found.`,
-    detail: `${filePath} · ${checkedAt}`
-  }
-}
-
-function normalizeTextForEditor(text: string): string {
-  return `${text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/[ \t]+$/gm, '').trimEnd()}\n`
-}
-
-function beautifyPreservesTokens(before: string, after: string): boolean {
-  return before.replace(/\s+/g, '') === after.replace(/\s+/g, '')
-}
-
-function beautifyJsonText(text: string): string {
-  return `${JSON.stringify(JSON.parse(text), null, 2)}\n`
-}
-
-type JsoncTokenKind = 'punctuation' | 'string' | 'literal' | 'line-comment' | 'block-comment'
-
-interface JsoncToken {
-  kind: JsoncTokenKind
-  value: string
-  leadingNewlines: number
-}
-
-const JSONC_PUNCTUATION = new Set(['{', '}', '[', ']', ':', ','])
-
-function tokenizeJsonc(text: string): JsoncToken[] {
-  const tokens: JsoncToken[] = []
-  let index = 0
-  let leadingNewlines = 0
-
-  while (index < text.length) {
-    const char = text[index]
-    const next = text[index + 1] ?? ''
-
-    if (char === '\r') {
-      leadingNewlines += 1
-      index += next === '\n' ? 2 : 1
-      continue
-    }
-    if (char === '\n') {
-      leadingNewlines += 1
-      index += 1
-      continue
-    }
-    if (/\s/.test(char)) {
-      index += 1
-      continue
-    }
-
-    const tokenLeadingNewlines = leadingNewlines
-    leadingNewlines = 0
-
-    if (char === '"') {
-      let cursor = index + 1
-      let escaped = false
-      while (cursor < text.length) {
-        const tokenChar = text[cursor]
-        cursor += 1
-        if (escaped) {
-          escaped = false
-        } else if (tokenChar === '\\') {
-          escaped = true
-        } else if (tokenChar === '"') {
-          break
-        }
-      }
-      tokens.push({ kind: 'string', value: text.slice(index, cursor), leadingNewlines: tokenLeadingNewlines })
-      index = cursor
-      continue
-    }
-
-    if (char === '/' && next === '/') {
-      let cursor = index + 2
-      while (cursor < text.length && text[cursor] !== '\n' && text[cursor] !== '\r') cursor += 1
-      tokens.push({ kind: 'line-comment', value: text.slice(index, cursor).trimEnd(), leadingNewlines: tokenLeadingNewlines })
-      index = cursor
-      continue
-    }
-
-    if (char === '/' && next === '*') {
-      let cursor = index + 2
-      while (cursor < text.length && !(text[cursor] === '*' && text[cursor + 1] === '/')) cursor += 1
-      cursor = Math.min(text.length, cursor + (cursor < text.length ? 2 : 0))
-      tokens.push({ kind: 'block-comment', value: text.slice(index, cursor), leadingNewlines: tokenLeadingNewlines })
-      index = cursor
-      continue
-    }
-
-    if (JSONC_PUNCTUATION.has(char)) {
-      tokens.push({ kind: 'punctuation', value: char, leadingNewlines: tokenLeadingNewlines })
-      index += 1
-      continue
-    }
-
-    let cursor = index + 1
-    while (cursor < text.length) {
-      const tokenChar = text[cursor]
-      const tokenNext = text[cursor + 1] ?? ''
-      if (/\s/.test(tokenChar) || JSONC_PUNCTUATION.has(tokenChar) || (tokenChar === '/' && (tokenNext === '/' || tokenNext === '*'))) break
-      cursor += 1
-    }
-    tokens.push({ kind: 'literal', value: text.slice(index, cursor), leadingNewlines: tokenLeadingNewlines })
-    index = cursor
-  }
-
-  return tokens
-}
-
-function validateJsoncForBeautify(text: string) {
-  JSON.parse(stripJsonTrailingCommas(stripJsonComments(text)))
-}
-
-function beautifyJsoncText(text: string): string {
-  validateJsoncForBeautify(text)
-
-  const tokens = tokenizeJsonc(text)
-  const lines: string[] = []
-  let currentLine = ''
-  let indent = 0
-
-  const indentText = () => '  '.repeat(Math.max(0, indent))
-  const append = (value: string) => {
-    if (!currentLine) currentLine = indentText()
-    currentLine += value
-  }
-  const appendSpace = () => {
-    if (currentLine && !/\s$/.test(currentLine)) currentLine += ' '
-  }
-  const pushLine = () => {
-    lines.push(currentLine.trimEnd())
-    currentLine = ''
-  }
-  const pushBlankLine = () => {
-    if (lines.length > 0 && lines[lines.length - 1] !== '') lines.push('')
-  }
-  const appendMultiline = (value: string) => {
-    const parts = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
-    append(parts[0])
-    for (let index = 1; index < parts.length; index += 1) {
-      pushLine()
-      currentLine = `${indentText()}${parts[index].replace(/^[ \t]+/, '')}`
-    }
-  }
-
-  tokens.forEach((token, index) => {
-    const nextToken = tokens[index + 1]
-    if (!currentLine && token.leadingNewlines > 1) pushBlankLine()
-
-    if (token.kind === 'punctuation') {
-      if (token.value === '{' || token.value === '[') {
-        append(token.value)
-        indent += 1
-        pushLine()
-      } else if (token.value === '}' || token.value === ']') {
-        indent = Math.max(0, indent - 1)
-        if (currentLine.trim()) pushLine()
-        append(token.value)
-      } else if (token.value === ':') {
-        append(':')
-        appendSpace()
-      } else if (token.value === ',') {
-        append(',')
-        if (nextToken?.kind === 'line-comment' && nextToken.leadingNewlines === 0) {
-          appendSpace()
-        } else {
-          pushLine()
-        }
-      }
-      return
-    }
-
-    if (token.kind === 'line-comment') {
-      if (currentLine.trim()) appendSpace()
-      append(token.value)
-      pushLine()
-      return
-    }
-
-    if (token.kind === 'block-comment') {
-      if (currentLine.trim()) appendSpace()
-      appendMultiline(token.value)
-      if (nextToken?.value !== ',' && nextToken?.leadingNewlines === 0) appendSpace()
-      if (nextToken?.value !== ',' && nextToken?.leadingNewlines !== 0) pushLine()
-      return
-    }
-
-    append(token.value)
-  })
-
-  if (currentLine.trim()) pushLine()
-  return `${lines.join('\n').replace(/\n{3,}/g, '\n\n')}\n`
-}
-
-function beautifyCssText(text: string): string {
-  let result = ''
-  let indent = 0
-  let quote = ''
-  let escaped = false
-
-  const writeIndent = () => {
-    result = result.trimEnd()
-    result += `\n${'  '.repeat(Math.max(0, indent))}`
-  }
-
-  for (const char of text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')) {
-    if (quote) {
-      result += char
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === quote) {
-        quote = ''
-      }
-      continue
-    }
-
-    if (char === '"' || char === "'") {
-      quote = char
-      result += char
-    } else if (char === '{') {
-      result = `${result.trimEnd()} {`
-      indent += 1
-      writeIndent()
-    } else if (char === '}') {
-      indent = Math.max(0, indent - 1)
-      writeIndent()
-      result += '}'
-      writeIndent()
-    } else if (char === ';') {
-      result = `${result.trimEnd()};`
-      writeIndent()
-    } else if (char === '\n') {
-      writeIndent()
-    } else {
-      result += char
-    }
-  }
-
-  return normalizeTextForEditor(result.replace(/\n{3,}/g, '\n\n'))
-}
-
-function beautifyMarkupText(text: string): string {
-  const compact = text
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .replace(/>\s+</g, '>\n<')
-  const tokens = compact.split('\n').map((line) => line.trim()).filter(Boolean)
-  let indent = 0
-  const lines: string[] = []
-
-  for (const token of tokens) {
-    const closing = /^<\//.test(token)
-    const selfClosing = /^<!|^<\?/.test(token) || /\/>$/.test(token)
-    const opens = /^<[^/!?\s>]+(?:\s|>)/.test(token) && !selfClosing && !/<\/[^>]+>$/.test(token)
-
-    if (closing) indent = Math.max(0, indent - 1)
-    lines.push(`${'  '.repeat(indent)}${token}`)
-    if (opens) indent += 1
-  }
-
-  return `${lines.join('\n')}\n`
-}
-
-function beautifyMarkdownText(text: string): string {
-  return normalizeTextForEditor(text.replace(/\n{4,}/g, '\n\n\n'))
-}
-
-function lineSyntaxDelta(line: string): { before: number; after: number } {
-  let after = 0
-  let quote = ''
-  let escaped = false
-  let blockComment = false
-  const trimmed = line.trim()
-  const leadingSyntaxClosers = trimmed.match(/^[)\]}]+/)?.[0].length ?? 0
-  const closesJsxTag = /^<\/[^>]+>$/.test(trimmed)
-  const before = leadingSyntaxClosers + (closesJsxTag ? 1 : 0)
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index]
-    const next = line[index + 1]
-
-    if (blockComment) {
-      if (char === '*' && next === '/') {
-        blockComment = false
-        index += 1
-      }
-      continue
-    }
-
-    if (quote) {
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === quote) {
-        quote = ''
-      }
-      continue
-    }
-
-    if (char === '/' && next === '/') {
-      break
-    }
-    if (char === '/' && next === '*') {
-      blockComment = true
-      index += 1
-      continue
-    }
-    if (char === '"' || char === "'" || char === '`') {
-      quote = char
-      continue
-    }
-    if (char === '{' || char === '[' || char === '(') after += 1
-    if (char === '}' || char === ']' || char === ')') after -= 1
-  }
-
-  after += leadingSyntaxClosers
-
-  const opensJsxTag = /^<[^/!][^>]*[^/]?>$/.test(trimmed) && !/<\/[^>]+>$/.test(trimmed)
-  if (opensJsxTag) after += 1
-
-  return { before, after }
-}
-
-type ScriptMultilineState = 'none' | 'block-comment' | 'template'
-
-function nextScriptMultilineState(line: string, initialState: ScriptMultilineState): ScriptMultilineState {
-  let state = initialState
-  let quote = state === 'template' ? '`' : ''
-  let escaped = false
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index]
-    const next = line[index + 1]
-
-    if (state === 'block-comment') {
-      if (char === '*' && next === '/') {
-        state = 'none'
-        index += 1
-      }
-      continue
-    }
-
-    if (quote) {
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === quote) {
-        quote = ''
-        state = 'none'
-      }
-      continue
-    }
-
-    if (char === '/' && next === '/') break
-    if (char === '/' && next === '*') {
-      state = 'block-comment'
-      index += 1
-      continue
-    }
-    if (char === '"' || char === "'") {
-      quote = char
-      continue
-    }
-    if (char === '`') {
-      quote = '`'
-      state = 'template'
-    }
-  }
-
-  return state
-}
-
-function beautifyScriptText(text: string): string {
-  const lines = normalizeTextForEditor(text).split('\n')
-  if (lines[lines.length - 1] === '') lines.pop()
-
-  let indent = 0
-  const nextLines: string[] = []
-  let blankRun = 0
-  let multilineState: ScriptMultilineState = 'none'
-
-  for (const rawLine of lines) {
-    const rawLineTrimmedRight = rawLine.replace(/[ \t]+$/, '')
-    if (multilineState !== 'none') {
-      nextLines.push(rawLineTrimmedRight)
-      multilineState = nextScriptMultilineState(rawLineTrimmedRight, multilineState)
-      continue
-    }
-
-    const trimmed = rawLine.trim()
-    if (!trimmed) {
-      blankRun += 1
-      if (blankRun <= 1) nextLines.push('')
-      continue
-    }
-
-    blankRun = 0
-    const delta = lineSyntaxDelta(trimmed)
-    indent = Math.max(0, indent - delta.before)
-    nextLines.push(`${'  '.repeat(indent)}${trimmed}`)
-    indent = Math.max(0, indent + delta.after)
-    multilineState = nextScriptMultilineState(trimmed, 'none')
-  }
-
-  return `${nextLines.join('\n').replace(/\n{3,}/g, '\n\n')}\n`
-}
-
-function beautifyTextLocally(filePath: string, text: string): string {
-  if (JSON_RE.test(filePath)) return isJsoncFilePath(filePath) ? beautifyJsoncText(text) : beautifyJsonText(text)
-  if (/\.(m?[jt]sx?|cts|mts)$/i.test(filePath)) return beautifyScriptText(text)
-  if (/\.(css|scss|less)$/i.test(filePath)) return beautifyCssText(text)
-  if (/\.(html?|xml|svg)$/i.test(filePath)) return beautifyMarkupText(text)
-  if (/\.(md|markdown|ya?ml|toml|ini|env|txt)$/i.test(filePath)) return beautifyMarkdownText(text)
-  return normalizeTextForEditor(text)
-}
-
-function buildRepoFilePath(repoPath: string, filePath: string): string {
-  const separator = repoPath.includes('\\') ? '\\' : '/'
-  const root = repoPath.replace(/[\\/]+$/, '')
-  const relativePath = filePath.replace(/^[\\/]+/, '').replace(/[\\/]+/g, separator)
-  return `${root}${separator}${relativePath}`
-}
-
-function buildRepoFileDirectory(repoPath: string, filePath: string): string {
-  const targetPath = buildRepoFilePath(repoPath, filePath)
-  const lastSlash = Math.max(targetPath.lastIndexOf('/'), targetPath.lastIndexOf('\\'))
-  return lastSlash > 0 ? targetPath.slice(0, lastSlash) : repoPath
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 102.4) / 10} KB`
-  return `${Math.round(bytes / (1024 * 102.4)) / 10} MB`
-}
-
-function healthSeverityRank(severity: EditorHealthSeverity): number {
-  if (severity === 'critical') return 2
-  if (severity === 'warning') return 1
-  return 0
-}
-
-function healthSeverityFromIssues(issues: EditorHealthIssue[]): EditorHealthSeverity {
-  if (issues.some((issue) => issue.severity === 'critical')) return 'critical'
-  if (issues.some((issue) => issue.severity === 'warning')) return 'warning'
-  return 'healthy'
-}
-
-function healthRunLabel(run: EditorHealthRun): string {
-  if (run === 'manual') return 'All files'
-  return run === 'live' ? 'Live' : 'On open'
-}
-
-function buildEditorHealthReport(
-  filePath: string,
-  change: FileChange | null | undefined,
-  options: {
-    scope?: 'main' | 'file'
-    settings?: EditorHealthSettings
-    chunkedTextPreview?: ChunkedTextPreview | null
-    diagnostics?: EditorDiagnostic[]
-    dirty?: boolean
-    draftLineCount?: number
-    fileError?: string | null
-    gitChangedLines?: number
-    hexBytes?: HexBytePreview | null
-    textUnavailableMessage?: string | null
-  } = {}
-): EditorHealthReport {
-  const settings = options.settings ?? DEFAULT_EDITOR_HEALTH_SETTINGS
-  const scope = options.scope ?? 'main'
-  const issues: EditorHealthIssue[] = []
-  const churn = (change?.additions ?? 0) + (change?.deletions ?? 0)
-
-  if (settings.mainConflicts && change?.conflicted) {
-    issues.push({
-      severity: 'critical',
-      run: 'live',
-      category: 'git',
-      title: 'Conflicted file',
-      detail: 'Git reports this file as conflicted. Resolve it before trusting edits or generated review output.'
-    })
-  }
-
-  if (settings.mainChurn && churn >= settings.churnCritical) {
-    issues.push({
-      severity: 'critical',
-      run: 'live',
-      category: 'churn',
-      title: 'Very large change set',
-      detail: `${churn} changed lines in git. Review, search, and rollback actions need extra care.`
-    })
-  } else if (settings.mainChurn && churn >= settings.churnWarning) {
-    issues.push({
-      severity: 'warning',
-      run: 'live',
-      category: 'churn',
-      title: 'Large change set',
-      detail: `${churn} changed lines in git. Prefer focused checks before saving or staging.`
-    })
-  }
-
-  if (scope !== 'file') {
-    return {
-      severity: healthSeverityFromIssues(issues),
-      issues
-    }
-  }
-
-  if (settings.fileLoadLimits && options.fileError) {
-    issues.push({
-      severity: 'critical',
-      run: 'opened',
-      category: 'load',
-      title: 'Load failed',
-      detail: options.fileError
-    })
-  }
-
-  if (settings.fileLoadLimits && options.textUnavailableMessage) {
-    issues.push({
-      severity: 'warning',
-      run: 'opened',
-      category: 'preview',
-      title: 'Limited editor mode',
-      detail: options.textUnavailableMessage
-    })
-  }
-
-  const chunk = options.chunkedTextPreview
-  if (settings.fileChunkedRanges && chunk) {
-    const languageFile = HEALTH_LANGUAGE_FILE_RE.test(filePath)
-    issues.push({
-      severity: languageFile ? 'critical' : 'warning',
-      run: 'opened',
-      category: 'batch',
-      title: languageFile ? 'Language file is chunked' : 'File is chunked',
-      detail: `Only ${formatBytes(chunk.startOffset)}-${formatBytes(chunk.endOffset)} of ${formatBytes(chunk.byteSize)} is loaded. Lint, search, live changes, and health are scoped to the current chunk.`
-    })
-  }
-
-  if (settings.fileChunkedRanges && options.hexBytes && !options.hexBytes.fullFileLoaded) {
-    issues.push({
-      severity: 'warning',
-      run: 'opened',
-      category: 'batch',
-      title: 'Hex chunk loaded',
-      detail: `Hex view is editing ${formatBytes(options.hexBytes.startOffset)}-${formatBytes(options.hexBytes.endOffset)} of ${formatBytes(options.hexBytes.byteSize)}. Save writes only the current byte range.`
-    })
-  }
-
-  if (settings.fileDiagnostics && (options.diagnostics?.length ?? 0) > 0) {
-    issues.push({
-      severity: 'critical',
-      run: 'opened',
-      category: 'diagnostics',
-      title: 'Lint issues',
-      detail: `${options.diagnostics?.length ?? 0} lint issue(s) in the active file. Click a lint issue to jump to its line.`
-    })
-  }
-
-  if (settings.mainChurn && (options.gitChangedLines ?? 0) >= Math.max(80, Math.floor(settings.churnWarning / 3))) {
-    issues.push({
-      severity: 'warning',
-      run: 'opened',
-      category: 'git',
-      title: 'Many marked git lines',
-      detail: `${options.gitChangedLines} changed lines are marked in the editor. The overview map is the safer way to navigate this file.`
-    })
-  }
-
-  if (settings.fileDenseChunk && (options.draftLineCount ?? 0) >= settings.denseChunkWarning) {
-    issues.push({
-      severity: 'warning',
-      run: 'opened',
-      category: 'batch',
-      title: 'Dense editor chunk',
-      detail: `${options.draftLineCount} lines are rendered in this loaded range. Cursor and minimap are using measured line height for this chunk.`
-    })
-  }
-
-  if (settings.fileDirtyDraft && options.dirty) {
-    issues.push({
-      severity: 'warning',
-      run: 'opened',
-      category: 'dirty',
-      title: 'Unsaved editor draft',
-      detail: 'This file has unsaved edits. Switching chunks is blocked until you save or discard them.'
-    })
-  }
-
-  return {
-    severity: healthSeverityFromIssues(issues),
-    issues
-  }
-}
-
-function buildLiveHealthReports(
-  files: RepositoryFileEntry[],
-  changeByPath: Map<string, FileChange>,
-  settings: EditorHealthSettings
-): Map<string, EditorHealthReport> {
-  const reports = new Map<string, EditorHealthReport>()
-  for (const file of files) {
-    const change = changeByPath.get(file.path)
-    reports.set(file.path, buildEditorHealthReport(file.path, change, { scope: 'main', settings }))
-  }
-  return reports
-}
-
-function mergeHealthReports(left?: EditorHealthReport, right?: EditorHealthReport): EditorHealthReport {
-  const issues = [...(left?.issues ?? []), ...(right?.issues ?? [])]
-  return {
-    severity: healthSeverityFromIssues(issues),
-    issues
-  }
-}
-
-function countHealthSignalFiles(reports: Map<string, EditorHealthReport>): number {
-  let count = 0
-  reports.forEach((report) => {
-    if (report.issues.length > 0) count += 1
-  })
-  return count
-}
-
-function safeSvgDataUrl(svgText: string): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`
-}
-
-function bytesFromBase64(base64: string): Uint8Array {
-  const binary = window.atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return bytes
-}
-
-function base64FromBytes(bytes: Uint8Array): string {
-  let binary = ''
-  const chunkSize = 0x8000
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize))
-  }
-  return window.btoa(binary)
-}
-
-function bytesToHexText(bytes: Uint8Array): string {
-  const rows: string[] = []
-  for (let offset = 0; offset < bytes.length; offset += HEX_BYTES_PER_ROW) {
-    rows.push(Array.from(bytes.subarray(offset, offset + HEX_BYTES_PER_ROW), byteToHex).join(' '))
-  }
-  return rows.join('\n')
-}
-
-function parseHexText(hexText: string): { bytes: Uint8Array | null; error: string | null } {
-  const normalized = hexText.replace(/\s+/g, '')
-  if (!normalized) return { bytes: new Uint8Array(), error: null }
-  if (/[^0-9a-f]/i.test(normalized)) return { bytes: null, error: 'Hex can contain only 0-9 and A-F bytes.' }
-  if (normalized.length % 2 !== 0) return { bytes: null, error: 'Hex byte stream has an odd number of digits.' }
-
-  const bytes = new Uint8Array(normalized.length / 2)
-  for (let index = 0; index < normalized.length; index += 2) {
-    bytes[index / 2] = Number.parseInt(normalized.slice(index, index + 2), 16)
-  }
-  return { bytes, error: null }
-}
-
-function byteToHex(byte: number): string {
-  return byte.toString(16).padStart(2, '0')
-}
-
-function normalizeHexByteDraft(rawDraft: string): string {
-  return rawDraft.trim().replace(/[^0-9a-f]/gi, '').slice(0, 2).toLowerCase()
-}
-
-function asciiFromByte(byte: number): string {
-  return byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : '.'
-}
-
-function hexEditorRows(bytes: Uint8Array, startOffset = 0): HexEditorRow[] {
-  const rows: HexEditorRow[] = []
-  for (let offset = 0; offset < bytes.length; offset += HEX_BYTES_PER_ROW) {
-    rows.push({
-      offset: startOffset + offset,
-      bytes: Array.from(bytes.subarray(offset, offset + HEX_BYTES_PER_ROW))
-    })
-  }
-  return rows
-}
-
-function offsetToHex(offset: number): string {
-  return Math.max(0, Math.floor(offset)).toString(16).padStart(8, '0')
-}
-
-function alignHexOffset(offset: number): number {
-  return Math.floor(Math.max(0, offset) / HEX_BYTES_PER_ROW) * HEX_BYTES_PER_ROW
-}
-
-function parseHexOffsetDraft(rawDraft: string): number | null {
-  const draft = rawDraft.trim()
-  if (!draft) return null
-  if (/^0x[0-9a-f]+$/i.test(draft)) return Number.parseInt(draft.slice(2), 16)
-  if (/[a-f]/i.test(draft) && /^[0-9a-f]+$/i.test(draft)) return Number.parseInt(draft, 16)
-  if (/^\d+$/.test(draft)) return Number.parseInt(draft, 10)
-  return null
-}
-
-function selectedTextRange(text: string, start: number, end: number): EditorTextRange | null {
-  const safeStart = clamp(Math.min(start, end), 0, text.length)
-  const safeEnd = clamp(Math.max(start, end), 0, text.length)
-  if (safeStart !== safeEnd) return { start: safeStart, end: safeEnd }
-
-  const isWord = (char: string) => /[\p{L}\p{N}_$-]/u.test(char)
-  let wordStart = safeStart
-  let wordEnd = safeEnd
-  while (wordStart > 0 && isWord(text[wordStart - 1] ?? '')) wordStart -= 1
-  while (wordEnd < text.length && isWord(text[wordEnd] ?? '')) wordEnd += 1
-  return wordStart === wordEnd ? null : { start: wordStart, end: wordEnd }
-}
-
-function selectedSearchText(text: string, start: number, end: number): string {
-  const safeStart = clamp(Math.min(start, end), 0, text.length)
-  const safeEnd = clamp(Math.max(start, end), 0, text.length)
-  if (safeStart === safeEnd) return ''
-
-  return text
-    .slice(safeStart, safeEnd)
-    .replace(/\r\n/g, '\n')
-    .split('\n')[0]
-    .trim()
-    .slice(0, 160)
-}
-
-function shortcutKey(event: Pick<KeyboardEvent, 'code' | 'key'>): string {
-  if (event.code === 'KeyD') return 'd'
-  if (event.code === 'KeyF') return 'f'
-  if (event.code === 'KeyY') return 'y'
-  if (event.code === 'KeyZ') return 'z'
-  return event.key.toLowerCase()
-}
-
-function isEditorNavigationKey(key: string): boolean {
-  return (
-    key === 'ArrowLeft' ||
-    key === 'ArrowRight' ||
-    key === 'ArrowUp' ||
-    key === 'ArrowDown' ||
-    key === 'Home' ||
-    key === 'End' ||
-    key === 'PageUp' ||
-    key === 'PageDown'
-  )
-}
-
-function rangesOverlap(a: EditorTextRange, b: EditorTextRange): boolean {
-  return a.start < b.end && b.start < a.end
-}
-
-function normalizeTextRanges(ranges: EditorTextRange[]): EditorTextRange[] {
-  return [...ranges]
-    .map((range) => ({ start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) }))
-    .sort((a, b) => a.start - b.start || a.end - b.end)
-}
-
-function textRangesForLine(lineStartOffset: number, line: string, ranges: EditorTextRange[]): EditorTextRange[] {
-  const lineEndOffset = lineStartOffset + line.length
-  const result: EditorTextRange[] = []
-
-  for (const range of normalizeTextRanges(ranges)) {
-    if (range.start === range.end) {
-      if (range.start >= lineStartOffset && range.start <= lineEndOffset) {
-        const cursor = range.start - lineStartOffset
-        result.push({ start: cursor, end: cursor })
-      }
-      continue
-    }
-
-    if (range.start > lineEndOffset || range.end < lineStartOffset) continue
-    const start = clamp(range.start - lineStartOffset, 0, line.length)
-    const end = clamp(range.end - lineStartOffset, 0, line.length)
-    if (start === end) continue
-    result.push({ start, end })
-  }
-
-  return result
-}
-
-function bytesForHexSearch(rawQuery: string): Uint8Array | null {
-  const query = rawQuery.trim()
-  if (!query) return null
-  const compactHex = query.replace(/(?:0x|[\s,_-])/gi, '')
-  if (compactHex.length >= 2 && compactHex.length % 2 === 0 && /^[0-9a-f]+$/i.test(compactHex)) {
-    const bytes = new Uint8Array(compactHex.length / 2)
-    for (let index = 0; index < compactHex.length; index += 2) {
-      bytes[index / 2] = Number.parseInt(compactHex.slice(index, index + 2), 16)
-    }
-    return bytes
-  }
-
-  const asciiBytes = new Uint8Array(query.length)
-  for (let index = 0; index < query.length; index += 1) {
-    const code = query.charCodeAt(index)
-    if (code > 0xff) return null
-    asciiBytes[index] = code
-  }
-  return asciiBytes
-}
-
-function findHexSearchMatches(bytes: Uint8Array | null, query: string, startOffset: number): HexSearchMatch[] {
-  const needle = bytesForHexSearch(query)
-  if (!bytes || !needle || needle.length === 0 || needle.length > bytes.length) return []
-
-  const matches: HexSearchMatch[] = []
-  for (let index = 0; index <= bytes.length - needle.length; index += 1) {
-    let matched = true
-    for (let needleIndex = 0; needleIndex < needle.length; needleIndex += 1) {
-      if (bytes[index + needleIndex] !== needle[needleIndex]) {
-        matched = false
-        break
-      }
-    }
-    if (!matched) continue
-    matches.push({ offset: startOffset + index, length: needle.length })
-    if (matches.length >= HEX_SEARCH_MATCH_LIMIT) break
-  }
-  return matches
-}
-
-function hexByteInMatch(offset: number, matches: HexSearchMatch[]): boolean {
-  return matches.some((match) => offset >= match.offset && offset < match.offset + match.length)
-}
-
-function parseSvgDocument(text: string): { document: XMLDocument | null; error: string | null } {
-  try {
-    const document = new DOMParser().parseFromString(text, 'image/svg+xml')
-    const parseError = document.querySelector('parsererror')
-    if (parseError) {
-      return { document: null, error: parseError.textContent?.trim() || 'Invalid SVG.' }
-    }
-    if (document.documentElement.tagName.toLowerCase() !== 'svg') {
-      return { document: null, error: 'Root element is not <svg>.' }
-    }
-    return { document, error: null }
-  } catch (error) {
-    return { document: null, error: error instanceof Error ? error.message : 'Invalid SVG.' }
-  }
-}
-
-function serializeSvgDocument(document: XMLDocument): string {
-  return beautifyMarkupText(new XMLSerializer().serializeToString(document.documentElement))
-}
-
-function svgElements(document: XMLDocument): Element[] {
-  const root = document.documentElement
-  return [root, ...Array.from(root.querySelectorAll('*'))]
-}
-
-function svgElementLabel(element: Element, index: number): string {
-  const id = element.getAttribute('id')
-  const className = element.getAttribute('class')
-  if (id) return `#${id}`
-  if (className) return `.${className.split(/\s+/)[0]}`
-  return `${element.tagName.toLowerCase()} ${index}`
-}
-
-function analyzeSvgText(text: string): SvgAnalysis {
-  const parsed = parseSvgDocument(text)
-  if (!parsed.document) {
-    return {
-      error: parsed.error,
-      width: '',
-      height: '',
-      viewBox: '',
-      elementCount: 0,
-      colors: []
-    }
-  }
-
-  const root = parsed.document.documentElement
-  const colors: SvgColorTarget[] = []
-
-  svgElements(parsed.document).forEach((element, index) => {
-    for (const attr of ['fill', 'stroke', 'stop-color']) {
-      const value = element.getAttribute(attr)
-      if (!value || value === 'none') continue
-      colors.push({
-        index,
-        element: element.tagName.toLowerCase(),
-        label: svgElementLabel(element, index),
-        attr,
-        value
-      })
-    }
-  })
-
-  return {
-    error: null,
-    width: root.getAttribute('width') ?? '',
-    height: root.getAttribute('height') ?? '',
-    viewBox: root.getAttribute('viewBox') ?? '',
-    elementCount: svgElements(parsed.document).length,
-    colors: colors.slice(0, 80)
-  }
-}
-
-function normalizePickerColor(value: string): string | null {
-  const raw = value.trim()
-  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw
-  if (/^#[0-9a-f]{3}$/i.test(raw)) {
-    return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`
-  }
-  return null
-}
-
-function jsonChildEntries(value: unknown): Array<[string, unknown]> {
-  if (value === null || typeof value !== 'object') return []
-  if (Array.isArray(value)) return value.map((entry, index) => [String(index), entry])
-  return Object.entries(value as Record<string, unknown>)
-}
-
-function jsonPointerChild(parentPath: string, key: string): string {
-  const escaped = key.replace(/~/g, '~0').replace(/\//g, '~1')
-  return `${parentPath}/${escaped}`
-}
-
-function jsonPointerParts(path: string): string[] {
-  if (!path) return []
-  return path
-    .split('/')
-    .slice(1)
-    .map((part) => part.replace(/~1/g, '/').replace(/~0/g, '~'))
-}
-
-function jsonEditableKind(value: unknown): JsonEditCell['kind'] | null {
-  if (typeof value === 'string') return 'string'
-  if (typeof value === 'number') return 'number'
-  if (typeof value === 'boolean') return 'boolean'
-  return null
-}
-
-function jsonEditInitialValue(value: unknown): string {
-  return String(value)
-}
-
-function parseJsonEditValue(kind: JsonEditCell['kind'], rawValue: string): unknown {
-  if (kind === 'string') return rawValue
-  if (kind === 'boolean') return rawValue === 'true'
-
-  const value = Number(rawValue.trim())
-  if (!Number.isFinite(value)) {
-    throw new Error('Number value is invalid.')
-  }
-  return value
-}
-
-function updateJsonValueAtPath(rootValue: unknown, path: string, nextValue: unknown): unknown {
-  const parts = jsonPointerParts(path)
-  if (parts.length === 0) return nextValue
-
-  const update = (currentValue: unknown, [part, ...rest]: string[]): unknown => {
-    if (part === undefined) return nextValue
-
-    if (Array.isArray(currentValue)) {
-      const index = Number(part)
-      if (!Number.isInteger(index) || index < 0 || index >= currentValue.length) {
-        throw new Error('JSON array path no longer exists.')
-      }
-      const nextArray = [...currentValue]
-      nextArray[index] = update(nextArray[index], rest)
-      return nextArray
-    }
-
-    if (currentValue && typeof currentValue === 'object') {
-      const currentObject = currentValue as Record<string, unknown>
-      if (!(part in currentObject)) {
-        throw new Error('JSON object path no longer exists.')
-      }
-      return {
-        ...currentObject,
-        [part]: update(currentObject[part], rest)
-      }
-    }
-
-    throw new Error('JSON path no longer exists.')
-  }
-
-  return update(rootValue, parts)
-}
-
-function collectJsonExpandablePaths(value: unknown, path = ''): string[] {
-  const children = jsonChildEntries(value)
-  if (children.length === 0) return []
-
-  return [
-    path,
-    ...children.flatMap(([key, entry]) => collectJsonExpandablePaths(entry, jsonPointerChild(path, key)))
-  ]
-}
-
-function buildJsonLineNumberMap(text: string): Map<string, number> {
-  const lineNumbers = new Map<string, number>()
-  let index = 0
-  let lineNumber = 1
-
-  const current = () => text[index] ?? ''
-  const advance = () => {
-    if (text[index] === '\n') lineNumber += 1
-    index += 1
-  }
-  const skipWhitespace = () => {
-    while (/\s/.test(current())) advance()
-  }
-  const parseString = () => {
-    let value = ''
-    if (current() !== '"') return value
-    advance()
-    while (index < text.length) {
-      const char = current()
-      if (char === '\\') {
-        advance()
-        if (index < text.length) {
-          value += current()
-          advance()
-        }
-        continue
-      }
-      if (char === '"') {
-        advance()
-        return value
-      }
-      value += char
-      advance()
-    }
-    return value
-  }
-  const parseLiteral = () => {
-    while (index < text.length && !/[\s,\]}]/.test(current())) advance()
-  }
-  const parseValue = (path: string, preferredLineNumber?: number) => {
-    skipWhitespace()
-    lineNumbers.set(path, preferredLineNumber ?? lineNumber)
-    const char = current()
-
-    if (char === '{') {
-      parseObject(path)
-    } else if (char === '[') {
-      parseArray(path)
-    } else if (char === '"') {
-      parseString()
-    } else {
-      parseLiteral()
-    }
-  }
-  const parseObject = (path: string) => {
-    advance()
-    skipWhitespace()
-    while (index < text.length && current() !== '}') {
-      const keyLineNumber = lineNumber
-      const key = parseString()
-      skipWhitespace()
-      if (current() === ':') advance()
-      parseValue(jsonPointerChild(path, key), keyLineNumber)
-      skipWhitespace()
-      if (current() === ',') {
-        advance()
-        skipWhitespace()
-      }
-    }
-    if (current() === '}') advance()
-  }
-  const parseArray = (path: string) => {
-    advance()
-    skipWhitespace()
-    let itemIndex = 0
-    while (index < text.length && current() !== ']') {
-      parseValue(jsonPointerChild(path, String(itemIndex)))
-      itemIndex += 1
-      skipWhitespace()
-      if (current() === ',') {
-        advance()
-        skipWhitespace()
-      }
-    }
-    if (current() === ']') advance()
-  }
-
-  try {
-    parseValue('')
-  } catch {
-    return new Map()
-  }
-
-  return lineNumbers
-}
-
-function flattenJsonTree(value: unknown, collapsedPaths: Set<string>, lineNumbers: Map<string, number>, depth = 0, keyName?: string, path = ''): JsonTreeNode[] {
-  const children = jsonChildEntries(value)
-  const node: JsonTreeNode = {
-    keyName,
-    value,
-    depth,
-    path,
-    lineNumber: lineNumbers.get(path),
-    expandable: children.length > 0,
-    childCount: children.length
-  }
-  if (children.length === 0 || collapsedPaths.has(path)) return [node]
-
-  return [
-    node,
-    ...children.flatMap(([key, entry]) => flattenJsonTree(entry, collapsedPaths, lineNumbers, depth + 1, key, jsonPointerChild(path, key)))
-  ]
-}
-
-function jsonValueSummary(value: unknown): { type: string; preview: ReactNode } {
-  if (value === null) return { type: 'null', preview: <span className="tok-keyword">null</span> }
-  if (Array.isArray(value)) return { type: 'array', preview: <span>{value.length} item{value.length === 1 ? '' : 's'}</span> }
-  if (typeof value === 'object') return { type: 'object', preview: <span>{Object.keys(value as Record<string, unknown>).length} key{Object.keys(value as Record<string, unknown>).length === 1 ? '' : 's'}</span> }
-  if (typeof value === 'string') return { type: 'string', preview: <span className="tok-string">"{value}"</span> }
-  if (typeof value === 'number') return { type: 'number', preview: <span className="tok-number">{String(value)}</span> }
-  if (typeof value === 'boolean') return { type: 'boolean', preview: <span className="tok-keyword">{String(value)}</span> }
-  return { type: typeof value, preview: <span>{String(value)}</span> }
-}
-
-function buildLineOffsets(lines: string[]): number[] {
-  const offsets: number[] = []
-  let offset = 0
-
-  for (const line of lines) {
-    offsets.push(offset)
-    offset += line.length + 1
-  }
-
-  return offsets
-}
-
-function findFileSearchMatches(lines: string[], needle: string): FileSearchMatch[] {
-  const query = needle.trim()
-  if (!query) return []
-
-  const lowerQuery = query.toLowerCase()
-  const matches: FileSearchMatch[] = []
-
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-    const line = lines[lineIndex]
-    const lowerLine = line.toLowerCase()
-    let column = lowerLine.indexOf(lowerQuery)
-
-    while (column !== -1) {
-      matches.push({ lineNumber: lineIndex + 1, column, length: query.length })
-      if (matches.length >= EDITOR_SEARCH_MATCH_LIMIT) return matches
-      column = lowerLine.indexOf(lowerQuery, column + Math.max(1, lowerQuery.length))
-    }
-  }
-
-  return matches
-}
-
-function parseFileLineSearchQuery(query: string): FileLineSearchTarget | null {
-  const match = query.trim().match(/^(?:(?:line|ln|l)\s*)?(?:[:#])?\s*(\d+)(?::(\d+))?$/i)
-  if (!match) return null
-
-  const lineNumber = Number(match[1])
-  const column = match[2] ? Number(match[2]) : 1
-  if (!Number.isInteger(lineNumber) || lineNumber < 1 || !Number.isInteger(column) || column < 1) return null
-  return { lineNumber, column: column - 1 }
-}
-
-function decoratedHighlightedLineContent(
-  line: string,
-  lang: string,
-  searchQuery: string,
-  activeMatch: FileSearchMatch | null,
-  lineNumber: number,
-  multiEditSelections: EditorTextRange[]
-) {
-  const query = searchQuery.trim()
-  const decorations: EditorLineDecoration[] = []
-
-  if (query) {
-    const lowerLine = line.toLowerCase()
-    const lowerQuery = query.toLowerCase()
-    let column = lowerLine.indexOf(lowerQuery)
-
-    while (column !== -1) {
-      const active = activeMatch?.lineNumber === lineNumber && activeMatch.column === column
-      decorations.push({
-        start: column,
-        end: column + query.length,
-        className: active ? 'changes-editor-search-hit active' : 'changes-editor-search-hit'
-      })
-      column = lowerLine.indexOf(lowerQuery, column + Math.max(1, lowerQuery.length))
-    }
-  }
-
-  for (const range of multiEditSelections) {
-    decorations.push({
-      start: clamp(range.start, 0, line.length),
-      end: clamp(range.end, 0, line.length),
-      className: range.start === range.end ? 'changes-editor-multi-cursor' : 'changes-editor-multi-edit-hit'
-    })
-  }
-
-  if (decorations.length === 0) return highlight(line || ' ', lang)
-
-  const points = new Set<number>([0, line.length])
-  for (const decoration of decorations) {
-    points.add(decoration.start)
-    points.add(decoration.end)
-  }
-
-  const sortedPoints = [...points].sort((a, b) => a - b)
-  const chunks: ReactNode[] = []
-  let key = 0
-
-  for (let index = 0; index < sortedPoints.length; index += 1) {
-    const point = sortedPoints[index]
-    const cursors = decorations.filter((decoration) => decoration.start === decoration.end && decoration.start === point)
-    for (const cursor of cursors) {
-      chunks.push(<span aria-hidden="true" className={cursor.className} key={`cursor-${key++}`} />)
-    }
-
-    const nextPoint = sortedPoints[index + 1]
-    if (nextPoint === undefined || nextPoint <= point) continue
-
-    const token = line.slice(point, nextPoint)
-    const classes = decorations
-      .filter((decoration) => decoration.start < nextPoint && point < decoration.end)
-      .map((decoration) => decoration.className)
-
-    if (classes.length === 0) {
-      chunks.push(<span key={`plain-${key++}`}>{highlight(token, lang)}</span>)
-      continue
-    }
-
-    chunks.push(
-      <mark className={[...new Set(classes)].join(' ')} key={`decorated-${key++}`}>
-        {highlight(token, lang)}
-      </mark>
-    )
-  }
-
-  return chunks.length ? chunks : highlight(line || ' ', lang)
-}
-
-function buildLiveLineChanges(originalText: string, draftText: string): LiveLineChange[] {
-  const original = textLines(originalText)
-  const draft = textLines(draftText)
-  let prefixLength = 0
-
-  while (
-    prefixLength < original.length &&
-    prefixLength < draft.length &&
-    original[prefixLength] === draft[prefixLength]
-  ) {
-    prefixLength += 1
-  }
-
-  let suffixLength = 0
-  while (
-    suffixLength + prefixLength < original.length &&
-    suffixLength + prefixLength < draft.length &&
-    original[original.length - 1 - suffixLength] === draft[draft.length - 1 - suffixLength]
-  ) {
-    suffixLength += 1
-  }
-
-  const originalMiddle = original.slice(prefixLength, original.length - suffixLength)
-  const draftMiddle = draft.slice(prefixLength, draft.length - suffixLength)
-
-  return compactLiveLineChanges(
-    buildMiddleLiveLineChanges(originalMiddle, draftMiddle, prefixLength)
-  )
-}
-
-function putLineChange(map: Map<number, LiveLineChange>, change: LiveLineChange) {
-  const current = map.get(change.lineNumber)
-  if (!current) {
-    map.set(change.lineNumber, change)
-    return
-  }
-
-  if (current.kind === 'modified' || change.kind === current.kind) return
-  map.set(change.lineNumber, { ...change, kind: 'modified' })
-}
-
-function buildGitLineChanges(diffs: DiffResult[], filePath: string): LiveLineChange[] {
-  const byLine = new Map<number, LiveLineChange>()
-
-  for (const diff of diffs) {
-    for (const file of diff.files) {
-      if (file.newPath !== filePath && file.oldPath !== filePath) continue
-
-      for (const hunk of file.hunks) {
-        for (let index = 0; index < hunk.lines.length;) {
-          const line = hunk.lines[index]
-
-          if (line.type === 'remove') {
-            const removed: DiffLine[] = []
-            while (hunk.lines[index]?.type === 'remove') {
-              removed.push(hunk.lines[index])
-              index += 1
-            }
-
-            const added: DiffLine[] = []
-            while (hunk.lines[index]?.type === 'add') {
-              added.push(hunk.lines[index])
-              index += 1
-            }
-
-            const pairCount = Math.min(removed.length, added.length)
-            for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
-              const addedLine = added[pairIndex]
-              const removedLine = removed[pairIndex]
-              putLineChange(byLine, {
-                lineNumber: addedLine.newLineNumber ?? removedLine.oldLineNumber ?? hunk.newStart,
-                kind: 'modified',
-                before: removedLine.content,
-                after: addedLine.content
-              })
-            }
-            for (let addIndex = pairCount; addIndex < added.length; addIndex += 1) {
-              const addedLine = added[addIndex]
-              putLineChange(byLine, {
-                lineNumber: addedLine.newLineNumber ?? hunk.newStart,
-                kind: 'added',
-                before: '',
-                after: addedLine.content
-              })
-            }
-            for (let removeIndex = pairCount; removeIndex < removed.length; removeIndex += 1) {
-              const removedLine = removed[removeIndex]
-              putLineChange(byLine, {
-                lineNumber: removedLine.oldLineNumber ?? hunk.newStart,
-                kind: 'removed',
-                before: removedLine.content,
-                after: ''
-              })
-            }
-            continue
-          }
-
-          if (line.type === 'add') {
-            putLineChange(byLine, {
-              lineNumber: line.newLineNumber ?? hunk.newStart,
-              kind: 'added',
-              before: '',
-              after: line.content
-            })
-          }
-
-          index += 1
-        }
-      }
-    }
-  }
-
-  return [...byLine.values()].sort((a, b) => a.lineNumber - b.lineNumber)
-}
-
-function buildMiddleLiveLineChanges(original: string[], draft: string[], startIndex: number): LiveLineChange[] {
-  const changes: LiveLineChange[] = []
-
-  if (original.length * draft.length > EDITOR_LIVE_DIFF_LCS_CELL_LIMIT) {
-    const pairedCount = Math.min(original.length, draft.length)
-    for (let index = 0; index < pairedCount; index += 1) {
-      if (original[index] === draft[index]) continue
-      changes.push({
-        lineNumber: startIndex + index + 1,
-        kind: 'modified',
-        before: original[index],
-        after: draft[index]
-      })
-    }
-    for (let index = pairedCount; index < draft.length; index += 1) {
-      changes.push({
-        lineNumber: startIndex + index + 1,
-        kind: 'added',
-        before: '',
-        after: draft[index]
-      })
-    }
-    for (let index = pairedCount; index < original.length; index += 1) {
-      changes.push({
-        lineNumber: startIndex + pairedCount + 1,
-        kind: 'removed',
-        before: original[index],
-        after: ''
-      })
-    }
-    return changes
-  }
-
-  const table = Array.from({ length: original.length + 1 }, () => new Uint32Array(draft.length + 1))
-  for (let left = original.length - 1; left >= 0; left -= 1) {
-    for (let right = draft.length - 1; right >= 0; right -= 1) {
-      table[left][right] = original[left] === draft[right]
-        ? table[left + 1][right + 1] + 1
-        : Math.max(table[left + 1][right], table[left][right + 1])
-    }
-  }
-
-  let left = 0
-  let right = 0
-  while (left < original.length || right < draft.length) {
-    if (left < original.length && right < draft.length && original[left] === draft[right]) {
-      left += 1
-      right += 1
-    } else if (left < original.length && (right >= draft.length || table[left + 1][right] >= table[left][right + 1])) {
-      changes.push({
-        lineNumber: startIndex + right + 1,
-        kind: 'removed',
-        before: original[left],
-        after: ''
-      })
-      left += 1
-    } else if (right < draft.length) {
-      changes.push({
-        lineNumber: startIndex + right + 1,
-        kind: 'added',
-        before: '',
-        after: draft[right]
-      })
-      right += 1
-    }
-  }
-
-  return changes
-}
-
-function compactLiveLineChanges(changes: LiveLineChange[]): LiveLineChange[] {
-  const compacted: LiveLineChange[] = []
-
-  for (let index = 0; index < changes.length; index += 1) {
-    const change = changes[index]
-    const next = changes[index + 1]
-
-    if (change.kind === 'removed' && next?.kind === 'added' && change.lineNumber === next.lineNumber) {
-      compacted.push({
-        lineNumber: next.lineNumber,
-        kind: 'modified',
-        before: change.before,
-        after: next.after
-      })
-      index += 1
-      continue
-    }
-
-    compacted.push(change)
-  }
-
-  return compacted
-}
-
-function editableTextLines(text: string): EditableTextLines {
-  const hasTrailingNewline = /\r?\n$/.test(text)
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
-  if (hasTrailingNewline && lines[lines.length - 1] === '') lines.pop()
-
-  return { lines, hasTrailingNewline }
-}
-
-function joinEditableTextLines({ lines, hasTrailingNewline }: EditableTextLines): string {
-  return `${lines.join('\n')}${hasTrailingNewline ? '\n' : ''}`
-}
-
-function nearestLineIndex(lines: string[], targetIndex: number, expectedLine: string): number {
-  if (lines.length === 0) return -1
-  const safeTarget = clamp(targetIndex, 0, lines.length - 1)
-  if (lines[safeTarget] === expectedLine) return safeTarget
-
-  for (let distance = 1; distance < lines.length; distance += 1) {
-    const before = safeTarget - distance
-    const after = safeTarget + distance
-    if (before >= 0 && lines[before] === expectedLine) return before
-    if (after < lines.length && lines[after] === expectedLine) return after
-  }
-
-  return -1
-}
-
-function updateLineInText(text: string, lineNumber: number, nextLine: string | null): string {
-  const editable = editableTextLines(text)
-  const lines = editable.lines
-  const index = lineNumber - 1
-
-  if (index < 0 || index > lines.length) return text
-
-  if (nextLine === null) {
-    lines.splice(index, 1)
-  } else if (index === lines.length) {
-    lines.push(nextLine)
-  } else {
-    lines[index] = nextLine
-  }
-
-  return joinEditableTextLines(editable)
-}
-
-function revertLiveChangeInText(text: string, change: LiveLineChange): string {
-  const editable = editableTextLines(text)
-  const lines = editable.lines
-  const targetIndex = Math.max(0, change.lineNumber - 1)
-
-  if (change.kind === 'added') {
-    const index = nearestLineIndex(lines, targetIndex, change.after)
-    if (index === -1) return text
-    lines.splice(index, 1)
-    return joinEditableTextLines(editable)
-  }
-
-  if (change.kind === 'modified') {
-    const index = nearestLineIndex(lines, targetIndex, change.after)
-    if (index === -1) return updateLineInText(text, change.lineNumber, change.before)
-    lines[index] = change.before
-    return joinEditableTextLines(editable)
-  }
-
-  const insertIndex = Math.max(0, Math.min(targetIndex, lines.length))
-  if (lines[insertIndex] === change.before || lines[insertIndex - 1] === change.before) return text
-  lines.splice(insertIndex, 0, change.before)
-  return joinEditableTextLines(editable)
-}
-
-function EditorCssColorSwatch({
-  filePath,
-  token,
-  onUpdateCssColor
-}: {
-  filePath: string
-  token: EditorCssColorToken
-  onUpdateCssColor: (request: CssColorEditDraft) => Promise<void> | void
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [pending, setPending] = useState(false)
-  const slotStyle = {
-    '--css-color-preview': token.previewValue,
-    '--editor-color-line': String(token.renderLineIndex),
-    '--editor-color-column': String(Math.max(0, token.columnStart - 2))
-  } as CSSProperties
-
-  const openPicker = () => {
-    if (!pending) openCssColorPicker(inputRef.current)
-  }
-
-  const updateColor = async (inputValue: string) => {
-    const newValue = rewriteCssColorValue(token.value, inputValue)
-    if (newValue === token.value) return
-
-    setPending(true)
-    try {
-      await onUpdateCssColor({
-        filePath,
-        lineNumber: token.lineNumber,
-        columnStart: token.columnStart,
-        oldValue: token.value,
-        newValue
-      })
-    } finally {
-      setPending(false)
-    }
-  }
-
-  return (
-    <span className="changes-editor-color-swatch-slot" style={slotStyle} onMouseDown={(event) => event.stopPropagation()}>
-      <span
-        className={pending ? 'css-color-swatch pending' : 'css-color-swatch'}
-        role="button"
-        tabIndex={0}
-        aria-label={`Change ${token.value}`}
-        title={`Change ${token.value}`}
-        onClick={(event) => {
-          event.stopPropagation()
-          openPicker()
-        }}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter' && event.key !== ' ') return
-          event.preventDefault()
-          event.stopPropagation()
-          openPicker()
-        }}
-      >
-        <input
-          ref={inputRef}
-          className="css-color-picker-input"
-          type="color"
-          value={token.inputValue}
-          aria-hidden="true"
-          tabIndex={-1}
-          onChange={(event) => void updateColor(event.currentTarget.value)}
-        />
-      </span>
-    </span>
-  )
-}
 
 export function ChangesInternalEditor({
   api,
@@ -2933,46 +148,19 @@ export function ChangesInternalEditor({
 }: ChangesInternalEditorProps) {
   const editorRef = useRef<HTMLElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const codexAgentTextareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const codexAgentAutoUsageCheckRef = useRef<Set<string>>(new Set())
   const fileSearchInputRef = useRef<HTMLInputElement | null>(null)
   const highlightInnerRef = useRef<HTMLDivElement | null>(null)
   const lineNumbersInnerRef = useRef<HTMLDivElement | null>(null)
   const colorSwatchesInnerRef = useRef<HTMLDivElement | null>(null)
   const overviewViewportRef = useRef<HTMLDivElement | null>(null)
-  const hexTableBodyRef = useRef<HTMLDivElement | null>(null)
   const healthMenuRef = useRef<HTMLDivElement | null>(null)
   const selectedFileRowRef = useRef<HTMLButtonElement | null>(null)
   const skipJsonEditBlurRef = useRef(false)
   const chunkPageRequestRef = useRef(false)
-  const hexChunkRequestRef = useRef(0)
-  const fileContentSearchRequestRef = useRef(0)
   const pendingEditorFocusRef = useRef<{ filePath: string; lineNumber: number; column: number; length: number; byteOffset?: number } | null>(null)
   const lastEditorScrollTopRef = useRef(0)
-  const lastHexScrollTopRef = useRef(0)
   const suppressAutoChunkUntilRef = useRef(0)
-  const suppressAutoHexChunkUntilRef = useRef(0)
-  const editorUndoStackRef = useRef<EditorTextHistoryEntry[]>([])
-  const editorRedoStackRef = useRef<EditorTextHistoryEntry[]>([])
-  const pendingEditorHistoryRef = useRef<EditorTextHistoryEntry | null>(null)
-  const editorDraftTextRef = useRef('')
-  const editorTypingHistoryActiveRef = useRef(false)
-  const editorTypingHistoryTimerRef = useRef<number | null>(null)
-  const editorSelectionStatusTimerRef = useRef<number | null>(null)
-  const pendingHexOffsetRef = useRef<number | null>(null)
-  const editorLineHeightRef = useRef(EDITOR_LINE_HEIGHT)
-  const editorVisualLineCountRef = useRef<{ text: string; count: number }>({ text: '', count: 1 })
-  const [sidebarWidth, setSidebarWidth] = useState(readStoredEditorSidebarWidth)
-  const [healthSettings, setHealthSettings] = useState(readStoredEditorHealthSettings)
-  const [healthMenuOpen, setHealthMenuOpen] = useState(false)
-  const [healthScanState, setHealthScanState] = useState<EditorHealthScanState>({
-    status: 'idle',
-    scanned: 0,
-    linted: 0,
-    signals: 0,
-    error: null
-  })
-  const [manualHealthByPath, setManualHealthByPath] = useState<Map<string, EditorHealthReport>>(() => new Map())
+  const { sidebarWidth, editorStyle, startSidebarResize, handleSidebarResizeKeyDown } = useEditorSidebarResize({ editorRef })
   const [files, setFiles] = useState<RepositoryFileEntry[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [fileQuery, setFileQuery] = useState('')
@@ -2995,78 +183,115 @@ export function ChangesInternalEditor({
   const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null)
   const [imagePreviewLoading, setImagePreviewLoading] = useState(false)
   const [imagePreviewError, setImagePreviewError] = useState<string | null>(null)
-  const [hexBytes, setHexBytes] = useState<HexBytePreview | null>(null)
-  const [hexLoading, setHexLoading] = useState(false)
-  const [hexError, setHexError] = useState<string | null>(null)
-  const [hexOriginalText, setHexOriginalText] = useState('')
-  const [hexDraftText, setHexDraftText] = useState('')
-  const [activeHexByteIndex, setActiveHexByteIndex] = useState(0)
-  const [hexByteDraft, setHexByteDraft] = useState('')
-  const [hexOffsetDraft, setHexOffsetDraft] = useState('')
-  const [hexSearchQuery, setHexSearchQuery] = useState('')
-  const [activeHexSearchIndex, setActiveHexSearchIndex] = useState(-1)
-  const [editorScrollTop, setEditorScrollTop] = useState(0)
-  const [editorViewportHeight, setEditorViewportHeight] = useState(0)
-  const [editorLineHeight, setEditorLineHeight] = useState(EDITOR_LINE_HEIGHT)
+  const {
+    hexTableBodyRef,
+    lastHexScrollTopRef,
+    suppressAutoHexChunkUntilRef,
+    pendingHexOffsetRef,
+    hexBytes,
+    setHexBytes,
+    hexLoading,
+    setHexLoading,
+    hexError,
+    setHexError,
+    setHexOriginalText,
+    setHexDraftText,
+    activeHexByteIndex,
+    setActiveHexByteIndex,
+    hexByteDraft,
+    setHexByteDraft,
+    hexOffsetDraft,
+    setHexOffsetDraft,
+    hexSearchQuery,
+    setHexSearchQuery,
+    activeHexSearchIndex,
+    setActiveHexSearchIndex,
+    parsedHexDraft,
+    hexStartOffset,
+    hexEndOffset,
+    hexFullFileLoaded,
+    hexChunkEditable,
+    hexPreviewRows,
+    activeHexByte,
+    activeHexAscii,
+    activeHexRowOffset,
+    hexSearchMatches,
+    hexDirty,
+    loadHexChunk,
+    goToHexOffset,
+    jumpHexChunk,
+    selectHexByte,
+    updateHexByteDraft,
+    commitHexByteDraft,
+    handleHexByteInputKeyDown,
+    hexByteChanged,
+    hexDraftTextForSave,
+    goToHexSearchMatch,
+    syncHexScroll
+  } = useHexEditor({ api, currentRepoPath, selectedPath, setNotice })
   const [collapsedJsonPaths, setCollapsedJsonPaths] = useState<Set<string>>(new Set())
   const [jsonEdit, setJsonEdit] = useState<JsonEditCell | null>(null)
   const [fileLoading, setFileLoading] = useState(false)
   const [filesError, setFilesError] = useState<string | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const [textUnavailableMessage, setTextUnavailableMessage] = useState<string | null>(null)
-  const [beautifying, setBeautifying] = useState(false)
-  const [aiBeautifying, setAiBeautifying] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [lintSettings, setLintSettings] = useState(readStoredLintSettings)
   const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([])
   const [gitLineChanges, setGitLineChanges] = useState<LiveLineChange[]>([])
   const [gitDiffLoading, setGitDiffLoading] = useState(false)
   const [liveChangesOpen, setLiveChangesOpen] = useState(true)
   const [liveChangesText, setLiveChangesText] = useState<string | null>(null)
-  const [editorSelection, setEditorSelectionState] = useState<EditorSelectionStatus>({
-    lineNumber: 1,
-    column: 1,
-    selectedChars: 0,
-    selectedLines: 0
+  const {
+    codexAgentTextareaRef,
+    codexAgentOpen,
+    setCodexAgentOpen,
+    codexAgentPrompt,
+    setCodexAgentPrompt,
+    setCodexAgentPromptFocused,
+    codexAgentRunning,
+    codexAgentResult,
+    codexAgentError,
+    codexAgentLiveEvents,
+    codexAgentStopping,
+    stopCodexAgent,
+    codexAgentAttachments,
+    codexAgentPreviewAttachment,
+    setCodexAgentPreviewAttachment,
+    codexAgentProvider,
+    codexAgentAssistant,
+    setCodexAgentAssistant,
+    codexAgentReasoning,
+    setCodexAgentReasoning,
+    codexAgentSandbox,
+    setCodexAgentSandbox,
+    codexAgentStatusLabel,
+    codexAgentStatusMessage,
+    codexAgentUsageText,
+    codexAgentCommandSuggestions,
+    selectLocalAgentProvider,
+    addCodexAgentAttachments,
+    handleCodexAgentPaste,
+    handleCodexAgentDragOver,
+    handleCodexAgentDrop,
+    removeCodexAgentAttachment,
+    applyCodexAgentCommand,
+    runCodexAgentPanel
+  } = useLocalAgentPanel({
+    api,
+    currentRepoPath,
+    selectedPath,
+    selectedAssistant,
+    assistants,
+    assistantsChecking,
+    checkAssistants,
+    setNotice,
+    requestConfirmation,
+    runSnapshotAction,
+    viewMode,
+    textUnavailableMessage,
+    fileError,
+    diagnostics,
+    flushActiveEditorDraftText: () => flushActiveEditorDraftText()
   })
-  const [lintRunState, setLintRunState] = useState<EditorLintRunState>({
-    status: 'idle',
-    message: 'Lint has not run yet.',
-    detail: 'Open a supported file and run lint.'
-  })
-  const [codexAgentOpen, setCodexAgentOpen] = useState(false)
-  const [codexAgentPrompt, setCodexAgentPrompt] = useState('')
-  const [codexAgentPromptFocused, setCodexAgentPromptFocused] = useState(false)
-  const [codexAgentRunning, setCodexAgentRunning] = useState(false)
-  const [codexAgentResult, setCodexAgentResult] = useState<CodexAgentResult | null>(null)
-  const [codexAgentError, setCodexAgentError] = useState<string | null>(null)
-  const [codexAgentAttachments, setCodexAgentAttachments] = useState<CodexAgentAttachmentDraft[]>([])
-  const [codexAgentPreviewAttachment, setCodexAgentPreviewAttachment] = useState<CodexAgentAttachmentDraft | null>(null)
-  const [codexAgentProvider, setCodexAgentProvider] = useState<LocalAgentProvider>(
-    localAgentProviderForAssistant(selectedAssistant)
-  )
-  const [codexAgentAssistant, setCodexAgentAssistant] = useState<AssistantId>(
-    selectedAssistant.startsWith('claude') || selectedAssistant.startsWith('codex') ? selectedAssistant : 'codex'
-  )
-  const [codexAgentReasoning, setCodexAgentReasoning] = useState<CodexAgentReasoning>('high')
-  const [codexAgentSandbox, setCodexAgentSandbox] = useState<CodexAgentSandbox>('read-only')
-
-  useEffect(() => {
-    if (selectedAssistant.startsWith('claude') || selectedAssistant.startsWith('codex')) {
-      setCodexAgentProvider(localAgentProviderForAssistant(selectedAssistant))
-      setCodexAgentAssistant(selectedAssistant)
-    }
-  }, [selectedAssistant])
-
-  useEffect(() => {
-    if (!codexAgentOpen || assistantsChecking) return
-
-    const checkKey = `${currentRepoPath ?? 'no-repo'}:${codexAgentProvider}`
-    if (codexAgentAutoUsageCheckRef.current.has(checkKey)) return
-
-    codexAgentAutoUsageCheckRef.current.add(checkKey)
-    void checkAssistants()
-  }, [assistantsChecking, checkAssistants, codexAgentOpen, codexAgentProvider, currentRepoPath])
 
   useEffect(() => {
     setManualHealthByPath(new Map())
@@ -3075,28 +300,6 @@ export function ChangesInternalEditor({
 
   const changeByPath = useMemo(() => new Map((snapshot?.status.changes ?? []).map((change) => [change.path, change])), [snapshot])
   const selectedChange = selectedPath ? changeByPath.get(selectedPath) ?? null : null
-  const codexAgentStatus = useMemo(
-    () => assistants.find((assistant) => assistant.id === codexAgentProvider) ?? null,
-    [assistants, codexAgentProvider]
-  )
-  const codexAgentStatusLabel = assistantsChecking
-    ? 'checking'
-    : codexAgentStatus
-      ? assistantStatusLabel(codexAgentStatus)
-      : 'unknown'
-  const codexAgentStatusMessage = assistantsChecking
-    ? 'Checking assistant access and usage.'
-    : codexAgentStatus?.message ?? 'Run health check to load assistant access and usage.'
-  const codexAgentUsageText = compactAssistantUsage(codexAgentStatus, assistantsChecking)
-  const codexAgentCommandQuery = codexAgentPromptFocused ? slashCommandQuery(codexAgentPrompt) : null
-  const codexAgentCommandSuggestions = useMemo(() => (
-    codexAgentCommandQuery === null
-      ? []
-      : LOCAL_AGENT_COMMANDS.filter((command) =>
-          command.id.includes(codexAgentCommandQuery) ||
-          command.label.slice(1).includes(codexAgentCommandQuery)
-        ).slice(0, 6)
-  ), [codexAgentCommandQuery])
   const query = fileQuery.trim().toLowerCase()
   const contentMatchedPaths = useMemo(() => new Set(Object.keys(fileContentMatches)), [fileContentMatches])
   const fileContentMatchCount = contentMatchedPaths.size
@@ -3158,32 +361,7 @@ export function ChangesInternalEditor({
       lineNumber: activeEditorLineBase + match.lineNumber - 1
     }))
   ), [activeEditorLineBase, draftLines, fileLineSearchTarget, fileSearchQuery])
-  const parsedHexDraft = useMemo(() => parseHexText(hexDraftText), [hexDraftText])
-  const parsedHexOriginal = useMemo(() => parseHexText(hexOriginalText), [hexOriginalText])
-  const hexStartOffset = hexBytes?.startOffset ?? 0
-  const hexEndOffset = hexBytes?.endOffset ?? hexStartOffset
-  const hexFullFileLoaded = Boolean(hexBytes?.fullFileLoaded)
-  const hexChunkEditable = Boolean(hexBytes)
-  const hexPreviewRows = useMemo(
-    () => (parsedHexDraft.bytes ? hexEditorRows(parsedHexDraft.bytes, hexStartOffset) : []),
-    [hexStartOffset, parsedHexDraft.bytes]
-  )
-  const activeHexLocalIndex = activeHexByteIndex - hexStartOffset
-  const activeHexByte = activeHexLocalIndex >= 0 ? parsedHexDraft.bytes?.[activeHexLocalIndex] ?? null : null
-  const activeHexAscii = activeHexByte === null ? '' : asciiFromByte(activeHexByte)
-  const activeHexRowOffset = Math.floor(activeHexByteIndex / HEX_BYTES_PER_ROW) * HEX_BYTES_PER_ROW
-  const hexSearchMatches = useMemo(
-    () => findHexSearchMatches(parsedHexDraft.bytes, hexSearchQuery, hexStartOffset),
-    [hexSearchQuery, hexStartOffset, parsedHexDraft.bytes]
-  )
-  const normalizedActiveHexByteDraft = normalizeHexByteDraft(hexByteDraft)
-  const activeHexByteDraftValue = normalizedActiveHexByteDraft
-    ? Number.parseInt(normalizedActiveHexByteDraft.padStart(2, '0'), 16)
-    : null
-  const activeHexByteDraftDirty = hexChunkEditable && activeHexByte !== null && activeHexByteDraftValue !== null && activeHexByteDraftValue !== activeHexByte
-  const hexDirty = hexChunkEditable && (hexDraftText !== hexOriginalText || activeHexByteDraftDirty)
   const dirty = textDirty || hexDirty
-  const healthEnabled = healthSettings.enabled
   const showLiveChangesPanel = textDirty && liveChangesOpen && !fileLoading && viewMode === 'code' && !textUnavailableMessage
   const editorLineEnding = useMemo(() => detectEditorLineEnding(activeEditorText), [activeEditorText])
   const editorIndent = useMemo(() => detectEditorIndent(activeEditorText), [activeEditorText])
@@ -3199,6 +377,140 @@ export function ChangesInternalEditor({
     () => new Set(fileSearchMatches.map((match) => match.lineNumber)),
     [fileSearchMatches]
   )
+
+  const {
+    editorVisualLineCountRef,
+    setEditorScrollTop,
+    setEditorViewportHeight,
+    editorSelection,
+    setEditorSelectionState,
+    editorOverviewViewport,
+    editorLineWindow,
+    visibleDraftLines,
+    measureEditorLineHeight,
+    syncEditorOverlays,
+    updateEditorLineWindowState,
+    updateEditorSelectionStatus,
+    focusEditorPosition,
+    focusCodePosition,
+    focusSearchMatch,
+    focusLiveChange,
+    focusFileLineSearchTarget,
+    beginEditorOverviewDrag,
+    dragEditorOverview,
+    endEditorOverviewDrag
+  } = useEditorViewport({
+    textareaRef,
+    highlightInnerRef,
+    lineNumbersInnerRef,
+    colorSwatchesInnerRef,
+    overviewViewportRef,
+    lastEditorScrollTopRef,
+    draftLines,
+    lineOffsets,
+    activeEditorLineBase,
+    chunkedTextActive,
+    fileLineSearchTarget,
+    setViewMode,
+    setNotice
+  })
+
+  const {
+    editorUndoStackRef,
+    editorRedoStackRef,
+    pendingEditorHistoryRef,
+    editorDraftTextRef,
+    editorTypingHistoryActiveRef,
+    editorTextSnapshot,
+    pushEditorUndoEntry,
+    endEditorTypingHistoryGroup,
+    touchEditorTypingHistoryGroup,
+    clearEditorTextHistory,
+    setActiveEditorDraftText,
+    flushActiveEditorDraftText,
+    applyEditorTextChange,
+    undoEditorText,
+    redoEditorText,
+    capturePendingEditorHistory,
+    updateEditorLineEnding,
+    updateEditorIndent,
+    updateEditorCssColor
+  } = useEditorTextHistory({
+    textareaRef,
+    activeEditorText,
+    chunkedTextPreview,
+    setChunkedTextPreview,
+    setDraftText,
+    setJsonEdit,
+    setMultiEditRanges,
+    setCollapsedJsonPaths,
+    setViewMode,
+    fileLoading,
+    activeEditorLineBase,
+    chunkedTextActive,
+    editorIndent,
+    editorVisualLineCountRef,
+    updateEditorSelectionStatus,
+    updateEditorLineWindowState,
+    syncEditorOverlays
+  })
+
+  const {
+    activateNextMultiEditOccurrence,
+    handleEditorTextChange,
+    handleEditorTextKeyDown,
+    handleEditorPaste
+  } = useEditorMultiEdit({
+    textareaRef,
+    viewMode,
+    textUnavailableMessage,
+    fileLoading,
+    activeEditorText,
+    multiEditRanges,
+    setMultiEditRanges,
+    setJsonEdit,
+    setNotice,
+    updateEditorSelectionStatus,
+    editorDraftTextRef,
+    pendingEditorHistoryRef,
+    editorTypingHistoryActiveRef,
+    editorUndoStackRef,
+    editorRedoStackRef,
+    editorTextSnapshot,
+    pushEditorUndoEntry,
+    endEditorTypingHistoryGroup,
+    touchEditorTypingHistoryGroup,
+    setActiveEditorDraftText,
+    capturePendingEditorHistory,
+    undoEditorText,
+    redoEditorText
+  })
+
+  const {
+    lintSettings,
+    lintRunState,
+    setLintRunState,
+    selectedLintSupported,
+    lintBlocked,
+    lintBadgeLabel,
+    lintMenuClassName,
+    goToDiagnostic,
+    updateLintSettings,
+    runLint
+  } = useEditorLint({
+    selectedPath,
+    chunkedTextActive,
+    textUnavailableMessage,
+    fileLoading,
+    fileError,
+    viewMode,
+    draftText,
+    diagnostics,
+    setDiagnostics,
+    focusCodePosition,
+    flushActiveEditorDraftText,
+    setNotice
+  })
   const editorOverviewMarkers = useMemo<EditorOverviewMarker[]>(() => {
     const firstLine = activeEditorLineBase
     const lastLine = activeEditorLineBase + Math.max(0, draftLines.length - 1)
@@ -3261,25 +573,6 @@ export function ChangesInternalEditor({
     fileSearchLineNumbers,
     multiEditLineNumbers
   ])
-  const editorOverviewViewport = useMemo(() => {
-    const totalLines = Math.max(1, draftLines.length)
-    const contentHeight = Math.max(editorLineHeight, totalLines * editorLineHeight)
-    const viewportHeight = clamp(editorViewportHeight || editorLineHeight, editorLineHeight, contentHeight)
-    const height = clamp((viewportHeight / contentHeight) * 100, 3, 100)
-    const maxScrollTop = Math.max(1, contentHeight - viewportHeight)
-    const maxOverviewTop = Math.max(0, 100 - height)
-    const top = clamp((editorScrollTop / maxScrollTop) * maxOverviewTop, 0, maxOverviewTop)
-
-    return { top, height }
-  }, [draftLines.length, editorLineHeight, editorScrollTop, editorViewportHeight])
-  const editorLineWindow = useMemo(
-    () => editorLineWindowForScroll(draftLines.length, editorScrollTop, editorViewportHeight, editorLineHeight),
-    [draftLines.length, editorLineHeight, editorScrollTop, editorViewportHeight]
-  )
-  const visibleDraftLines = useMemo(
-    () => draftLines.slice(editorLineWindow.start, editorLineWindow.end),
-    [draftLines, editorLineWindow.end, editorLineWindow.start]
-  )
   const editorCssColorTokens = useMemo<EditorCssColorToken[]>(() => {
     if (!isCssColorFile(selectedPath) || textUnavailableMessage) return []
     return visibleDraftLines.flatMap((line, index) => (
@@ -3319,10 +612,6 @@ export function ChangesInternalEditor({
   }, [chunkedTextActive, collapsedJsonPaths, draftText, lintSettings, selectedIsJson, selectedPath])
   const selectedIcon = fileTypeIconForPath(selectedPath)
   const selectedLang = langFromPath(selectedPath)
-  const selectedLintSupported = !chunkedTextActive && (selectedIsJson || SCRIPT_RE.test(selectedPath))
-  const selectedHexOnly = Boolean(textUnavailableMessage)
-  const lintBlocked = !selectedPath || fileLoading || Boolean(fileError) || selectedHexOnly || chunkedTextActive || viewMode === 'image' || viewMode === 'hex'
-  const selectedLintRulesEnabled = selectedLintSupported && lintRulesEnabledForFile(selectedPath, lintSettings)
   const textSaveBlocked = false
   const contextMenuChange = fileMenu ? changeByPath.get(fileMenu.path) : null
   const availableViewModes = useMemo<Array<{ id: EditorViewMode; label: string }>>(() => {
@@ -3335,51 +624,6 @@ export function ChangesInternalEditor({
     return modes.length ? modes : [{ id: 'code', label: 'Code' }]
   }, [chunkedTextActive, selectedIsBinaryPreview, selectedIsImage, selectedIsJson, selectedIsSvg, selectedPath])
 
-  useEffect(() => {
-    editorDraftTextRef.current = activeEditorText
-    const textarea = textareaRef.current
-    if (textarea && textarea.value !== activeEditorText) {
-      const selectionStart = Math.min(activeEditorText.length, textarea.selectionStart)
-      const selectionEnd = Math.min(activeEditorText.length, textarea.selectionEnd)
-      textarea.value = activeEditorText
-      textarea.setSelectionRange(selectionStart, selectionEnd)
-      editorVisualLineCountRef.current = {
-        text: activeEditorText,
-        count: textareaVisualLineCount(activeEditorText)
-      }
-      window.requestAnimationFrame(() => {
-        syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
-      })
-    }
-  }, [activeEditorText])
-
-  useEffect(() => () => {
-    clearEditorTypingHistoryTimer()
-    if (editorSelectionStatusTimerRef.current !== null) {
-      window.clearTimeout(editorSelectionStatusTimerRef.current)
-      editorSelectionStatusTimerRef.current = null
-    }
-  }, [])
-  const editorStyle = {
-    '--changes-editor-sidebar-width': `${sidebarWidth}px`
-  } as CSSProperties
-  const lintBadgeLabel = diagnostics.length > 0
-    ? String(diagnostics.length)
-    : lintRunState.status === 'clean'
-      ? 'OK'
-      : lintRunState.status === 'blocked'
-        ? '!'
-        : lintRunState.status === 'running'
-          ? '...'
-          : ''
-  const lintMenuClassName = [
-    'changes-editor-lint-menu',
-    diagnostics.length > 0 ? 'has-issues' : '',
-    lintRunState.status === 'clean' ? 'is-clean' : '',
-    lintRunState.status === 'blocked' ? 'is-blocked' : '',
-    lintRunState.status === 'running' ? 'is-running' : '',
-    (!selectedLintSupported || lintBlocked) ? 'disabled' : ''
-  ].filter(Boolean).join(' ')
   const gitStatusText = selectedChange
     ? `${selectedChange.status} in git${gitChangedLines > 0 ? ` - ${gitChangedLines} marked line${gitChangedLines === 1 ? '' : 's'}` : ''}`
     : null
@@ -3396,260 +640,6 @@ export function ChangesInternalEditor({
             : gitDiffLoading
               ? 'Loading git changes...'
               : gitStatusText ?? 'No edits since load'
-
-  const activeHealthReport = useMemo(() => buildEditorHealthReport(selectedPath, selectedChange, {
-    scope: 'file',
-    settings: healthSettings,
-    chunkedTextPreview,
-    diagnostics,
-    dirty,
-    draftLineCount: draftLines.length,
-    fileError,
-    gitChangedLines,
-    hexBytes: viewMode === 'hex' ? hexBytes : null,
-    textUnavailableMessage
-  }), [
-    chunkedTextPreview,
-    diagnostics,
-    dirty,
-    draftLines.length,
-    fileError,
-    gitChangedLines,
-    hexBytes,
-    healthSettings,
-    selectedChange,
-    selectedPath,
-    textUnavailableMessage,
-    viewMode
-  ])
-  const liveHealthByPath = useMemo(() => {
-    if (!healthEnabled) return new Map<string, EditorHealthReport>()
-
-    return buildLiveHealthReports(files, changeByPath, healthSettings)
-  }, [changeByPath, files, healthEnabled, healthSettings])
-  const fileHealthByPath = useMemo(() => {
-    if (!healthEnabled) return new Map<string, EditorHealthReport>()
-
-    const reports = new Map(liveHealthByPath)
-    manualHealthByPath.forEach((report, path) => {
-      reports.set(path, mergeHealthReports(reports.get(path), report))
-    })
-    if (selectedPath) {
-      reports.set(selectedPath, mergeHealthReports(reports.get(selectedPath), activeHealthReport))
-    }
-    return reports
-  }, [activeHealthReport, healthEnabled, liveHealthByPath, manualHealthByPath, selectedPath])
-  const allHealthReportEntries = useMemo(() => (
-    Array.from(fileHealthByPath.entries())
-      .map(([path, report]) => ({ path, report }))
-      .filter((entry) => entry.report.issues.length > 0)
-      .sort((left, right) => healthSeverityRank(right.report.severity) - healthSeverityRank(left.report.severity))
-  ), [fileHealthByPath])
-  const liveHealthReportEntries = useMemo(
-    () => allHealthReportEntries.filter(({ path }) => path !== selectedPath),
-    [allHealthReportEntries, selectedPath]
-  )
-  const liveHealthReports = useMemo(() => liveHealthReportEntries.slice(0, 10), [liveHealthReportEntries])
-  const selectedHealthReport = selectedPath ? fileHealthByPath.get(selectedPath) ?? activeHealthReport : activeHealthReport
-  const healthIssueCount = healthEnabled ? selectedHealthReport.issues.length : 0
-  const healthSignalFileCount = healthEnabled ? allHealthReportEntries.length : 0
-  const healthSignalCount = healthSignalFileCount
-  const healthPanelSeverity = allHealthReportEntries.reduce(
-    (severity, { report }) => healthSeverityRank(report.severity) > healthSeverityRank(severity) ? report.severity : severity,
-    healthEnabled ? activeHealthReport.severity : ('healthy' as EditorHealthSeverity)
-  )
-  const healthSummaryTitle = healthEnabled
-    ? healthSignalFileCount > 0
-      ? `${healthSignalFileCount} file${healthSignalFileCount === 1 ? '' : 's'} with health signals${healthIssueCount > 0 ? `; ${healthIssueCount} selected-file issue${healthIssueCount === 1 ? '' : 's'}` : ''}`
-      : selectedPath
-        ? 'Selected file looks healthy by lightweight checks'
-        : 'Select a file to inspect health'
-    : 'Module health is disabled'
-  const healthRunDisabled = healthScanState.status === 'running' || filesLoading || !api || !currentRepoPath
-  const healthScanSummary =
-    healthScanState.status === 'running'
-      ? 'Scanning repository files...'
-    : healthScanState.status === 'done'
-        ? `${healthScanState.scanned} files checked, ${healthScanState.linted} linted, ${healthScanState.signals} file signal${healthScanState.signals === 1 ? '' : 's'}`
-        : `${files.length} files ready for live checks`
-
-  const updateHealthSettings = (patch: Partial<EditorHealthSettings>) => {
-    setHealthSettings((settings) => {
-      const next = { ...settings, ...patch }
-      storeEditorHealthSettings(next)
-      return next
-    })
-  }
-
-  const setHealthNumberSetting = (key: 'churnWarning' | 'churnCritical' | 'denseChunkWarning', value: string) => {
-    const parsed = Number(value)
-    if (!Number.isFinite(parsed)) return
-    const limits = key === 'denseChunkWarning'
-      ? { min: 100, max: 20_000 }
-      : key === 'churnCritical'
-        ? { min: 40, max: 20_000 }
-        : { min: 20, max: 10_000 }
-    updateHealthSettings({ [key]: Math.round(clamp(parsed, limits.min, limits.max)) } as Partial<EditorHealthSettings>)
-  }
-
-  const renderHealthToggle = (key: EditorHealthBooleanSetting, label: string, detail: string) => (
-    <label className="changes-editor-health-setting" key={key}>
-      <input
-        type="checkbox"
-        checked={Boolean(healthSettings[key])}
-        onChange={(event) => updateHealthSettings({ [key]: event.currentTarget.checked } as Partial<EditorHealthSettings>)}
-      />
-      <span>
-        <b>{label}</b>
-        <small>{detail}</small>
-      </span>
-    </label>
-  )
-
-  const renderHealthNumber = (key: 'churnWarning' | 'churnCritical' | 'denseChunkWarning', label: string, detail: string) => (
-    <label className="changes-editor-health-number" key={key}>
-      <span>
-        <b>{label}</b>
-        <small>{detail}</small>
-      </span>
-      <input
-        type="number"
-        min={key === 'denseChunkWarning' ? 100 : 20}
-        max={key === 'churnCritical' ? 20_000 : 10_000}
-        step={key === 'denseChunkWarning' ? 100 : 10}
-        value={healthSettings[key]}
-        onChange={(event) => setHealthNumberSetting(key, event.currentTarget.value)}
-      />
-    </label>
-  )
-
-  const resetHealthSettings = () => {
-    setHealthSettings(DEFAULT_EDITOR_HEALTH_SETTINGS)
-    storeEditorHealthSettings(DEFAULT_EDITOR_HEALTH_SETTINGS)
-  }
-
-  const runAllFilesHealthCheck = async () => {
-    if (!api || !currentRepoPath) {
-      setNotice('Open a repository before running health checks.')
-      return
-    }
-
-    const nextSettings = healthSettings.enabled ? healthSettings : { ...healthSettings, enabled: true }
-    if (!healthSettings.enabled) {
-      updateHealthSettings({ enabled: true })
-    }
-
-    setHealthScanState({ status: 'running', scanned: 0, linted: 0, signals: 0, error: null })
-    const refreshedFiles = await reloadEditorFiles(selectedPath)
-    const scannedFiles = refreshedFiles.length > 0 ? refreshedFiles : files
-    const liveReports = buildLiveHealthReports(scannedFiles, changeByPath, nextSettings)
-    const manualReports = new Map<string, EditorHealthReport>()
-    const lintCandidates = scannedFiles.filter((file) => lintRulesEnabledForFile(file.path, lintSettings))
-    let linted = 0
-
-    const lintFile = async (file: RepositoryFileEntry) => {
-      try {
-        const result = await api.getRepositoryFileChunk({
-          repoPath: currentRepoPath,
-          filePath: file.path,
-          offset: 0,
-          maxBytes: EDITOR_FILE_CHUNK_BYTES
-        })
-        linted += 1
-
-        if (!result.ok) {
-          manualReports.set(file.path, {
-            severity: 'critical',
-            issues: [{
-              severity: 'critical',
-              run: 'manual',
-              category: 'load',
-              title: 'Health read failed',
-              detail: friendlyIpcErrorMessage(result.error.message, 'Could not read this file during all-files health.')
-            }]
-          })
-          return
-        }
-
-        if (result.data.binary) {
-          manualReports.set(file.path, {
-            severity: 'warning',
-            issues: [{
-              severity: 'warning',
-              run: 'manual',
-              category: 'preview',
-              title: 'Binary content',
-              detail: 'This file matches a lintable extension but its content is binary, so all-files lint skipped it.'
-            }]
-          })
-          return
-        }
-
-        if (result.data.hasMore) {
-          manualReports.set(file.path, {
-            severity: 'warning',
-            issues: [{
-              severity: 'warning',
-              run: 'manual',
-              category: 'batch',
-              title: 'Large file skipped',
-              detail: `All-files lint read the first ${formatBytes(result.data.endOffset)} of ${formatBytes(result.data.byteSize)}. Open the file to inspect chunks deliberately.`
-            }]
-          })
-          return
-        }
-
-        const fileDiagnostics = validateEditorText(file.path, result.data.text, lintSettings)
-        if (fileDiagnostics.length > 0) {
-          manualReports.set(file.path, {
-            severity: 'critical',
-            issues: [{
-              severity: 'critical',
-              run: 'manual',
-              category: 'diagnostics',
-              title: 'Lint issues',
-              detail: `${fileDiagnostics.length} issue${fileDiagnostics.length === 1 ? '' : 's'} found during all-files health. Open the file to inspect line details.`
-            }]
-          })
-        }
-      } catch (error) {
-        linted += 1
-        manualReports.set(file.path, {
-          severity: 'critical',
-          issues: [{
-            severity: 'critical',
-            run: 'manual',
-            category: 'load',
-            title: 'Health read failed',
-            detail: friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Could not read this file during all-files health.')
-          }]
-        })
-      }
-    }
-
-    for (let index = 0; index < lintCandidates.length; index += EDITOR_HEALTH_LINT_CONCURRENCY) {
-      await Promise.all(lintCandidates.slice(index, index + EDITOR_HEALTH_LINT_CONCURRENCY).map(lintFile))
-    }
-
-    const mergedReports = new Map(liveReports)
-    manualReports.forEach((report, path) => {
-      mergedReports.set(path, mergeHealthReports(mergedReports.get(path), report))
-    })
-    const signals = countHealthSignalFiles(mergedReports)
-    setManualHealthByPath(manualReports)
-    setHealthScanState({
-      status: 'done',
-      scanned: scannedFiles.length,
-      linted,
-      signals,
-      error: null
-    })
-    setNotice(
-      signals > 0
-        ? `Health checked ${scannedFiles.length} file${scannedFiles.length === 1 ? '' : 's'} and linted ${linted}; ${signals} file${signals === 1 ? '' : 's'} need attention.`
-        : `Health checked ${scannedFiles.length} file${scannedFiles.length === 1 ? '' : 's'} and linted ${linted}; no signals found.`
-    )
-  }
 
   const openFileContextMenu = (event: ReactMouseEvent, path: string) => {
     if (!path) return
@@ -3676,760 +666,6 @@ export function ChangesInternalEditor({
       pendingEditorFocusRef.current = null
       focusCodePosition(contentMatch.lineNumber, contentMatch.column, contentMatch.length)
     }
-  }
-
-  const renderFileRow = (file: RepositoryFileEntry, displayName: string) => {
-    const change = changeByPath.get(file.path)
-    const fileTypeIcon = fileTypeIconForPath(file.path)
-    const selected = selectedPath === file.path
-    const contentMatch = fileContentMatches[file.path]
-    const fileIsDirty = selected && dirty
-    const statusClassName = fileIsDirty ? 'status-edited' : change ? `status-${change.status}` : ''
-    const statusLabel = fileIsDirty ? 'E' : change ? fileStatusToken(change.status) : ''
-    const statusTitle = fileIsDirty ? 'Edited since load' : change ? change.status : ''
-    const fileHealth = healthEnabled && healthSettings.rowSignals ? fileHealthByPath.get(file.path) ?? null : null
-    const fileHealthIssues = fileHealth?.issues ?? []
-    const fileHealthTitle = fileHealthIssues.map((issue) => `[${healthRunLabel(issue.run)}] ${issue.title}: ${issue.detail}`).join('\n')
-    const fileHealthClass = fileHealthIssues.length > 0 ? `health-${fileHealth?.severity ?? 'warning'}` : ''
-    const FileHealthIcon = fileHealth?.severity === 'critical' ? TriangleAlert : CircleAlert
-
-    return (
-      <button
-        type="button"
-        ref={selected ? selectedFileRowRef : undefined}
-        className={[
-          'changes-editor-file-row',
-          selected ? 'selected' : '',
-          fileIsDirty ? 'edited' : '',
-          change ? 'changed' : 'clean',
-          fileHealthClass
-        ].filter(Boolean).join(' ')}
-        key={file.path}
-        onClick={() => openRepositoryFileRow(file, contentMatch)}
-        onContextMenu={(event) => openFileContextMenu(event, file.path)}
-        title={contentMatch ? `${file.path}\nContent match at ${contentMatch.lineNumber}:${contentMatch.column + 1}` : file.path}
-      >
-        <span className={`file-type-icon file-type-${fileTypeIcon.tone}`} title={fileTypeIcon.title} aria-hidden="true">
-          {fileTypeIcon.label}
-        </span>
-        <span className="file-name">{displayName}</span>
-        {statusLabel && (
-          <span className={`file-status ${statusClassName}`} title={statusTitle} aria-label={statusTitle}>
-            {statusLabel}
-          </span>
-        )}
-        {fileHealth && fileHealthIssues.length > 0 && (
-          <span
-            className={`changes-editor-file-health health-${fileHealth.severity}`}
-            title={fileHealthTitle}
-            aria-label={fileHealthTitle}
-          >
-            <FileHealthIcon size={12} />
-          </span>
-        )}
-        {contentMatch && (
-          <small className="changes-editor-file-content-match">
-            L{contentMatch.lineNumber}: {contentMatch.preview}
-          </small>
-        )}
-      </button>
-    )
-  }
-
-  const renderFolderTree = (folder: FileTreeFolder, depth: number) => (
-    <div className={`changes-editor-tree-folder rail-${depth % 4}`} key={folder.path}>
-      <div className="changes-editor-folder-row" title={folder.path}>
-        <Folder size={13} />
-        <span className="changes-editor-folder-path">{folder.name}</span>
-      </div>
-      {folder.files.map((file) => renderFileRow(file, fileDisplayName(file.path, folder.path)))}
-      {folder.children.map((child) => renderFolderTree(child, depth + 1))}
-    </div>
-  )
-
-  const persistSidebarWidth = (width: number) => {
-    try {
-      window.localStorage.setItem(EDITOR_SIDEBAR_STORAGE_KEY, String(width))
-    } catch {
-      /* ignore unavailable storage */
-    }
-  }
-
-  const resizeSidebar = (clientX: number) => {
-    const editor = editorRef.current
-    if (!editor) return sidebarWidth
-
-    const rect = editor.getBoundingClientRect()
-    const nextWidth = clampEditorSidebarWidth(clientX - rect.left, rect.width)
-    setSidebarWidth(nextWidth)
-    return nextWidth
-  }
-
-  const nudgeSidebar = (delta: number) => {
-    const editor = editorRef.current
-    const containerWidth = editor?.getBoundingClientRect().width
-    setSidebarWidth((width) => {
-      const nextWidth = clampEditorSidebarWidth(width + delta, containerWidth)
-      persistSidebarWidth(nextWidth)
-      return nextWidth
-    })
-  }
-
-  const startSidebarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-
-    event.preventDefault()
-    let latestWidth = resizeSidebar(event.clientX)
-    document.body.classList.add('is-resizing-editor-sidebar')
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      latestWidth = resizeSidebar(moveEvent.clientX)
-    }
-
-    const stopResize = () => {
-      document.body.classList.remove('is-resizing-editor-sidebar')
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', stopResize)
-      window.removeEventListener('pointercancel', stopResize)
-      persistSidebarWidth(latestWidth)
-    }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', stopResize)
-    window.addEventListener('pointercancel', stopResize)
-  }
-
-  const handleSidebarResizeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault()
-      nudgeSidebar(event.shiftKey ? -72 : -24)
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault()
-      nudgeSidebar(event.shiftKey ? 72 : 24)
-    } else if (event.key === 'Home') {
-      event.preventDefault()
-      setSidebarWidth(EDITOR_SIDEBAR_MIN_WIDTH)
-      persistSidebarWidth(EDITOR_SIDEBAR_MIN_WIDTH)
-    } else if (event.key === 'End') {
-      event.preventDefault()
-      const editor = editorRef.current
-      const nextWidth = clampEditorSidebarWidth(EDITOR_SIDEBAR_MAX_WIDTH, editor?.getBoundingClientRect().width)
-      setSidebarWidth(nextWidth)
-      persistSidebarWidth(nextWidth)
-    }
-  }
-
-  const measureEditorLineHeight = (textarea = textareaRef.current): number => {
-    if (!textarea) return editorLineHeightRef.current
-
-    const computed = window.getComputedStyle(textarea)
-    const parsedLineHeight = Number.parseFloat(computed.lineHeight)
-    const parsedFontSize = Number.parseFloat(computed.fontSize)
-    const cssLineHeight = Number.isFinite(parsedLineHeight) && parsedLineHeight > 4
-      ? parsedLineHeight
-      : Number.isFinite(parsedFontSize) && parsedFontSize > 4
-        ? parsedFontSize * (EDITOR_LINE_HEIGHT / 12)
-        : EDITOR_LINE_HEIGHT
-    const paddingTop = Number.parseFloat(computed.paddingTop)
-    const paddingBottom = Number.parseFloat(computed.paddingBottom)
-    const verticalPadding = (Number.isFinite(paddingTop) ? paddingTop : 0) + (Number.isFinite(paddingBottom) ? paddingBottom : 0)
-    let visualLineCount = editorVisualLineCountRef.current.count
-    if (editorVisualLineCountRef.current.text !== textarea.value) {
-      visualLineCount = textareaVisualLineCount(textarea.value)
-      editorVisualLineCountRef.current = { text: textarea.value, count: visualLineCount }
-    }
-    const measuredLineHeight = visualLineCount > 8
-      ? (textarea.scrollHeight - verticalPadding) / visualLineCount
-      : 0
-    const nextLineHeight = Number.isFinite(measuredLineHeight) &&
-      measuredLineHeight > cssLineHeight * 0.75 &&
-      measuredLineHeight < cssLineHeight * 1.35
-      ? measuredLineHeight
-      : cssLineHeight
-
-    if (Math.abs(nextLineHeight - editorLineHeightRef.current) > EDITOR_LINE_HEIGHT_EPSILON) {
-      editorLineHeightRef.current = nextLineHeight
-      setEditorLineHeight(nextLineHeight)
-    }
-
-    return nextLineHeight
-  }
-
-  const syncEditorOverlays = (scrollLeft: number, scrollTop: number, viewportHeight = editorViewportHeight) => {
-    const lineHeight = measureEditorLineHeight()
-    const lineWindow = editorLineWindowForScroll(draftLines.length, scrollTop, viewportHeight, lineHeight)
-    const translateY = lineWindow.offsetTop - scrollTop
-    const totalLines = Math.max(1, draftLines.length)
-    const contentHeight = Math.max(lineHeight, totalLines * lineHeight)
-    const safeViewportHeight = clamp(viewportHeight || lineHeight, lineHeight, contentHeight)
-    const overviewHeight = clamp((safeViewportHeight / contentHeight) * 100, 3, 100)
-    const maxScrollTop = Math.max(1, contentHeight - safeViewportHeight)
-    const maxOverviewTop = Math.max(0, 100 - overviewHeight)
-    const overviewTop = clamp((scrollTop / maxScrollTop) * maxOverviewTop, 0, maxOverviewTop)
-
-    if (highlightInnerRef.current) {
-      highlightInnerRef.current.style.transform = `translate(${-scrollLeft}px, ${translateY}px)`
-    }
-    if (lineNumbersInnerRef.current) {
-      lineNumbersInnerRef.current.style.transform = `translateY(${translateY}px)`
-    }
-    if (colorSwatchesInnerRef.current) {
-      colorSwatchesInnerRef.current.style.transform = `translate(${-scrollLeft}px, ${translateY}px)`
-    }
-    if (overviewViewportRef.current) {
-      overviewViewportRef.current.style.top = `${overviewTop}%`
-      overviewViewportRef.current.style.height = `${overviewHeight}%`
-    }
-  }
-
-  const updateEditorLineWindowState = (scrollTop: number, viewportHeight: number) => {
-    const lineHeight = measureEditorLineHeight()
-    const nextLineWindow = editorLineWindowForScroll(draftLines.length, scrollTop, viewportHeight, lineHeight)
-    const viewportChanged = Math.abs(viewportHeight - editorViewportHeight) > 1
-    if (
-      viewportChanged ||
-      nextLineWindow.start !== editorLineWindow.start ||
-      nextLineWindow.end !== editorLineWindow.end
-    ) {
-      setEditorScrollTop(scrollTop)
-      setEditorViewportHeight(viewportHeight)
-    }
-  }
-
-  const updateEditorSelectionStatus = (textarea = textareaRef.current, immediate = false) => {
-    if (!textarea) return
-    const nextStatus = editorSelectionStatusFromOffsets(
-      textarea.value,
-      textarea.selectionStart,
-      textarea.selectionEnd,
-      activeEditorLineBase
-    )
-
-    if (editorSelectionStatusTimerRef.current !== null) {
-      window.clearTimeout(editorSelectionStatusTimerRef.current)
-      editorSelectionStatusTimerRef.current = null
-    }
-
-    if (immediate) {
-      setEditorSelectionState(nextStatus)
-      return
-    }
-
-    editorSelectionStatusTimerRef.current = window.setTimeout(() => {
-      editorSelectionStatusTimerRef.current = null
-      setEditorSelectionState(nextStatus)
-    }, EDITOR_SELECTION_STATUS_DEBOUNCE_MS)
-  }
-
-  const focusEditorPosition = (lineNumber: number, column = 0, length = 0) => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    const firstLineNumber = activeEditorLineBase
-    const lastLineNumber = activeEditorLineBase + Math.max(0, draftLines.length - 1)
-    const safeLineNumber = Math.max(firstLineNumber, Math.min(lineNumber, Math.max(firstLineNumber, lastLineNumber)))
-    const relativeLineIndex = Math.max(0, safeLineNumber - activeEditorLineBase)
-    const safeColumn = Math.max(0, column)
-    const offset = (lineOffsets[relativeLineIndex] ?? 0) + safeColumn
-
-    window.requestAnimationFrame(() => {
-      textarea.focus()
-      textarea.setSelectionRange(offset, offset + Math.max(0, length))
-      updateEditorSelectionStatus(textarea, true)
-      const lineHeight = measureEditorLineHeight(textarea)
-      const top = Math.max(0, relativeLineIndex * lineHeight - textarea.clientHeight * 0.32)
-      updateEditorLineWindowState(top, textarea.clientHeight)
-      textarea.scrollTop = top
-      syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
-    })
-  }
-
-  const scrollEditorToLine = (lineNumber: number) => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    const firstLineNumber = activeEditorLineBase
-    const lastLineNumber = activeEditorLineBase + Math.max(0, draftLines.length - 1)
-    const safeLineNumber = Math.max(firstLineNumber, Math.min(lineNumber, Math.max(firstLineNumber, lastLineNumber)))
-    const relativeLineIndex = Math.max(0, safeLineNumber - activeEditorLineBase)
-    const lineHeight = measureEditorLineHeight(textarea)
-    const nextScrollTop = Math.max(0, relativeLineIndex * lineHeight - textarea.clientHeight * 0.5)
-
-    textarea.scrollTop = nextScrollTop
-    lastEditorScrollTopRef.current = nextScrollTop
-    updateEditorLineWindowState(nextScrollTop, textarea.clientHeight)
-    syncEditorOverlays(textarea.scrollLeft, nextScrollTop, textarea.clientHeight)
-  }
-
-  const scrollEditorOverviewAt = (clientY: number, element: HTMLDivElement) => {
-    const rect = element.getBoundingClientRect()
-    const ratio = clamp((clientY - rect.top) / Math.max(1, rect.height), 0, 1)
-    const lineNumber = activeEditorLineBase + Math.round(ratio * Math.max(0, draftLines.length - 1))
-    scrollEditorToLine(lineNumber)
-  }
-
-  const beginEditorOverviewDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    if (event.target instanceof Element && event.target.closest('.changes-editor-overview-marker')) return
-
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    scrollEditorOverviewAt(event.clientY, event.currentTarget)
-  }
-
-  const dragEditorOverview = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-    event.preventDefault()
-    scrollEditorOverviewAt(event.clientY, event.currentTarget)
-  }
-
-  const endEditorOverviewDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  const editorTextSnapshot = (textarea = textareaRef.current): EditorTextHistoryEntry => {
-    const text = textarea?.value ?? activeEditorText
-    const selectionStart = Math.min(text.length, textarea?.selectionStart ?? text.length)
-    const selectionEnd = Math.min(text.length, textarea?.selectionEnd ?? selectionStart)
-    return { text, selectionStart, selectionEnd }
-  }
-
-  const pushEditorHistoryEntry = (stack: EditorTextHistoryEntry[], entry: EditorTextHistoryEntry) => {
-    const last = stack[stack.length - 1]
-    if (
-      last &&
-      last.text === entry.text &&
-      last.selectionStart === entry.selectionStart &&
-      last.selectionEnd === entry.selectionEnd
-    ) {
-      return
-    }
-
-    stack.push(entry)
-    if (stack.length > EDITOR_TEXT_HISTORY_LIMIT) stack.shift()
-  }
-
-  const pushEditorUndoEntry = (entry: EditorTextHistoryEntry) => {
-    pushEditorHistoryEntry(editorUndoStackRef.current, entry)
-    editorRedoStackRef.current = []
-  }
-
-  const clearEditorTypingHistoryTimer = () => {
-    if (editorTypingHistoryTimerRef.current === null) return
-    window.clearTimeout(editorTypingHistoryTimerRef.current)
-    editorTypingHistoryTimerRef.current = null
-  }
-
-  const endEditorTypingHistoryGroup = () => {
-    clearEditorTypingHistoryTimer()
-    editorTypingHistoryActiveRef.current = false
-    pendingEditorHistoryRef.current = null
-  }
-
-  const touchEditorTypingHistoryGroup = () => {
-    clearEditorTypingHistoryTimer()
-    editorTypingHistoryTimerRef.current = window.setTimeout(() => {
-      editorTypingHistoryTimerRef.current = null
-      editorTypingHistoryActiveRef.current = false
-      pendingEditorHistoryRef.current = null
-    }, EDITOR_TYPING_HISTORY_GROUP_MS)
-  }
-
-  const clearEditorTextHistory = () => {
-    editorUndoStackRef.current = []
-    editorRedoStackRef.current = []
-    endEditorTypingHistoryGroup()
-    pendingEditorHistoryRef.current = null
-  }
-
-  const setActiveEditorDraftText = (nextText: string, options: { syncTextarea?: boolean } = {}) => {
-    const syncTextarea = options.syncTextarea ?? true
-    editorDraftTextRef.current = nextText
-    if (syncTextarea && textareaRef.current && textareaRef.current.value !== nextText) {
-      textareaRef.current.value = nextText
-    }
-
-    if (chunkedTextPreview) {
-      setChunkedTextPreview((current) => current ? { ...current, text: nextText } : current)
-      return
-    }
-
-    setDraftText(nextText)
-  }
-
-  const flushActiveEditorDraftText = () => {
-    const nextText = textareaRef.current?.value ?? editorDraftTextRef.current
-    if (nextText !== activeEditorText) {
-      setActiveEditorDraftText(nextText, { syncTextarea: false })
-    }
-    return nextText
-  }
-
-  const applyEditorTextChange = (
-    nextText: string,
-    options: {
-      selectionStart?: number
-      selectionEnd?: number
-      viewMode?: EditorViewMode
-      resetJsonCollapse?: boolean
-    } = {}
-  ) => {
-    const snapshot = editorTextSnapshot()
-    if (snapshot.text === nextText) return false
-
-    pushEditorUndoEntry(snapshot)
-    endEditorTypingHistoryGroup()
-    setActiveEditorDraftText(nextText)
-    setJsonEdit(null)
-    setMultiEditRanges([])
-    if (options.resetJsonCollapse) setCollapsedJsonPaths(new Set())
-    if (options.viewMode) setViewMode(options.viewMode)
-
-    const selectionStart = clamp(options.selectionStart ?? snapshot.selectionStart, 0, nextText.length)
-    const selectionEnd = clamp(options.selectionEnd ?? selectionStart, 0, nextText.length)
-    window.requestAnimationFrame(() => {
-      const textarea = textareaRef.current
-      if (!textarea) return
-      textarea.focus()
-      textarea.setSelectionRange(selectionStart, selectionEnd)
-      updateEditorSelectionStatus(textarea, true)
-      updateEditorLineWindowState(textarea.scrollTop, textarea.clientHeight)
-      syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
-    })
-    return true
-  }
-
-  const restoreEditorTextSnapshot = (entry: EditorTextHistoryEntry) => {
-    endEditorTypingHistoryGroup()
-    setActiveEditorDraftText(entry.text)
-    setJsonEdit(null)
-    setMultiEditRanges([])
-    window.requestAnimationFrame(() => {
-      const textarea = textareaRef.current
-      if (!textarea) return
-      const selectionStart = Math.min(entry.selectionStart, textarea.value.length)
-      const selectionEnd = Math.min(entry.selectionEnd, textarea.value.length)
-      textarea.focus()
-      textarea.setSelectionRange(selectionStart, selectionEnd)
-      updateEditorSelectionStatus(textarea, true)
-      updateEditorLineWindowState(textarea.scrollTop, textarea.clientHeight)
-      syncEditorOverlays(textarea.scrollLeft, textarea.scrollTop, textarea.clientHeight)
-    })
-  }
-
-  const undoEditorText = () => {
-    const previous = editorUndoStackRef.current.pop()
-    if (!previous) return
-
-    pushEditorHistoryEntry(editorRedoStackRef.current, editorTextSnapshot())
-    restoreEditorTextSnapshot(previous)
-  }
-
-  const redoEditorText = () => {
-    const next = editorRedoStackRef.current.pop()
-    if (!next) return
-
-    pushEditorHistoryEntry(editorUndoStackRef.current, editorTextSnapshot())
-    restoreEditorTextSnapshot(next)
-  }
-
-  const capturePendingEditorHistory = () => {
-    if (fileLoading) return
-    if (editorTypingHistoryActiveRef.current) {
-      touchEditorTypingHistoryGroup()
-      return
-    }
-    editorTypingHistoryActiveRef.current = true
-    pendingEditorHistoryRef.current = editorTextSnapshot()
-    touchEditorTypingHistoryGroup()
-  }
-
-  const setEditorSelection = (start: number, end = start) => {
-    window.requestAnimationFrame(() => {
-      const textarea = textareaRef.current
-      if (!textarea) return
-      textarea.focus()
-      textarea.setSelectionRange(clamp(start, 0, textarea.value.length), clamp(end, 0, textarea.value.length))
-      updateEditorSelectionStatus(textarea, true)
-    })
-  }
-
-  const activateNextMultiEditOccurrence = () => {
-    const textarea = textareaRef.current
-    if (!textarea || viewMode !== 'code' || textUnavailableMessage || fileLoading) return
-
-    const text = textarea.value
-    const primaryRange = multiEditRanges[0] ?? selectedTextRange(text, textarea.selectionStart, textarea.selectionEnd)
-    if (!primaryRange) {
-      setNotice('Select text or place the caret on a word before pressing Ctrl+D.')
-      return
-    }
-
-    const queryText = text.slice(primaryRange.start, primaryRange.end)
-    if (!queryText) return
-
-    const ranges = normalizeTextRanges(multiEditRanges.length ? multiEditRanges : [primaryRange])
-    const lastRange = ranges[ranges.length - 1]
-    let nextIndex = text.indexOf(queryText, lastRange.end)
-    if (nextIndex === -1) nextIndex = text.indexOf(queryText)
-
-    while (nextIndex !== -1) {
-      const nextRange = { start: nextIndex, end: nextIndex + queryText.length }
-      if (!ranges.some((range) => rangesOverlap(range, nextRange) || (range.start === nextRange.start && range.end === nextRange.end))) {
-        const nextRanges = normalizeTextRanges([...ranges, nextRange])
-        setMultiEditRanges(nextRanges)
-        setEditorSelection(nextRange.start, nextRange.end)
-        setNotice(`${nextRanges.length} selections in this chunk.`)
-        return
-      }
-      nextIndex = text.indexOf(queryText, nextIndex + Math.max(1, queryText.length))
-    }
-
-    setNotice(`No more "${queryText}" matches in this chunk.`)
-  }
-
-  const applyTextToMultiEditRanges = (replacement: string, mode: 'replace' | 'backspace' | 'delete' = 'replace') => {
-    const textarea = textareaRef.current
-    const sourceText = textarea?.value ?? activeEditorText
-    const sourceRanges = normalizeTextRanges(multiEditRanges)
-    if (sourceRanges.length === 0) return false
-
-    const editableRanges = sourceRanges.map((range) => {
-      if (mode === 'backspace' && range.start === range.end) {
-        return { start: Math.max(0, range.start - 1), end: range.end }
-      }
-      if (mode === 'delete' && range.start === range.end) {
-        return { start: range.start, end: Math.min(sourceText.length, range.end + 1) }
-      }
-      return range
-    })
-
-    if (editableRanges.every((range) => range.start === range.end) && replacement === '') return true
-
-    let cursor = 0
-    let nextText = ''
-    const nextRanges: EditorTextRange[] = []
-    for (const range of editableRanges) {
-      nextText += sourceText.slice(cursor, range.start)
-      const nextStart = nextText.length
-      nextText += replacement
-      const nextEnd = nextStart + replacement.length
-      nextRanges.push({ start: nextEnd, end: nextEnd })
-      cursor = range.end
-    }
-    nextText += sourceText.slice(cursor)
-
-    pushEditorUndoEntry(editorTextSnapshot(textarea))
-    endEditorTypingHistoryGroup()
-    setActiveEditorDraftText(nextText)
-    setJsonEdit(null)
-    setMultiEditRanges(nextRanges)
-    setEditorSelection(nextRanges[nextRanges.length - 1].start)
-    return true
-  }
-
-  const handleEditorTextChange = (event: ReactChangeEvent<HTMLTextAreaElement>) => {
-    if (multiEditRanges.length > 0) {
-      setMultiEditRanges([])
-    }
-
-    const nextText = event.currentTarget.value
-    const previousText = editorDraftTextRef.current
-    const previous = pendingEditorHistoryRef.current ?? (editorTypingHistoryActiveRef.current ? null : {
-      text: previousText,
-      selectionStart: Math.min(previousText.length, event.currentTarget.selectionStart),
-      selectionEnd: Math.min(previousText.length, event.currentTarget.selectionEnd)
-    })
-    pendingEditorHistoryRef.current = null
-
-    if (previous && previous.text !== nextText) {
-      pushEditorUndoEntry(previous)
-    }
-    editorTypingHistoryActiveRef.current = true
-    touchEditorTypingHistoryGroup()
-    updateEditorSelectionStatus(event.currentTarget)
-    setActiveEditorDraftText(nextText, { syncTextarea: false })
-  }
-
-  const handleEditorTextKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    const key = shortcutKey(event)
-    if ((event.ctrlKey || event.metaKey) && !event.altKey && key === 'd') {
-      event.preventDefault()
-      activateNextMultiEditOccurrence()
-      return
-    }
-
-    if (multiEditRanges.length > 0 && isEditorNavigationKey(event.key)) {
-      setMultiEditRanges([])
-      return
-    }
-
-    if (multiEditRanges.length > 0 && !(event.ctrlKey || event.metaKey) && !event.altKey) {
-      if (event.key.length === 1) {
-        event.preventDefault()
-        applyTextToMultiEditRanges(event.key)
-        return
-      }
-      if (event.key === 'Enter') {
-        event.preventDefault()
-        applyTextToMultiEditRanges('\n')
-        return
-      }
-      if (event.key === 'Tab') {
-        event.preventDefault()
-        applyTextToMultiEditRanges('\t')
-        return
-      }
-      if (event.key === 'Backspace') {
-        event.preventDefault()
-        applyTextToMultiEditRanges('', 'backspace')
-        return
-      }
-      if (event.key === 'Delete') {
-        event.preventDefault()
-        applyTextToMultiEditRanges('', 'delete')
-        return
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setMultiEditRanges([])
-        return
-      }
-    }
-
-    if (!(event.ctrlKey || event.metaKey) || event.altKey) {
-      if (
-        event.key.length === 1 ||
-        event.key === 'Enter' ||
-        event.key === 'Backspace' ||
-        event.key === 'Delete' ||
-        event.key === 'Tab'
-      ) {
-        capturePendingEditorHistory()
-      }
-      return
-    }
-
-    const undo = key === 'z' && !event.shiftKey
-    const redo = key === 'y' || (key === 'z' && event.shiftKey)
-    if (!undo && !redo) return
-    if (undo && editorUndoStackRef.current.length === 0) return
-    if (redo && editorRedoStackRef.current.length === 0) return
-
-    event.preventDefault()
-    endEditorTypingHistoryGroup()
-    if (undo) undoEditorText()
-    else redoEditorText()
-  }
-
-  const handleEditorPaste = (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
-    if (multiEditRanges.length === 0) return
-    event.preventDefault()
-    applyTextToMultiEditRanges(event.clipboardData.getData('text/plain'))
-  }
-
-  const updateEditorLineEnding = (nextLineEnding: Exclude<EditorLineEnding, 'Mixed'>) => {
-    applyEditorTextChange(convertEditorLineEnding(flushActiveEditorDraftText(), nextLineEnding))
-  }
-
-  const updateEditorIndent = (nextValue: string) => {
-    if (nextValue === 'mixed' || nextValue === 'none') return
-    const nextIndent = nextValue === 'tabs'
-      ? { target: 'tabs' as const, size: editorIndent.size || 2 }
-      : { target: 'spaces' as const, size: Number(nextValue.replace('spaces-', '')) || editorIndent.size || 2 }
-
-    applyEditorTextChange(convertEditorIndent(flushActiveEditorDraftText(), nextIndent.target, nextIndent.size))
-  }
-
-  const focusSearchMatch = (match: FileSearchMatch) => {
-    focusEditorPosition(match.lineNumber, match.column, match.length)
-  }
-
-  const focusLiveChange = (change: LiveLineChange) => {
-    const firstLineNumber = activeEditorLineBase
-    const lastLineNumber = activeEditorLineBase + Math.max(0, draftLines.length - 1)
-    if (chunkedTextActive && (change.lineNumber < firstLineNumber || change.lineNumber > lastLineNumber)) {
-      setNotice(`Line ${change.lineNumber} is outside the loaded chunk (${firstLineNumber}-${lastLineNumber}).`)
-      return
-    }
-
-    focusCodePosition(change.lineNumber, 0, Math.max(1, Math.min(80, (change.after || change.before).length)))
-  }
-
-  const focusCodePosition = (lineNumber: number, column = 0, length = 0) => {
-    setViewMode('code')
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => focusEditorPosition(lineNumber, column, length))
-    })
-  }
-
-  const focusFileLineSearchTarget = () => {
-    if (!fileLineSearchTarget) return false
-    const firstLineNumber = activeEditorLineBase
-    const lastLineNumber = activeEditorLineBase + Math.max(0, draftLines.length - 1)
-    if (chunkedTextActive && (fileLineSearchTarget.lineNumber < firstLineNumber || fileLineSearchTarget.lineNumber > lastLineNumber)) {
-      setNotice(`Line ${fileLineSearchTarget.lineNumber} is outside the loaded chunk (${firstLineNumber}-${lastLineNumber}).`)
-      return true
-    }
-
-    focusCodePosition(fileLineSearchTarget.lineNumber, fileLineSearchTarget.column, 1)
-    return true
-  }
-
-  const goToDiagnostic = (diagnostic: EditorDiagnostic) => {
-    focusCodePosition(diagnostic.lineNumber, diagnostic.column - 1, 1)
-  }
-
-  const updateLintSettings = (patch: Partial<EditorLintSettings>) => {
-    setLintSettings((current) => {
-      const next = { ...current, ...patch }
-      persistLintSettings(next)
-      return next
-    })
-    setLintRunState({
-      status: 'idle',
-      message: 'Lint settings changed.',
-      detail: 'Run lint again to refresh the result.'
-    })
-  }
-
-  const runLint = (focusFirst = true) => {
-    if (lintBlocked) {
-      const message = selectedPath ? 'Lint is unavailable for the current editor mode.' : 'Select a file before running lint.'
-      setLintRunState({ status: 'blocked', message, detail: selectedPath || 'No file selected' })
-      setNotice(message)
-      return
-    }
-    if (!selectedLintSupported) {
-      const message = 'Lint supports JSON, JSONC, JS, TS, JSX, and TSX files.'
-      setLintRunState({ status: 'blocked', message, detail: selectedPath || 'Unsupported file' })
-      setNotice(message)
-      return
-    }
-    if (!selectedLintRulesEnabled) {
-      const message = 'No active lint rules for this file type.'
-      setLintRunState({ status: 'blocked', message, detail: 'Enable a matching lint rule below.' })
-      setNotice(message)
-      return
-    }
-
-    const lintFilePath = selectedPath
-    const lintText = flushActiveEditorDraftText()
-    const lintSettingsSnapshot = lintSettings
-    setLintRunState({ status: 'running', message: 'Running lint...', detail: lintFilePath })
-    window.requestAnimationFrame(() => {
-      const nextDiagnostics = validateEditorText(lintFilePath, lintText, lintSettingsSnapshot)
-      setDiagnostics(nextDiagnostics)
-      setLintRunState(lintStateFromDiagnostics(nextDiagnostics, lintFilePath, 'Manual'))
-      setNotice(nextDiagnostics.length > 0
-        ? `Lint found ${nextDiagnostics.length} issue${nextDiagnostics.length === 1 ? '' : 's'}.`
-        : 'Lint passed. No issues found.')
-      if (focusFirst && nextDiagnostics[0]) {
-        goToDiagnostic(nextDiagnostics[0])
-      }
-    })
   }
 
   const activateSearchMatch = (index: number) => {
@@ -4470,26 +706,6 @@ export function ChangesInternalEditor({
       })
     })
     return true
-  }
-
-  const updateEditorCssColor = (request: CssColorEditDraft) => {
-    const snapshot = editorTextSnapshot()
-    const current = snapshot.text
-    const lines = current.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
-    const relativeLineNumber = chunkedTextActive
-      ? request.lineNumber - activeEditorLineBase + 1
-      : request.lineNumber
-    const lineIndex = relativeLineNumber - 1
-    const line = lines[lineIndex]
-    if (line === undefined) return
-
-    const directMatch = line.slice(request.columnStart, request.columnStart + request.oldValue.length) === request.oldValue
-    const columnStart = directMatch ? request.columnStart : line.indexOf(request.oldValue)
-    if (columnStart < 0) return
-
-    const nextLine = `${line.slice(0, columnStart)}${request.newValue}${line.slice(columnStart + request.oldValue.length)}`
-    const nextText = updateLineInText(current, relativeLineNumber, nextLine)
-    applyEditorTextChange(nextText)
   }
 
   const loadChunkedTextPage = async (direction: 'next' | 'previous', scrollPlacement: 'start' | 'end' = 'start') => {
@@ -4574,245 +790,67 @@ export function ChangesInternalEditor({
     }
   }
 
-  const renderCodeEditor = () => {
-    if (textUnavailableMessage) {
-      return (
-        <div className="changes-editor-mode-message">
-          <FileImage size={28} />
-          <strong>{textUnavailableMessage}</strong>
-          <span>Use Preview for this file.</span>
-        </div>
-      )
-    }
-
-    return (
-      <div className={[dirty ? 'changes-editor-code-shell is-dirty' : 'changes-editor-code-shell', chunkedTextActive ? 'is-chunked' : ''].filter(Boolean).join(' ')}>
-        {chunkedTextPreview && (
-          <div className="changes-editor-chunk-banner">
-            <strong>Chunk editor</strong>
-            <span>
-              {formatBytes(chunkedTextPreview.startOffset)}-{formatBytes(chunkedTextPreview.endOffset)} of {formatBytes(chunkedTextPreview.byteSize)}
-            </span>
-            {chunkedTextPreview.error && <em>{chunkedTextPreview.error}</em>}
-            <button type="button" onClick={() => void loadChunkedTextPage('previous')} disabled={chunkedTextPreview.loading || chunkedTextPreview.pageIndex === 0}>
-              Previous chunk
-            </button>
-            <button
-              type="button"
-              onClick={() => void loadChunkedTextPage('next')}
-              disabled={chunkedTextPreview.loading || (!chunkedTextPreview.hasMore && chunkedTextPreview.pageIndex >= chunkedTextPreview.markers.length - 1)}
-            >
-              {chunkedTextPreview.loading ? 'Loading...' : 'Next chunk'}
-            </button>
-          </div>
-        )}
-        <pre className="changes-editor-line-numbers" aria-hidden="true">
-          <div className="changes-editor-line-numbers-inner" ref={lineNumbersInnerRef}>
-            {visibleDraftLines.map((_, index) => {
-              const lineNumber = activeEditorLineBase + editorLineWindow.start + index
-              const diagnostic = diagnosticByLine.get(lineNumber)
-              const changeKind = changeKindByLine.get(lineNumber)
-
-              return (
-                <span
-                  className={[
-                    diagnostic ? 'line-diagnostic-error' : '',
-                    changeKind ? `line-${changeKind}` : '',
-                    multiEditLineNumbers.has(lineNumber) ? 'line-multi-edit' : ''
-                  ].filter(Boolean).join(' ') || undefined}
-                  key={lineNumber}
-                  title={diagnostic ? `${diagnostic.source}: ${diagnostic.message}` : undefined}
-                >
-                  {lineNumber}
-                </span>
-              )
-            })}
-          </div>
-        </pre>
-        <pre className="changes-editor-highlight" aria-hidden="true">
-          <div className="changes-editor-highlight-inner" ref={highlightInnerRef}>
-            {visibleDraftLines.map((line, index) => {
-              const lineNumber = activeEditorLineBase + editorLineWindow.start + index
-              const lineStartOffset = lineOffsets[lineNumber - activeEditorLineBase] ?? 0
-              const changeKind = changeKindByLine.get(lineNumber)
-              const diagnostic = diagnosticByLine.get(lineNumber)
-              const multiEditSelections = textRangesForLine(lineStartOffset, line, multiEditRanges)
-
-              return (
-                <code
-                  className={[
-                    'changes-editor-highlight-line',
-                    changeKind ? `line-${changeKind}` : '',
-                    diagnostic ? 'line-diagnostic-error' : ''
-                  ].filter(Boolean).join(' ')}
-                  key={`${lineNumber}-${line.slice(0, 20)}`}
-                  title={diagnostic ? `${diagnostic.source}: ${diagnostic.message}` : undefined}
-                >
-                  {decoratedHighlightedLineContent(line || ' ', selectedLang, effectiveFileSearchQuery, activeSearchMatch, lineNumber, multiEditSelections)}
-                </code>
-              )
-            })}
-          </div>
-        </pre>
-        <textarea
-          ref={textareaRef}
-          key={`${currentRepoPath}:${selectedPath}:${chunkedTextPreview?.startOffset ?? 0}:${chunkedTextPreview?.endOffset ?? 0}:${editorSourceKey}`}
-          className={dirty ? 'changes-editor-textarea is-dirty' : 'changes-editor-textarea'}
-          spellCheck={false}
-          wrap="off"
-          defaultValue={activeEditorText}
-          onBeforeInput={capturePendingEditorHistory}
-          onChange={handleEditorTextChange}
-          onKeyDown={handleEditorTextKeyDown}
-          onKeyUp={() => updateEditorSelectionStatus()}
-          onPaste={handleEditorPaste}
-          onScroll={syncHighlightScroll}
-          onSelect={() => updateEditorSelectionStatus()}
-          onFocus={() => updateEditorSelectionStatus()}
-          onMouseUp={() => updateEditorSelectionStatus()}
-          onMouseDown={() => {
-            if (multiEditRanges.length > 0) setMultiEditRanges([])
-          }}
-          readOnly={false}
-          disabled={fileLoading}
-        />
-        {draftLines.length > 0 && !fileLoading && (
-          <div
-            className="changes-editor-overview"
-            aria-label="File overview map"
-            onPointerDown={beginEditorOverviewDrag}
-            onPointerMove={dragEditorOverview}
-            onPointerUp={endEditorOverviewDrag}
-            onPointerCancel={endEditorOverviewDrag}
-          >
-            <div
-              ref={overviewViewportRef}
-              className="changes-editor-overview-viewport"
-              style={{
-                top: `${editorOverviewViewport.top}%`,
-                height: `${editorOverviewViewport.height}%`
-              } as CSSProperties}
-            />
-            <div className="changes-editor-overview-lines" aria-hidden="true">
-              {editorMinimapLines.map((line) => {
-                const denominator = Math.max(1, draftLines.length - 1)
-                const top = clamp(((line.lineNumber - activeEditorLineBase) / denominator) * 100, 0, 100)
-
-                return (
-                  <span
-                    className={`changes-editor-minimap-line minimap-${line.kind}`}
-                    style={{
-                      top: `${top}%`,
-                      width: `${line.widthPercent}%`
-                    } as CSSProperties}
-                    key={`${line.lineNumber}-${line.kind}`}
-                  />
-                )
-              })}
-            </div>
-            {editorOverviewMarkers.map((marker, index) => {
-              const denominator = Math.max(1, draftLines.length - 1)
-              const top = clamp(((marker.lineNumber - activeEditorLineBase) / denominator) * 100, 0, 100)
-
-              return (
-                <button
-                  type="button"
-                  className={[
-                    'changes-editor-overview-marker',
-                    `marker-${marker.kind}`,
-                    activeSearchMatch?.lineNumber === marker.lineNumber && marker.kind === 'search' ? 'is-active' : ''
-                  ].filter(Boolean).join(' ')}
-                  style={{ top: `${top}%` } as CSSProperties}
-                  key={`${marker.kind}-${marker.lineNumber}-${index}`}
-                  title={marker.title}
-                  aria-label={marker.title}
-                  onClick={() => focusEditorPosition(marker.lineNumber)}
-                />
-              )
-            })}
-          </div>
-        )}
-        {editorCssColorTokens.length > 0 && (
-          <div className="changes-editor-color-layer" aria-label="CSS color controls">
-            <div className="changes-editor-color-layer-inner" ref={colorSwatchesInnerRef}>
-              {editorCssColorTokens.map((token) => (
-                <EditorCssColorSwatch
-                  key={`${token.lineNumber}-${token.columnStart}-${token.value}`}
-                  filePath={selectedPath}
-                  token={token}
-                  onUpdateCssColor={updateEditorCssColor}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-        {diagnostics.length > 0 && !fileLoading && (
-          <div className="changes-editor-diagnostics" aria-live="polite">
-            <header>
-              <strong>{diagnostics.length} lint issue{diagnostics.length === 1 ? '' : 's'}</strong>
-              <span>{selectedPath}</span>
-            </header>
-            {diagnostics.slice(0, 4).map((diagnostic, index) => (
-              <button
-                type="button"
-                key={`${diagnostic.lineNumber}-${diagnostic.column}-${index}`}
-                onClick={() => goToDiagnostic(diagnostic)}
-              >
-                <span>{diagnostic.source}</span>
-                <code>{diagnostic.lineNumber}:{diagnostic.column}</code>
-                <strong>{diagnostic.message}</strong>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const renderImagePreview = () => (
-    <div className="changes-editor-media-shell">
-      {activeImagePreviewUrl ? (
-        <div className="changes-editor-image-stage">
-          <img src={activeImagePreviewUrl} alt={selectedPath} />
-          <span>
-            {selectedIsSvg && draftText ? 'Live SVG preview' : imagePreview ? `${formatBytes(imagePreview.byteSize)} - ${imagePreview.mimeType}` : 'Image preview'}
-          </span>
-        </div>
-      ) : imagePreviewError ? (
-        <div className="changes-editor-mode-message danger-text">
-          <FileImage size={28} />
-          <strong>Preview unavailable</strong>
-          <span>{imagePreviewError}</span>
-        </div>
-      ) : (
-        <SignalStatus
-          className="changes-editor-file-curtain changes-editor-file-curtain-static"
-          label={imagePreviewLoading ? 'Loading image preview' : 'Preparing preview'}
-          detail={selectedPath}
-        />
-      )}
-      {imagePreviewLoading && activeImagePreviewUrl && (
-        <SignalStatus
-          compact
-          className="changes-editor-file-curtain changes-editor-media-loading"
-          label="Refreshing preview"
-          detail={selectedPath}
-        />
-      )}
-    </div>
+  const renderCodeEditor = () => (
+    <CodeEditorView
+      textUnavailableMessage={textUnavailableMessage}
+      dirty={dirty}
+      chunkedTextActive={chunkedTextActive}
+      chunkedTextPreview={chunkedTextPreview}
+      loadChunkedTextPage={loadChunkedTextPage}
+      lineNumbersInnerRef={lineNumbersInnerRef}
+      highlightInnerRef={highlightInnerRef}
+      colorSwatchesInnerRef={colorSwatchesInnerRef}
+      overviewViewportRef={overviewViewportRef}
+      textareaRef={textareaRef}
+      visibleDraftLines={visibleDraftLines}
+      draftLineCount={draftLines.length}
+      activeEditorLineBase={activeEditorLineBase}
+      editorLineWindowStart={editorLineWindow.start}
+      diagnosticByLine={diagnosticByLine}
+      changeKindByLine={changeKindByLine}
+      multiEditLineNumbers={multiEditLineNumbers}
+      lineOffsets={lineOffsets}
+      multiEditRanges={multiEditRanges}
+      setMultiEditRanges={setMultiEditRanges}
+      selectedLang={selectedLang}
+      effectiveFileSearchQuery={effectiveFileSearchQuery}
+      activeSearchMatch={activeSearchMatch}
+      currentRepoPath={currentRepoPath}
+      selectedPath={selectedPath}
+      editorSourceKey={editorSourceKey}
+      activeEditorText={activeEditorText}
+      fileLoading={fileLoading}
+      capturePendingEditorHistory={capturePendingEditorHistory}
+      handleEditorTextChange={handleEditorTextChange}
+      handleEditorTextKeyDown={handleEditorTextKeyDown}
+      handleEditorPaste={handleEditorPaste}
+      syncHighlightScroll={syncHighlightScroll}
+      updateEditorSelectionStatus={updateEditorSelectionStatus}
+      editorOverviewViewport={editorOverviewViewport}
+      editorMinimapLines={editorMinimapLines}
+      editorOverviewMarkers={editorOverviewMarkers}
+      beginEditorOverviewDrag={beginEditorOverviewDrag}
+      dragEditorOverview={dragEditorOverview}
+      endEditorOverviewDrag={endEditorOverviewDrag}
+      focusEditorPosition={focusEditorPosition}
+      editorCssColorTokens={editorCssColorTokens}
+      updateEditorCssColor={updateEditorCssColor}
+      diagnostics={diagnostics}
+      goToDiagnostic={goToDiagnostic}
+    />
   )
 
-  const scrollHexTable = (placement: 'start' | 'end') => {
-    window.requestAnimationFrame(() => {
-      const body = hexTableBodyRef.current
-      if (!body) return
-      const nextScrollTop = placement === 'end'
-        ? Math.max(0, body.scrollHeight - body.clientHeight)
-        : 0
-      body.scrollTop = nextScrollTop
-      lastHexScrollTopRef.current = nextScrollTop
-    })
-  }
+  const renderImagePreview = () => (
+    <ImagePreviewView
+      selectedPath={selectedPath}
+      selectedIsSvg={selectedIsSvg}
+      draftText={draftText}
+      activeImagePreviewUrl={activeImagePreviewUrl}
+      imagePreview={imagePreview}
+      imagePreviewError={imagePreviewError}
+      imagePreviewLoading={imagePreviewLoading}
+    />
+  )
 
   const codeViewHexOffset = () => {
     if (chunkedTextPreview) {
@@ -4827,479 +865,40 @@ export function ChangesInternalEditor({
     return 0
   }
 
-  const loadHexChunk = async (
-    requestedOffset: number,
-    selectOffset = requestedOffset,
-    options: { scrollPlacement?: 'start' | 'end' } = {}
-  ) => {
-    if (!api || !currentRepoPath || !selectedPath) return
-    if (hexDirty && hexBytes) {
-      setNotice('Save or undo current hex chunk edits before loading another chunk.')
-      return
-    }
-
-    const knownMaxOffset = hexBytes ? Math.max(0, hexBytes.byteSize - 1) : Number.POSITIVE_INFINITY
-    const safeOffset = Number.isFinite(requestedOffset)
-      ? alignHexOffset(clamp(Math.floor(requestedOffset), 0, knownMaxOffset))
-      : 0
-    const requestId = hexChunkRequestRef.current + 1
-    hexChunkRequestRef.current = requestId
-    setHexLoading(true)
-    setHexError(null)
-
-    try {
-      const result = await api.getRepositoryFileChunk({
-        repoPath: currentRepoPath,
-        filePath: selectedPath,
-        offset: safeOffset,
-        maxBytes: HEX_CHUNK_BYTES,
-        mode: 'bytes'
-      })
-      if (hexChunkRequestRef.current !== requestId) return
-      setHexLoading(false)
-      if (!result.ok) {
-        setHexBytes(null)
-        setHexOriginalText('')
-        setHexDraftText('')
-        setHexError(friendlyIpcErrorMessage(result.error.message, 'Failed to load hex bytes.'))
-        return
-      }
-
-      const bytes = bytesFromBase64(result.data.base64 ?? '')
-      const hexText = bytesToHexText(bytes)
-      const nextStart = result.data.startOffset
-      const nextEnd = result.data.endOffset
-      const fullFileLoaded = nextStart === 0 && nextEnd >= result.data.byteSize
-      const selectedOffset = bytes.length > 0
-        ? clamp(selectOffset, nextStart, Math.max(nextStart, nextEnd - 1))
-        : nextStart
-
-      setHexBytes({
-        filePath: result.data.filePath,
-        byteSize: result.data.byteSize,
-        startOffset: nextStart,
-        endOffset: nextEnd,
-        hasMore: result.data.hasMore,
-        fullFileLoaded
-      })
-      setHexOriginalText(hexText)
-      setHexDraftText(hexText)
-      setActiveHexByteIndex(selectedOffset)
-      setHexByteDraft(bytes.length > 0 ? byteToHex(bytes[selectedOffset - nextStart]) : '')
-      setHexOffsetDraft(bytes.length > 0 ? offsetToHex(selectedOffset) : '')
-      setActiveHexSearchIndex(-1)
-      suppressAutoHexChunkUntilRef.current = window.performance.now() + 250
-      if (options.scrollPlacement) scrollHexTable(options.scrollPlacement)
-    } catch (error) {
-      if (hexChunkRequestRef.current !== requestId) return
-      setHexLoading(false)
-      setHexBytes(null)
-      setHexOriginalText('')
-      setHexDraftText('')
-      setHexError(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load hex bytes.'))
-    }
-  }
-
-  const goToHexOffset = () => {
-    const offset = parseHexOffsetDraft(hexOffsetDraft)
-    if (offset === null) {
-      setNotice('Offset must be decimal, hex, or 0x-prefixed hex.')
-      return
-    }
-
-    const safeOffset = hexBytes ? clamp(offset, 0, Math.max(0, hexBytes.byteSize - 1)) : offset
-    if (safeOffset >= hexStartOffset && safeOffset < hexEndOffset) {
-      selectHexByte(safeOffset)
-      return
-    }
-
-    void loadHexChunk(safeOffset, safeOffset, { scrollPlacement: 'start' })
-  }
-
-  const jumpHexChunk = (direction: 'previous' | 'next') => {
-    if (!hexBytes) return
-    const offset = direction === 'previous'
-      ? Math.max(0, hexBytes.startOffset - HEX_CHUNK_BYTES)
-      : hexBytes.endOffset
-    const selectOffset = direction === 'previous'
-      ? Math.max(0, hexBytes.startOffset - 1)
-      : offset
-    void loadHexChunk(offset, selectOffset, { scrollPlacement: direction === 'previous' ? 'end' : 'start' })
-  }
-
-  function selectHexByte(index: number) {
-    const bytes = parsedHexDraft.bytes
-    if (!bytes || bytes.length === 0) return
-
-    const nextIndex = clamp(index, hexStartOffset, Math.max(hexStartOffset, hexEndOffset - 1))
-    setActiveHexByteIndex(nextIndex)
-    setHexByteDraft(byteToHex(bytes[nextIndex - hexStartOffset]))
-    setHexOffsetDraft(offsetToHex(nextIndex))
-  }
-
-  const updateHexByteAt = (index: number, value: number) => {
-    const bytes = parsedHexDraft.bytes
-    if (!hexChunkEditable || !bytes) return
-    const localIndex = index - hexStartOffset
-    if (localIndex < 0 || localIndex >= bytes.length) return
-
-    const nextBytes = new Uint8Array(bytes)
-    nextBytes[localIndex] = value
-    setHexDraftText(bytesToHexText(nextBytes))
-  }
-
-  const commitHexByteDraft = (index: number, rawDraft: string): boolean => {
-    const normalized = normalizeHexByteDraft(rawDraft)
-    const currentByte = parsedHexDraft.bytes?.[index - hexStartOffset]
-    if (!hexChunkEditable || !normalized) {
-      if (currentByte !== undefined) setHexByteDraft(byteToHex(currentByte))
-      return false
-    }
-
-    const value = Number.parseInt(normalized.padStart(2, '0'), 16)
-    updateHexByteAt(index, value)
-    setHexByteDraft(byteToHex(value))
-    return true
-  }
-
-  const updateHexByteDraft = (index: number, rawDraft: string) => {
-    const normalized = normalizeHexByteDraft(rawDraft)
-    setHexByteDraft(normalized)
-
-    if (!hexChunkEditable || normalized.length !== 2) return
-
-    const value = Number.parseInt(normalized, 16)
-    updateHexByteAt(index, value)
-    const bytes = parsedHexDraft.bytes
-    if (!bytes) return
-
-    if (hexChunkEditable && index < hexEndOffset - 1) {
-      setActiveHexByteIndex(index + 1)
-    } else {
-      setHexByteDraft(byteToHex(value))
-    }
-  }
-
-  const moveHexSelection = (event: ReactKeyboardEvent<HTMLInputElement>, fromIndex: number, toIndex: number) => {
-    event.preventDefault()
-    commitHexByteDraft(fromIndex, event.currentTarget.value)
-    selectHexByte(toIndex)
-  }
-
-  const handleHexByteInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>, index: number) => {
-    if (event.key === 'ArrowRight') {
-      moveHexSelection(event, index, index + 1)
-      return
-    }
-    if (event.key === 'ArrowLeft') {
-      moveHexSelection(event, index, index - 1)
-      return
-    }
-    if (event.key === 'ArrowDown') {
-      moveHexSelection(event, index, index + HEX_BYTES_PER_ROW)
-      return
-    }
-    if (event.key === 'ArrowUp') {
-      moveHexSelection(event, index, index - HEX_BYTES_PER_ROW)
-      return
-    }
-    if (event.key === 'Home') {
-      moveHexSelection(event, index, Math.floor(index / HEX_BYTES_PER_ROW) * HEX_BYTES_PER_ROW)
-      return
-    }
-    if (event.key === 'End') {
-      moveHexSelection(event, index, Math.floor(index / HEX_BYTES_PER_ROW) * HEX_BYTES_PER_ROW + HEX_BYTES_PER_ROW - 1)
-      return
-    }
-    if (event.key === 'PageDown') {
-      moveHexSelection(event, index, index + HEX_BYTES_PER_ROW * 16)
-      return
-    }
-    if (event.key === 'PageUp') {
-      moveHexSelection(event, index, index - HEX_BYTES_PER_ROW * 16)
-      return
-    }
-    if (event.key === 'Enter') {
-      moveHexSelection(event, index, index + 1)
-      return
-    }
-    if (event.key === 'Tab') {
-      moveHexSelection(event, index, index + (event.shiftKey ? -1 : 1))
-      return
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      const byte = parsedHexDraft.bytes?.[index - hexStartOffset]
-      if (byte !== undefined) {
-        setHexByteDraft(byteToHex(byte))
-        event.currentTarget.select()
-      }
-    }
-  }
-
-  const hexByteChanged = (index: number, byte: number): boolean => {
-    const originalBytes = parsedHexOriginal.bytes
-    if (!hexChunkEditable || !originalBytes) return false
-    const localIndex = index - hexStartOffset
-    return localIndex >= 0 && originalBytes[localIndex] !== byte
-  }
-
-  const hexDraftTextForSave = (): string => {
-    if (!hexChunkEditable || !activeHexByteDraftDirty || activeHexByteDraftValue === null || !parsedHexDraft.bytes) return hexDraftText
-    const localIndex = activeHexByteIndex - hexStartOffset
-    if (localIndex < 0 || localIndex >= parsedHexDraft.bytes.length) return hexDraftText
-
-    const nextBytes = new Uint8Array(parsedHexDraft.bytes)
-    nextBytes[localIndex] = activeHexByteDraftValue
-    return bytesToHexText(nextBytes)
-  }
-
-  const goToHexSearchMatch = (direction: 'previous' | 'next') => {
-    if (hexSearchMatches.length === 0) return
-    const nextIndex = direction === 'previous'
-      ? (activeHexSearchIndex <= 0 ? hexSearchMatches.length - 1 : activeHexSearchIndex - 1)
-      : (activeHexSearchIndex < 0 || activeHexSearchIndex >= hexSearchMatches.length - 1 ? 0 : activeHexSearchIndex + 1)
-    setActiveHexSearchIndex(nextIndex)
-    selectHexByte(hexSearchMatches[nextIndex].offset)
-  }
-
-  const renderHexEditor = () => {
-    if (hexLoading && !hexBytes) {
-      return (
-        <SignalStatus
-          className="changes-editor-file-curtain changes-editor-file-curtain-static"
-          label="Loading hex"
-          detail={selectedPath}
-        />
-      )
-    }
-
-    if (hexError) {
-      return (
-        <div className="changes-editor-mode-message danger-text">
-          <FileCode2 size={28} />
-          <strong>Hex unavailable</strong>
-          <span>{hexError}</span>
-        </div>
-      )
-    }
-
-    return (
-      <div className="changes-editor-hex-shell">
-        <div className="changes-editor-hex-meta">
-          <strong>
-            {hexBytes
-              ? `${formatBytes(hexBytes.startOffset)}-${formatBytes(hexBytes.endOffset)} of ${formatBytes(hexBytes.byteSize)}`
-              : 'Hex bytes not loaded yet'}
-          </strong>
-          {activeHexByte === null ? (
-            <span>No byte selected</span>
-          ) : (
-            <span className="changes-editor-hex-selection">
-              <b>Offset</b>
-              <code>{offsetToHex(activeHexByteIndex)}</code>
-              <b>Hex</b>
-              <code>{byteToHex(activeHexByte)}</code>
-              <b>Dec</b>
-              <code>{activeHexByte}</code>
-              <b>ASCII</b>
-              <code>{activeHexAscii}</code>
-            </span>
-          )}
-          {parsedHexDraft.bytes && (
-            <em>{hexLoading ? 'loading chunk...' : hexFullFileLoaded ? `${parsedHexDraft.bytes.length} bytes in draft` : 'editable chunk'}</em>
-          )}
-        </div>
-        <div className="changes-editor-hex-controls">
-          <button
-            type="button"
-            onClick={() => jumpHexChunk('previous')}
-            disabled={hexLoading || !hexBytes || hexBytes.startOffset <= 0}
-          >
-            Previous chunk
-          </button>
-          <button
-            type="button"
-            onClick={() => jumpHexChunk('next')}
-            disabled={hexLoading || !hexBytes || !hexBytes.hasMore}
-          >
-            Next chunk
-          </button>
-          <label>
-            <span>Offset</span>
-            <input
-              value={hexOffsetDraft}
-              placeholder="00000000"
-              spellCheck={false}
-              onChange={(event) => setHexOffsetDraft(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  goToHexOffset()
-                }
-              }}
-            />
-          </label>
-          <button type="button" onClick={goToHexOffset} disabled={hexLoading || !hexBytes}>
-            Go
-          </button>
-          <label className="changes-editor-hex-search">
-            <Search size={14} />
-            <input
-              value={hexSearchQuery}
-              placeholder="Search hex / ASCII"
-              spellCheck={false}
-              onChange={(event) => {
-                setHexSearchQuery(event.currentTarget.value)
-                setActiveHexSearchIndex(-1)
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  goToHexSearchMatch(event.shiftKey ? 'previous' : 'next')
-                }
-              }}
-            />
-            <small>
-              {hexSearchQuery.trim()
-                ? `${activeHexSearchIndex >= 0 ? activeHexSearchIndex + 1 : 0}/${hexSearchMatches.length}${hexSearchMatches.length >= HEX_SEARCH_MATCH_LIMIT ? '+' : ''}`
-                : '0/0'}
-            </small>
-          </label>
-          <button type="button" onClick={() => goToHexSearchMatch('previous')} disabled={hexSearchMatches.length === 0}>
-            Prev
-          </button>
-          <button type="button" onClick={() => goToHexSearchMatch('next')} disabled={hexSearchMatches.length === 0}>
-            Next
-          </button>
-        </div>
-        {parsedHexDraft.error && (
-          <div className="changes-editor-hex-error">{parsedHexDraft.error}</div>
-        )}
-        <div className="changes-editor-hex-table">
-          <header>
-            <span>offset</span>
-            <span>hex bytes</span>
-            <span>ascii</span>
-          </header>
-          <div className="changes-editor-hex-table-body" ref={hexTableBodyRef} onScroll={syncHexScroll}>
-            {hexPreviewRows.length === 0 ? (
-              <div className="changes-editor-hex-empty">Empty file</div>
-            ) : hexPreviewRows.map((row) => {
-              const activeRow = row.offset === activeHexRowOffset && activeHexByteIndex < row.offset + row.bytes.length
-              return (
-                <div
-                  className={['changes-editor-hex-row', activeRow ? 'active' : ''].filter(Boolean).join(' ')}
-                  key={row.offset}
-                >
-                  <button
-                    type="button"
-                    className="changes-editor-hex-offset"
-                    onClick={() => selectHexByte(row.offset)}
-                    aria-label={`Select row at offset ${row.offset.toString(16).padStart(8, '0')}`}
-                  >
-                    {row.offset.toString(16).padStart(8, '0')}
-                  </button>
-                  <div className="changes-editor-hex-byte-grid" role="row">
-                    {Array.from({ length: HEX_BYTES_PER_ROW }, (_, column) => {
-                      const byte = row.bytes[column]
-                      const byteIndex = row.offset + column
-                      if (byte === undefined) {
-                        return <span className="changes-editor-hex-byte-cell empty" key={column} aria-hidden="true" />
-                      }
-
-                      const active = byteIndex === activeHexByteIndex
-                      const changed = hexByteChanged(byteIndex, byte)
-                      const matched = hexByteInMatch(byteIndex, hexSearchMatches)
-                      const className = [
-                        'changes-editor-hex-byte-cell',
-                        active ? 'active' : '',
-                        matched ? 'search-match' : '',
-                        changed ? 'changed' : ''
-                      ].filter(Boolean).join(' ')
-
-                      if (active && hexChunkEditable) {
-                        return (
-                          <input
-                            className={className}
-                            key={column}
-                            value={hexByteDraft}
-                            maxLength={2}
-                            autoFocus
-                            spellCheck={false}
-                            aria-label={`Byte ${byteIndex.toString(16).padStart(8, '0')} hex value`}
-                            onChange={(event) => updateHexByteDraft(byteIndex, event.currentTarget.value)}
-                            onBlur={(event) => commitHexByteDraft(byteIndex, event.currentTarget.value)}
-                            onFocus={(event) => event.currentTarget.select()}
-                            onKeyDown={(event) => handleHexByteInputKeyDown(event, byteIndex)}
-                          />
-                        )
-                      }
-
-                      return (
-                        <button
-                          type="button"
-                          className={className}
-                          key={column}
-                          onClick={() => selectHexByte(byteIndex)}
-                          aria-label={`Select byte ${byteIndex.toString(16).padStart(8, '0')}`}
-                        >
-                          {byteToHex(byte)}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="changes-editor-hex-ascii-grid" aria-label={`ASCII row ${row.offset.toString(16).padStart(8, '0')}`}>
-                    {Array.from({ length: HEX_BYTES_PER_ROW }, (_, column) => {
-                      const byte = row.bytes[column]
-                      const byteIndex = row.offset + column
-                      if (byte === undefined) {
-                        return <span className="changes-editor-hex-ascii-cell empty" key={column} aria-hidden="true" />
-                      }
-
-                      const active = byteIndex === activeHexByteIndex
-                      const changed = hexByteChanged(byteIndex, byte)
-                      const matched = hexByteInMatch(byteIndex, hexSearchMatches)
-                      return (
-                        <button
-                          type="button"
-                          className={[
-                            'changes-editor-hex-ascii-cell',
-                            active ? 'active' : '',
-                            matched ? 'search-match' : '',
-                            changed ? 'changed' : ''
-                          ].filter(Boolean).join(' ')}
-                          key={column}
-                          onClick={() => selectHexByte(byteIndex)}
-                          aria-label={`Select ASCII byte ${byteIndex.toString(16).padStart(8, '0')}`}
-                        >
-                          {asciiFromByte(byte)}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          {hexBytes && !hexFullFileLoaded && (
-            <p>
-              Viewing {formatBytes(hexBytes.startOffset)}-{formatBytes(hexBytes.endOffset)} of {formatBytes(hexBytes.byteSize)}.
-              Edit bytes in this chunk, jump by offset, or load adjacent chunks.
-            </p>
-          )}
-        </div>
-        {hexLoading && hexBytes && (
-          <SignalStatus
-            compact
-            className="changes-editor-hex-loading"
-            label="Loading hex chunk"
-            detail={`${formatBytes(hexBytes.startOffset)}-${formatBytes(hexBytes.endOffset)} of ${formatBytes(hexBytes.byteSize)}`}
-          />
-        )}
-      </div>
-    )
-  }
+  const renderHexEditor = () => (
+    <HexEditorView
+      selectedPath={selectedPath}
+      hexLoading={hexLoading}
+      hexError={hexError}
+      hexBytes={hexBytes}
+      hexFullFileLoaded={hexFullFileLoaded}
+      hexChunkEditable={hexChunkEditable}
+      hexPreviewRows={hexPreviewRows}
+      parsedHexDraft={parsedHexDraft}
+      activeHexByteIndex={activeHexByteIndex}
+      activeHexByte={activeHexByte}
+      activeHexAscii={activeHexAscii}
+      activeHexRowOffset={activeHexRowOffset}
+      hexByteDraft={hexByteDraft}
+      hexOffsetDraft={hexOffsetDraft}
+      hexSearchQuery={hexSearchQuery}
+      activeHexSearchIndex={activeHexSearchIndex}
+      hexSearchMatches={hexSearchMatches}
+      hexTableBodyRef={hexTableBodyRef}
+      setHexOffsetDraft={setHexOffsetDraft}
+      setHexSearchQuery={setHexSearchQuery}
+      setActiveHexSearchIndex={setActiveHexSearchIndex}
+      jumpHexChunk={jumpHexChunk}
+      goToHexOffset={goToHexOffset}
+      goToHexSearchMatch={goToHexSearchMatch}
+      selectHexByte={selectHexByte}
+      updateHexByteDraft={updateHexByteDraft}
+      commitHexByteDraft={commitHexByteDraft}
+      handleHexByteInputKeyDown={handleHexByteInputKeyDown}
+      hexByteChanged={hexByteChanged}
+      syncHexScroll={syncHexScroll}
+    />
+  )
 
   const updateSvgRootAttribute = (attr: string, value: string) => {
     const parsed = parseSvgDocument(draftText)
@@ -5333,105 +932,17 @@ export function ChangesInternalEditor({
     applyEditorTextChange(serializeSvgDocument(parsed.document))
   }
 
-  const renderSvgEditor = () => {
-    if (textUnavailableMessage) {
-      return (
-        <div className="changes-editor-mode-message">
-          <FileImage size={28} />
-          <strong>{textUnavailableMessage}</strong>
-          <span>SVG text is not available for editing.</span>
-        </div>
-      )
-    }
-
-    if (!draftText.trim()) {
-      return (
-        <div className="changes-editor-mode-message">
-          <FileImage size={28} />
-          <strong>Empty SVG</strong>
-          <span>Switch to SVG source to add content.</span>
-        </div>
-      )
-    }
-
-    if (svgAnalysis?.error) {
-      return (
-        <div className="changes-editor-mode-message danger-text">
-          <FileImage size={28} />
-          <strong>Invalid SVG</strong>
-          <span>{svgAnalysis.error}</span>
-        </div>
-      )
-    }
-
-    return (
-      <div className="changes-editor-svg-editor">
-        <div className="changes-editor-svg-stage">
-          {activeImagePreviewUrl ? (
-            <img src={activeImagePreviewUrl} alt={selectedPath} />
-          ) : (
-            <div className="changes-editor-mode-message">
-              <FileImage size={28} />
-              <strong>SVG preview unavailable</strong>
-              <span>Switch to SVG source to inspect the file.</span>
-            </div>
-          )}
-          <span>{svgAnalysis?.elementCount ?? 0} elements</span>
-        </div>
-        <aside className="changes-editor-svg-controls">
-          <section>
-            <h4>Canvas</h4>
-            <label>
-              Width
-              <input value={svgAnalysis?.width ?? ''} onChange={(event) => updateSvgRootAttribute('width', event.target.value)} placeholder="auto" />
-            </label>
-            <label>
-              Height
-              <input value={svgAnalysis?.height ?? ''} onChange={(event) => updateSvgRootAttribute('height', event.target.value)} placeholder="auto" />
-            </label>
-            <label className="wide">
-              ViewBox
-              <input value={svgAnalysis?.viewBox ?? ''} onChange={(event) => updateSvgRootAttribute('viewBox', event.target.value)} placeholder="0 0 48 48" />
-            </label>
-          </section>
-          <section>
-            <h4>Colors</h4>
-            {svgAnalysis && svgAnalysis.colors.length > 0 ? (
-              <div className="changes-editor-svg-color-list">
-                {svgAnalysis.colors.map((target) => {
-                  const pickerColor = normalizePickerColor(target.value)
-                  const key = `${target.index}-${target.attr}-${target.label}`
-
-                  return (
-                    <div className="changes-editor-svg-color-row" key={key}>
-                      <div>
-                        <strong>{target.label}</strong>
-                        <span>{target.element}.{target.attr}</span>
-                      </div>
-                      <input
-                        type="color"
-                        value={pickerColor ?? '#000000'}
-                        disabled={!pickerColor}
-                        onChange={(event) => updateSvgColorAttribute(target, event.target.value)}
-                        aria-label={`Pick ${target.attr} for ${target.label}`}
-                      />
-                      <input
-                        value={target.value}
-                        onChange={(event) => updateSvgColorAttribute(target, event.target.value)}
-                        aria-label={`${target.attr} value for ${target.label}`}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p>No direct SVG colors found.</p>
-            )}
-          </section>
-        </aside>
-      </div>
-    )
-  }
+  const renderSvgEditor = () => (
+    <SvgEditorView
+      selectedPath={selectedPath}
+      draftText={draftText}
+      textUnavailableMessage={textUnavailableMessage}
+      svgAnalysis={svgAnalysis}
+      activeImagePreviewUrl={activeImagePreviewUrl}
+      updateSvgRootAttribute={updateSvgRootAttribute}
+      updateSvgColorAttribute={updateSvgColorAttribute}
+    />
+  )
 
   const toggleJsonNode = (path: string) => {
     setCollapsedJsonPaths((current) => {
@@ -5490,142 +1001,24 @@ export function ChangesInternalEditor({
     }
   }
 
-  const renderJsonViewer = () => {
-    if (textUnavailableMessage) {
-      return (
-        <div className="changes-editor-mode-message">
-          <FileCode2 size={28} />
-          <strong>{textUnavailableMessage}</strong>
-          <span>JSON text is not available for this file.</span>
-        </div>
-      )
-    }
-
-    if (jsonParseResult.error) {
-      return (
-        <div className="changes-editor-mode-message danger-text">
-          <FileCode2 size={28} />
-          <strong>Invalid JSON</strong>
-          <span>{jsonParseResult.error}</span>
-        </div>
-      )
-    }
-
-    if (!draftText.trim()) {
-      return (
-        <div className="changes-editor-mode-message">
-          <FileCode2 size={28} />
-          <strong>Empty JSON</strong>
-          <span>Switch to Code to add content.</span>
-        </div>
-      )
-    }
-
-    const rows = jsonParseResult.rows.slice(0, 2500)
-
-    return (
-      <div className="changes-editor-json-viewer">
-        <div className="changes-editor-json-toolbar">
-          <strong>{jsonParseResult.rows.length} visible node{jsonParseResult.rows.length === 1 ? '' : 's'}</strong>
-          <span>{jsonParseResult.expandablePaths.length} collapsible</span>
-          <button type="button" onClick={expandAllJson} disabled={collapsedJsonPaths.size === 0}>Expand all</button>
-          <button type="button" onClick={collapseAllJson} disabled={jsonParseResult.expandablePaths.length === 0}>Collapse all</button>
-          <button type="button" onClick={formatJsonDraft}>Format JSON</button>
-        </div>
-        <div className="changes-editor-json-tree">
-          {rows.map((row) => {
-            const summary = jsonValueSummary(row.value)
-            const collapsed = collapsedJsonPaths.has(row.path)
-            const editableKind = jsonEditableKind(row.value)
-            const editing = jsonEdit?.path === row.path
-
-            return (
-              <div className="changes-editor-json-row" key={row.path || '$'} style={{ '--json-indent': `${row.depth * 18}px` } as CSSProperties}>
-                <span className="changes-editor-json-line-number">{row.lineNumber ?? ''}</span>
-                <button
-                  type="button"
-                  className="changes-editor-json-toggle"
-                  aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${row.keyName ?? 'root'}`}
-                  disabled={!row.expandable}
-                  onClick={() => toggleJsonNode(row.path)}
-                >
-                  {row.expandable ? (collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />) : null}
-                </button>
-                <span className="changes-editor-json-key">{row.keyName ?? '$'}</span>
-                <span className={`changes-editor-json-type type-${summary.type}`}>{summary.type}</span>
-                <span className="changes-editor-json-value">
-                  {editing && jsonEdit ? (
-                    jsonEdit.kind === 'boolean' ? (
-                      <select
-                        className="changes-editor-json-edit"
-                        autoFocus
-                        value={jsonEdit.value}
-                        onChange={(event) => {
-                          const nextEdit = { ...jsonEdit, value: event.target.value }
-                          setJsonEdit(nextEdit)
-                          window.requestAnimationFrame(() => commitJsonEdit(nextEdit))
-                        }}
-                        onBlur={() => {
-                          if (skipJsonEditBlurRef.current) {
-                            skipJsonEditBlurRef.current = false
-                            return
-                          }
-                          commitJsonEdit()
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Escape') {
-                            event.preventDefault()
-                            cancelJsonEdit()
-                          }
-                        }}
-                      >
-                        <option value="true">true</option>
-                        <option value="false">false</option>
-                      </select>
-                    ) : (
-                      <input
-                        className="changes-editor-json-edit"
-                        autoFocus
-                        value={jsonEdit.value}
-                        inputMode={jsonEdit.kind === 'number' ? 'decimal' : 'text'}
-                        onChange={(event) => setJsonEdit({ ...jsonEdit, value: event.target.value })}
-                        onBlur={() => {
-                          if (skipJsonEditBlurRef.current) {
-                            skipJsonEditBlurRef.current = false
-                            return
-                          }
-                          commitJsonEdit()
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            commitJsonEdit()
-                          } else if (event.key === 'Escape') {
-                            event.preventDefault()
-                            cancelJsonEdit()
-                          }
-                        }}
-                      />
-                    )
-                  ) : editableKind ? (
-                    <button type="button" className="changes-editor-json-value-button" onClick={() => beginJsonEdit(row)} title="Edit JSON value">
-                      {summary.preview}
-                    </button>
-                  ) : (
-                    summary.preview
-                  )}
-                  {row.expandable && collapsed && <small>{row.childCount} hidden</small>}
-                </span>
-              </div>
-            )
-          })}
-          {jsonParseResult.rows.length > rows.length && (
-            <div className="changes-editor-json-more">{jsonParseResult.rows.length - rows.length} more JSON nodes hidden for performance.</div>
-          )}
-        </div>
-      </div>
-    )
-  }
+  const renderJsonViewer = () => (
+    <JsonViewerView
+      textUnavailableMessage={textUnavailableMessage}
+      draftText={draftText}
+      jsonParseResult={jsonParseResult}
+      collapsedJsonPaths={collapsedJsonPaths}
+      jsonEdit={jsonEdit}
+      setJsonEdit={setJsonEdit}
+      skipJsonEditBlurRef={skipJsonEditBlurRef}
+      expandAllJson={expandAllJson}
+      collapseAllJson={collapseAllJson}
+      formatJsonDraft={formatJsonDraft}
+      toggleJsonNode={toggleJsonNode}
+      beginJsonEdit={beginJsonEdit}
+      cancelJsonEdit={cancelJsonEdit}
+      commitJsonEdit={commitJsonEdit}
+    />
+  )
 
   const renderActiveView = () => {
     if (viewMode === 'image') return renderImagePreview()
@@ -5783,164 +1176,43 @@ export function ChangesInternalEditor({
     return () => window.cancelAnimationFrame(frame)
   }, [selectedPath, fileQuery, visibleFiles.length])
 
-  useEffect(() => {
-    const searchText = fileQuery.trim()
-    const requestId = fileContentSearchRequestRef.current + 1
-    fileContentSearchRequestRef.current = requestId
-
-    if (!api || !currentRepoPath || searchText.length < EDITOR_FILE_CONTENT_SEARCH_MIN_LENGTH || files.length === 0) {
-      setFileContentMatches({})
-      setFileContentSearchState({ status: 'idle', scanned: 0, truncated: false, error: null })
-      return
-    }
-
-    let cancelled = false
-    const handle = window.setTimeout(() => {
-      setFileContentMatches({})
-      setFileContentSearchState({ status: 'searching', scanned: 0, truncated: false, error: null })
-
-      void api.searchRepositoryContent({
-        repoPath: currentRepoPath,
-        query: searchText,
-        maxResults: EDITOR_FILE_CONTENT_SEARCH_RESULT_LIMIT
-      })
-        .then((result) => {
-          if (cancelled || fileContentSearchRequestRef.current !== requestId) return
-          if (!result.ok) {
-            setFileContentSearchState({
-              status: 'done',
-              scanned: 0,
-              truncated: false,
-              error: friendlyIpcErrorMessage(result.error.message, 'Content search failed.')
-            })
-            return
-          }
-
-          const matches: Record<string, RepositoryContentSearchMatch> = {}
-          for (const match of result.data.matches) {
-            matches[match.filePath] = match
-          }
-
-          setFileContentMatches(matches)
-          setFileContentSearchState({
-            status: 'done',
-            scanned: result.data.matches.length,
-            truncated: result.data.truncated,
-            error: null
-          })
-        })
-        .catch((error) => {
-          if (cancelled || fileContentSearchRequestRef.current !== requestId) return
-          setFileContentSearchState({
-            status: 'done',
-            scanned: 0,
-            truncated: false,
-            error: friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Content search failed.')
-          })
-        })
-    }, EDITOR_FILE_CONTENT_SEARCH_DEBOUNCE_MS)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(handle)
-    }
-  }, [api, currentRepoPath, fileQuery, files])
-
-  useEffect(() => {
-    if (!api || !currentRepoPath || !selectedPath || !selectedChange) {
-      setGitLineChanges([])
-      setGitDiffLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setGitDiffLoading(true)
-
-    const requests: Array<Promise<ApiResult<DiffResult>>> = []
-    if (selectedChange.staged) {
-      requests.push(api.getDiff({ repoPath: currentRepoPath, filePath: selectedPath, staged: true, contextLines: 0 }))
-    }
-    if (selectedChange.unstaged || selectedChange.untracked || !selectedChange.staged) {
-      requests.push(api.getDiff({ repoPath: currentRepoPath, filePath: selectedPath, staged: false, contextLines: 0 }))
-    }
-
-    void Promise.all(requests)
-      .then((results) => {
-        if (cancelled) return
-        const diffs = results.flatMap((result) => (
-          result.ok && !result.data.binary && !result.data.tooLarge ? [result.data] : []
-        ))
-        setGitLineChanges(buildGitLineChanges(diffs, selectedPath))
-        setGitDiffLoading(false)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setGitLineChanges([])
-        setGitDiffLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [
+  useEditorDataLoading({
     api,
     currentRepoPath,
     selectedPath,
-    selectedChange?.additions,
-    selectedChange?.deletions,
-    selectedChange?.stagedStatus,
-    selectedChange?.staged,
-    selectedChange?.status,
-    selectedChange?.unstagedStatus,
-    selectedChange?.unstaged,
-    selectedChange?.untracked,
-    snapshot?.summary.headOid
-  ])
-
-  useEffect(() => {
-    if (lintBlocked || !selectedLintSupported) {
-      setDiagnostics([])
-      setLintRunState({
-        status: 'idle',
-        message: selectedPath ? 'Lint is unavailable here.' : 'Select a file before running lint.',
-        detail: selectedPath || 'No file selected'
-      })
-      return
-    }
-    if (!selectedLintRulesEnabled) {
-      setDiagnostics([])
-      setLintRunState({
-        status: 'blocked',
-        message: 'No active lint rules for this file type.',
-        detail: 'Enable a matching lint rule below.'
-      })
-      return
-    }
-    if (!lintSettings.autoValidate) {
-      setDiagnostics([])
-      setLintRunState({
-        status: 'idle',
-        message: 'Auto validate is off.',
-        detail: 'Run lint now to check the current draft.'
-      })
-      return
-    }
-
-    const handle = window.setTimeout(() => {
-      const nextDiagnostics = validateEditorText(selectedPath, draftText, lintSettings)
-      setDiagnostics(nextDiagnostics)
-      setLintRunState(lintStateFromDiagnostics(nextDiagnostics, selectedPath, 'Auto'))
-    }, 160)
-
-    return () => window.clearTimeout(handle)
-  }, [
-    draftText,
-    lintBlocked,
-    lintSettings,
-    selectedLintRulesEnabled,
-    selectedLintSupported,
-    selectedPath
-  ])
+    selectedChange,
+    headOid: snapshot?.summary.headOid,
+    fileQuery,
+    files,
+    fileLoading,
+    fileError,
+    textUnavailableMessage,
+    chunkedTextPreview,
+    activeEditorLineBase,
+    draftLineCount: draftLines.length,
+    pendingEditorFocusRef,
+    lastEditorScrollTopRef,
+    setFileContentMatches,
+    setFileContentSearchState,
+    setGitLineChanges,
+    setGitDiffLoading,
+    setImagePreview,
+    setImagePreviewLoading,
+    setImagePreviewError,
+    setFiles,
+    setFilesLoading,
+    setFilesError,
+    setSelectedPath,
+    setFileLoading,
+    setFileError,
+    setTextUnavailableMessage,
+    setChunkedTextPreview,
+    setOriginalText,
+    setDraftText,
+    setViewMode,
+    focusCodePosition,
+    setNotice
+  })
 
   useEffect(() => {
     if (!fileMenu) return
@@ -5960,34 +1232,6 @@ export function ChangesInternalEditor({
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [fileMenu])
-
-  useEffect(() => {
-    if (!api || !currentRepoPath || !selectedPath || !PREVIEWABLE_IMAGE_RE.test(selectedPath)) return
-    let cancelled = false
-    setImagePreviewLoading(true)
-    setImagePreviewError(null)
-    void api.getImagePreview({ repoPath: currentRepoPath, filePath: selectedPath })
-      .then((result) => {
-        if (cancelled) return
-        setImagePreviewLoading(false)
-        if (result.ok) {
-          setImagePreview(result.data)
-          return
-        }
-        setImagePreview(null)
-        setImagePreviewError(friendlyIpcErrorMessage(result.error.message, 'Failed to load image preview.'))
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setImagePreviewLoading(false)
-        setImagePreview(null)
-        setImagePreviewError(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load image preview.'))
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [api, currentRepoPath, selectedPath])
 
   useEffect(() => {
     if (!api || !currentRepoPath || !selectedPath) return
@@ -6095,702 +1339,113 @@ export function ChangesInternalEditor({
     }
   }, [draftLines.length, fileError, fileLoading, selectedPath, viewMode])
 
-  useEffect(() => {
-    const clampToEditor = () => {
-      const editor = editorRef.current
-      if (!editor) return
-      setSidebarWidth((width) => clampEditorSidebarWidth(width, editor.getBoundingClientRect().width))
-    }
-
-    let frame = window.requestAnimationFrame(() => {
-      frame = window.requestAnimationFrame(clampToEditor)
-    })
-    window.addEventListener('resize', clampToEditor)
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-      window.removeEventListener('resize', clampToEditor)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!api || !currentRepoPath) return
-    let cancelled = false
-    setFilesLoading(true)
-    setFilesError(null)
-    void api.listRepositoryFiles(currentRepoPath)
-      .then((result) => {
-        if (cancelled) return
-        setFilesLoading(false)
-        if (result.ok) {
-          setFiles(result.data)
-          setSelectedPath((current) => current || result.data[0]?.path || '')
-          return
-        }
-
-        const message = friendlyIpcErrorMessage(result.error.message, 'Failed to load repository files.')
-        setFilesError(message)
-        setNotice(message)
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setFilesLoading(false)
-        const message = friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load repository files.')
-        setFilesError(message)
-        setNotice(message)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [api, currentRepoPath, setNotice])
-
-  useEffect(() => {
-    if (!api || !currentRepoPath || !selectedPath) return
-    let cancelled = false
-    setFileLoading(true)
-    setFileError(null)
-    setTextUnavailableMessage(null)
-    void api.getRepositoryFileChunk({
-      repoPath: currentRepoPath,
-      filePath: selectedPath,
-      offset: 0,
-      maxBytes: EDITOR_FILE_CHUNK_BYTES
-    })
-      .then((result) => {
-        if (cancelled) return
-        setFileLoading(false)
-        if (!result.ok) {
-          setFileError(friendlyIpcErrorMessage(result.error.message, 'Failed to load file.'))
-          setOriginalText('')
-          setDraftText('')
-          return
-        }
-        if (result.data.binary) {
-          if (PREVIEWABLE_IMAGE_RE.test(selectedPath)) {
-            setTextUnavailableMessage('Binary image preview only.')
-            setOriginalText('')
-            setDraftText('')
-            return
-          }
-          setTextUnavailableMessage('Binary file - Hex editor available.')
-          setViewMode('hex')
-          setOriginalText('')
-          setDraftText('')
-          return
-        }
-        if (result.data.hasMore) {
-          const preview = chunkedTextPreviewFromResult(result.data, {
-            startLine: 1,
-            markers: [{ offset: result.data.startOffset, lineNumber: 1 }],
-            pageIndex: 0
-          })
-          setChunkedTextPreview(preview)
-          setOriginalText(result.data.text)
-          setDraftText(result.data.text)
-          setViewMode('code')
-          lastEditorScrollTopRef.current = 0
-          return
-        }
-        setChunkedTextPreview(null)
-        setOriginalText(result.data.text)
-        setDraftText(result.data.text)
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setFileLoading(false)
-        setFileError(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load file.'))
-        setOriginalText('')
-        setDraftText('')
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [api, currentRepoPath, selectedPath])
-
-  useEffect(() => {
-    const target = pendingEditorFocusRef.current
-    if (!target || target.filePath !== selectedPath || fileLoading) return
-    if (fileError || textUnavailableMessage) {
-      pendingEditorFocusRef.current = null
-      return
-    }
-
-    const firstLineNumber = activeEditorLineBase
-    const lastLineNumber = activeEditorLineBase + Math.max(0, draftLines.length - 1)
-    const lineIsLoaded = target.lineNumber >= firstLineNumber && target.lineNumber <= lastLineNumber
-
-    if (lineIsLoaded || !chunkedTextPreview || target.byteOffset === undefined || !api || !currentRepoPath) {
-      pendingEditorFocusRef.current = null
-      focusCodePosition(target.lineNumber, target.column, target.length)
-      return
-    }
-
-    pendingEditorFocusRef.current = null
-    let cancelled = false
-    setFileLoading(true)
-    setChunkedTextPreview({ ...chunkedTextPreview, loading: true, error: null })
-    void api.getRepositoryFileChunk({
-      repoPath: currentRepoPath,
-      filePath: selectedPath,
-      offset: target.byteOffset,
-      maxBytes: EDITOR_FILE_CHUNK_BYTES
-    })
-      .then((result) => {
-        if (cancelled) return
-        setFileLoading(false)
-        if (!result.ok) {
-          const message = friendlyIpcErrorMessage(result.error.message, 'Failed to load search result chunk.')
-          setChunkedTextPreview((current) => current ? { ...current, loading: false, error: message } : current)
-          setNotice(message)
-          return
-        }
-        if (result.data.binary) {
-          setNotice('Search result is in a binary chunk.')
-          return
-        }
-
-        const markers = result.data.startOffset > 0
-          ? [
-              { offset: 0, lineNumber: 1 },
-              { offset: result.data.startOffset, lineNumber: target.lineNumber }
-            ]
-          : [{ offset: result.data.startOffset, lineNumber: target.lineNumber }]
-        setChunkedTextPreview(chunkedTextPreviewFromResult(result.data, {
-          startLine: target.lineNumber,
-          markers,
-          pageIndex: markers.length - 1
-        }))
-        setOriginalText(result.data.text)
-        setDraftText(result.data.text)
-        focusCodePosition(target.lineNumber, target.column, target.length)
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setFileLoading(false)
-        const message = friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load search result chunk.')
-        setChunkedTextPreview((current) => current ? { ...current, loading: false, error: message } : current)
-        setNotice(message)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    activeEditorLineBase,
+  const {
+    stageFileFromMenu,
+    unstageFileFromMenu,
+    openInEditorFromMenu,
+    openTerminalFromMenu,
+    showInFileManagerFromMenu,
+    copyPathFromMenu,
+    copyNameFromMenu,
+    reloadEditorFiles,
+    renameFileFromMenu,
+    deleteFileFromMenu
+  } = useEditorFileActions({
     api,
-    chunkedTextPreview,
     currentRepoPath,
-    draftLines.length,
-    fileError,
-    fileLoading,
     selectedPath,
+    dirty,
+    fileMenu,
+    contextMenuChange,
+    setFileMenu,
     setNotice,
-    textUnavailableMessage
-  ])
+    requestConfirmation,
+    runSnapshotAction,
+    setFiles,
+    setFilesLoading,
+    setFilesError,
+    setSelectedPath
+  })
 
-  const stageFileFromMenu = () => {
-    const path = fileMenu?.path
-    const change = contextMenuChange
-    setFileMenu(null)
-    if (!path || !change || !currentRepoPath || !api) return
-    void runSnapshotAction('File staged.', () => api.stageFile({ repoPath: currentRepoPath, filePath: path }))
-  }
+  const {
+    healthSettings,
+    healthMenuOpen,
+    setHealthMenuOpen,
+    healthScanState,
+    setHealthScanState,
+    setManualHealthByPath,
+    healthEnabled,
+    fileHealthByPath,
+    liveHealthReports,
+    selectedHealthReport,
+    healthSignalCount,
+    healthPanelSeverity,
+    healthSummaryTitle,
+    healthRunDisabled,
+    healthScanSummary,
+    updateHealthSettings,
+    resetHealthSettings,
+    runAllFilesHealthCheck
+  } = useEditorHealth({
+    api,
+    currentRepoPath,
+    setNotice,
+    files,
+    filesLoading,
+    changeByPath,
+    selectedPath,
+    selectedChange,
+    viewMode,
+    chunkedTextPreview,
+    diagnostics,
+    dirty,
+    draftLineCount: draftLines.length,
+    fileError,
+    gitChangedLines,
+    hexBytes,
+    textUnavailableMessage,
+    lintSettings,
+    reloadEditorFiles
+  })
 
-  const unstageFileFromMenu = () => {
-    const path = fileMenu?.path
-    const change = contextMenuChange
-    setFileMenu(null)
-    if (!path || !change || !currentRepoPath || !api) return
-    void runSnapshotAction('File unstaged.', () => api.unstageFile({ repoPath: currentRepoPath, filePath: path }))
-  }
-
-  const openInEditorFromMenu = () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path || !currentRepoPath || !api) return
-    void api.openInEditor({ targetPath: buildRepoFilePath(currentRepoPath, path) }).then((result) => {
-      setNotice(result.ok ? result.data.message || 'File opened in editor.' : result.error.message)
-    })
-  }
-
-  const openTerminalFromMenu = () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path || !currentRepoPath || !api) return
-    void api.openTerminal(buildRepoFileDirectory(currentRepoPath, path)).then((result) => {
-      setNotice(result.ok ? result.data.message || 'Terminal opened.' : result.error.message)
-    })
-  }
-
-  const showInFileManagerFromMenu = () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path || !currentRepoPath || !api) return
-    void api.showItemInFolder(buildRepoFilePath(currentRepoPath, path)).then((result) => {
-      setNotice(result.ok ? result.data.message || 'Shown in file manager.' : result.error.message)
-    })
-  }
-
-  const copyPathFromMenu = () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path || !currentRepoPath) return
-    void navigator.clipboard.writeText(buildRepoFilePath(currentRepoPath, path))
-  }
-
-  const copyNameFromMenu = () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path) return
-    void navigator.clipboard.writeText(path.split('/').pop() ?? path)
-  }
-
-  const reloadEditorFiles = async (preferredPath?: string) => {
-    if (!api || !currentRepoPath) return []
-    setFilesLoading(true)
-    setFilesError(null)
-    try {
-      const result = await api.listRepositoryFiles(currentRepoPath)
-      setFilesLoading(false)
-      if (!result.ok) {
-        const message = friendlyIpcErrorMessage(result.error.message, 'Failed to load repository files.')
-        setFilesError(message)
-        setNotice(message)
-        return []
-      }
-
-      setFiles(result.data)
-      setSelectedPath((current) => {
-        if (preferredPath && result.data.some((file) => file.path === preferredPath)) return preferredPath
-        if (current && result.data.some((file) => file.path === current)) return current
-        return result.data[0]?.path || ''
-      })
-      return result.data
-    } catch (error) {
-      setFilesLoading(false)
-      const message = friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'Failed to load repository files.')
-      setFilesError(message)
-      setNotice(message)
-      return []
-    }
-  }
-
-  const renameFileFromMenu = async () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path || !currentRepoPath || !api) return
-    if (path === selectedPath && dirty) {
-      const confirmed = await requestConfirmation('Rename this file and discard unsaved editor edits?', {
-        title: 'Rename File',
-        confirmLabel: 'Rename file',
-        variant: 'danger'
-      })
-      if (!confirmed) return
-    }
-
-    const nextPath = window.prompt('Rename file inside this repository:', path)?.trim().replace(/\\/g, '/')
-    if (!nextPath || nextPath === path) return
-
-    const result = await runSnapshotAction('File renamed.', () => api.renameRepositoryFile({
-      repoPath: currentRepoPath,
-      filePath: path,
-      newFilePath: nextPath
-    }))
-    if (result !== false) {
-      await reloadEditorFiles(nextPath)
-    }
-  }
-
-  const deleteFileFromMenu = async () => {
-    const path = fileMenu?.path
-    setFileMenu(null)
-    if (!path || !currentRepoPath || !api) return
-    const dirtyWarning = path === selectedPath && dirty ? ' Unsaved editor edits will be discarded.' : ''
-    const confirmed = await requestConfirmation(`Delete ${path}?${dirtyWarning}`, {
-      title: 'Delete File',
-      confirmLabel: 'Delete file',
-      variant: 'danger'
-    })
-    if (!confirmed) return
-
-    const result = await runSnapshotAction('File deleted.', () => api.deleteRepositoryFile({
-      repoPath: currentRepoPath,
-      filePath: path,
-      confirmed: true
-    }))
-    if (result !== false) {
-      await reloadEditorFiles()
-    }
-  }
-
-  const saveFile = async () => {
-    if (!api || !currentRepoPath || !selectedPath || textSaveBlocked || fileError) return
-    const currentText = flushActiveEditorDraftText()
-    const textDraftDirty = currentText !== originalText
-    if (!textDraftDirty && !hexDirty) return
-
-    setSaving(true)
-    try {
-      if (hexDirty) {
-        const parsed = parseHexText(hexDraftTextForSave())
-        if (!parsed.bytes || parsed.error) {
-          setNotice(parsed.error || 'Hex byte stream is invalid.')
-          return
-        }
-        const bytes = parsed.bytes
-        const nextHexText = bytesToHexText(bytes)
-
-        if (hexFullFileLoaded) {
-          const result = await runSnapshotAction('File saved.', () => api.writeRepositoryFileBytes({
-            repoPath: currentRepoPath,
-            filePath: selectedPath,
-            base64: base64FromBytes(bytes)
-          }))
-          if (result !== false) {
-            setHexOriginalText(nextHexText)
-            setHexDraftText(nextHexText)
-            setActiveHexByteIndex((current) => clamp(current, hexStartOffset, Math.max(hexStartOffset, hexStartOffset + bytes.length - 1)))
-            setHexBytes((current) => current ? {
-              ...current,
-              byteSize: bytes.length,
-              startOffset: 0,
-              endOffset: bytes.length,
-              hasMore: false,
-              fullFileLoaded: true
-            } : current)
-          }
-          return
-        }
-
-        if (!hexBytes) return
-        const originalBytes = Math.max(0, hexEndOffset - hexStartOffset)
-        if (bytes.length !== originalBytes) {
-          setNotice('Hex chunk edits must keep the same byte count.')
-          return
-        }
-
-        const result = await runSnapshotAction('Hex chunk saved.', () => api.writeRepositoryFileChunk({
-          repoPath: currentRepoPath,
-          filePath: selectedPath,
-          startOffset: hexStartOffset,
-          endOffset: hexEndOffset,
-          text: '',
-          base64: base64FromBytes(bytes)
-        }))
-        if (result !== false) {
-          setHexOriginalText(nextHexText)
-          setHexDraftText(nextHexText)
-          setActiveHexByteIndex((current) => clamp(current, hexStartOffset, Math.max(hexStartOffset, hexStartOffset + bytes.length - 1)))
-          setHexBytes((current) => current ? {
-            ...current,
-            endOffset: current.startOffset + bytes.length
-          } : current)
-        }
-        return
-      }
-
-      if (chunkedTextPreview) {
-        const currentChunk = chunkedTextPreview
-        const chunkText = currentText
-        const replacementBytes = utf8ByteOffset(chunkText, chunkText.length)
-        const originalBytes = Math.max(0, currentChunk.endOffset - currentChunk.startOffset)
-        const nextByteSize = Math.max(0, currentChunk.byteSize + replacementBytes - originalBytes)
-        const result = await runSnapshotAction('File chunk saved.', () => api.writeRepositoryFileChunk({
-          repoPath: currentRepoPath,
-          filePath: selectedPath,
-          startOffset: currentChunk.startOffset,
-          endOffset: currentChunk.endOffset,
-          text: chunkText
-        }))
-        if (result !== false) {
-          setOriginalText(chunkText)
-          setDraftText(chunkText)
-          setChunkedTextPreview({
-            ...currentChunk,
-            text: chunkText,
-            byteSize: nextByteSize,
-            endOffset: currentChunk.startOffset + replacementBytes,
-            hasMore: currentChunk.startOffset + replacementBytes < nextByteSize,
-            markers: currentChunk.markers.slice(0, currentChunk.pageIndex + 1)
-          })
-        }
-        return
-      }
-
-      const result = await runSnapshotAction('File saved.', () => api.writeRepositoryFile({
-        repoPath: currentRepoPath,
-        filePath: selectedPath,
-        text: currentText
-      }))
-      if (result !== false) {
-        setOriginalText(currentText)
-      }
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const resetAfterBeautify = (nextText: string) => {
-    applyEditorTextChange(nextText, { viewMode: 'code', resetJsonCollapse: true })
-  }
-
-  const selectLocalAgentProvider = (provider: LocalAgentProvider, open = true) => {
-    setCodexAgentProvider(provider)
-    setCodexAgentAssistant((current) => (
-      localAgentProviderForAssistant(current) === provider ? current : localAgentDefaultAssistant(provider)
-    ))
-    if (open) setCodexAgentOpen(true)
-  }
-
-  const addCodexAgentFiles = async (selectedFiles: File[]) => {
-    if (selectedFiles.length === 0) return
-
-    const remainingSlots = Math.max(0, CODEX_AGENT_ATTACHMENT_LIMIT - codexAgentAttachments.length)
-    const supportedFiles = selectedFiles
-      .filter((file) => isImageAttachmentFile(file) || isTextAttachmentFile(file))
-      .slice(0, remainingSlots)
-
-    if (supportedFiles.length < selectedFiles.length) {
-      setNotice(remainingSlots === 0 ? `Agent can attach up to ${CODEX_AGENT_ATTACHMENT_LIMIT} files.` : 'Only images and text-like files can be attached to the agent.')
-    }
-
-    const nextAttachments = await Promise.all(supportedFiles.map(async (file): Promise<CodexAgentAttachmentDraft> => {
-      const id = `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`
-
-      if (isImageAttachmentFile(file)) {
-        return {
-          id,
-          kind: 'image',
-          name: file.name,
-          mimeType: file.type || 'image/png',
-          sizeBytes: file.size,
-          dataUrl: await readFileAsDataUrl(file)
-        }
-      }
-
-      const text = await readFileAsTruncatedText(file)
-
-      return {
-        id,
-        kind: 'text',
-        name: file.name,
-        mimeType: file.type || 'text/plain',
-        sizeBytes: file.size,
-        text: text.text,
-        truncated: text.truncated
-      }
-    }))
-
-    setCodexAgentAttachments((current) => [...current, ...nextAttachments])
-  }
-
-  const addCodexAgentAttachments = async (event: ReactChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.currentTarget.files ?? [])
-    event.currentTarget.value = ''
-    await addCodexAgentFiles(selectedFiles)
-  }
-
-  const handleCodexAgentPaste = (event: ReactClipboardEvent<HTMLElement>) => {
-    if (codexAgentRunning) return
-    const pastedFiles = [
-      ...Array.from(event.clipboardData.files ?? []),
-      ...filesFromTransferItems(event.clipboardData.items)
-    ]
-    const uniqueFiles = Array.from(new Map(pastedFiles.map((file) => [`${file.name}:${file.size}:${file.lastModified}`, file])).values())
-
-    if (!uniqueFiles.some((file) => isImageAttachmentFile(file) || isTextAttachmentFile(file))) {
-      return
-    }
-
-    event.preventDefault()
-    void addCodexAgentFiles(uniqueFiles)
-  }
-
-  const handleCodexAgentDragOver = (event: ReactDragEvent<HTMLElement>) => {
-    if (codexAgentRunning || !Array.from(event.dataTransfer.types).includes('Files')) return
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'copy'
-  }
-
-  const handleCodexAgentDrop = (event: ReactDragEvent<HTMLElement>) => {
-    if (codexAgentRunning) return
-    const droppedFiles = [
-      ...Array.from(event.dataTransfer.files ?? []),
-      ...filesFromTransferItems(event.dataTransfer.items)
-    ]
-    const uniqueFiles = Array.from(new Map(droppedFiles.map((file) => [`${file.name}:${file.size}:${file.lastModified}`, file])).values())
-
-    if (!uniqueFiles.some((file) => isImageAttachmentFile(file) || isTextAttachmentFile(file))) {
-      return
-    }
-
-    event.preventDefault()
-    void addCodexAgentFiles(uniqueFiles)
-  }
-
-  const removeCodexAgentAttachment = (id: string) => {
-    setCodexAgentAttachments((current) => current.filter((attachment) => attachment.id !== id))
-    setCodexAgentPreviewAttachment((current) => current?.id === id ? null : current)
-  }
-
-  const applyCodexAgentCommand = (command: LocalAgentCommand) => {
-    const commandText = command.insert({
-      agentLabel: localAgentLabel(codexAgentProvider),
-      modelLabel: assistantSelectionLabel(codexAgentAssistant),
-      reasoning: codexAgentReasoning,
-      access: codexAgentSandbox,
-      filePath: selectedPath || undefined
-    })
-    const nextPrompt = codexAgentPrompt.replace(/(?:^|\n)\/([a-z-]*)$/i, (match) => {
-      const prefix = match.startsWith('\n') ? '\n' : ''
-      return `${prefix}${commandText}`
-    })
-
-    setCodexAgentPrompt(nextPrompt)
-    window.setTimeout(() => {
-      const textarea = codexAgentTextareaRef.current
-      if (!textarea) return
-      textarea.focus()
-      textarea.setSelectionRange(nextPrompt.length, nextPrompt.length)
-    }, 0)
-  }
-
-  const runCodexAgentPanel = async () => {
-    if (!api || !currentRepoPath || codexAgentRunning) return
-    const providerLabel = localAgentLabel(codexAgentProvider)
-    const prompt = codexAgentPrompt.trim()
-    if (!prompt && !selectedPath && codexAgentAttachments.length === 0) {
-      setCodexAgentError('Enter a prompt, select a file, or attach a file.')
-      return
-    }
-
-    if (codexAgentSandbox !== 'read-only') {
-      const confirmed = await requestConfirmation(
-        codexAgentSandbox === 'danger-full-access'
-          ? `Run ${providerLabel} with full access? It may edit files, run local commands, and push to remotes if your prompt asks for it.`
-          : `Run ${providerLabel} with workspace write access? It may edit files inside this repository.`,
-        {
-          title: codexAgentSandbox === 'danger-full-access' ? `Run ${providerLabel} Full Access` : `Run ${providerLabel} Locally`,
-          confirmLabel: codexAgentSandbox === 'danger-full-access' ? 'Run full access' : 'Run locally',
-          variant: 'danger'
-        }
-      )
-
-      if (!confirmed) return
-    }
-
-    const includeFileText = selectedPath && viewMode !== 'image' && viewMode !== 'hex' && !textUnavailableMessage && !fileError
-    const fileText = includeFileText ? flushActiveEditorDraftText() : undefined
-
-    setCodexAgentRunning(true)
-    setCodexAgentError(null)
-
-    try {
-      const result = await api.runCodexAgent({
-        repoPath: currentRepoPath,
-        assistant: localAgentProviderForAssistant(codexAgentAssistant) === codexAgentProvider
-          ? codexAgentAssistant
-          : localAgentDefaultAssistant(codexAgentProvider),
-        prompt,
-        filePath: selectedPath || undefined,
-        fileText,
-        diagnostics: diagnostics.slice(0, 20).map((diagnostic) => ({
-          lineNumber: diagnostic.lineNumber,
-          column: diagnostic.column,
-          message: diagnostic.message,
-          source: diagnostic.source
-        })),
-        sandbox: codexAgentSandbox,
-        reasoning: codexAgentReasoning,
-        attachments: codexAgentAttachments.map((attachment): CodexAgentAttachment => ({
-          kind: attachment.kind,
-          name: attachment.name,
-          mimeType: attachment.mimeType,
-          dataUrl: attachment.dataUrl,
-          text: attachment.text,
-          sizeBytes: attachment.sizeBytes
-        }))
-      })
-
-      if (!result.ok) {
-        setCodexAgentError(friendlyAgentErrorMessage(result.error, `${providerLabel} agent failed.`))
-        return
-      }
-
-      setCodexAgentResult(result.data)
-      setNotice(`${providerLabel} agent finished in ${Math.max(1, Math.round(result.data.durationMs / 1000))}s.`)
-
-      if (codexAgentSandbox !== 'read-only') {
-        await runSnapshotAction(`${providerLabel} agent refreshed repository.`, () => api.refreshRepository(currentRepoPath))
-      }
-    } catch (error) {
-      setCodexAgentError(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', `${providerLabel} agent failed.`))
-    } finally {
-      setCodexAgentRunning(false)
-    }
-  }
-
-  const beautifyFile = () => {
-    if (!selectedPath || chunkedTextActive || fileLoading || fileError || textUnavailableMessage || viewMode === 'image') return
-    const currentText = flushActiveEditorDraftText()
-    setBeautifying(true)
-    try {
-      const nextText = beautifyTextLocally(selectedPath, currentText)
-      if (!beautifyPreservesTokens(currentText, nextText)) {
-        setNotice('Beautify was rejected because it changed code tokens. No changes applied.')
-        return
-      }
-
-      if (nextText === currentText) {
-        setNotice('Beautify made no changes.')
-        return
-      }
-
-      resetAfterBeautify(nextText)
-    } catch (error) {
-      setNotice(error instanceof Error ? `Beautify failed: ${error.message}` : 'Beautify failed.')
-    } finally {
-      setBeautifying(false)
-    }
-  }
-
-  const beautifyFileWithAi = async () => {
-    if (!api || !currentRepoPath || !selectedPath || chunkedTextActive || fileLoading || fileError || textUnavailableMessage || viewMode === 'image') return
-    const currentText = flushActiveEditorDraftText()
-    setAiBeautifying(true)
-    try {
-      const result = await api.beautifyFileWithAssistant({
-        repoPath: currentRepoPath,
-        assistant: selectedAssistant,
-        filePath: selectedPath,
-        text: currentText
-      })
-
-      if (!result.ok) {
-        setNotice(friendlyIpcErrorMessage(result.error.message, 'AI beautify failed.'))
-        return
-      }
-
-      const nextText = normalizeTextForEditor(result.data.content)
-      if (!beautifyPreservesTokens(currentText, nextText)) {
-        setNotice('AI Beautify was rejected because it changed code tokens. No changes applied.')
-        return
-      }
-
-      if (nextText === currentText) {
-        setNotice('AI Beautify made no changes.')
-        return
-      }
-
-      resetAfterBeautify(nextText)
-    } catch (error) {
-      setNotice(friendlyIpcErrorMessage(error instanceof Error ? error.message : '', 'AI beautify failed.'))
-    } finally {
-      setAiBeautifying(false)
-    }
-  }
+  const {
+    saving,
+    beautifying,
+    aiBeautifying,
+    saveFile,
+    beautifyFile,
+    beautifyFileWithAi
+  } = useEditorSaveActions({
+    api,
+    currentRepoPath,
+    selectedPath,
+    selectedAssistant,
+    viewMode,
+    fileLoading,
+    fileError,
+    textUnavailableMessage,
+    textSaveBlocked,
+    chunkedTextActive,
+    chunkedTextPreview,
+    setChunkedTextPreview,
+    originalText,
+    setOriginalText,
+    setDraftText,
+    hexDirty,
+    hexBytes,
+    setHexBytes,
+    hexStartOffset,
+    hexEndOffset,
+    hexFullFileLoaded,
+    setHexOriginalText,
+    setHexDraftText,
+    setActiveHexByteIndex,
+    hexDraftTextForSave,
+    flushActiveEditorDraftText,
+    applyEditorTextChange,
+    runSnapshotAction,
+    setNotice
+  })
 
   const revertLiveChange = (change: LiveLineChange) => {
     const snapshot = editorTextSnapshot()
@@ -6828,194 +1483,46 @@ export function ChangesInternalEditor({
     }
   }
 
-  const syncHexScroll = (event: ReactUIEvent<HTMLDivElement>) => {
-    const nextScrollTop = event.currentTarget.scrollTop
-    const scrollingDown = nextScrollTop > lastHexScrollTopRef.current
-    const scrollingUp = nextScrollTop < lastHexScrollTopRef.current
-    lastHexScrollTopRef.current = nextScrollTop
-
-    if (!hexBytes || hexLoading || window.performance.now() < suppressAutoHexChunkUntilRef.current) return
-
-    const remainingScroll = event.currentTarget.scrollHeight - nextScrollTop - event.currentTarget.clientHeight
-    if (scrollingDown && hexBytes.hasMore && remainingScroll < 72) {
-      void loadHexChunk(hexBytes.endOffset, hexBytes.endOffset, { scrollPlacement: 'start' })
-      return
-    }
-
-    if (scrollingUp && hexBytes.startOffset > 0 && nextScrollTop < 72) {
-      const previousOffset = Math.max(0, hexBytes.startOffset - HEX_CHUNK_BYTES)
-      const selectOffset = Math.max(0, hexBytes.startOffset - 1)
-      void loadHexChunk(previousOffset, selectOffset, { scrollPlacement: 'end' })
-    }
-  }
-
   return (
     <section className="changes-internal-editor" ref={editorRef} style={editorStyle}>
-      <aside className="changes-editor-sidebar">
-        <div className="changes-editor-sidebar-actions">
-          <button type="button" className="secondary changes-editor-back" onClick={onBack}>
-            <ArrowLeft size={16} />
-            Back to diff
-          </button>
-          <div
-            className={`changes-editor-health-menu health-${healthPanelSeverity}${healthEnabled ? ' is-enabled' : ' is-disabled'}`}
-            ref={healthMenuRef}
-          >
-            <button
-              type="button"
-              className="changes-editor-health-trigger"
-              title={healthSummaryTitle}
-              aria-expanded={healthMenuOpen}
-              onClick={() => setHealthMenuOpen((open) => !open)}
-            >
-              <Activity size={15} />
-              <span>Health</span>
-              <strong>{healthEnabled ? (healthSignalCount || 'OK') : 'off'}</strong>
-            </button>
-            {healthMenuOpen && (
-              <div className="changes-editor-health-panel" role="dialog" aria-label="Module health settings">
-                <header>
-                  <div>
-                    <strong>Module health</strong>
-                    <span>Live checks mark file rows from the git snapshot. On-open checks run only after a file is opened.</span>
-                  </div>
-                  <div className="changes-editor-health-actions">
-                    <button type="button" onClick={() => void runAllFilesHealthCheck()} disabled={healthRunDisabled}>
-                      <RefreshCw className={healthScanState.status === 'running' ? 'spin' : undefined} size={13} />
-                      Run all files
-                    </button>
-                    <button type="button" onClick={() => updateHealthSettings({ enabled: !healthEnabled })}>
-                      {healthEnabled ? 'Disable' : 'Enable'}
-                    </button>
-                  </div>
-                </header>
-                <section className="changes-editor-health-mode-grid">
-                  <span>Run model</span>
-                  <p className="health-mode-card">
-                    <b>Live, all files</b>
-                    Runs without opening file contents: conflict status and change pressure from added/deleted git lines. These can show row icons immediately.
-                  </p>
-                  <p className="health-mode-card">
-                    <b>On open / click</b>
-                    Runs for the active file only: chunked ranges, load limits, lint diagnostics, dirty draft, and dense rendered chunks.
-                  </p>
-                </section>
-                <section>
-                  <span>Last all-files run</span>
-                  <strong>{healthScanSummary}</strong>
-                  {healthScanState.error && <p className="danger-text">{healthScanState.error}</p>}
-                </section>
-                <section className="changes-editor-health-settings">
-                  <span>Live checks</span>
-                  {renderHealthToggle('rowSignals', 'File row signals', 'Show problem icons next to files when health is enabled.')}
-                  {renderHealthToggle('mainConflicts', 'Git conflicts', 'Flag conflicted files from repository status.')}
-                  {renderHealthToggle('mainChurn', 'Change pressure', 'Flag files with many added/deleted lines.')}
-                </section>
-                <section className="changes-editor-health-settings">
-                  <span>On-open checks</span>
-                  {renderHealthToggle('fileChunkedRanges', 'Chunked ranges', 'Flag language files and hex files loaded by chunks.')}
-                  {renderHealthToggle('fileDiagnostics', 'Lint diagnostics', 'Promote current lint issues into health.')}
-                  {renderHealthToggle('fileDirtyDraft', 'Unsaved draft', 'Flag the active file while it has unsaved editor edits.')}
-                  {renderHealthToggle('fileLoadLimits', 'Load limits', 'Flag binary/preview-only/error states for the opened file.')}
-                  {renderHealthToggle('fileDenseChunk', 'Dense editor chunks', 'Warn when the currently loaded chunk has many rendered lines.')}
-                </section>
-                <section className="changes-editor-health-settings">
-                  <span>Thresholds</span>
-                  {renderHealthNumber('churnWarning', 'Churn warning', 'Added + deleted lines before a warning.')}
-                  {renderHealthNumber('churnCritical', 'Churn critical', 'Added + deleted lines before a critical signal.')}
-                  {renderHealthNumber('denseChunkWarning', 'Dense chunk lines', 'Rendered lines in the opened chunk before warning.')}
-                  <button type="button" className="secondary" onClick={resetHealthSettings}>
-                    Reset health settings
-                  </button>
-                </section>
-                {healthEnabled ? (
-                  <>
-                    <section>
-                      <span>Selected file</span>
-                      <strong>{selectedPath || 'No file selected'}</strong>
-                      {selectedHealthReport.issues.length === 0 ? (
-                        <p>No lightweight issues found for this file.</p>
-                      ) : (
-                        selectedHealthReport.issues.map((issue) => (
-                          <p className={`health-issue health-${issue.severity}`} key={`${issue.run}-${issue.category}-${issue.title}`}>
-                            <span className="health-issue-head">
-                              <b>{issue.title}</b>
-                              <span className={`health-run-badge health-run-${issue.run}`}>{healthRunLabel(issue.run)}</span>
-                            </span>
-                            {issue.detail}
-                          </p>
-                        ))
-                      )}
-                    </section>
-                    {liveHealthReports.length > 0 && (
-                      <section>
-                        <span>Live repository signals</span>
-                        {liveHealthReports.map(({ path, report }) => (
-                          <button
-                            type="button"
-                            key={path}
-                            onClick={() => {
-                              setSelectedPath(path)
-                              setHealthMenuOpen(false)
-                            }}
-                          >
-                            <Activity size={12} />
-                            <strong>{path}</strong>
-                            <small>
-                              {report.issues[0] && (
-                                <span className={`health-run-badge health-run-${report.issues[0].run}`}>
-                                  {healthRunLabel(report.issues[0].run)}
-                                </span>
-                              )}
-                              {report.issues[0]?.title}
-                            </small>
-                          </button>
-                        ))}
-                      </section>
-                    )}
-                  </>
-                ) : (
-                  <section>
-                    <span>Disabled</span>
-                    <p>Health checks are off. File rows will not show health signals.</p>
-                  </section>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-        <label className="changes-editor-search">
-          <Search size={15} />
-          <input value={fileQuery} onChange={(event) => setFileQuery(event.target.value)} placeholder="Search files and content" />
-        </label>
-        {query && (
-          <div className="changes-editor-content-search-status">
-            {fileContentSearchState.error ? (
-              <span className="danger-text">{fileContentSearchState.error}</span>
-            ) : fileContentSearchState.status === 'searching' ? (
-              <span>Searching content...</span>
-            ) : fileContentMatchCount > 0 ? (
-              <span>{fileContentMatchCount} content match{fileContentMatchCount === 1 ? '' : 'es'}{fileContentSearchState.truncated ? ' (limited)' : ''}</span>
-            ) : (
-              <span>Path + content search</span>
-            )}
-          </div>
-        )}
-        <div className="changes-editor-file-list">
-          {filesLoading ? (
-            <div className="quiet-box">Loading files.</div>
-          ) : filesError ? (
-            <div className="quiet-box danger-text">{filesError}</div>
-          ) : visibleFiles.length === 0 ? (
-            <div className="quiet-box">{fileContentSearchState.status === 'searching' ? 'Searching file contents.' : 'No files match this search.'}</div>
-          ) : (
-            <div className="changes-editor-tree-root">
-              {visibleFileTree.files.map((file) => renderFileRow(file, file.path))}
-              {visibleFileTree.children.map((folder) => renderFolderTree(folder, 0))}
-            </div>
-          )}
-        </div>
-      </aside>
+      <EditorSidebar
+        onBack={onBack}
+        fileQuery={fileQuery}
+        setFileQuery={setFileQuery}
+        query={query}
+        fileContentMatchCount={fileContentMatchCount}
+        healthMenuRef={healthMenuRef}
+        healthPanelSeverity={healthPanelSeverity}
+        healthEnabled={healthEnabled}
+        healthSummaryTitle={healthSummaryTitle}
+        healthMenuOpen={healthMenuOpen}
+        setHealthMenuOpen={setHealthMenuOpen}
+        healthSignalCount={healthSignalCount}
+        runAllFilesHealthCheck={runAllFilesHealthCheck}
+        healthRunDisabled={healthRunDisabled}
+        healthScanState={healthScanState}
+        healthScanSummary={healthScanSummary}
+        healthSettings={healthSettings}
+        updateHealthSettings={updateHealthSettings}
+        resetHealthSettings={resetHealthSettings}
+        selectedPath={selectedPath}
+        selectedHealthReport={selectedHealthReport}
+        liveHealthReports={liveHealthReports}
+        setSelectedPath={setSelectedPath}
+        filesLoading={filesLoading}
+        filesError={filesError}
+        visibleFiles={visibleFiles}
+        fileContentSearchState={fileContentSearchState}
+        visibleFileTree={visibleFileTree}
+        changeByPath={changeByPath}
+        dirty={dirty}
+        healthRowSignals={healthSettings.rowSignals}
+        fileHealthByPath={fileHealthByPath}
+        fileContentMatches={fileContentMatches}
+        selectedFileRowRef={selectedFileRowRef}
+        openRepositoryFileRow={openRepositoryFileRow}
+        openFileContextMenu={openFileContextMenu}
+      />
 
       <div
         className="changes-editor-splitter"
@@ -7047,414 +1554,96 @@ export function ChangesInternalEditor({
             </p>
             {renderViewModeTabs()}
           </div>
-          <div className="changes-editor-header-actions">
-            <label className="changes-editor-file-search">
-              <Search size={15} />
-              <input
-                ref={fileSearchInputRef}
-                value={fileSearchQuery}
-                onChange={(event) => setFileSearchQuery(event.target.value)}
-                onKeyDown={handleFileSearchKeyDown}
-                placeholder="Search in file / :line"
-                title="Search text, or jump to a line with 120, :120, #120, or :120:5"
-                disabled={!selectedPath || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image' || viewMode === 'hex'}
-              />
-              {fileSearchQuery && (
-                <button type="button" title="Clear file search" aria-label="Clear file search" onClick={() => setFileSearchQuery('')}>
-                  <X size={14} />
-                </button>
-              )}
-              <span className="changes-editor-search-count">
-                {fileLineSearchTarget
-                  ? `line ${fileLineSearchTarget.lineNumber}${fileLineSearchTarget.column > 0 ? `:${fileLineSearchTarget.column + 1}` : ''}`
-                  : fileSearchQuery.trim()
-                  ? `${activeSearchIndex >= 0 ? activeSearchIndex + 1 : 0}/${fileSearchMatches.length}${fileSearchOverflow ? '+' : ''}`
-                  : '0/0'}
-              </span>
-              <button type="button" title={fileLineSearchTarget ? 'Go to line' : 'Previous match'} aria-label={fileLineSearchTarget ? 'Go to line' : 'Previous match'} disabled={!fileLineSearchTarget && fileSearchMatches.length === 0} onClick={() => (fileLineSearchTarget ? focusFileLineSearchTarget() : activateSearchMatch(activeSearchIndex < 0 ? -1 : activeSearchIndex - 1))}>
-                <ChevronUp size={14} />
-              </button>
-              <button type="button" title={fileLineSearchTarget ? 'Go to line' : 'Next match'} aria-label={fileLineSearchTarget ? 'Go to line' : 'Next match'} disabled={!fileLineSearchTarget && fileSearchMatches.length === 0} onClick={() => (fileLineSearchTarget ? focusFileLineSearchTarget() : activateSearchMatch(activeSearchIndex < 0 ? 0 : activeSearchIndex + 1))}>
-                <ChevronDown size={14} />
-              </button>
-            </label>
-            <button
-              type="button"
-              className={[
-                'changes-editor-tool-button',
-                'compact-icon',
-                'changes-editor-live-toggle',
-                showLiveChangesPanel ? 'active' : ''
-              ].filter(Boolean).join(' ')}
-              onClick={() => setLiveChangesOpen((open) => !open)}
-              disabled={!selectedPath || !textDirty || fileLoading || viewMode !== 'code' || Boolean(textUnavailableMessage)}
-              title={liveChangesOpen ? 'Hide live changes' : 'Show live changes'}
-              aria-label={liveChangesOpen ? 'Hide live changes' : 'Show live changes'}
-              aria-pressed={showLiveChangesPanel}
-            >
-              <FileCode2 size={15} />
-              {textDirty && (
-                <span className="changes-editor-icon-badge" aria-hidden="true">
-                  {liveChangesStale ? '...' : editedLines}
-                </span>
-              )}
-              <span className="changes-editor-button-label">Live changes</span>
-            </button>
-            <details className={lintMenuClassName}>
-              <summary
-                title={selectedLintSupported ? 'Lint current file' : 'Lint supports JSON, JSONC, JS, TS, JSX, and TSX files'}
-                onClick={(event) => {
-                  if (!selectedLintSupported || lintBlocked) event.preventDefault()
-                }}
-              >
-                <Code2 size={15} />
-                Lint
-                {lintBadgeLabel && <span>{lintBadgeLabel}</span>}
-              </summary>
-              <div className="changes-editor-lint-popover">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault()
-                    runLint(true)
-                  }}
-                  disabled={!selectedLintSupported || lintBlocked || lintRunState.status === 'running'}
-                >
-                  {lintRunState.status === 'running' ? 'Running lint...' : 'Run lint now'}
-                </button>
-                <div className={`changes-editor-lint-status ${lintRunState.status}`} aria-live="polite">
-                  <strong>{lintRunState.message}</strong>
-                  <span>{lintRunState.detail}</span>
-                </div>
-                {diagnostics.length > 0 && (
-                  <div className="changes-editor-lint-issues">
-                    {diagnostics.slice(0, 6).map((diagnostic, index) => (
-                      <button
-                        type="button"
-                        key={`${diagnostic.lineNumber}-${diagnostic.column}-${index}`}
-                        onClick={(event) => {
-                          event.preventDefault()
-                          goToDiagnostic(diagnostic)
-                        }}
-                      >
-                        <code>{diagnostic.lineNumber}:{diagnostic.column}</code>
-                        <span>{diagnostic.message}</span>
-                      </button>
-                    ))}
-                    {diagnostics.length > 6 && <small>{diagnostics.length - 6} more issues below.</small>}
-                  </div>
-                )}
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={lintSettings.autoValidate}
-                    onChange={(event) => updateLintSettings({ autoValidate: event.currentTarget.checked })}
-                  />
-                  Auto validate on open/edit
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={lintSettings.validateJson}
-                    onChange={(event) => updateLintSettings({ validateJson: event.currentTarget.checked })}
-                  />
-                  JSON syntax
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={lintSettings.allowJsonComments}
-                    onChange={(event) => updateLintSettings({ allowJsonComments: event.currentTarget.checked })}
-                    disabled={!lintSettings.validateJson}
-                  />
-                  JSONC comments for config files
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={lintSettings.allowJsonTrailingCommas}
-                    onChange={(event) => updateLintSettings({ allowJsonTrailingCommas: event.currentTarget.checked })}
-                    disabled={!lintSettings.validateJson}
-                  />
-                  JSONC trailing commas
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={lintSettings.validateScripts}
-                    onChange={(event) => updateLintSettings({ validateScripts: event.currentTarget.checked })}
-                  />
-                  JS/TS brackets and strings
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={lintSettings.validateRegexLiterals}
-                    onChange={(event) => updateLintSettings({ validateRegexLiterals: event.currentTarget.checked })}
-                    disabled={!lintSettings.validateScripts}
-                  />
-                  JS/TS regex literals
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={lintSettings.validateJsxTsx}
-                    onChange={(event) => updateLintSettings({ validateJsxTsx: event.currentTarget.checked })}
-                  />
-                  JSX/TSX safe checks
-                </label>
-              </div>
-            </details>
-            {LOCAL_AGENT_PROVIDERS.map((provider) => (
-              <button
-                type="button"
-                className={[
-                  'changes-editor-tool-button',
-                  'compact-icon',
-                  'changes-editor-codex-toggle',
-                  `agent-${provider.value}`,
-                  codexAgentOpen && codexAgentProvider === provider.value ? 'active' : ''
-                ].filter(Boolean).join(' ')}
-                onClick={() => {
-                  if (codexAgentOpen && codexAgentProvider === provider.value) {
-                    setCodexAgentOpen(false)
-                    return
-                  }
-                  selectLocalAgentProvider(provider.value)
-                }}
-                disabled={!api || !currentRepoPath}
-                title={codexAgentOpen && codexAgentProvider === provider.value ? `Hide ${provider.label} agent` : `Open ${provider.label} agent`}
-                aria-label={codexAgentOpen && codexAgentProvider === provider.value ? `Hide ${provider.label} agent` : `Open ${provider.label} agent`}
-                aria-pressed={codexAgentOpen && codexAgentProvider === provider.value}
-                key={provider.value}
-              >
-                <LocalAgentBrandIcon provider={provider.value} />
-                <span className="changes-editor-button-label">{provider.label}</span>
-              </button>
-            ))}
-            <button
-              type="button"
-              className="changes-editor-tool-button compact-icon"
-              onClick={beautifyFile}
-              disabled={!selectedPath || chunkedTextActive || beautifying || aiBeautifying || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image'}
-              title={chunkedTextActive ? 'Beautify is disabled for file chunks' : beautifying ? 'Beautifying...' : 'Beautify locally'}
-              aria-label={chunkedTextActive ? 'Beautify is disabled for file chunks' : 'Beautify locally'}
-            >
-              <Sparkles size={15} />
-              <span className="changes-editor-button-label">{beautifying ? 'Beautifying...' : 'Beautify'}</span>
-            </button>
-            <button
-              type="button"
-              className="changes-editor-tool-button compact-icon ai"
-              onClick={beautifyFileWithAi}
-              disabled={!api || !currentRepoPath || !selectedPath || chunkedTextActive || beautifying || aiBeautifying || fileLoading || Boolean(fileError) || Boolean(textUnavailableMessage) || viewMode === 'image'}
-              title={chunkedTextActive ? 'AI Beautify is disabled for file chunks' : aiBeautifying ? 'AI beautifying...' : 'Beautify with assistant'}
-              aria-label={chunkedTextActive ? 'AI Beautify is disabled for file chunks' : 'Beautify with assistant'}
-            >
-              <WandSparkles size={15} />
-              <span className="changes-editor-button-label">{aiBeautifying ? 'AI...' : 'AI Beautify'}</span>
-            </button>
-            <button
-              type="button"
-              className="changes-editor-save-button compact-icon"
-              onClick={saveFile}
-              disabled={!selectedPath || textSaveBlocked || saving || fileLoading || hexLoading || Boolean(fileError) || Boolean(parsedHexDraft.error) || (Boolean(textUnavailableMessage) && !hexDirty)}
-              title={saving ? 'Saving file...' : 'Save file'}
-              aria-label="Save file"
-            >
-              <Save size={16} />
-              <span className="changes-editor-button-label">{saving ? 'Saving...' : 'Save file'}</span>
-            </button>
-          </div>
+          <EditorHeaderActions
+            fileSearchInputRef={fileSearchInputRef}
+            fileSearchQuery={fileSearchQuery}
+            setFileSearchQuery={setFileSearchQuery}
+            handleFileSearchKeyDown={handleFileSearchKeyDown}
+            fileLineSearchTarget={fileLineSearchTarget}
+            activeSearchIndex={activeSearchIndex}
+            fileSearchMatchCount={fileSearchMatches.length}
+            fileSearchOverflow={fileSearchOverflow}
+            focusFileLineSearchTarget={focusFileLineSearchTarget}
+            activateSearchMatch={activateSearchMatch}
+            selectedPath={selectedPath}
+            fileLoading={fileLoading}
+            fileError={fileError}
+            textUnavailableMessage={textUnavailableMessage}
+            viewMode={viewMode}
+            showLiveChangesPanel={showLiveChangesPanel}
+            setLiveChangesOpen={setLiveChangesOpen}
+            textDirty={textDirty}
+            liveChangesOpen={liveChangesOpen}
+            liveChangesStale={liveChangesStale}
+            editedLines={editedLines}
+            lintMenuClassName={lintMenuClassName}
+            selectedLintSupported={selectedLintSupported}
+            lintBlocked={lintBlocked}
+            lintBadgeLabel={lintBadgeLabel}
+            lintRunState={lintRunState}
+            runLint={runLint}
+            diagnostics={diagnostics}
+            goToDiagnostic={goToDiagnostic}
+            lintSettings={lintSettings}
+            updateLintSettings={updateLintSettings}
+            apiReady={Boolean(api && currentRepoPath)}
+            codexAgentOpen={codexAgentOpen}
+            codexAgentProvider={codexAgentProvider}
+            setCodexAgentOpen={setCodexAgentOpen}
+            selectLocalAgentProvider={selectLocalAgentProvider}
+            beautifyFile={beautifyFile}
+            beautifyFileWithAi={beautifyFileWithAi}
+            beautifying={beautifying}
+            aiBeautifying={aiBeautifying}
+            chunkedTextActive={chunkedTextActive}
+            saveFile={saveFile}
+            saving={saving}
+            hexLoading={hexLoading}
+            parsedHexError={parsedHexDraft.error}
+            hexDirty={hexDirty}
+            textSaveBlocked={textSaveBlocked}
+          />
         </header>
 
         {codexAgentOpen && (
-          <section className="changes-editor-codex-panel" aria-label={`${localAgentLabel(codexAgentProvider)} agent`}>
-            <header className="changes-editor-codex-head">
-              <div>
-                <LocalAgentBrandIcon provider={codexAgentProvider} size={34} />
-                <div>
-                  <strong>{localAgentLabel(codexAgentProvider)} agent</strong>
-                  <span>{selectedPath || 'Repository context'}</span>
-                </div>
-              </div>
-              <div className="changes-editor-codex-inline-controls">
-                <label>
-                  <span>Model</span>
-                  <select value={codexAgentAssistant} onChange={(event) => setCodexAgentAssistant(event.currentTarget.value as AssistantId)}>
-                    {localAgentModelOptions(codexAgentProvider).map((option) => (
-                      <option key={option.id} value={option.id}>{assistantSelectionLabel(option.id)}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Reasoning</span>
-                  <select value={codexAgentReasoning} onChange={(event) => setCodexAgentReasoning(event.currentTarget.value as CodexAgentReasoning)}>
-                    {CODEX_AGENT_REASONING_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Access</span>
-                  <select value={codexAgentSandbox} onChange={(event) => setCodexAgentSandbox(event.currentTarget.value as CodexAgentSandbox)}>
-                    {CODEX_AGENT_SANDBOX_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  className={`changes-editor-codex-usage status-${codexAgentStatusLabel}`}
-                  onClick={() => void checkAssistants()}
-                  disabled={assistantsChecking}
-                  title={codexAgentStatusMessage}
-                  aria-label={`Refresh ${localAgentLabel(codexAgentProvider)} usage status`}
-                >
-                  <span>Usage</span>
-                  <strong>{codexAgentUsageText}</strong>
-                  <RefreshCw className={assistantsChecking ? 'spin' : ''} size={13} />
-                </button>
-              </div>
-              <div className="changes-editor-codex-head-actions">
-                {codexAgentResult && (
-                  <span className="changes-editor-codex-meta">
-                    {Math.max(1, Math.round(codexAgentResult.durationMs / 1000))}s - {codexAgentResult.sandbox}
-                  </span>
-                )}
-                <button type="button" className="compact-icon" onClick={() => setCodexAgentOpen(false)} title={`Close ${localAgentLabel(codexAgentProvider)} agent`} aria-label={`Close ${localAgentLabel(codexAgentProvider)} agent`}>
-                  <X size={15} />
-                </button>
-              </div>
-            </header>
-
-            <div className="changes-editor-codex-body">
-              <div
-                className="changes-editor-codex-composer"
-                onDragOver={handleCodexAgentDragOver}
-                onDrop={handleCodexAgentDrop}
-                onPaste={handleCodexAgentPaste}
-              >
-                <textarea
-                  ref={codexAgentTextareaRef}
-                  value={codexAgentPrompt}
-                  onChange={(event) => setCodexAgentPrompt(event.currentTarget.value)}
-                  onFocus={() => setCodexAgentPromptFocused(true)}
-                  onBlur={() => window.setTimeout(() => setCodexAgentPromptFocused(false), 120)}
-                  placeholder={`Ask ${localAgentLabel(codexAgentProvider)} about this file, attach screenshots, or ask it to make a local change.`}
-                  rows={4}
-                  disabled={codexAgentRunning}
-                />
-                {codexAgentCommandSuggestions.length > 0 && (
-                  <div className="changes-editor-codex-command-menu" role="listbox" aria-label="Agent commands">
-                    {codexAgentCommandSuggestions.map((command) => (
-                      <button
-                        type="button"
-                        key={command.id}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => applyCodexAgentCommand(command)}
-                      >
-                        <strong>{command.label}</strong>
-                        <span>{command.detail}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="changes-editor-codex-attachments">
-                  {codexAgentAttachments.map((attachment) => (
-                    <span
-                      className={`changes-editor-codex-attachment attachment-${attachment.kind}${codexAgentPreviewAttachment?.id === attachment.id ? ' active' : ''}`}
-                      key={attachment.id}
-                    >
-                      <button
-                        type="button"
-                        className="changes-editor-codex-attachment-preview"
-                        onClick={() => setCodexAgentPreviewAttachment(attachment)}
-                        title={`Preview ${attachment.name}`}
-                      >
-                        {attachment.kind === 'image' && attachment.dataUrl
-                          ? <img src={attachment.dataUrl} alt="" aria-hidden="true" />
-                          : <FileCode2 size={14} aria-hidden="true" />}
-                        <span className="changes-editor-codex-attachment-name">{attachment.name}{attachment.truncated ? ' (truncated)' : ''}</span>
-                      </button>
-                      <button type="button" className="changes-editor-codex-attachment-remove" onClick={() => removeCodexAgentAttachment(attachment.id)} aria-label={`Remove ${attachment.name}`}>
-                        <X size={13} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                {codexAgentPreviewAttachment && (
-                  <div className="changes-editor-codex-preview">
-                    <header>
-                      <strong>{codexAgentPreviewAttachment.name}</strong>
-                      <button type="button" onClick={() => setCodexAgentPreviewAttachment(null)} aria-label="Close attachment preview">
-                        <X size={13} />
-                      </button>
-                    </header>
-                    {codexAgentPreviewAttachment.kind === 'image' && codexAgentPreviewAttachment.dataUrl ? (
-                      <img src={codexAgentPreviewAttachment.dataUrl} alt={codexAgentPreviewAttachment.name} />
-                    ) : (
-                      <pre>{codexAgentPreviewAttachment.text || '(empty file)'}</pre>
-                    )}
-                  </div>
-                )}
-                <footer>
-                  <label className="changes-editor-codex-upload">
-                    <input type="file" multiple onChange={addCodexAgentAttachments} disabled={codexAgentRunning || codexAgentAttachments.length >= CODEX_AGENT_ATTACHMENT_LIMIT} />
-                    <Paperclip size={15} />
-                    <span>{codexAgentAttachments.length ? `${codexAgentAttachments.length}/${CODEX_AGENT_ATTACHMENT_LIMIT} files` : 'Files'}</span>
-                  </label>
-                  <span className="changes-editor-codex-context">
-                    <Paperclip size={14} />
-                    {selectedPath ? 'file + diagnostics' : 'repo context'}
-                  </span>
-                  <button
-                    type="button"
-                    className="changes-editor-codex-run"
-                    onClick={runCodexAgentPanel}
-                    disabled={codexAgentRunning || !api || !currentRepoPath}
-                  >
-                    {codexAgentRunning ? <RefreshCw className="spin" size={15} /> : <SendHorizontal size={15} />}
-                    {codexAgentRunning ? 'Running...' : `Run ${localAgentLabel(codexAgentProvider)}`}
-                  </button>
-                </footer>
-              </div>
-
-              <div className="changes-editor-codex-output">
-                <header>
-                  <BrainCircuit size={15} />
-                  <span>{codexAgentRunning ? 'Working' : codexAgentResult ? 'Result' : 'Ready'}</span>
-                </header>
-                {codexAgentError ? (
-                  <div className="changes-editor-codex-error">{codexAgentError}</div>
-                ) : codexAgentRunning ? (
-                  <SignalStatus className="codex-agent-curtain" label={`Running ${localAgentLabel(codexAgentProvider)}`} detail={`${assistantSelectionLabel(codexAgentAssistant)} - ${codexAgentSandbox}`} />
-                ) : codexAgentResult ? (
-                  <>
-                    <pre>{codexAgentResult.output}</pre>
-                    {codexAgentResult.events.length > 0 && (
-                      <details className="changes-editor-codex-trace">
-                        <summary>Trace - {codexAgentResult.events.length}</summary>
-                        <div>
-                          {codexAgentResult.events.map((event, index) => (
-                            <article key={`${event.type}-${index}`}>
-                              <strong>{event.type}</strong>
-                              <span>{event.text}</span>
-                            </article>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                  </>
-                ) : (
-                  <div className="changes-editor-codex-empty">
-                    <LocalAgentBrandIcon provider={codexAgentProvider} size={58} />
-                    <span>{assistantSelectionLabel(codexAgentAssistant)} - {codexAgentReasoning}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
+          <LocalAgentPanel
+            codexAgentProvider={codexAgentProvider}
+            selectedPath={selectedPath}
+            apiReady={Boolean(api && currentRepoPath)}
+            codexAgentAssistant={codexAgentAssistant}
+            setCodexAgentAssistant={setCodexAgentAssistant}
+            codexAgentReasoning={codexAgentReasoning}
+            setCodexAgentReasoning={setCodexAgentReasoning}
+            codexAgentSandbox={codexAgentSandbox}
+            setCodexAgentSandbox={setCodexAgentSandbox}
+            codexAgentStatusLabel={codexAgentStatusLabel}
+            codexAgentStatusMessage={codexAgentStatusMessage}
+            codexAgentUsageText={codexAgentUsageText}
+            assistantsChecking={assistantsChecking}
+            checkAssistants={checkAssistants}
+            codexAgentResult={codexAgentResult}
+            codexAgentError={codexAgentError}
+            codexAgentRunning={codexAgentRunning}
+            codexAgentLiveEvents={codexAgentLiveEvents}
+            codexAgentStopping={codexAgentStopping}
+            stopCodexAgent={stopCodexAgent}
+            codexAgentPrompt={codexAgentPrompt}
+            setCodexAgentPrompt={setCodexAgentPrompt}
+            setCodexAgentPromptFocused={setCodexAgentPromptFocused}
+            codexAgentTextareaRef={codexAgentTextareaRef}
+            codexAgentCommandSuggestions={codexAgentCommandSuggestions}
+            applyCodexAgentCommand={applyCodexAgentCommand}
+            codexAgentAttachments={codexAgentAttachments}
+            codexAgentPreviewAttachment={codexAgentPreviewAttachment}
+            setCodexAgentPreviewAttachment={setCodexAgentPreviewAttachment}
+            removeCodexAgentAttachment={removeCodexAgentAttachment}
+            addCodexAgentAttachments={addCodexAgentAttachments}
+            handleCodexAgentPaste={handleCodexAgentPaste}
+            handleCodexAgentDragOver={handleCodexAgentDragOver}
+            handleCodexAgentDrop={handleCodexAgentDrop}
+            runCodexAgentPanel={runCodexAgentPanel}
+            onClose={() => setCodexAgentOpen(false)}
+          />
         )}
 
         {fileError ? (
@@ -7475,154 +1664,47 @@ export function ChangesInternalEditor({
               />
             )}
             {showLiveChangesPanel && (
-              <aside className="changes-editor-live-diff" aria-label="Live file changes">
-                <header>
-                  <strong>Live changes</strong>
-                  <span title={liveChangesStale ? 'Updating after typing settles' : undefined}>
-                    {liveChangesStale ? '...' : editedLines}
-                  </span>
-                  <button
-                    type="button"
-                    className="changes-editor-live-close"
-                    onClick={() => setLiveChangesOpen(false)}
-                    title="Close live changes"
-                    aria-label="Close live changes"
-                  >
-                    <X size={14} />
-                  </button>
-                </header>
-                <div>
-                  {liveChanges.slice(0, 120).map((change, index) => (
-                    <article className={`changes-editor-live-row ${change.kind}`} key={`${index}-${change.lineNumber}-${change.kind}`}>
-                      <button
-                        type="button"
-                        className="changes-editor-live-jump"
-                        onClick={() => focusLiveChange(change)}
-                        title={`Go to line ${change.lineNumber}`}
-                        aria-label={`Go to changed line ${change.lineNumber}`}
-                      >
-                        <span>{change.lineNumber}</span>
-                        <code>{highlight(change.after || change.before || ' ', selectedLang)}</code>
-                      </button>
-                      <button
-                        type="button"
-                        className="changes-editor-live-revert"
-                        onClick={() => revertLiveChange(change)}
-                        title={change.kind === 'added' ? 'Remove this added line' : 'Revert this line'}
-                        aria-label={change.kind === 'added' ? `Remove added line ${change.lineNumber}` : `Revert line ${change.lineNumber}`}
-                      >
-                        <RotateCcw size={13} />
-                      </button>
-                      {change.kind === 'modified' && <small>{highlight(change.before || ' ', selectedLang)}</small>}
-                    </article>
-                  ))}
-                  {liveChanges.length > 120 && <p>{liveChanges.length - 120} more changed lines.</p>}
-                </div>
-              </aside>
+              <LiveChangesPanel
+                liveChanges={liveChanges}
+                liveChangesStale={liveChangesStale}
+                editedLines={editedLines}
+                selectedLang={selectedLang}
+                onClose={() => setLiveChangesOpen(false)}
+                focusLiveChange={focusLiveChange}
+                revertLiveChange={revertLiveChange}
+              />
             )}
           </div>
         )}
         {selectedPath && viewMode === 'code' && !fileError && !textUnavailableMessage && (
-          <footer className="changes-editor-status-bar">
-            <span className="changes-editor-status-position">
-              Ln {editorSelection.lineNumber}, Col {editorSelection.column}
-              {editorSelection.selectedChars > 0 && ` (${editorSelection.selectedChars} selected${editorSelection.selectedLines > 1 ? `, ${editorSelection.selectedLines} lines` : ''})`}
-            </span>
-            <label>
-              <span>Indent</span>
-              <select
-                value={editorIndentSelectValue}
-                onChange={(event) => updateEditorIndent(event.currentTarget.value)}
-                title="Change indentation for the active file or chunk"
-              >
-                {editorIndent.kind === 'mixed' && <option value="mixed">Mixed</option>}
-                {editorIndent.kind === 'none' && <option value="none">None</option>}
-                <option value="spaces-2">Spaces: 2</option>
-                <option value="spaces-4">Spaces: 4</option>
-                <option value="spaces-8">Spaces: 8</option>
-                <option value="tabs">Tabs</option>
-              </select>
-            </label>
-            <label>
-              <span>EOL</span>
-              <select
-                value={editorLineEnding.kind}
-                onChange={(event) => {
-                  const next = event.currentTarget.value as EditorLineEnding
-                  if (next !== 'Mixed') updateEditorLineEnding(next)
-                }}
-                title="Change line endings for the active file or chunk"
-              >
-                {editorLineEnding.kind === 'Mixed' && <option value="Mixed">Mixed</option>}
-                <option value="LF">LF</option>
-                <option value="CRLF">CRLF</option>
-                {editorLineEnding.kind === 'CR' && <option value="CR">CR</option>}
-              </select>
-            </label>
-            <span title="Editor text is handled as UTF-8">UTF-8</span>
-            {chunkedTextActive && (
-              <span title="Status and conversions apply to the loaded chunk">
-                Chunk {formatBytes(chunkedTextPreview?.startOffset ?? 0)}-{formatBytes(chunkedTextPreview?.endOffset ?? 0)}
-              </span>
-            )}
-          </footer>
+          <EditorStatusBar
+            editorSelection={editorSelection}
+            editorIndentSelectValue={editorIndentSelectValue}
+            editorIndent={editorIndent}
+            updateEditorIndent={updateEditorIndent}
+            editorLineEnding={editorLineEnding}
+            updateEditorLineEnding={updateEditorLineEnding}
+            chunkedTextActive={chunkedTextActive}
+            chunkedTextPreview={chunkedTextPreview}
+          />
         )}
       </div>
 
       {fileMenu && (
-        <div className="context-menu changes-editor-context-menu" role="menu" style={{ top: fileMenu.y, left: fileMenu.x }}>
-          <button
-            type="button"
-            role="menuitem"
-            title="Stage this file"
-            onClick={stageFileFromMenu}
-            disabled={!contextMenuChange || (!contextMenuChange.unstaged && !contextMenuChange.untracked) || !api || !currentRepoPath}
-          >
-            <PlusSquare size={15} />
-            Stage file
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            title="Unstage this file"
-            onClick={unstageFileFromMenu}
-            disabled={!contextMenuChange?.staged || !api || !currentRepoPath}
-          >
-            <MinusSquare size={15} />
-            Unstage file
-          </button>
-          <div className="context-menu-separator" role="separator" />
-          <button type="button" role="menuitem" title="Rename this file" onClick={renameFileFromMenu} disabled={!api || !currentRepoPath}>
-            <Pencil size={15} />
-            Rename file
-          </button>
-          <button type="button" role="menuitem" title="Delete this file from the working tree" onClick={deleteFileFromMenu} disabled={!api || !currentRepoPath}>
-            <Trash2 size={15} />
-            Delete file
-          </button>
-          <div className="context-menu-separator" role="separator" />
-          <button type="button" role="menuitem" title="Open this file in your editor" onClick={openInEditorFromMenu} disabled={!api || !currentRepoPath}>
-            <Code2 size={15} />
-            Open in editor
-          </button>
-          <button type="button" role="menuitem" title="Open a terminal in this file's folder" onClick={openTerminalFromMenu} disabled={!api || !currentRepoPath}>
-            <Terminal size={15} />
-            Open in terminal
-          </button>
-          <button type="button" role="menuitem" title="Show this file in the file manager" onClick={showInFileManagerFromMenu} disabled={!api || !currentRepoPath}>
-            <FolderOpen size={15} />
-            Show in file manager
-          </button>
-          <div className="context-menu-separator" role="separator" />
-          <button type="button" role="menuitem" title="Copy the absolute file path" onClick={copyPathFromMenu}>
-            <Copy size={15} />
-            Copy path
-          </button>
-          <button type="button" role="menuitem" title="Copy the file name" onClick={copyNameFromMenu}>
-            <Copy size={15} />
-            Copy file name
-          </button>
-        </div>
+        <EditorFileContextMenu
+          fileMenu={fileMenu}
+          contextMenuChange={contextMenuChange}
+          apiReady={Boolean(api && currentRepoPath)}
+          stageFileFromMenu={stageFileFromMenu}
+          unstageFileFromMenu={unstageFileFromMenu}
+          renameFileFromMenu={renameFileFromMenu}
+          deleteFileFromMenu={deleteFileFromMenu}
+          openInEditorFromMenu={openInEditorFromMenu}
+          openTerminalFromMenu={openTerminalFromMenu}
+          showInFileManagerFromMenu={showInFileManagerFromMenu}
+          copyPathFromMenu={copyPathFromMenu}
+          copyNameFromMenu={copyNameFromMenu}
+        />
       )}
     </section>
   )

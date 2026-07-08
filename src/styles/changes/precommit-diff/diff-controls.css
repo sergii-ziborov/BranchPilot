@@ -1,0 +1,82 @@
+.segmented {
+  margin-bottom: 12px;
+}
+
+.diff-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.diff-options .segmented {
+  margin-bottom: 0;
+}
+
+.diff-whitespace-toggle {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.diff-whitespace-toggle input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.diff-display-toggle button {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.segmented button.active {
+  color: #ffffff;
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* Modern soft segmented control (one pill, joined options, raised active),
+   applied app-wide for consistency. Diff toggle keeps its own compact size. */
+.segmented:not(.diff-display-toggle) {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel-2);
+}
+
+.segmented:not(.diff-display-toggle) button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.segmented:not(.diff-display-toggle) button:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--text);
+  background: transparent;
+}
+
+.segmented:not(.diff-display-toggle) button.active {
+  color: var(--text-strong);
+  background: var(--panel);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.14);
+}
+

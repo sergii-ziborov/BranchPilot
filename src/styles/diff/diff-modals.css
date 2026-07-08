@@ -32,7 +32,7 @@
   border-bottom: 0;
 }
 
-/* Compact diff controls: a subtle Â¶ button + a true segmented unified/split toggle. */
+/* Compact diff controls: a subtle ¶ button + a true segmented unified/split toggle. */
 .diff-controls {
   gap: 6px;
 }

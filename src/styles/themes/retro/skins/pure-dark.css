@@ -1,0 +1,23 @@
+html[data-theme='pure-dark'] body,
+html[data-theme='pure-dark'] .app-shell {
+  background: #000;
+}
+
+html[data-theme='pure-dark'] .shell-bar {
+  border-bottom-color: #181818;
+  background: rgba(0, 0, 0, 0.96);
+}
+
+html[data-theme='pure-dark'] .single-panel,
+html[data-theme='pure-dark'] .changes-panel,
+html[data-theme='pure-dark'] .diff-panel,
+html[data-theme='pure-dark'] .dashboard-section,
+html[data-theme='pure-dark'] .config-card,
+html[data-theme='pure-dark'] .tool-modal,
+html[data-theme='pure-dark'] .review-fix-prompt-modal,
+html[data-theme='pure-dark'] .shell-dropdown,
+html[data-theme='pure-dark'] .changes-actions-popover {
+  background: #050505;
+  box-shadow: none;
+}
+

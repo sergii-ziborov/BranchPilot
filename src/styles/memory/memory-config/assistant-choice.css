@@ -1,0 +1,103 @@
+.config-assistant-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.assistant-refresh-button {
+  justify-self: end;
+  width: auto;
+  white-space: nowrap;
+}
+
+.assistant-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.config-card .assistant-choice {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 18px;
+  align-items: center;
+  justify-content: stretch;
+  gap: 8px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 8px 10px;
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--panel);
+  text-align: left;
+}
+
+.config-card .assistant-choice:hover {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+}
+
+.config-card .assistant-choice.active {
+  border-color: var(--accent);
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.assistant-choice-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.assistant-choice-dot.state-ready {
+  background: #22c55e;
+}
+
+.assistant-choice-dot.state-detected {
+  background: var(--accent-soft);
+}
+
+.assistant-choice-dot.state-limited,
+.assistant-choice-dot.state-unavailable {
+  background: #f59e0b;
+}
+
+.assistant-choice-dot.state-missing {
+  background: var(--danger);
+}
+
+.assistant-choice-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.assistant-choice-copy strong,
+.assistant-choice-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-choice-copy strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.assistant-choice-copy span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.assistant-choice-check {
+  justify-self: end;
+  color: var(--accent-strong);
+}
+

@@ -1,0 +1,196 @@
+.changes-editor-json-viewer {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.changes-editor-json-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+}
+
+.changes-editor-json-toolbar strong {
+  color: var(--text-strong);
+}
+
+.changes-editor-json-toolbar span {
+  margin-right: auto;
+}
+
+.changes-editor-json-toolbar button {
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-strong);
+  background: var(--panel-2);
+  font: inherit;
+  font-weight: 800;
+}
+
+.changes-editor-json-toolbar button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--sel-bg);
+}
+
+.changes-editor-json-toolbar button:disabled {
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.changes-editor-json-tree {
+  display: grid;
+  align-content: start;
+  min-width: max-content;
+}
+
+.changes-editor-json-row {
+  display: grid;
+  grid-template-columns: 58px calc(20px + var(--json-indent, 0px)) minmax(160px, 0.34fr) 88px minmax(240px, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  min-height: 27px;
+  padding: 3px 14px 3px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
+}
+
+.changes-editor-json-row:hover {
+  background: var(--sel-bg);
+}
+
+.changes-editor-json-line-number {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  padding: 0 10px 0 8px;
+  border-right: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.changes-editor-json-toggle {
+  display: inline-grid;
+  margin-left: var(--json-indent, 0);
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.changes-editor-json-toggle:not(:disabled):hover {
+  border-color: var(--border);
+  color: var(--accent-strong);
+  background: var(--sel-bg);
+}
+
+.changes-editor-json-toggle:disabled {
+  opacity: 0.25;
+}
+
+.changes-editor-json-key {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-editor-json-type {
+  justify-self: start;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--panel-2);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.changes-editor-json-type.type-object,
+.changes-editor-json-type.type-array {
+  color: var(--accent-strong);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.changes-editor-json-value {
+  min-width: 240px;
+  overflow: visible;
+  color: var(--diff-code-text, var(--text));
+  white-space: nowrap;
+}
+
+.changes-editor-json-value-button {
+  display: inline-flex;
+  max-width: min(72ch, 100%);
+  min-height: 22px;
+  padding: 1px 5px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.changes-editor-json-value-button:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  color: var(--accent-strong);
+  background: var(--sel-bg);
+}
+
+.changes-editor-json-edit {
+  width: min(560px, 70vw);
+  min-height: 26px;
+  padding: 3px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  outline: 0;
+  color: var(--text-strong);
+  background: var(--panel);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+  font: inherit;
+}
+
+.changes-editor-json-edit:focus {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 44%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.changes-editor-json-value small {
+  margin-left: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.changes-editor-json-more {
+  margin: 12px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel-2);
+}
+

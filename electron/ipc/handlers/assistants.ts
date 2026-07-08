@@ -1,7 +1,10 @@
+import { webContents } from 'electron'
 import type {
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
+  CodexAgentEvent,
   CodexAgentRequest,
+  CodexAgentStreamBatch,
   CommitMessageGenerationRequest,
   FileBeautifyRequest,
   LinkedInProjectGenerationRequest,
@@ -9,6 +12,7 @@ import type {
   RepositoryStarterGenerationRequest,
   ReviewReportRequest
 } from '../../../src/shared/branchPilot.js'
+import { CODEX_AGENT_EVENT_CHANNEL } from '../../../src/shared/ipcChannels.js'
 import {
   checkAssistantStatuses,
   generateBranchDescription,
@@ -24,6 +28,48 @@ import {
 } from '../../assistants/assistantRunner.js'
 import type { createIpcHelpers } from '../ipcHelpers.js'
 import type { RegisterIpcHandlersServices } from '../ipcTypes.js'
+
+const CODEX_AGENT_EVENT_FLUSH_MS = 80
+
+const codexAgentRuns = new Map<string, AbortController>()
+
+function createCodexAgentEventEmitter(runId: string) {
+  let pending: CodexAgentEvent[] = []
+  let timer: NodeJS.Timeout | null = null
+
+  const flush = () => {
+    timer = null
+
+    if (pending.length === 0) return
+
+    const batch: CodexAgentStreamBatch = { runId, events: pending }
+
+    pending = []
+
+    for (const contents of webContents.getAllWebContents()) {
+      if (!contents.isDestroyed()) {
+        contents.send(CODEX_AGENT_EVENT_CHANNEL, batch)
+      }
+    }
+  }
+
+  return {
+    push: (event: CodexAgentEvent) => {
+      pending.push(event)
+
+      if (!timer) {
+        timer = setTimeout(flush, CODEX_AGENT_EVENT_FLUSH_MS)
+      }
+    },
+    dispose: () => {
+      if (timer) {
+        clearTimeout(timer)
+      }
+
+      flush()
+    }
+  }
+}
 
 export function registerAssistantHandlers(
   helpers: ReturnType<typeof createIpcHelpers>,
@@ -79,9 +125,30 @@ export function registerAssistantHandlers(
       output_length: generated?.output.length ?? 0,
       duration_ms: generated?.durationMs ?? 0
     })
-  }, (request: CodexAgentRequest) =>
-    runCodexAgent(commandRunner, request)
-  )
+  }, (request: CodexAgentRequest) => {
+    const controller = new AbortController()
+    const emitter = request.runId ? createCodexAgentEventEmitter(request.runId) : undefined
+
+    if (request.runId) {
+      codexAgentRuns.set(request.runId, controller)
+    }
+
+    return runCodexAgent(commandRunner, request, { onEvent: emitter?.push, signal: controller.signal })
+      .finally(() => {
+        emitter?.dispose()
+
+        if (request.runId) {
+          codexAgentRuns.delete(request.runId)
+        }
+      })
+  })
+  handle('assistants:cancelCodexAgent', (runId: string) => {
+    const controller = codexAgentRuns.get(runId)
+
+    controller?.abort()
+
+    return Boolean(controller)
+  })
   handleAssistantAction('assistants:generateBranchDraft', 'branch_draft', {
     type: 'assistant_branch_generated',
     actor: 'assistant',

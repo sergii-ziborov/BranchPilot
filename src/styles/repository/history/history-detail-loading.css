@@ -1,0 +1,122 @@
+.history-detail-loading {
+  --signal-main: var(--accent);
+  --signal-alt: var(--diff-hunk-text, var(--accent));
+  --signal-hot: var(--diff-selected-accent, var(--accent));
+  --history-loader-main: var(--signal-main);
+  --history-loader-alt: var(--signal-alt);
+  --history-loader-hot: var(--signal-hot);
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--text-strong);
+  background:
+    radial-gradient(circle at 70% 24%, color-mix(in srgb, var(--history-loader-alt) 14%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 76%, transparent), color-mix(in srgb, var(--panel) 88%, transparent));
+  backdrop-filter: blur(2px);
+}
+
+.history-detail-loading::before,
+.history-detail-loading::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.history-detail-loading::before {
+  opacity: 0.48;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 10px,
+      color-mix(in srgb, var(--history-loader-main) 13%, transparent) 10px 11px,
+      transparent 11px 18px
+    );
+  animation: history-loading-scan 1.8s linear infinite;
+}
+
+.history-detail-loading::after {
+  background:
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--history-loader-alt) 20%, transparent), transparent),
+    linear-gradient(180deg, transparent 0 42%, color-mix(in srgb, var(--history-loader-hot) 18%, transparent) 48%, transparent 56% 100%);
+  mix-blend-mode: screen;
+  animation: history-loading-sweep 1.45s ease-in-out infinite;
+}
+
+.history-detail-loading-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.history-detail-loading .signal-status-copy {
+  text-transform: uppercase;
+}
+
+.history-detail-loading-copy strong {
+  color: var(--text-strong);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.history-detail-loading-copy span {
+  color: var(--history-loader-alt);
+  font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.12em;
+}
+
+html[data-theme='cyberpunk'] .history-detail-loading {
+  --signal-main: #ff3049;
+  --signal-alt: #00eaff;
+  --signal-hot: #ffd400;
+  --history-loader-main: var(--signal-main);
+  --history-loader-alt: var(--signal-alt);
+  --history-loader-hot: var(--signal-hot);
+  background:
+    radial-gradient(circle at 76% 26%, rgba(0, 234, 255, 0.16), transparent 34%),
+    radial-gradient(circle at 22% 72%, rgba(255, 43, 214, 0.14), transparent 32%),
+    rgba(10, 1, 7, 0.86);
+}
+
+html[data-theme='deus-ex'] .history-detail-loading {
+  --signal-main: #d8c93c;
+  --signal-alt: #68e2bd;
+  --signal-hot: #fff176;
+  --history-loader-main: var(--signal-main);
+  --history-loader-alt: var(--signal-alt);
+  --history-loader-hot: var(--signal-hot);
+  background:
+    radial-gradient(circle at 70% 24%, rgba(104, 226, 189, 0.13), transparent 30%),
+    linear-gradient(180deg, rgba(2, 4, 2, 0.82), rgba(7, 8, 3, 0.90));
+}
+
+@keyframes history-loading-scan {
+  from { transform: translateY(-18px); }
+  to { transform: translateY(18px); }
+}
+
+@keyframes history-loading-sweep {
+  0%, 100% {
+    opacity: 0.45;
+    transform: translateY(-18%);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateY(18%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-detail-loading::before,
+  .history-detail-loading::after {
+    animation: none;
+  }
+}
+

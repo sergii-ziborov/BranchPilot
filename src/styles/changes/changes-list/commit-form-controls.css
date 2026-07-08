@@ -1,0 +1,50 @@
+.commit-box label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.commit-box input,
+.commit-box textarea,
+.commit-box select,
+.daily-controls input,
+  .linkedin-controls input,
+  .linkedin-controls select,
+  .linkedin-draft input,
+  .linkedin-draft textarea,
+  .pr-form input,
+  .pr-form textarea,
+  .branch-composer input,
+  .branch-composer textarea,
+  .branch-composer select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: var(--panel);
+}
+
+.commit-box input,
+.commit-box select,
+  .daily-controls input,
+  .linkedin-controls input,
+  .linkedin-controls select,
+  .linkedin-draft input,
+  .pr-form input,
+  .branch-composer input,
+  .branch-composer select {
+  height: 38px;
+  padding: 0 10px;
+}
+
+.commit-box textarea,
+.linkedin-draft textarea,
+.pr-form textarea,
+.branch-composer textarea {
+  min-height: 88px;
+  resize: vertical;
+  padding: 10px;
+}
+

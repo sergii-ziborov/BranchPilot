@@ -1,0 +1,125 @@
+.project-wiki-page {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px;
+  color: var(--text);
+  text-align: left;
+}
+
+.project-wiki-preview,
+.project-wiki-editor,
+.memory-mcp-snippet {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.project-wiki-editor header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.project-wiki-editor header > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.project-wiki-editor h3,
+.project-wiki-editor span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-wiki-editor h3 {
+  color: var(--text-strong);
+  font-size: 16px;
+}
+
+.project-wiki-editor span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.project-wiki-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.project-wiki-editor-actions button,
+.project-wiki-preview button,
+.memory-mcp-snippet button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.project-wiki-editor-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.project-wiki-editor textarea {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 12px;
+  resize: none;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: #d1d5db;
+  background: #0f172a;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.project-wiki-preview pre,
+.memory-mcp-snippet pre {
+  overflow: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+}
+
+.project-wiki-preview pre {
+  max-height: none;
+}
+
+.memory-mcp-snippet pre {
+  max-height: 100%;
+}
+
+.project-wiki-preview code,
+.memory-mcp-snippet code {
+  color: #d1d5db;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+

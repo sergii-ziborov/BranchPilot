@@ -1,0 +1,48 @@
+.history-row.has-graph > strong,
+.history-row.has-graph > span {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.history-row.has-graph > strong {
+  align-self: end;
+  line-height: 1.25;
+}
+
+.history-row.has-graph > span {
+  align-self: start;
+  line-height: 1.3;
+}
+
+.history-row:hover,
+.commit-file-row:hover,
+.commit-file-row.selected {
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
+}
+
+.history-row:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.history-row.selected {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 11%, var(--panel));
+}
+
+.history-row strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

@@ -1,13 +1,14 @@
-import { Bot, Code2, FileText, FolderOpen, GitBranch, GitCompare, Link2, Loader2, Pencil, Plus, Save, Search, Trash2, UploadCloud, X } from 'lucide-react'
+import { Bot, FileText, GitBranch, GitCompare, Link2, Loader2, Pencil, Save, Search, Trash2, UploadCloud, X } from 'lucide-react'
 import type {
   ApiResult, AssistantPolicyStatus, BranchComparison, BranchPilotApi, BranchSummary,
   GitOperationResult, RemoteBranchSummary, RepositorySnapshot, TagSummary, WorktreeSummary
 } from '../../shared/branchPilot'
 import { getBranchDraftActionState, getCreateBranchActionState } from '../../shared/branchPreconditions'
 import { fileStatusToken } from '../../lib/fileChangeLabels'
-import { worktreeSummaryLabel } from '../../lib/gitEntityLabels'
 import { formatDate } from '../../lib/format'
 import { assistantPolicyBlockedLabel } from '../../lib/assistantLabels'
+import { WorktreePanel } from './branches/WorktreePanel'
+import { TagPanel } from './branches/TagPanel'
 
 export function BranchesView({
   branches, remoteBranches, tags, worktrees,
@@ -106,14 +107,6 @@ export function BranchesView({
         .some((value) => value.toLowerCase().includes(branchQuery))
     )
     : remoteBranches
-  const tagQuery = tagFilter.trim().toLowerCase()
-  const filteredTags = tagQuery
-    ? tags.filter((tag) =>
-      [tag.name, tag.targetSha, tag.targetShortSha, tag.subject]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(tagQuery))
-    )
-    : tags
 
   return (
     <section className="single-panel">
@@ -364,158 +357,35 @@ export function BranchesView({
         </section>
       )}
 
-      <details className="branch-collapsible">
-        <summary>Worktrees <span>{worktrees.length}</span></summary>
-      <section className="worktree-panel">
-        <p className="branch-collapsible-hint">Create a linked worktree for safe branch experiments without disturbing this checkout.</p>
+      <WorktreePanel
+        worktrees={worktrees}
+        branches={branches}
+        remoteBranches={remoteBranches}
+        snapshot={snapshot}
+        api={api}
+        busy={busy}
+        newWorktreeBranchName={newWorktreeBranchName}
+        setNewWorktreeBranchName={setNewWorktreeBranchName}
+        newWorktreeBaseRef={newWorktreeBaseRef}
+        setNewWorktreeBaseRef={setNewWorktreeBaseRef}
+        createWorktree={createWorktree}
+        openWorktree={openWorktree}
+        removeWorktree={removeWorktree}
+        runOperationAction={runOperationAction}
+      />
 
-        <div className="worktree-composer">
-          <label htmlFor="worktree-branch">New branch</label>
-          <input
-            id="worktree-branch"
-            value={newWorktreeBranchName}
-            onChange={(event) => setNewWorktreeBranchName(event.target.value)}
-            placeholder="experiment/safe-change"
-          />
-          <label htmlFor="worktree-base">Base ref</label>
-          <input
-            id="worktree-base"
-            list="worktree-base-refs"
-            value={newWorktreeBaseRef}
-            onChange={(event) => setNewWorktreeBaseRef(event.target.value)}
-            placeholder={snapshot?.summary.currentBranch ?? 'HEAD'}
-          />
-          <datalist id="worktree-base-refs">
-            {branches.map((branch) => (
-              <option value={branch.name} key={branch.name} />
-            ))}
-            {remoteBranches.map((branch) => (
-              <option value={branch.name} key={`remote-${branch.name}`} />
-            ))}
-          </datalist>
-          <div className="worktree-composer-actions">
-            <button type="button" onClick={createWorktree} disabled={busy || !newWorktreeBranchName.trim()}>
-              <FolderOpen size={17} />
-              Create worktree
-            </button>
-          </div>
-        </div>
-
-        <div className="worktree-list">
-          {worktrees.length === 0 ? (
-            <div className="quiet-box">No linked worktrees.</div>
-          ) : (
-            worktrees.map((worktree) => (
-              <article className={worktree.current ? 'worktree-row current' : 'worktree-row'} key={worktree.path}>
-                <div>
-                  <strong>{worktree.branch ?? 'Detached HEAD'}</strong>
-                  <span>{worktreeSummaryLabel(worktree)}</span>
-                  <code>{worktree.path}</code>
-                  {worktree.reason && <p>{worktree.reason}</p>}
-                </div>
-                <div className="panel-actions">
-                  <button className="icon-button" type="button" title="Open worktree" aria-label="Open worktree" onClick={() => openWorktree(worktree)} disabled={busy || worktree.current}>
-                    <FolderOpen size={16} />
-                  </button>
-                  <button className="icon-button" type="button" title="Open in editor" aria-label="Open in editor" onClick={() => runOperationAction('Worktree opened in editor.', () => api!.openInEditor({ targetPath: worktree.path }))} disabled={busy}>
-                    <Code2 size={16} />
-                  </button>
-                  <button
-                    className="danger-button icon-button"
-                    type="button"
-                    title="Remove worktree"
-                    aria-label="Remove worktree"
-                    onClick={() => removeWorktree(worktree)}
-                    disabled={busy || worktree.current}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      </section>
-      </details>
-
-      <details className="branch-collapsible">
-        <summary>Tags <span>{tags.length}</span></summary>
-      <section className="tag-panel">
-        <p className="branch-collapsible-hint">Create lightweight or annotated local tags at the current HEAD.</p>
-
-        <div className="tag-composer">
-          <label htmlFor="tag-name">Tag name</label>
-          <input
-            id="tag-name"
-            value={newTagName}
-            onChange={(event) => setNewTagName(event.target.value)}
-            placeholder="v1.0.0"
-          />
-          <label htmlFor="tag-message">Annotation</label>
-          <textarea
-            id="tag-message"
-            value={newTagMessage}
-            onChange={(event) => setNewTagMessage(event.target.value)}
-            placeholder="Optional annotated tag message"
-          />
-          <div className="tag-composer-actions">
-            <button type="button" onClick={createTag} disabled={busy || !newTagName.trim()}>
-              <Plus size={17} />
-              Create tag
-            </button>
-          </div>
-        </div>
-
-        <div className="list-filter-bar">
-          <label className="list-filter-input" htmlFor="tag-filter">
-            <Search size={16} />
-            <input
-              id="tag-filter"
-              value={tagFilter}
-              onChange={(event) => setTagFilter(event.target.value)}
-              placeholder="Search tags"
-            />
-          </label>
-          <span>{filteredTags.length} / {tags.length}</span>
-          {tagFilter && (
-            <button type="button" className="secondary" onClick={() => setTagFilter('')}>
-              <X size={15} />
-              Clear
-            </button>
-          )}
-        </div>
-
-        <div className="tag-list">
-          {tags.length === 0 ? (
-            <div className="quiet-box">No local tags.</div>
-          ) : filteredTags.length === 0 ? (
-            <div className="quiet-box">No tags match this search.</div>
-          ) : (
-            filteredTags.map((tag) => (
-              <article className="tag-row" key={tag.name}>
-                <div>
-                  <strong>{tag.name}</strong>
-                  <span>{tag.targetShortSha}{tag.createdAt ? ` · ${formatDate(tag.createdAt)}` : ''}</span>
-                  {tag.subject && <p>{tag.subject}</p>}
-                </div>
-                <div className="panel-actions">
-                  <button
-                    className="danger-button icon-button"
-                    type="button"
-                    title="Delete tag"
-                    aria-label="Delete tag"
-                    onClick={() => deleteTag(tag)}
-                    disabled={busy}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      </section>
-      </details>
+      <TagPanel
+        tags={tags}
+        busy={busy}
+        tagFilter={tagFilter}
+        setTagFilter={setTagFilter}
+        newTagName={newTagName}
+        setNewTagName={setNewTagName}
+        newTagMessage={newTagMessage}
+        setNewTagMessage={setNewTagMessage}
+        createTag={createTag}
+        deleteTag={deleteTag}
+      />
     </section>
   )
 }

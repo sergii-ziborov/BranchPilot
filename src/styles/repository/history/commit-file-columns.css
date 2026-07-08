@@ -1,0 +1,64 @@
+.commit-file-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+}
+
+.commit-file-list-heading {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.commit-file-column .commit-file-list {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.commit-diff-column {
+  position: relative;
+  min-width: 0;
+  overflow: auto;
+}
+
+.commit-diff-column.has-file-diff-loading {
+  overflow: hidden;
+}
+
+.commit-diff-column > .signal-status.history-file-diff-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 72% 22%, color-mix(in srgb, var(--signal-alt) 14%, transparent), transparent 30%),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 72%, transparent), color-mix(in srgb, var(--panel) 88%, transparent));
+  backdrop-filter: blur(2px);
+}
+
+html[data-theme='cyberpunk'] .signal-status.history-file-diff-loading,
+html[data-theme='cyberpunk'] .history-detail-loading {
+  background:
+    linear-gradient(105deg, rgba(255, 0, 92, 0.13), transparent 32%, rgba(0, 234, 255, 0.12) 64%, transparent),
+    repeating-linear-gradient(180deg, rgba(255, 0, 92, 0.13) 0 1px, transparent 1px 19px),
+    rgba(12, 0, 11, 0.48);
+  backdrop-filter: saturate(1.35);
+}
+
+.commit-diff-column .structured-diff,
+.commit-diff-column .diff-preview {
+  min-height: 0;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+}
+

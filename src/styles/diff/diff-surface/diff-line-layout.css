@@ -1,0 +1,87 @@
+
+.diff-lines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+}
+
+.split-diff-lines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+}
+
+.split-diff-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.split-diff-cell {
+  display: grid;
+  grid-template-columns: 48px 22px minmax(0, 1fr);
+  min-height: 24px;
+  align-items: center;
+  border-right: 1px solid var(--diff-border);
+  color: var(--diff-text);
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.split-diff-cell.line-empty {
+  background: var(--diff-empty-bg);
+}
+
+.diff-line {
+  display: grid;
+  grid-template-columns: 48px 48px 22px minmax(0, 1fr);
+  min-height: 24px;
+  align-items: start;
+  color: var(--diff-text);
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+  user-select: text;
+}
+
+.diff-line .line-number,
+.diff-line .line-marker,
+.split-diff-cell .line-number,
+.split-diff-cell .line-marker {
+  color: var(--diff-muted);
+  text-align: right;
+  user-select: none;
+}
+
+.line-number-button {
+  width: 100%;
+  height: 100%;
+  padding: 0 4px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.line-number-button:hover {
+  color: var(--diff-hunk-text);
+  background: var(--sel-bg);
+}
+
+.line-number-button:focus-visible {
+  outline: 1px solid var(--sel-border);
+  outline-offset: -1px;
+}
+
+.diff-line .line-marker,
+.split-diff-cell .line-marker {
+  padding-right: 8px;
+}
+
+.diff-line .line-content,
+.split-diff-cell .line-content {
+  overflow: visible;
+  user-select: text;
+}
+

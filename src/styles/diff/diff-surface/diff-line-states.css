@@ -1,0 +1,144 @@
+/* Wrap long lines (inline + split) so nothing runs off into endless rows. */
+.split-diff-cell {
+  align-items: start;
+}
+
+.diff-line .line-content,
+.split-diff-cell .line-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff-line.line-add,
+.split-diff-cell.line-add {
+  color: var(--diff-add-text);
+  background: var(--diff-add-bg);
+}
+
+.diff-line.line-remove,
+.split-diff-cell.line-remove {
+  color: var(--diff-remove-text);
+  background: var(--diff-remove-bg);
+}
+
+.structured-diff-sectioned .diff-line.line-add,
+.structured-diff-sectioned .split-diff-cell.line-add {
+  box-shadow: inset 3px 0 0 var(--diff-section-accent);
+  background: color-mix(in srgb, var(--diff-add-bg) 86%, var(--diff-section-accent));
+}
+
+.structured-diff-sectioned .diff-line.line-remove,
+.structured-diff-sectioned .split-diff-cell.line-remove {
+  box-shadow: inset 3px 0 0 var(--diff-section-accent);
+  background: color-mix(in srgb, var(--diff-remove-bg) 86%, var(--diff-section-accent));
+}
+
+.diff-line.line-meta,
+.split-diff-cell.line-meta {
+  color: var(--diff-muted);
+}
+
+/* Word-level intra-line diff: the exact added/removed text within a changed line. */
+.line-content .word-add {
+  border-radius: 3px;
+  background: var(--diff-word-add-bg);
+  box-shadow: 0 0 0 1px var(--diff-word-add-border);
+}
+
+.line-content .word-del {
+  border-radius: 3px;
+  background: var(--diff-word-del-bg);
+  box-shadow: 0 0 0 1px var(--diff-word-del-border);
+}
+
+/* GitHub-Desktop-style line selection: click a +/- line to select it for staging;
+   the selection persists (highlight + accent bar) until you act on it or clear it. */
+.diff-line.selectable,
+.split-diff-cell.selectable {
+  cursor: default;
+}
+
+.diff-line.selectable:has(.line-number:hover),
+.diff-line.selectable:has(.line-marker:hover),
+.split-diff-cell.selectable:has(.line-number:hover),
+.split-diff-cell.selectable:has(.line-marker:hover) {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--diff-selected-accent) 58%, transparent);
+}
+
+.diff-line.selectable .line-number:hover,
+.diff-line.selectable .line-marker:hover,
+.split-diff-cell.selectable .line-number:hover,
+.split-diff-cell.selectable .line-marker:hover {
+  color: var(--diff-selected-accent);
+  background: transparent;
+}
+
+.diff-line.selectable .line-number,
+.diff-line.selectable .line-marker,
+.split-diff-cell.selectable .line-number,
+.split-diff-cell.selectable .line-marker {
+  cursor: pointer;
+}
+
+.diff-line.selectable .line-content,
+.split-diff-cell.selectable .line-content {
+  cursor: text;
+}
+
+.diff-line.line-selected,
+.split-diff-cell.line-selected {
+  box-shadow: inset 3px 0 0 var(--diff-selected-accent);
+}
+
+.structured-diff-sectioned .diff-line.line-selected,
+.structured-diff-sectioned .split-diff-cell.line-selected {
+  box-shadow: inset 3px 0 0 var(--diff-selected-accent);
+}
+
+.diff-line.line-selected .line-number,
+.diff-line.line-selected .line-marker,
+.split-diff-cell.line-selected .line-number,
+.split-diff-cell.line-selected .line-marker {
+  color: var(--diff-selected-accent);
+  background: transparent;
+}
+
+.diff-line.selectable .line-number-button:hover,
+.split-diff-cell.selectable .line-number-button:hover {
+  color: var(--diff-selected-accent);
+  background: transparent;
+}
+
+.diff-context-expander {
+  display: flex;
+  min-height: 28px;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 12px 0 18px;
+  border: 0;
+  border-top: 1px solid var(--diff-border);
+  border-bottom: 1px solid var(--diff-border);
+  border-radius: 0;
+  color: var(--diff-hunk-text);
+  background: var(--diff-hunk-bg);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.diff-context-expander:hover {
+  background: var(--sel-bg);
+}
+
+.diff-line.line-add.line-selected,
+.split-diff-cell.line-add.line-selected {
+  background: var(--diff-word-add-bg);
+}
+
+.diff-line.line-remove.line-selected,
+.split-diff-cell.line-remove.line-selected {
+  background: var(--diff-word-del-bg);
+}
+
