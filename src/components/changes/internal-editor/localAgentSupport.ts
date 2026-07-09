@@ -17,6 +17,11 @@ export interface CodexAgentAttachmentDraft {
   truncated?: boolean
 }
 
+export interface QueuedAgentPrompt {
+  id: string
+  text: string
+}
+
 export interface LocalAgentCommandContext {
   agentLabel: string
   modelLabel: string
@@ -243,4 +248,44 @@ export function liveAgentEventLabel(type: string): string {
   if (type === 'tool') return 'Tool'
   if (type === 'result') return 'Result'
   return type
+}
+
+// Case-insensitive substrings that indicate the agent ran into a usage/token/rate
+// limit and the queue should pause instead of auto-advancing to the next prompt.
+export const AGENT_LIMIT_SIGNALS = [
+  'usage limit',
+  'session limit',
+  'rate limit',
+  'quota',
+  'token limit',
+  'out of tokens',
+  "you've hit",
+  'insufficient_quota',
+  'resets at',
+  'try again'
+] as const
+
+// Pure, side-effect-free detector so it can be unit tested in isolation.
+export function detectAgentLimit(text: string | null | undefined): { limited: boolean; reason?: string } {
+  if (!text) return { limited: false }
+
+  const haystack = text.toLowerCase()
+  for (const signal of AGENT_LIMIT_SIGNALS) {
+    const index = haystack.indexOf(signal)
+    if (index !== -1) {
+      return { limited: true, reason: extractLimitReason(text, index, signal.length) }
+    }
+  }
+
+  return { limited: false }
+}
+
+function extractLimitReason(text: string, index: number, length: number): string {
+  const lineStart = text.lastIndexOf('\n', index) + 1
+  const newlineEnd = text.indexOf('\n', index + length)
+  const lineEnd = newlineEnd === -1 ? text.length : newlineEnd
+  const reason = text.slice(lineStart, lineEnd).replace(/\s+/g, ' ').trim()
+
+  if (!reason) return 'Agent reported a usage or rate limit.'
+  return reason.length > 160 ? `${reason.slice(0, 157)}...` : reason
 }

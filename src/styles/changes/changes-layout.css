@@ -4,6 +4,7 @@
 @import "./changes-layout/editor-header.css";
 @import "./changes-layout/editor-lint.css";
 @import "./changes-layout/agent-panel.css";
+@import "./changes-layout/agent-queue.css";
 @import "./changes-layout/agent-output.css";
 @import "./changes-layout/editor-mode-shells.css";
 @import "./changes-layout/hex-viewer.css";

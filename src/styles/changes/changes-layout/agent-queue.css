@@ -1,0 +1,190 @@
+/* "Add to queue" composer action — matches the base composer button look. */
+.changes-editor-codex-queue-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-strong);
+  background: var(--panel-2);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.changes-editor-codex-queue-add:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--sel-bg);
+}
+
+.changes-editor-codex-queue-add:disabled {
+  color: var(--muted);
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+/* Prompt queue: compact list of lined-up prompts under the composer. */
+.changes-editor-codex-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 10px 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-2) 60%, transparent);
+}
+
+.changes-editor-codex-queue-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.changes-editor-codex-queue-head > strong {
+  color: var(--text-strong);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.changes-editor-codex-queue-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  color: var(--accent-contrast);
+  background: color-mix(in srgb, var(--accent-soft) 76%, var(--accent));
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.changes-editor-codex-queue-controls {
+  display: inline-flex;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+
+.changes-editor-codex-queue-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-strong);
+  background: var(--panel-2);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.changes-editor-codex-queue-controls button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--sel-bg);
+}
+
+.changes-editor-codex-queue-controls button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.changes-editor-codex-queue-paused {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, var(--border));
+  border-radius: 6px;
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.changes-editor-codex-queue-paused svg {
+  flex: 0 0 auto;
+  color: var(--warn);
+}
+
+.changes-editor-codex-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changes-editor-codex-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.changes-editor-codex-queue-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  color: var(--muted);
+  background: var(--panel-2);
+  font: 900 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.changes-editor-codex-queue-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-editor-codex-queue-item-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+
+.changes-editor-codex-queue-item-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.changes-editor-codex-queue-item-actions button:hover:not(:disabled) {
+  border-color: var(--border);
+  color: var(--text-strong);
+  background: var(--panel-2);
+}
+
+.changes-editor-codex-queue-item-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

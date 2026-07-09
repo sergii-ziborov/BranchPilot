@@ -20,6 +20,8 @@ import type { ConfirmationOptions } from '../../../lib/prompts'
 import { assistantSelectionLabel, assistantStatusLabel } from '../../../lib/assistantLabels'
 import { friendlyIpcErrorMessage } from '../../../lib/ipcErrorMessage'
 import type { EditorDiagnostic } from './editorTypes'
+import { useAgentQueue } from './useAgentQueue'
+import { useAgentSessionSummary } from './useAgentSessionSummary'
 import {
   CODEX_AGENT_ATTACHMENT_LIMIT,
   LOCAL_AGENT_COMMANDS,
@@ -86,6 +88,7 @@ export function useLocalAgentPanel({
   const [codexAgentError, setCodexAgentError] = useState<string | null>(null)
   const [codexAgentLiveEvents, setCodexAgentLiveEvents] = useState<CodexAgentEvent[]>([])
   const [codexAgentStopping, setCodexAgentStopping] = useState(false)
+  const [codexAgentStopped, setCodexAgentStopped] = useState(false)
   const [codexAgentAttachments, setCodexAgentAttachments] = useState<CodexAgentAttachmentDraft[]>([])
   const [codexAgentPreviewAttachment, setCodexAgentPreviewAttachment] = useState<CodexAgentAttachmentDraft | null>(null)
   const [codexAgentProvider, setCodexAgentProvider] = useState<LocalAgentProvider>(
@@ -258,10 +261,12 @@ export function useLocalAgentPanel({
     }, 0)
   }
 
-  const runCodexAgentPanel = async () => {
+  const runCodexAgentPanel = async (promptOverride?: string) => {
     if (!api || !currentRepoPath || codexAgentRunning) return
     const providerLabel = localAgentLabel(codexAgentProvider)
-    const prompt = codexAgentPrompt.trim()
+    // promptOverride is a string only when the queue drives a run; DOM onClick
+    // passes a MouseEvent (non-string), which correctly falls back to state.
+    const prompt = (typeof promptOverride === 'string' ? promptOverride : codexAgentPrompt).trim()
     if (!prompt && !selectedPath && codexAgentAttachments.length === 0) {
       setCodexAgentError('Enter a prompt, select a file, or attach a file.')
       return
@@ -289,7 +294,9 @@ export function useLocalAgentPanel({
     codexAgentRunIdRef.current = runId
     setCodexAgentRunning(true)
     setCodexAgentStopping(false)
+    setCodexAgentStopped(false)
     setCodexAgentError(null)
+    setCodexAgentResult(null)
     setCodexAgentLiveEvents([])
 
     const unsubscribe = api.onCodexAgentEvent((batch) => {
@@ -326,7 +333,13 @@ export function useLocalAgentPanel({
       })
 
       if (!result.ok) {
-        setCodexAgentError(friendlyAgentErrorMessage(result.error, `${providerLabel} agent failed.`))
+        // A stopped run keeps whatever the agent already produced (the live trace)
+        // instead of wiping it with an error message.
+        if (result.error.code === 'local_agent_cancelled') {
+          setCodexAgentStopped(true)
+        } else {
+          setCodexAgentError(friendlyAgentErrorMessage(result.error, `${providerLabel} agent failed.`))
+        }
         return
       }
 
@@ -354,6 +367,50 @@ export function useLocalAgentPanel({
     void api.cancelCodexAgent(runId)
   }
 
+  // Runs a queued prompt: mirror it into the composer for visibility, then start
+  // the run with the explicit text so it does not race the async prompt state.
+  const runPromptFromQueue = (text: string) => {
+    setCodexAgentPrompt(text)
+    void runCodexAgentPanel(text)
+  }
+
+  const {
+    agentSessionSummaryOpen,
+    toggleAgentSessionSummary,
+    refreshAgentSessionSummary,
+    agentSessionSummary,
+    agentSessionSummaryLoading,
+    agentSessionSummaryError
+  } = useAgentSessionSummary({ api, currentRepoPath })
+
+  const {
+    codexAgentQueue,
+    codexAgentQueueCount,
+    codexAgentQueuePaused,
+    codexAgentQueuePauseReason,
+    enqueue: enqueueCodexAgentPrompt,
+    removeCodexAgentQueueItem,
+    clearCodexAgentQueue,
+    moveCodexAgentQueueItem,
+    pauseCodexAgentQueue,
+    resumeCodexAgentQueue
+  } = useAgentQueue({
+    codexAgentRunning,
+    codexAgentResult,
+    codexAgentError,
+    codexAgentLiveEvents,
+    onRunPrompt: runPromptFromQueue
+  })
+
+  // "Add to queue": append the composer text (immediately or while a run is active)
+  // and clear the composer so the user can line up the next instruction.
+  const queueCurrentPrompt = () => {
+    const text = codexAgentPrompt.trim()
+    if (!text) return
+    enqueueCodexAgentPrompt(text)
+    setCodexAgentPrompt('')
+  }
+
   return {
     codexAgentTextareaRef,
     codexAgentOpen,
@@ -366,6 +423,7 @@ export function useLocalAgentPanel({
     codexAgentError,
     codexAgentLiveEvents,
     codexAgentStopping,
+    codexAgentStopped,
     stopCodexAgent,
     codexAgentAttachments,
     codexAgentPreviewAttachment,
@@ -388,6 +446,22 @@ export function useLocalAgentPanel({
     handleCodexAgentDrop,
     removeCodexAgentAttachment,
     applyCodexAgentCommand,
-    runCodexAgentPanel
+    runCodexAgentPanel,
+    codexAgentQueue,
+    codexAgentQueueCount,
+    codexAgentQueuePaused,
+    codexAgentQueuePauseReason,
+    queueCurrentPrompt,
+    removeCodexAgentQueueItem,
+    clearCodexAgentQueue,
+    moveCodexAgentQueueItem,
+    pauseCodexAgentQueue,
+    resumeCodexAgentQueue,
+    agentSessionSummaryOpen,
+    toggleAgentSessionSummary,
+    refreshAgentSessionSummary,
+    agentSessionSummary,
+    agentSessionSummaryLoading,
+    agentSessionSummaryError
   }
 }

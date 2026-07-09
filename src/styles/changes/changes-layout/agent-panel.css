@@ -231,7 +231,7 @@
 .changes-editor-codex-composer {
   display: grid;
   position: relative;
-  grid-template-rows: minmax(110px, 1fr) auto auto auto auto;
+  grid-template-rows: minmax(110px, 1fr) auto auto auto auto auto;
   overflow: hidden;
 }
 
