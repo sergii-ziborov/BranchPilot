@@ -154,6 +154,138 @@
   border-left-color: #f87171;
 }
 
+.activity-row-shell {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.activity-row-expandable {
+  width: 100%;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) auto;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.memory-history-cell .activity-row-expandable {
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr) auto;
+}
+
+.activity-row-expandable:hover,
+.activity-row-expandable.expanded {
+  border-color: var(--sel-border);
+  background: var(--sel-bg);
+}
+
+.activity-row-caret {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.activity-row-expandable.expanded .activity-row-caret {
+  transform: rotate(180deg);
+}
+
+.agent-run-details {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--sel-border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.agent-run-details-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.agent-run-details-status.is-error {
+  color: #f87171;
+}
+
+.agent-run-details-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.agent-run-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.agent-run-status.status-completed {
+  color: #166534;
+  background: color-mix(in srgb, #22c55e 16%, transparent);
+}
+
+.agent-run-status.status-cancelled {
+  color: var(--muted);
+  background: var(--panel-2);
+}
+
+.agent-run-status.status-failed {
+  color: #f87171;
+  background: color-mix(in srgb, #f87171 16%, transparent);
+}
+
+.agent-run-chip {
+  overflow: hidden;
+  max-width: 240px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--panel-2);
+  font-size: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-run-chip.agent-run-file {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.agent-run-verdict {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.agent-run-output {
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+}
+
+.agent-run-output pre {
+  margin: 0;
+  color: var(--text);
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.agent-run-trace {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
 .memory-commit-row {
   display: grid;
   gap: 3px;

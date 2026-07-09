@@ -141,6 +141,8 @@ const branchPilot: BranchPilotApi = {
   beautifyFileWithAssistant: (request) => invoke('assistants:beautifyFile', request),
   runCodexAgent: (request) => invoke('assistants:runCodexAgent', request),
   cancelCodexAgent: (runId) => invoke('assistants:cancelCodexAgent', runId),
+  getAgentRuns: (repoPath, limit) => invoke('agent:runs', repoPath, limit),
+  getAgentRunDetail: (request) => invoke('agent:runDetail', request),
   onCodexAgentEvent: (callback) => {
     const listener = (_event: unknown, batch: CodexAgentStreamBatch) => callback(batch)
     ipcRenderer.on('assistants:codexAgentEvent', listener)

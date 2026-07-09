@@ -264,15 +264,100 @@ export async function searchGitHubCoAuthors(
   )
 }
 
+interface RepositoryListCacheEntry {
+  timestamp: number
+  repositories: GitHubRepositorySummary[]
+  refreshing: boolean
+}
+
+const REPOSITORY_LIST_CACHE_TTL_MS = 60_000
+
+// Keyed by the command runner so cached results stay tied to the session/credentials that produced
+// them. A shared app runner reuses its cache across dialog opens; a fresh runner starts empty.
+const repositoryListCacheByRunner = new WeakMap<CommandRunner, Map<string, RepositoryListCacheEntry>>()
+
+function repositoryListCacheFor(runner: CommandRunner): Map<string, RepositoryListCacheEntry> {
+  let cache = repositoryListCacheByRunner.get(runner)
+
+  if (!cache) {
+    cache = new Map<string, RepositoryListCacheEntry>()
+    repositoryListCacheByRunner.set(runner, cache)
+  }
+
+  return cache
+}
+
+function repositoryListCacheKey(request: ListGitHubRepositoriesRequest, owner: string | undefined, limit: number): string {
+  return JSON.stringify({
+    owner: owner ?? '',
+    query: request.query ?? '',
+    visibility: request.visibility ?? 'all',
+    limit
+  })
+}
+
+function scheduleRepositoryListRefresh(
+  cache: Map<string, RepositoryListCacheEntry>,
+  cacheKey: string,
+  fetcher: () => Promise<GitHubRepositorySummary[]>
+): void {
+  const existing = cache.get(cacheKey)
+
+  if (existing?.refreshing) {
+    return
+  }
+
+  if (existing) {
+    existing.refreshing = true
+  }
+
+  void fetcher()
+    .then((repositories) => {
+      cache.set(cacheKey, { timestamp: Date.now(), repositories, refreshing: false })
+    })
+    .catch(() => {
+      const entry = cache.get(cacheKey)
+
+      if (entry) {
+        entry.refreshing = false
+      }
+    })
+}
+
 export async function listGitHubRepositories(
   runner: CommandRunner,
   request: ListGitHubRepositoriesRequest = {},
   credentialProvider = DEFAULT_CREDENTIAL_PROVIDER,
   apiClient = DEFAULT_API_CLIENT
 ): Promise<GitHubRepositorySummary[]> {
-  const status = await getGitHubCliStatus(runner, undefined, credentialProvider, apiClient)
   const limit = normalizeRepositoryListLimit(request.limit)
   const owner = normalizeOptionalGitHubOwner(request.owner)
+  const cacheKey = repositoryListCacheKey(request, owner, limit)
+  const cache = repositoryListCacheFor(runner)
+  const fetcher = () => fetchGitHubRepositories(runner, request, credentialProvider, apiClient, owner, limit)
+  const cached = cache.get(cacheKey)
+
+  // Serve a fresh-enough cached list instantly and refresh in the background so the next open is
+  // also current. A manual refresh (request.refresh) always bypasses the cache.
+  if (!request.refresh && cached && Date.now() - cached.timestamp < REPOSITORY_LIST_CACHE_TTL_MS) {
+    scheduleRepositoryListRefresh(cache, cacheKey, fetcher)
+    return cached.repositories
+  }
+
+  const repositories = await fetcher()
+  cache.set(cacheKey, { timestamp: Date.now(), repositories, refreshing: false })
+  return repositories
+}
+
+async function fetchGitHubRepositories(
+  runner: CommandRunner,
+  request: ListGitHubRepositoriesRequest,
+  credentialProvider: typeof DEFAULT_CREDENTIAL_PROVIDER,
+  apiClient: typeof DEFAULT_API_CLIENT,
+  owner: string | undefined,
+  limit: number
+): Promise<GitHubRepositorySummary[]> {
+  const status = await getGitHubCliStatus(runner, undefined, credentialProvider, apiClient)
 
   if (status.authProvider === 'git-credential') {
     const credential = await credentialProvider.getCredential()

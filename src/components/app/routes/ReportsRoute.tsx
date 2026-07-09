@@ -218,6 +218,7 @@ export function ReportsRoute() {
           activityCategory={activityCategory}
           setActivityCategory={setActivityCategory}
           filteredActivityEntries={filteredActivityEntries}
+          currentRepoPath={currentRepoPath}
           selectedMemoryFilePath={selectedMemoryFilePath}
           setSelectedMemoryFilePath={setSelectedMemoryFilePath}
           selectedMemoryFile={selectedMemoryFile}

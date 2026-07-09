@@ -149,7 +149,10 @@ export function IntegrationSettingsPanel({ editorPreferences, terminalPreference
       </section>
 
       <section className="config-card git-monitor-card">
-        <h3>PR notifications</h3>
+        <h3>Background refresh</h3>
+        <p className="muted-text">
+          While enabled, BranchPilot polls in the background to notify you about the active pull request and to warm caches so click-time actions feel instant.
+        </p>
         <label className="git-monitor-toggle" htmlFor="git-monitor-enabled">
           <input
             id="git-monitor-enabled"
@@ -207,6 +210,59 @@ export function IntegrationSettingsPanel({ editorPreferences, terminalPreference
               disabled={monitorDisabled || !monitorEnabled}
             />
             <span>Review approved or changes requested</span>
+          </label>
+        </div>
+        <label className="git-monitor-subheading">Cache warming tasks</label>
+        <div className="git-monitor-events">
+          <label htmlFor="git-monitor-periodic-fetch">
+            <input
+              id="git-monitor-periodic-fetch"
+              type="checkbox"
+              checked={gitMonitorSettings?.periodicFetch ?? true}
+              onChange={(event) => void saveGitMonitorSettings({ periodicFetch: event.target.checked })}
+              disabled={monitorDisabled || !monitorEnabled}
+            />
+            <span>Periodic fetch</span>
+          </label>
+          <label htmlFor="git-monitor-refresh-repo-list">
+            <input
+              id="git-monitor-refresh-repo-list"
+              type="checkbox"
+              checked={gitMonitorSettings?.refreshRepoList ?? true}
+              onChange={(event) => void saveGitMonitorSettings({ refreshRepoList: event.target.checked })}
+              disabled={monitorDisabled || !monitorEnabled}
+            />
+            <span>Keep repo list fresh</span>
+          </label>
+          <label htmlFor="git-monitor-prefetch-reports-graph">
+            <input
+              id="git-monitor-prefetch-reports-graph"
+              type="checkbox"
+              checked={gitMonitorSettings?.prefetchReportsGraph ?? true}
+              onChange={(event) => void saveGitMonitorSettings({ prefetchReportsGraph: event.target.checked })}
+              disabled={monitorDisabled || !monitorEnabled}
+            />
+            <span>Prefetch Reports graph</span>
+          </label>
+          <label htmlFor="git-monitor-refresh-account">
+            <input
+              id="git-monitor-refresh-account"
+              type="checkbox"
+              checked={gitMonitorSettings?.refreshAccount ?? true}
+              onChange={(event) => void saveGitMonitorSettings({ refreshAccount: event.target.checked })}
+              disabled={monitorDisabled || !monitorEnabled}
+            />
+            <span>Refresh account</span>
+          </label>
+          <label htmlFor="git-monitor-sync-memory">
+            <input
+              id="git-monitor-sync-memory"
+              type="checkbox"
+              checked={gitMonitorSettings?.syncMemory ?? false}
+              onChange={(event) => void saveGitMonitorSettings({ syncMemory: event.target.checked })}
+              disabled={monitorDisabled || !monitorEnabled}
+            />
+            <span>Sync memory <span className="muted-text">(heavier, optional)</span></span>
           </label>
         </div>
         {gitMonitorSettings?.updatedAt && (

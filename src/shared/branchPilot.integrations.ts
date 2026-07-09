@@ -60,6 +60,11 @@ export interface GitMonitorSettings {
   notifyMerged: boolean
   notifyChecks: boolean
   notifyReviews: boolean
+  periodicFetch: boolean
+  refreshRepoList: boolean
+  prefetchReportsGraph: boolean
+  refreshAccount: boolean
+  syncMemory: boolean
   updatedAt?: string
 }
 
@@ -69,6 +74,11 @@ export interface GitMonitorSettingsUpdate {
   notifyMerged?: boolean
   notifyChecks?: boolean
   notifyReviews?: boolean
+  periodicFetch?: boolean
+  refreshRepoList?: boolean
+  prefetchReportsGraph?: boolean
+  refreshAccount?: boolean
+  syncMemory?: boolean
 }
 
 export type GitHubCliState = 'missing' | 'unauthenticated' | 'authenticated'

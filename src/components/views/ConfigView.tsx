@@ -56,8 +56,8 @@ export function ConfigView({ onBack, editorPreferences, terminalPreferences, git
       <div className="reports-topbar secondary-view-topbar settings-topbar">
         <BackToChanges onClick={onBack} />
         <SettingsTabs activeTab={settingsTab} counts={settingsTabCounts} onChange={setSettingsTab} />
-        <button type="button" onClick={loadGitConfig} disabled={busy}>
-          <RefreshCcw size={17} />
+        <button type="button" className="settings-reload-button" onClick={loadGitConfig} disabled={busy}>
+          <RefreshCcw size={16} />
           Reload
         </button>
       </div>

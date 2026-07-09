@@ -1,37 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   branchPilotErrorText,
-  type ApiResult, type BranchPilotApi, type DiffHunk, type DiffResult, type FileChange, type GitOperationResult,
-  type ImagePreview, type PatchScope, type RepositoryCounts, type RepositorySnapshot
+  type ApiResult, type BranchPilotApi, type DiffHunk, type FileChange, type GitOperationResult,
+  type PatchScope, type RepositoryCounts, type RepositorySnapshot
 } from '../shared/branchPilot'
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import {
-  getAvailableChangeDiffMode, getBulkStageToggleAction, getBulkStageToggleState,
+  getBulkStageToggleAction, getBulkStageToggleState,
   getChangeStageToggleAction, getDefaultChangeDiffMode
 } from '../shared/changeStaging'
-import { getDiffStats } from '../shared/diffView'
 import { changeLabel } from '../lib/fileChangeLabels'
 import { CHANGE_LIST_ITEM_HEIGHT } from '../lib/listMetrics'
 import type { RequestConfirmation } from '../lib/prompts'
+import { useDiffViewer } from './useDiffViewer'
 import { useVirtualList } from './useVirtualList'
 
 type DiffDisplayMode = 'unified' | 'split'
 type ChangeSearchMode = 'path' | 'content' | 'all'
 
-interface DiffCacheEntry {
-  diff: DiffResult
-  relatedDiff: DiffResult | null
-  imagePreview: ImagePreview | null
-}
-
 const CHANGE_CONTENT_SEARCH_LIMIT = 120
-const DEFAULT_DIFF_CONTEXT_LINES = 3
-const EXPANDED_DIFF_CONTEXT_LINES = 20
-
-function getRelatedDiffMode(change: FileChange, mode: ChangeDiffMode): ChangeDiffMode | null {
-  if (!change.staged || (!change.unstaged && !change.untracked)) return null
-  return mode === 'staged' ? 'unstaged' : 'staged'
-}
 
 function changeSearchText(change: FileChange): string {
   return [change.path, change.originalPath, change.status, changeLabel(change)]
@@ -98,23 +85,14 @@ export function useChanges({
   const [diffDisplayMode, setDiffDisplayMode] = useState<DiffDisplayMode>('unified')
   const [diffIgnoreWhitespace, setDiffIgnoreWhitespace] = useState(false)
   const [diffExpanded, setDiffExpanded] = useState(false)
-  const [diff, setDiff] = useState<DiffResult | null>(null)
-  const [diffLoading, setDiffLoading] = useState(false)
-  const [relatedDiff, setRelatedDiff] = useState<DiffResult | null>(null)
-  const [imagePreview, setImagePreview] = useState<ImagePreview | null>(null)
   const [patchScope, setPatchScope] = useState<PatchScope>('working-tree')
   const [changeContentIndex, setChangeContentIndex] = useState<Map<string, string>>(new Map())
   const [changeContentIndexing, setChangeContentIndexing] = useState(false)
   const [stagingPendingPaths, setStagingPendingPaths] = useState<Set<string>>(new Set())
   const [bulkStagingPending, setBulkStagingPending] = useState(false)
   const [bulkStageOptimisticChecked, setBulkStageOptimisticChecked] = useState<boolean | null>(null)
-  const diffRequestIdRef = useRef(0)
   const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
   const changeIndexKey = useMemo(() => getChangeIndexKey(snapshot), [snapshot])
-  // Diff cache: instant re-clicks within one snapshot. Invalidated whenever the
-  // snapshot's change set changes (any stage/unstage/edit) so a stale diff never shows.
-  const diffCacheRef = useRef<Map<string, DiffCacheEntry>>(new Map())
-  const diffCacheKeyRef = useRef(changeIndexKey)
 
   const filteredChanges = useMemo(() => {
     // Stable alphabetical order so staging/unstaging a file never reorders the
@@ -136,15 +114,6 @@ export function useChanges({
     [selectedFilePath, snapshot]
   )
 
-  const selectedDiffStats = useMemo(() => {
-    if (!diff || diff.binary || !diff.text.trim()) return null
-    return getDiffStats(diff)
-  }, [diff])
-  const selectedRelatedDiffStats = useMemo(() => {
-    if (!relatedDiff || relatedDiff.binary || !relatedDiff.text.trim()) return null
-    return getDiffStats(relatedDiff)
-  }, [relatedDiff])
-
   const virtualChanges = useVirtualList(
     filteredChanges,
     CHANGE_LIST_ITEM_HEIGHT,
@@ -154,85 +123,13 @@ export function useChanges({
   const bulkStageToggleState = getBulkStageToggleState(effectiveCounts)
   const selectedFileTarget = currentRepoPath && selectedChange ? `${currentRepoPath}/${selectedChange.path}` : null
 
-  async function loadDiff(change: FileChange, mode: ChangeDiffMode) {
-    if (!api || !currentRepoPath) return
-    const requestId = diffRequestIdRef.current + 1
-    diffRequestIdRef.current = requestId
-    const staged = mode === 'staged' && change.staged
-
-    // Drop the cache whenever the working tree changed, so no stale diff survives.
-    if (diffCacheKeyRef.current !== changeIndexKey) {
-      diffCacheRef.current.clear()
-      diffCacheKeyRef.current = changeIndexKey
-    }
-
-    const cacheKey = `${change.path}|${staged ? 'S' : 'U'}|${diffIgnoreWhitespace ? 'W' : 'w'}|${diffExpanded ? 'E' : 'e'}`
-    const cached = diffCacheRef.current.get(cacheKey)
-    if (cached) {
-      setDiff(cached.diff)
-      setRelatedDiff(cached.relatedDiff)
-      setImagePreview(cached.imagePreview)
-      return
-    }
-
-    const diffRequest = {
-      repoPath: currentRepoPath,
-      filePath: change.path,
-      ignoreWhitespace: diffIgnoreWhitespace,
-      contextLines: diffExpanded ? EXPANDED_DIFF_CONTEXT_LINES : DEFAULT_DIFF_CONTEXT_LINES
-    }
-    const relatedMode = getRelatedDiffMode(change, mode)
-    const relatedStaged = relatedMode === 'staged'
-
-    // Cache missed: an actual fetch follows, so raise the curtain now. The finally
-    // clears it only when this request is still the newest, so a stale response
-    // can't hide a curtain that a newer load just raised.
-    setDiffLoading(true)
-    try {
-      const relatedPromise = relatedMode
-        ? api.getDiff({ ...diffRequest, staged: relatedStaged }).catch(() => null)
-        : Promise.resolve(null)
-      const result = await api.getDiff({ ...diffRequest, staged })
-
-      if (diffRequestIdRef.current !== requestId) return
-
-      if (result.ok) {
-        setDiff(result.data)
-        let resolvedImagePreview: ImagePreview | null = null
-
-        if (result.data.binary && typeof api.getImagePreview === 'function' && /\.(png|jpe?g|gif|webp|bmp|svg|ico|avif)$/i.test(change.path)) {
-          const preview = await api.getImagePreview({ repoPath: currentRepoPath, filePath: change.path }).catch(() => null)
-          if (diffRequestIdRef.current !== requestId) return
-          resolvedImagePreview = preview && preview.ok ? preview.data : null
-          setImagePreview(resolvedImagePreview)
-        } else {
-          setImagePreview(null)
-        }
-
-        const relatedResult = await relatedPromise
-        if (diffRequestIdRef.current !== requestId) return
-        const resolvedRelatedDiff = relatedResult?.ok && relatedResult.data.text.trim() ? relatedResult.data : null
-        setRelatedDiff(resolvedRelatedDiff)
-
-        // Only cache once still the current snapshot, so a mid-flight stage can't poison it.
-        if (diffCacheKeyRef.current === changeIndexKey) {
-          diffCacheRef.current.set(cacheKey, {
-            diff: result.data,
-            relatedDiff: resolvedRelatedDiff,
-            imagePreview: resolvedImagePreview
-          })
-        }
-      } else {
-        setDiff(null)
-        setRelatedDiff(null)
-        setImagePreview(null)
-        setError(result.error.message)
-      }
-    } finally {
-      // Guard so a stale request can't clear a curtain a newer load just raised.
-      if (diffRequestIdRef.current === requestId) setDiffLoading(false)
-    }
-  }
+  const {
+    diff, diffLoading, relatedDiff, imagePreview, diffRequestIdRef,
+    selectedDiffStats, selectedRelatedDiffStats, loadDiff
+  } = useDiffViewer({
+    api, currentRepoPath, snapshot, selectedChange, changeIndexKey, filteredChanges,
+    diffMode, setDiffMode, diffIgnoreWhitespace, diffExpanded, setError
+  })
 
   function closeChangesActionsMenu() {
     if (changesActionsMenuRef.current) {
@@ -532,25 +429,6 @@ export function useChanges({
       setDiffMode(firstChange ? getDefaultChangeDiffMode(firstChange) : 'unstaged')
     }
   }, [changeFilter, filteredChanges, selectedFilePath, snapshot])
-
-  useEffect(() => {
-    if (!snapshot || !selectedChange) {
-      diffRequestIdRef.current += 1
-      setDiff(null)
-      setRelatedDiff(null)
-      return
-    }
-
-    const availableMode = getAvailableChangeDiffMode(selectedChange, diffMode)
-
-    if (availableMode !== diffMode) {
-      setDiffMode(availableMode)
-      return
-    }
-
-    void loadDiff(selectedChange, availableMode)
-
-  }, [diffIgnoreWhitespace, diffExpanded, diffMode, selectedChange, snapshot])
 
   // Each newly selected file starts collapsed (compact context).
   useEffect(() => {

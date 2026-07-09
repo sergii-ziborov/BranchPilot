@@ -1,11 +1,18 @@
 import { CommandRunner } from '../lib/commandRunner.js'
 import { BranchPilotUserError } from '../lib/errors.js'
-import { GIT_EXECUTABLE, WHICH_EXECUTABLE, normalizeNativePath } from '../lib/platformExecutables.js'
+import { GH_EXECUTABLE, GIT_EXECUTABLE, WHICH_EXECUTABLE, normalizeNativePath } from '../lib/platformExecutables.js'
 import { normalizeGitHubRepositoryPath, type GitHubRepositoryInfo } from './githubCliService.shared.js'
 
 /** Leaf context helpers: gh executable, repository root, remote + branch resolution. */
 
 export async function resolveGhExecutable(runner: CommandRunner): Promise<string | undefined> {
+  // Prefer a direct binary (e.g. Program Files / Homebrew) resolved once at import over a slow
+  // PATH shim. Falls back to the injected runner's PATH lookup so callers can still detect an
+  // absent gh (and a later install/removal) on every call.
+  if (GH_EXECUTABLE) {
+    return GH_EXECUTABLE
+  }
+
   try {
     const result = await runner.run(WHICH_EXECUTABLE, ['gh'], {
       timeoutMs: 5_000

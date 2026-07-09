@@ -18,6 +18,8 @@ export type BranchPilotMcpToolName =
   | 'get_file_history'
   | 'get_repository_blame'
   | 'get_agent_activity'
+  | 'list_agent_runs'
+  | 'get_agent_run'
   | 'get_project_wiki'
   | 'get_wiki_page'
 
@@ -102,6 +104,14 @@ export const BRANCHPILOT_MCP_TOOLS: BranchPilotMcpToolDefinition[] = [
   {
     name: 'get_agent_activity',
     description: 'Return recent BranchPilot activity for this repository from the local Activity Log.'
+  },
+  {
+    name: 'list_agent_runs',
+    description: 'Return recent local-agent (Codex/Claude) run summaries for this repository, including status, prompt preview, and verdict. Useful for seeing what earlier runs did, e.g. after an interruption.'
+  },
+  {
+    name: 'get_agent_run',
+    description: 'Return the full stored record for one local-agent run by id, including prompt, output, events, and verdict.'
   },
   {
     name: 'get_project_wiki',

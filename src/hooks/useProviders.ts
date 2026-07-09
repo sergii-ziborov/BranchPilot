@@ -192,7 +192,7 @@ export function useProviders({
     return []
   }
 
-  async function loadGitHubRepositories() {
+  async function loadGitHubRepositories(options?: { refresh?: boolean }) {
     if (!api) return
 
     setGithubRepoLoading(true)
@@ -212,7 +212,8 @@ export function useProviders({
       owner,
       query: githubRepoQuery.trim() || undefined,
       visibility: githubRepoVisibility,
-      limit
+      limit,
+      refresh: options?.refresh
     }
     const accountsForAllOwners = owner
       ? []

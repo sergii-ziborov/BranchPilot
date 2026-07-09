@@ -40,15 +40,17 @@
 }
 
 .diff-selection-actions button.secondary {
-  border-color: rgba(148, 163, 184, 0.4);
-  color: #c9d1d9;
+  border-color: var(--border);
+  color: var(--muted);
   background: transparent;
 }
 
 .diff-selection-actions button.danger {
-  border-color: rgba(248, 81, 73, 0.6);
-  color: #ffd7d7;
-  background: rgba(248, 81, 73, 0.18);
+  /* Saturated red text stays readable on both light and dark themes, unlike the
+     old pale #ffd7d7 which vanished on light backgrounds. */
+  border-color: color-mix(in srgb, #e5484d 55%, var(--border));
+  color: #e5484d;
+  background: color-mix(in srgb, #e5484d 14%, transparent);
 }
 
 .diff-selection-actions button.danger:hover:not(:disabled) {

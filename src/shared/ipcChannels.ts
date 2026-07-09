@@ -1,6 +1,8 @@
 export const BRANCH_PILOT_IPC_CHANNELS = [
   'activity:clear',
   'activity:list',
+  'agent:runDetail',
+  'agent:runs',
   'app:version',
   'app:setChromeTheme',
   'assistants:check',

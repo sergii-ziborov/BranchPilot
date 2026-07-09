@@ -9,6 +9,8 @@ import {
   getCurrentGitState,
   getFileOutline,
   getAgentActivity,
+  getAgentRuns,
+  getAgentRunDetail,
   getProjectHealth,
   getProjectSummary,
   getProjectWiki,
@@ -311,6 +313,24 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     annotations: readOnlyAnnotations()
   }, async (args) => toolJson(await getAgentActivity({ ...options, ...args })))
 
+  server.registerTool('list_agent_runs', {
+    title: 'List Agent Runs',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'list_agent_runs')?.description,
+    inputSchema: {
+      limit: z.number().int().min(1).max(100).optional().describe('Maximum number of agent run summaries to return.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getAgentRuns({ ...options, limit: args.limit })))
+
+  server.registerTool('get_agent_run', {
+    title: 'Get Agent Run',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_agent_run')?.description,
+    inputSchema: {
+      id: z.string().min(1).describe('Agent run id to fetch, as returned by list_agent_runs.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getAgentRunDetail({ ...options, id: args.id })))
+
   server.registerTool('get_project_wiki', {
     title: 'Get Project Wiki',
     description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_project_wiki')?.description,
@@ -370,6 +390,7 @@ export function parseMcpServerArgs(argv: string[]): MemoryQueryOptions {
   const memoryDir = readFlag(argv, '--memory-dir')
   const activityDir = readFlag(argv, '--activity-dir')
   const wikiDir = readFlag(argv, '--wiki-dir')
+  const agentRunDir = readFlag(argv, '--agent-run-dir')
   const repoPath = readFlag(argv, '--repo')
 
   if (!memoryDir) {
@@ -380,6 +401,7 @@ export function parseMcpServerArgs(argv: string[]): MemoryQueryOptions {
     memoryDir,
     activityDir,
     wikiDir,
+    agentRunDir,
     repoPath
   }
 }

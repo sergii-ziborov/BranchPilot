@@ -98,6 +98,31 @@
   margin-bottom: 5px;
 }
 
+.settings-reload-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-reload-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--sel-bg);
+}
+
+.settings-reload-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .reports-topbar .reports-switch {
   margin-bottom: 0;
   padding: 0;

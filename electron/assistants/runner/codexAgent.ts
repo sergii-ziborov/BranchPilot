@@ -1,11 +1,15 @@
+import { randomUUID } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type {
+  AgentRunRecord,
+  AgentRunSummary,
   CodexAgentAttachment,
   CodexAgentRequest,
   CodexAgentResult
 } from '../../../src/shared/branchPilot.js'
+import type { AgentRunStore } from '../../lib/agentRunStore.js'
 import { CommandRunner } from '../../lib/commandRunner.js'
 import { BranchPilotUserError } from '../../lib/errors.js'
 import { GIT_EXECUTABLE } from '../../lib/platformExecutables.js'
@@ -29,7 +33,8 @@ const MAX_CODEX_AGENT_ATTACHMENT_TEXT_BYTES = 80_000
 export async function runCodexAgent(
   runner: CommandRunner,
   request: CodexAgentRequest,
-  stream: AgentExecStreamOptions = {}
+  stream: AgentExecStreamOptions = {},
+  store?: AgentRunStore
 ): Promise<CodexAgentResult> {
   const rootPath = await resolveRepositoryRoot(runner, request.repoPath)
   const promptText = request.prompt.trim()
@@ -66,12 +71,14 @@ export async function runCodexAgent(
     timeoutMs: 20_000
   })
   const images = await writeCodexAgentImages(imageAttachments)
+  const previousRuns = await loadRecentAgentRuns(store, rootPath)
   const prompt = buildCodexAgentPrompt({
     assistant: assistant.id,
     branch,
     status: status.stdout,
     diffStat: diffStat.stdout,
     imagePaths: images.paths,
+    previousRuns,
     request: {
       ...request,
       attachments
@@ -79,6 +86,7 @@ export async function runCodexAgent(
     prompt: promptText
   })
   const startedAt = Date.now()
+  const runId = request.runId ?? randomUUID()
 
   try {
     const result = assistant.id === 'claude'
@@ -104,22 +112,119 @@ export async function runCodexAgent(
     const events = assistant.id === 'claude'
       ? parseClaudeStreamEvents(result.eventLog).slice(-120)
       : parseCodexAgentEvents(result.eventLog)
+    const output = result.output || events.map((event) => event.text).filter(Boolean).slice(-3).join('\n\n')
+
+    const stored = await persistAgentRun(store, {
+      id: runId,
+      repoPath: rootPath,
+      assistant: assistant.id,
+      modelLabel: assistant.modelLabel,
+      prompt: promptText || request.prompt,
+      output,
+      events,
+      sandbox: request.sandbox,
+      reasoning: request.reasoning,
+      filePath: request.filePath,
+      imageCount: images.paths.length,
+      attachmentCount: attachments.length,
+      durationMs: Date.now() - startedAt,
+      status: 'completed',
+      verdict: summarizeOutput(output),
+      createdAt: new Date().toISOString()
+    })
 
     return {
       assistant: assistant.id,
       modelLabel: assistant.modelLabel,
-      output: result.output || events.map((event) => event.text).filter(Boolean).slice(-3).join('\n\n'),
+      output,
       events,
       sandbox: request.sandbox,
       reasoning: request.reasoning,
       imageCount: images.paths.length,
       attachmentCount: attachments.length,
       durationMs: Date.now() - startedAt,
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
+      runId: stored?.id ?? runId
     }
+  } catch (error) {
+    const status = error instanceof BranchPilotUserError && error.code === 'local_agent_cancelled'
+      ? 'cancelled'
+      : 'failed'
+
+    await persistAgentRun(store, {
+      id: runId,
+      repoPath: rootPath,
+      assistant: assistant.id,
+      modelLabel: assistant.modelLabel,
+      prompt: promptText || request.prompt,
+      output: '',
+      events: [],
+      sandbox: request.sandbox,
+      reasoning: request.reasoning,
+      filePath: request.filePath,
+      imageCount: images.paths.length,
+      attachmentCount: attachments.length,
+      durationMs: Date.now() - startedAt,
+      status,
+      verdict: errorSummary(error, status),
+      createdAt: new Date().toISOString()
+    })
+
+    throw error
   } finally {
     await fs.rm(images.tempDir, { force: true, recursive: true })
   }
+}
+
+async function loadRecentAgentRuns(store: AgentRunStore | undefined, repoPath: string): Promise<AgentRunSummary[]> {
+  if (!store) {
+    return []
+  }
+
+  try {
+    return await store.getRecentSummaries(repoPath, 5)
+  } catch (error) {
+    console.error('Agent run store read failed', error)
+    return []
+  }
+}
+
+async function persistAgentRun(
+  store: AgentRunStore | undefined,
+  record: AgentRunRecord
+): Promise<AgentRunRecord | null> {
+  if (!store) {
+    return null
+  }
+
+  try {
+    return await store.append(record)
+  } catch (error) {
+    console.error('Agent run store write failed', error)
+    return null
+  }
+}
+
+function summarizeOutput(output: string): string | undefined {
+  const trimmed = output.trim()
+
+  if (!trimmed) {
+    return undefined
+  }
+
+  return trimmed.length > 400 ? `...${trimmed.slice(-400)}` : trimmed
+}
+
+function errorSummary(error: unknown, status: AgentRunRecord['status']): string {
+  if (status === 'cancelled') {
+    return 'Agent run was stopped.'
+  }
+
+  if (error instanceof BranchPilotUserError || error instanceof Error) {
+    return error.message
+  }
+
+  return 'Agent run failed.'
 }
 
 function buildCodexAgentPrompt(context: {
@@ -128,6 +233,7 @@ function buildCodexAgentPrompt(context: {
   status: string
   diffStat: string
   imagePaths: string[]
+  previousRuns: AgentRunSummary[]
   request: CodexAgentRequest
   prompt: string
 }): string {
@@ -179,12 +285,65 @@ function buildCodexAgentPrompt(context: {
     '',
     'Active diagnostics:',
     formatCodexAgentDiagnostics(context.request.diagnostics ?? []),
+    ...(context.previousRuns.length > 0
+      ? [
+          '',
+          'Previous agent runs in this repo (most recent first):',
+          formatPreviousAgentRuns(context.previousRuns)
+        ]
+      : []),
     '',
     'User request:',
     context.prompt || '(image/context-only request)'
   ].join('\n')
 
   return truncateText(basePrompt, MAX_CODEX_AGENT_PROMPT_BYTES).text
+}
+
+function formatPreviousAgentRuns(runs: AgentRunSummary[]): string {
+  return runs
+    .slice(0, 5)
+    .map((run) => {
+      const when = formatAgentRunTimestamp(run.createdAt)
+      const promptPreview = shortenAgentRunText(run.prompt, 140) || '(no prompt)'
+      const verdictPreview = run.verdict ? ` -> ${shortenAgentRunText(run.verdict, 160)}` : ''
+
+      return `- [${run.status}] ${when} ${run.assistant}: ${promptPreview}${verdictPreview}`
+    })
+    .join('\n')
+}
+
+function shortenAgentRunText(text: string, maxLength: number): string {
+  const normalized = (text ?? '').replace(/\s+/g, ' ').trim()
+
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized
+}
+
+function formatAgentRunTimestamp(createdAt: string): string {
+  const timestamp = Date.parse(createdAt)
+
+  if (Number.isNaN(timestamp)) {
+    return 'unknown time'
+  }
+
+  const diffMs = Date.now() - timestamp
+
+  if (diffMs < 0) {
+    return 'just now'
+  }
+
+  const minutes = Math.round(diffMs / 60_000)
+
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+
+  const hours = Math.round(minutes / 60)
+
+  if (hours < 24) return `${hours}h ago`
+
+  const days = Math.round(hours / 24)
+
+  return `${days}d ago`
 }
 
 function formatCodexAgentDiagnostics(diagnostics: CodexAgentRequest['diagnostics']): string {

@@ -44,7 +44,12 @@ const DEFAULT_SETTINGS: PersistedSettings = {
     intervalSeconds: 60,
     notifyMerged: true,
     notifyChecks: true,
-    notifyReviews: true
+    notifyReviews: true,
+    periodicFetch: true,
+    refreshRepoList: true,
+    prefetchReportsGraph: true,
+    refreshAccount: true,
+    syncMemory: false
   }
 }
 
@@ -183,6 +188,11 @@ export class SettingsStore {
       notifyMerged: update.notifyMerged ?? current.notifyMerged,
       notifyChecks: update.notifyChecks ?? current.notifyChecks,
       notifyReviews: update.notifyReviews ?? current.notifyReviews,
+      periodicFetch: update.periodicFetch ?? current.periodicFetch,
+      refreshRepoList: update.refreshRepoList ?? current.refreshRepoList,
+      prefetchReportsGraph: update.prefetchReportsGraph ?? current.prefetchReportsGraph,
+      refreshAccount: update.refreshAccount ?? current.refreshAccount,
+      syncMemory: update.syncMemory ?? current.syncMemory,
       updatedAt: new Date().toISOString()
     })
 
@@ -375,6 +385,11 @@ function normalizeGitMonitorSettings(value: unknown): GitMonitorSettings {
     notifyMerged: normalizeBoolean(candidate.notifyMerged, defaults.notifyMerged),
     notifyChecks: normalizeBoolean(candidate.notifyChecks, defaults.notifyChecks),
     notifyReviews: normalizeBoolean(candidate.notifyReviews, defaults.notifyReviews),
+    periodicFetch: normalizeBoolean(candidate.periodicFetch, defaults.periodicFetch),
+    refreshRepoList: normalizeBoolean(candidate.refreshRepoList, defaults.refreshRepoList),
+    prefetchReportsGraph: normalizeBoolean(candidate.prefetchReportsGraph, defaults.prefetchReportsGraph),
+    refreshAccount: normalizeBoolean(candidate.refreshAccount, defaults.refreshAccount),
+    syncMemory: normalizeBoolean(candidate.syncMemory, defaults.syncMemory),
     updatedAt: normalizeOptionalString(candidate.updatedAt)
   }
 }

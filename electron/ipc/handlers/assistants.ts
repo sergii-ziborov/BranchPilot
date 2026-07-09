@@ -76,10 +76,16 @@ export function registerAssistantHandlers(
   services: RegisterIpcHandlersServices
 ) {
   const { handle, handleAssistantAction, requestRepoPath } = helpers
-  const { commandRunner } = services
+  const { commandRunner, agentRunStore } = services
 
   handle('assistants:list', () => listAssistantStatuses(commandRunner))
   handle('assistants:check', () => checkAssistantStatuses(commandRunner))
+  handle('agent:runs', (repoPath: string, limit?: number) =>
+    agentRunStore.getRecentSummaries(repoPath, limit ?? 20)
+  )
+  handle('agent:runDetail', (request: { repoPath: string; id: string }) =>
+    agentRunStore.getRun(request.repoPath, request.id)
+  )
   handleAssistantAction('assistants:generateCommitMessage', 'commit_message', {
     type: 'assistant_commit_generated',
     actor: 'assistant',
@@ -123,7 +129,8 @@ export function registerAssistantHandlers(
       reasoning: request.reasoning,
       images: request.images?.length ?? 0,
       output_length: generated?.output.length ?? 0,
-      duration_ms: generated?.durationMs ?? 0
+      duration_ms: generated?.durationMs ?? 0,
+      run_id: generated?.runId ?? request.runId ?? ''
     })
   }, (request: CodexAgentRequest) => {
     const controller = new AbortController()
@@ -133,7 +140,7 @@ export function registerAssistantHandlers(
       codexAgentRuns.set(request.runId, controller)
     }
 
-    return runCodexAgent(commandRunner, request, { onEvent: emitter?.push, signal: controller.signal })
+    return runCodexAgent(commandRunner, request, { onEvent: emitter?.push, signal: controller.signal }, agentRunStore)
       .finally(() => {
         emitter?.dispose()
 

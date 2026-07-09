@@ -5,6 +5,7 @@ interface ProjectMemoryMcpConfigInput {
   memoryDir: string
   activityDir: string
   wikiDir: string
+  agentRunDir?: string
   repoPath: string
   serverPath: string
 }
@@ -18,6 +19,7 @@ export async function createProjectMemoryMcpConfig(input: ProjectMemoryMcpConfig
     input.activityDir,
     '--wiki-dir',
     input.wikiDir,
+    ...(input.agentRunDir ? ['--agent-run-dir', input.agentRunDir] : []),
     '--repo',
     input.repoPath
   ]

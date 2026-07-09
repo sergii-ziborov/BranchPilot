@@ -4,11 +4,14 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { AssistantPolicyService } from './lib/assistantPolicyService.js'
 import { ActivityLogService } from './lib/activityLogService.js'
+import { AgentRunStore } from './lib/agentRunStore.js'
 import { CommandRunner } from './lib/commandRunner.js'
 import { DailyReviewService } from './lib/dailyReviewService.js'
 import { ExternalEditorService } from './lib/editorService.js'
 import { isSafeExternalUrl } from './lib/externalUrl.js'
+import { BackgroundRefreshRunner } from './lib/backgroundTasks/backgroundRefreshRunner.js'
 import { GitMonitorService } from './lib/gitMonitorService.js'
+import { listGitHubAccounts, listGitHubRepositories } from './providers/githubCliService.js'
 import { ProjectMemoryService, ProjectMemoryStore } from './lib/projectMemoryService.js'
 import { ProjectWikiService, ProjectWikiStore } from './lib/projectWikiService.js'
 import { RepositoryService } from './lib/repositoryService.js'
@@ -66,11 +69,13 @@ const commandRunner = new CommandRunner()
 const projectMemoryDir = path.join(app.getPath('userData'), 'project-memory')
 const projectWikiDir = path.join(app.getPath('userData'), 'project-wiki')
 const activityLogDir = path.join(app.getPath('userData'), 'activity-log')
+const agentRunDir = path.join(app.getPath('userData'), 'agent-runs')
 const settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'branchpilot-settings.json'))
 const repositoryService = new RepositoryService(commandRunner, settingsStore)
 const editorService = new ExternalEditorService(commandRunner)
 const assistantPolicyService = new AssistantPolicyService(settingsStore)
 const activityLogService = new ActivityLogService(activityLogDir)
+const agentRunStore = new AgentRunStore(agentRunDir)
 const projectMemoryService = new ProjectMemoryService(
   commandRunner,
   new ProjectMemoryStore(projectMemoryDir)
@@ -82,7 +87,22 @@ const projectWikiService = new ProjectWikiService(
   commandRunner
 )
 const dailyReviewService = new DailyReviewService(repositoryService, activityLogService)
-const gitMonitorService = new GitMonitorService({ commandRunner, focusWindow: focusMainWindow })
+// Cache-warming tasks for the background refresh orchestrator. Each reuses the
+// exact service call its IPC handler uses (no IPC round-trip). The runner gates,
+// throttles and error-isolates them; here we just supply the work.
+const backgroundRefreshRunner = new BackgroundRefreshRunner({
+  fetchRepo: (repoPath) => repositoryService.fetch(repoPath),
+  refreshRepoList: () => listGitHubRepositories(commandRunner),
+  prefetchReportsGraph: (repoPath) =>
+    repositoryService.activity.getContributionGraph({ repoPath }, { refresh: true }),
+  refreshAccount: () => listGitHubAccounts(commandRunner),
+  syncMemory: (repoPath) => projectMemoryService.scanProjectMemory(repoPath)
+})
+const gitMonitorService = new GitMonitorService({
+  commandRunner,
+  focusWindow: focusMainWindow,
+  backgroundRefresh: backgroundRefreshRunner
+})
 
 function createMainWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -166,8 +186,8 @@ app.whenReady().then(() => {
   const ipcHelpers = createIpcHelpers({ assistantPolicyService, activityLogService })
   registerIpcHandlers(ipcHelpers, {
     repositoryService, editorService, assistantPolicyService, activityLogService,
-    projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService,
-    settingsStore, commandRunner, projectMemoryDir, projectWikiDir, activityLogDir
+    agentRunStore, projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService,
+    settingsStore, commandRunner, projectMemoryDir, projectWikiDir, activityLogDir, agentRunDir
   })
   createMainWindow()
 

@@ -56,7 +56,7 @@ export function registerRepositoryHandlers(
   services: RegisterIpcHandlersServices
 ) {
   const { handle, handleLogged, handleUnwrapped, repoPathArg, requestRepoPath, snapshotRepoPath, chooseRepositoryPath, chooseCloneParentPath } = helpers
-  const { repositoryService, assistantPolicyService, activityLogService, projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService, projectMemoryDir, projectWikiDir, activityLogDir } = services
+  const { repositoryService, assistantPolicyService, activityLogService, projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService, projectMemoryDir, projectWikiDir, activityLogDir, agentRunDir } = services
 
   handleUnwrapped('app:version', () => app.getVersion())
   handleUnwrapped('app:setChromeTheme', (request: ChromeThemeRequest) => {
@@ -241,6 +241,7 @@ export function registerRepositoryHandlers(
       memoryDir: projectMemoryDir,
       activityDir: activityLogDir,
       wikiDir: projectWikiDir,
+      agentRunDir,
       repoPath,
       serverPath: path.join(moduleDir, '../../mcp/server.js')
     })

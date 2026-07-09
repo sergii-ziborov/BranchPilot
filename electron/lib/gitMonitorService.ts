@@ -9,6 +9,7 @@ import {
   getGitHubPullRequestChecks,
   getGitHubPullRequestDetails
 } from '../providers/githubCliService.js'
+import type { BackgroundRefreshRunner } from './backgroundTasks/backgroundRefreshRunner.js'
 
 const require = createRequire(import.meta.url)
 const { Notification } = require('electron') as typeof import('electron')
@@ -30,16 +31,26 @@ export interface GitMonitorDependencies {
   commandRunner: CommandRunner
   /** Focus/restore the main window when the user clicks a notification. */
   focusWindow: () => void
+  /**
+   * Optional background refresh orchestrator. When present, its opt-in cache-warming
+   * tasks run on every poll tick alongside the PR check (each task individually
+   * toggled, throttled, non-blocking and error-swallowing).
+   */
+  backgroundRefresh?: BackgroundRefreshRunner
 }
 
 /**
- * Background monitor that polls the active repository's current-branch pull
- * request and raises native desktop notifications on meaningful transitions
- * (merged/closed, checks passed/failed, review approved/changes-requested).
+ * Background refresh orchestrator for the active repository. On each poll tick it
+ * runs the existing PR check (raising native desktop notifications on meaningful
+ * transitions — merged/closed, checks passed/failed, review approved/changes-
+ * requested) AND, when a BackgroundRefreshRunner is wired, warms caches so click-
+ * time actions feel instant (git fetch, GitHub repo list, contribution graph,
+ * account info, project memory).
  *
  * Default OFF — driven entirely by GitMonitorSettings. A poll never overlaps
- * another, and every error is swallowed so a flaky network call can neither
- * crash the app nor spam the user.
+ * another, every background task is individually toggled/throttled/guarded, and
+ * every error is swallowed so a flaky network call can neither crash the app nor
+ * spam the user.
  */
 export class GitMonitorService {
   private settings: GitMonitorSettings | null = null
@@ -99,6 +110,16 @@ export class GitMonitorService {
 
     this.polling = true
     try {
+      // Kick the opt-in cache-warming tasks first. This is fire-and-forget and
+      // fully self-guarded, so it never blocks (or is blocked by) the PR check
+      // and runs every tick even when the branch has no pull request.
+      try {
+        this.deps.backgroundRefresh?.run(settings, repoPath)
+      } catch (error) {
+        // A throw from scheduling must never break the PR poll.
+        console.error('[BranchPilot] background refresh scheduling failed:', error)
+      }
+
       const snapshot = await this.fetchSnapshot(repoPath)
       if (!snapshot) return
 

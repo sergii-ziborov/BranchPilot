@@ -20,6 +20,20 @@ interface ContributorAccumulator {
   emails: Set<string>
 }
 
+interface ContributionGraphCacheEntry {
+  timestamp: number
+  graph: ContributionGraph
+}
+
+// Cache lifetime is longer than the orchestrator's prefetch floor (~2 min), so a
+// primed graph is always served instantly; stale entries are refreshed on the
+// next prime or on a cache-expired IPC open.
+const CONTRIBUTION_GRAPH_CACHE_TTL_MS = 5 * 60_000
+
+function contributionGraphCacheKey(repoPaths: string[]): string {
+  return JSON.stringify([...repoPaths].sort())
+}
+
 /**
  * Narrow slice of the repository "kernel" that activity analytics needs. Injected
  * (composition) instead of inherited, so this reporting code is decoupled from the
@@ -39,6 +53,12 @@ export interface ActivityAnalyticsKernel {
 /** Read-only contributor / activity reporting (contributors, leaderboard, heatmap, rhythm). */
 export class RepositoryActivityAnalytics {
   constructor(private readonly kernel: ActivityAnalyticsKernel) {}
+
+  // Main-side TTL cache for the contribution heatmap, keyed by the resolved scope
+  // paths. The background refresh orchestrator primes it (refresh: true) so the
+  // Reports view renders an up-to-date diagram instantly; the IPC handler returns
+  // the cached value without recomputing the (repo-wide) git log walk.
+  private readonly contributionGraphCache = new Map<string, ContributionGraphCacheEntry>()
 
   /** Repository contributors (from commit history) for co-author suggestions. */
   async getContributors(repoPath: string): Promise<CoAuthor[]> {
@@ -155,8 +175,19 @@ export class RepositoryActivityAnalytics {
   }
 
   /** Commit activity over the last ~53 weeks, aggregated for a GitHub-style heatmap. */
-  async getContributionGraph(request?: string | RepositoryScopeRequest): Promise<ContributionGraph> {
+  async getContributionGraph(
+    request?: string | RepositoryScopeRequest,
+    options?: { refresh?: boolean }
+  ): Promise<ContributionGraph> {
     const repoPaths = await this.resolveScopePaths(normalizeRepositoryScopeRequest(request))
+    const cacheKey = contributionGraphCacheKey(repoPaths)
+
+    // Serve a fresh-enough cached graph instantly. `refresh` (used by the
+    // background orchestrator) always recomputes so the cache stays warm.
+    const cached = this.contributionGraphCache.get(cacheKey)
+    if (!options?.refresh && cached && Date.now() - cached.timestamp < CONTRIBUTION_GRAPH_CACHE_TTL_MS) {
+      return cached.graph
+    }
 
     // Repositories are independent: run the git logs in parallel, then merge.
     const logs = await Promise.all(
@@ -196,7 +227,9 @@ export class RepositoryActivityAnalytics {
       days.push({ date: iso, count })
     }
 
-    return { days, total }
+    const graph: ContributionGraph = { days, total }
+    this.contributionGraphCache.set(cacheKey, { timestamp: Date.now(), graph })
+    return graph
   }
 
   private async resolveScopePaths(scope: RepositoryScopeRequest): Promise<string[]> {

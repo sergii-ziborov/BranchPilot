@@ -1,6 +1,8 @@
 import type {
   ActivityLogQuery,
   ActivityLogSnapshot,
+  AgentRunRecord,
+  AgentRunSummary,
   ApiResult,
   ApplyPatchRequest,
   AssistantPolicyStatus,
@@ -196,6 +198,8 @@ export interface ListGitHubRepositoriesRequest {
   query?: string
   visibility?: 'all' | 'public' | 'private' | 'internal'
   limit?: number
+  /** When true, bypass the main-process cache and force a fresh fetch (manual refresh). */
+  refresh?: boolean
 }
 
 export interface GitHubRepositorySummary {
@@ -418,6 +422,8 @@ export interface BranchPilotApi {
   beautifyFileWithAssistant: (request: FileBeautifyRequest) => Promise<ApiResult<BeautifiedFile>>
   runCodexAgent: (request: CodexAgentRequest) => Promise<ApiResult<CodexAgentResult>>
   cancelCodexAgent: (runId: string) => Promise<ApiResult<boolean>>
+  getAgentRuns: (repoPath: string, limit?: number) => Promise<ApiResult<AgentRunSummary[]>>
+  getAgentRunDetail: (request: { repoPath: string; id: string }) => Promise<ApiResult<AgentRunRecord | null>>
   onCodexAgentEvent: (callback: (batch: CodexAgentStreamBatch) => void) => () => void
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   connectGitHub: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>

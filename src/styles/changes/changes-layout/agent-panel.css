@@ -1,8 +1,12 @@
 .changes-editor-codex-panel {
   display: grid;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: var(--changes-agent-panel-height, 320px);
   gap: 12px;
   margin: 0 10px 10px;
   padding: 12px;
+  overflow: auto;
   border: 1px solid color-mix(in srgb, var(--accent-soft) 36%, var(--border));
   border-radius: 8px;
   background:
@@ -465,5 +469,41 @@
   background: var(--panel);
   opacity: 0.62;
   cursor: not-allowed;
+}
+
+/* Horizontal handle to resize the whole agent panel's height. */
+.changes-editor-agent-splitter {
+  display: flex;
+  flex: 0 0 auto;
+  height: 10px;
+  min-height: 10px;
+  margin: -6px 10px 4px;
+  align-items: center;
+  justify-content: stretch;
+  border: 0;
+  background: transparent;
+  cursor: row-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.changes-editor-agent-splitter span {
+  width: 100%;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.changes-editor-agent-splitter:hover span,
+.changes-editor-agent-splitter:focus-visible span,
+.is-resizing-agent-panel .changes-editor-agent-splitter span {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.is-resizing-agent-panel {
+  cursor: row-resize;
+  user-select: none;
 }
 

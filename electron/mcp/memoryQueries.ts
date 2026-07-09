@@ -1,5 +1,7 @@
 export type {
   AgentActivityOptions,
+  AgentRunListOptions,
+  AgentRunDetailOptions,
   CurrentGitStateOptions,
   FileOutlineOptions,
   MemoryQueryOptions,
@@ -10,6 +12,7 @@ export type {
   WikiPageOptions
 } from './memory/queryOptions.js'
 export { loadProjectMemorySnapshot, loadProjectWikiSnapshot } from './memory/snapshotStore.js'
+export { getAgentRuns, getAgentRunDetail } from './memory/agentRunQueries.js'
 export {
   getAgentActivity,
   getCurrentGitState,

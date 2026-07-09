@@ -10,7 +10,16 @@ export interface MemoryQueryOptions {
   memoryDir: string
   activityDir?: string
   wikiDir?: string
+  agentRunDir?: string
   repoPath?: string
+}
+
+export interface AgentRunListOptions extends MemoryQueryOptions {
+  limit?: number
+}
+
+export interface AgentRunDetailOptions extends MemoryQueryOptions {
+  id: string
 }
 
 export interface SearchFilesOptions extends MemoryQueryOptions {

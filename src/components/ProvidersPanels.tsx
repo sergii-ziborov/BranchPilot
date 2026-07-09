@@ -55,7 +55,7 @@ export function GitHubRepositoryBrowser({
   githubRepoLimit: string
   busy: boolean
   loadGitHubAccounts: () => void | Promise<void>
-  loadGitHubRepositories: () => void | Promise<void>
+  loadGitHubRepositories: (options?: { refresh?: boolean }) => void | Promise<void>
   cloneGitHubRepository: (repository: GitHubRepositorySummary, protocol: 'https' | 'ssh') => void | Promise<void>
   openExternalLink: (url: string | undefined, label?: string) => void
 }) {
@@ -184,7 +184,7 @@ export function GitHubRepositoryBrowser({
           <button
             type="button"
             className="icon-button github-refresh-button"
-            onClick={loadGitHubRepositories}
+            onClick={() => void loadGitHubRepositories({ refresh: true })}
             disabled={busy || githubRepoLoading}
             title="Reload repository list"
             aria-label="Reload repository list"

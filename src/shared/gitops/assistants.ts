@@ -176,6 +176,44 @@ export interface CodexAgentResult {
   attachmentCount?: number
   durationMs: number
   generatedAt: string
+  runId?: string
+}
+
+export type AgentRunStatus = 'completed' | 'cancelled' | 'failed'
+
+export interface AgentRunRecord {
+  id: string
+  repoPath: string
+  assistant: InstalledAssistantId
+  modelLabel?: string
+  prompt: string
+  output: string
+  events: CodexAgentEvent[]
+  sandbox: CodexAgentSandbox
+  reasoning: CodexAgentReasoning
+  filePath?: string
+  imageCount: number
+  attachmentCount: number
+  durationMs: number
+  status: AgentRunStatus
+  verdict?: string
+  createdAt: string
+}
+
+export interface AgentRunSummary {
+  id: string
+  assistant: InstalledAssistantId
+  status: AgentRunRecord['status']
+  prompt: string
+  verdict?: string
+  filePath?: string
+  durationMs: number
+  createdAt: string
+}
+
+export interface AgentRunDetailRequest {
+  repoPath: string
+  id: string
 }
 
 export type ReviewMode = 'consistency' | 'security' | 'quality' | 'knip' | 'depcheck' | 'osv' | 'gitleaks'

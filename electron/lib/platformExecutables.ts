@@ -9,6 +9,45 @@ import path from 'node:path'
 export const GIT_EXECUTABLE = resolveGitExecutable()
 export const WHICH_EXECUTABLE = process.platform === 'win32' ? 'where' : '/usr/bin/which'
 
+// Resolve a direct gh (GitHub CLI) binary, same reasoning as GIT_EXECUTABLE. `where`/`which gh`
+// on Windows commonly resolves to a scoop shim (scoop\shims\gh.exe) that forwards to the real
+// binary and adds ~500ms-2s per spawn, which makes the Clone dialog's repo listing slow. Pointing
+// straight at the real binary avoids that. Undefined when no known direct path exists so callers
+// can fall back to PATH resolution ('where gh' / bare 'gh').
+export const GH_EXECUTABLE = resolveGhExecutable()
+
+function resolveGhExecutable(): string | undefined {
+  if (process.platform === 'win32') {
+    return findWindowsGhExecutable()
+  }
+
+  if (process.platform === 'darwin') {
+    return findMacGhExecutable()
+  }
+
+  return undefined
+}
+
+function findWindowsGhExecutable(): string | undefined {
+  const home = process.env.USERPROFILE ?? process.env.HOME
+  const candidates = [
+    process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'GitHub CLI', 'gh.exe'),
+    process.env['ProgramFiles(x86)'] && path.join(process.env['ProgramFiles(x86)'], 'GitHub CLI', 'gh.exe'),
+    home && path.join(home, 'scoop', 'apps', 'gh', 'current', 'bin', 'gh.exe')
+  ].filter((candidate): candidate is string => Boolean(candidate))
+
+  return candidates.find((candidate) => existsSync(candidate))
+}
+
+function findMacGhExecutable(): string | undefined {
+  const candidates = [
+    '/opt/homebrew/bin/gh', // Apple Silicon Homebrew
+    '/usr/local/bin/gh'     // Intel Homebrew / manual installs
+  ]
+
+  return candidates.find((candidate) => existsSync(candidate))
+}
+
 function resolveGitExecutable(): string {
   if (process.platform === 'win32') {
     return findWindowsGitExecutable() ?? 'git'
