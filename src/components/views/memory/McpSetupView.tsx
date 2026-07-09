@@ -182,7 +182,7 @@ export function McpSetupView({
             <section className="mcp-prompt-card">
               <div className="memory-section-heading compact">
                 <h3>Assistant behavior prompt</h3>
-                <button type="button" onClick={() => copyProjectMemoryText(prompt, 'BranchPilot MCP prompt')}>
+                <button type="button" className="mcp-copy-prompt-button" onClick={() => copyProjectMemoryText(prompt, 'BranchPilot MCP prompt')}>
                   <Cable size={15} />
                   Copy Prompt
                 </button>

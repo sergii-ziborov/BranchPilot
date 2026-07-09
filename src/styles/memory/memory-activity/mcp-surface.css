@@ -131,6 +131,27 @@
   align-items: center;
 }
 
+.mcp-copy-prompt-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mcp-copy-prompt-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--sel-bg);
+}
+
 .mcp-prompt-chips {
   display: flex;
   flex-wrap: wrap;

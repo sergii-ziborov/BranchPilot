@@ -113,10 +113,6 @@ export function ProjectWikiView({
             <h3>No Project Wiki generated</h3>
             <p>Generate wiki pages after scanning Project Memory.</p>
           </div>
-          <button type="button" onClick={generateProjectWiki} disabled={memoryLoading || wikiLoading}>
-            <Bot size={16} />
-            Build local wiki
-          </button>
         </section>
       ) : (
         <div className="wiki-workbench">
