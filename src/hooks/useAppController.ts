@@ -234,7 +234,7 @@ export function useAppController() {
     diffExpanded, setDiffExpanded,
     diff, diffLoading, relatedDiff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef,
     filteredChanges, selectedChange, selectedDiffStats, selectedRelatedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
-    stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked,
+    stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked, stageOptimistic,
     closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,
     stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, discardSelectedLines, exportPatch, applyPatch,
     openSelectedFileInEditor, openSelectedFileLineInEditor
@@ -379,7 +379,7 @@ export function useAppController() {
     diffExpanded, setDiffExpanded,
     diff, diffLoading, relatedDiff, imagePreview, patchScope, setPatchScope, changesActionsMenuRef,
     filteredChanges, selectedChange, selectedDiffStats, selectedRelatedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
-    stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked,
+    stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked, stageOptimistic,
     closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,
     stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, discardSelectedLines, exportPatch, applyPatch,
     openSelectedFileInEditor, openSelectedFileLineInEditor,

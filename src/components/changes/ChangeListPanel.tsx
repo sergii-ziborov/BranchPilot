@@ -39,6 +39,7 @@ interface ChangeListPanelProps {
   stagingPendingPaths: Set<string>
   bulkStagingPending: boolean
   bulkStageOptimisticChecked: boolean | null
+  stageOptimistic: Map<string, boolean>
   toggleBulkStage: () => void | Promise<void>
   toggleChangeStage: (change: FileChange) => void | Promise<void>
   selectedFilePath: string | null
@@ -108,6 +109,7 @@ export function ChangeListPanel({
   stagingPendingPaths,
   bulkStagingPending,
   bulkStageOptimisticChecked,
+  stageOptimistic,
   toggleBulkStage,
   toggleChangeStage,
   selectedFilePath,
@@ -277,7 +279,7 @@ export function ChangeListPanel({
                     <StageCheckbox
                       change={change}
                       disabled={busy || bulkStagingPending || stagingPendingPaths.has(change.path) || change.conflicted}
-                      optimisticCheckedOverride={bulkStageOptimisticChecked}
+                      optimisticCheckedOverride={bulkStageOptimisticChecked ?? stageOptimistic.get(change.path) ?? null}
                       onToggle={toggleChangeStage}
                     />
                     <button

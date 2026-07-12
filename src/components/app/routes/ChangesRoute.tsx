@@ -38,6 +38,7 @@ export function ChangesRoute({ changesTool, setChangesTool }: ChangesRouteProps)
     stagingPendingPaths,
     bulkStagingPending,
     bulkStageOptimisticChecked,
+    stageOptimistic,
     toggleBulkStage,
     toggleChangeStage,
     selectedFilePath,
@@ -140,6 +141,7 @@ export function ChangesRoute({ changesTool, setChangesTool }: ChangesRouteProps)
         stagingPendingPaths={stagingPendingPaths}
         bulkStagingPending={bulkStagingPending}
         bulkStageOptimisticChecked={bulkStageOptimisticChecked}
+        stageOptimistic={stageOptimistic}
         toggleBulkStage={toggleBulkStage}
         toggleChangeStage={toggleChangeStage}
         selectedFilePath={selectedFilePath}

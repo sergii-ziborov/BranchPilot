@@ -50,7 +50,7 @@ export function ChangesView({
   changesActionsMenuRef, closeChangesActionsMenu,
   createQuickStash, canCreateStash,
   exportPatch, applyPatch,
-  bulkStageToggleState, stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked, toggleBulkStage, toggleChangeStage,
+  bulkStageToggleState, stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked, stageOptimistic, toggleBulkStage, toggleChangeStage,
   selectedFilePath, setSelectedFilePath, setDiffMode, setViewMode,
   commitTitle, setCommitTitle, commitDescription, setCommitDescription,
   commitCoAuthors, setCommitCoAuthors,
@@ -90,6 +90,7 @@ export function ChangesView({
   stagingPendingPaths: Set<string>
   bulkStagingPending: boolean
   bulkStageOptimisticChecked: boolean | null
+  stageOptimistic: Map<string, boolean>
   toggleBulkStage: () => void | Promise<void>
   toggleChangeStage: (change: FileChange) => void | Promise<void>
   selectedFilePath: string | null
@@ -342,6 +343,7 @@ export function ChangesView({
           stagingPendingPaths={stagingPendingPaths}
           bulkStagingPending={bulkStagingPending}
           bulkStageOptimisticChecked={bulkStageOptimisticChecked}
+          stageOptimistic={stageOptimistic}
           toggleBulkStage={toggleBulkStage}
           toggleChangeStage={toggleChangeStage}
           selectedFilePath={selectedFilePath}

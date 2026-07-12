@@ -7,7 +7,7 @@ import {
 import type { ChangeDiffMode } from '../shared/changeStaging'
 import {
   getBulkStageToggleAction, getBulkStageToggleState,
-  getChangeStageToggleAction, getDefaultChangeDiffMode
+  getChangeStageToggleAction, getChangeStageToggleState, getDefaultChangeDiffMode
 } from '../shared/changeStaging'
 import { changeLabel } from '../lib/fileChangeLabels'
 import { CHANGE_LIST_ITEM_HEIGHT } from '../lib/listMetrics'
@@ -89,6 +89,10 @@ export function useChanges({
   const [changeContentIndex, setChangeContentIndex] = useState<Map<string, string>>(new Map())
   const [changeContentIndexing, setChangeContentIndexing] = useState(false)
   const [stagingPendingPaths, setStagingPendingPaths] = useState<Set<string>>(new Set())
+  // Per-file optimistic stage intent, keyed by path so it survives the virtual
+  // list unmounting/remounting a row on scroll (a row-local state would be lost,
+  // which made unchecked boxes "come back" while the slow git snapshot caught up).
+  const [stageOptimistic, setStageOptimistic] = useState<Map<string, boolean>>(new Map())
   const [bulkStagingPending, setBulkStagingPending] = useState(false)
   const [bulkStageOptimisticChecked, setBulkStageOptimisticChecked] = useState<boolean | null>(null)
   const changesActionsMenuRef = useRef<HTMLDetailsElement>(null)
@@ -122,6 +126,22 @@ export function useChanges({
   const effectiveCounts = countsFromChanges(snapshot?.status.changes) ?? counts
   const bulkStageToggleState = getBulkStageToggleState(effectiveCounts)
   const selectedFileTarget = currentRepoPath && selectedChange ? `${currentRepoPath}/${selectedChange.path}` : null
+
+  // Drop an optimistic stage intent once the snapshot has caught up to it (or the
+  // file is gone), so the checkbox stops overriding the real staged state.
+  useEffect(() => {
+    setStageOptimistic((current) => {
+      if (current.size === 0) return current
+      const next = new Map(current)
+      for (const [path, intended] of current) {
+        const change = snapshot?.status.changes.find((candidate) => candidate.path === path)
+        if (!change || getChangeStageToggleState(change).checked === intended) {
+          next.delete(path)
+        }
+      }
+      return next.size === current.size ? current : next
+    })
+  }, [snapshot])
 
   const {
     diff, diffLoading, relatedDiff, imagePreview, diffRequestIdRef,
@@ -170,6 +190,7 @@ export function useChanges({
 
     setSelectedFilePath(change.path)
     setPathStagingPending(change.path, true)
+    setStageOptimistic((current) => new Map(current).set(change.path, action === 'stage'))
 
     try {
       if (action === 'unstage') {
@@ -442,7 +463,7 @@ export function useChanges({
     diffExpanded, setDiffExpanded,
     diff, diffLoading, relatedDiff, imagePreview, patchScope, setPatchScope, diffRequestIdRef, changesActionsMenuRef,
     filteredChanges, selectedChange, selectedDiffStats, selectedRelatedDiffStats, virtualChanges, bulkStageToggleState, selectedFileTarget,
-    stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked,
+    stagingPendingPaths, bulkStagingPending, bulkStageOptimisticChecked, stageOptimistic,
     loadDiff, closeChangesActionsMenu, toggleChangeStage, toggleBulkStage,
     stageSelectedHunk, unstageSelectedHunk, discardSelectedHunk, discardSelected, discardSelectedLines, exportPatch, applyPatch,
     openSelectedFileInEditor, openSelectedFileLineInEditor
