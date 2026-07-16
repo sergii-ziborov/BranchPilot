@@ -39,33 +39,44 @@ describe('BranchPilot MCP Project Memory bridge', () => {
     await server.connect(serverTransport)
     await client.connect(clientTransport)
 
-    expect(client.getInstructions()).toContain('read-only Project Memory')
+    const instructions = client.getInstructions() ?? ''
+    expect(instructions).toContain('read-only')
+    expect(instructions).toContain('Project Memory')
+    // Code-structure/search work is delegated to the repo-lens server.
+    expect(instructions).toContain('repo-lens')
 
     const tools = await client.listTools()
-    expect(tools.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining([
+    const toolNames = tools.tools.map((tool) => tool.name)
+    expect(toolNames).toEqual(expect.arrayContaining([
       'project_summary',
       'get_project_health',
-      'search_files',
-      'search_symbols',
-      'get_file_outline',
-      'get_symbol_context',
+      'get_live_overview',
       'get_recent_commits',
       'get_current_git_state',
       'get_repository_status',
       'list_repository_refs',
       'list_repository_files',
       'read_repository_file',
-      'search_repository_text',
       'get_repository_diff',
+      'get_ci_status',
+      'get_pull_request',
+      'list_pull_requests',
       'search_commit_history',
       'get_commit_details',
       'get_file_history',
       'get_repository_blame',
       'get_agent_activity',
+      'record_session_note',
       'get_project_wiki',
       'get_wiki_page'
     ]))
-    expect(tools.tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true)
+    // Structure/search tools now belong to the repo-lens "graphify" server and must not be re-added here.
+    for (const removed of ['search_files', 'search_symbols', 'get_file_outline', 'get_symbol_context', 'search_repository_text']) {
+      expect(toolNames).not.toContain(removed)
+    }
+    // record_session_note is the single write tool (BranchPilot's own ledger); everything else stays read-only.
+    expect(tools.tools.filter((tool) => tool.name !== 'record_session_note').every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true)
+    expect(tools.tools.find((tool) => tool.name === 'record_session_note')?.annotations?.readOnlyHint).toBe(false)
     expect(tools.tools.every((tool) => tool.annotations?.destructiveHint === false)).toBe(true)
 
     const resources = await client.listResources()
@@ -77,7 +88,6 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       'branchpilot://repo/current/refs',
       'branchpilot://repo/current/diff',
       'branchpilot://repo/current/tree',
-      'branchpilot://repo/current/symbols',
       'branchpilot://repo/current/commits',
       'branchpilot://repo/current/activity',
       'branchpilot://repo/current/wiki'
@@ -148,11 +158,13 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       text: expect.stringContaining('data-changed')
     })
 
-    const searchResult = await client.callTool({ name: 'search_repository_text', arguments: { query: 'ProjectScanner', limit: 10 } })
-    expect(JSON.parse(getTextResult(searchResult))).toMatchObject({
-      matches: expect.arrayContaining([
-        expect.objectContaining({ path: 'src/App.tsx' })
-      ])
+    // Deep paging: a startLine past line 1 must still resolve (regression guard for large-file paging).
+    const pagedResult = await client.callTool({ name: 'read_repository_file', arguments: { path: 'src/App.tsx', startLine: 4, maxLines: 2 } })
+    expect(JSON.parse(getTextResult(pagedResult))).toMatchObject({
+      startLine: 4,
+      lineCount: 2,
+      hasMore: true,
+      text: expect.stringContaining('data-changed')
     })
 
     const diffResult = await client.callTool({ name: 'get_repository_diff', arguments: { path: 'src/App.tsx', maxBytes: 20000 } })
@@ -160,11 +172,47 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       diff: expect.stringContaining('data-changed')
     })
 
+    // Untracked files never appear in git diff output, so working-tree diffs must list them explicitly.
+    writeFileSync(path.join(repoPath, 'notes.md'), '# scratch notes\n')
+
+    const nameOnlyDiff = await client.callTool({ name: 'get_repository_diff', arguments: { format: 'name-only' } })
+    expect(JSON.parse(getTextResult(nameOnlyDiff))).toMatchObject({
+      format: 'name-only',
+      files: expect.arrayContaining([
+        expect.objectContaining({ path: 'src/App.tsx' })
+      ]),
+      untracked: expect.arrayContaining(['notes.md']),
+      untrackedCount: 1
+    })
+
+    const statDiff = await client.callTool({ name: 'get_repository_diff', arguments: { format: 'stat', path: 'src/App.tsx' } })
+    const statPayload = JSON.parse(getTextResult(statDiff))
+    expect(statPayload).toMatchObject({ format: 'stat', stat: expect.stringContaining('App.tsx') })
+    expect(statPayload.diff).toBeUndefined()
+
+    const overviewResult = await client.callTool({ name: 'get_live_overview', arguments: {} })
+    expect(JSON.parse(getTextResult(overviewResult))).toMatchObject({
+      branch: { name: 'main' },
+      clean: false,
+      refs: expect.objectContaining({ localBranchCount: 1 }),
+      recentCommits: [expect.objectContaining({ subject: 'Add MCP fixture' })],
+      health: expect.objectContaining({ summary: expect.objectContaining({ totalFiles: 2 }) })
+    })
+
     const historyResult = await client.callTool({ name: 'search_commit_history', arguments: { limit: 5 } })
     const history = JSON.parse(getTextResult(historyResult))
     expect(history.commits[0]).toMatchObject({
       subject: 'Add MCP fixture'
     })
+
+    const authoredResult = await client.callTool({ name: 'search_commit_history', arguments: { author: 'BranchPilot Test', limit: 5 } })
+    expect(JSON.parse(getTextResult(authoredResult)).commits).toHaveLength(1)
+
+    const unmatchedAuthorResult = await client.callTool({ name: 'search_commit_history', arguments: { author: 'Nobody Anywhere', limit: 5 } })
+    expect(JSON.parse(getTextResult(unmatchedAuthorResult)).commits).toHaveLength(0)
+
+    const beforeEpochResult = await client.callTool({ name: 'search_commit_history', arguments: { until: '2000-01-01', limit: 5 } })
+    expect(JSON.parse(getTextResult(beforeEpochResult)).commits).toHaveLength(0)
 
     const commitResult = await client.callTool({ name: 'get_commit_details', arguments: { ref: 'HEAD', maxBytes: 20000 } })
     expect(JSON.parse(getTextResult(commitResult))).toMatchObject({
@@ -201,12 +249,38 @@ describe('BranchPilot MCP Project Memory bridge', () => {
       ]
     })
 
+    const recentActivityResult = await client.callTool({ name: 'get_agent_activity', arguments: { since: '2000-01-01', limit: 10 } })
+    expect(JSON.parse(getTextResult(recentActivityResult)).entries).toHaveLength(1)
+
+    const ancientActivityResult = await client.callTool({ name: 'get_agent_activity', arguments: { until: '2000-01-01', limit: 10 } })
+    expect(JSON.parse(getTextResult(ancientActivityResult)).entries).toHaveLength(0)
+
+    // Session journal round-trip: a crashed/new session must be able to see what earlier work started.
+    const noteResult = await client.callTool({ name: 'record_session_note', arguments: { title: 'Full vitest run', phase: 'started', detail: 'npx vitest run' } })
+    expect(JSON.parse(getTextResult(noteResult))).toMatchObject({
+      recorded: true,
+      entry: expect.objectContaining({ type: 'assistant_session_note', actor: 'assistant', status: 'success' })
+    })
+
+    const noteReadback = await client.callTool({ name: 'get_agent_activity', arguments: { types: ['assistant_session_note'], limit: 10 } })
+    expect(JSON.parse(getTextResult(noteReadback)).entries).toEqual([
+      expect.objectContaining({
+        title: 'Full vitest run',
+        metadata: expect.objectContaining({ phase: 'started', detail: 'npx vitest run' })
+      })
+    ])
+
     const wikiResult = await client.callTool({ name: 'get_project_wiki', arguments: {} })
     expect(JSON.parse(getTextResult(wikiResult))).toMatchObject({
       pages: expect.arrayContaining([
         expect.objectContaining({ id: 'overview', title: 'Overview' })
       ])
     })
+
+    // The fixture repo has no GitHub remote (and CI may lack gh entirely) — the GitHub tools must fail
+    // with a clean tool error, not crash the server.
+    const prResult = await client.callTool({ name: 'get_pull_request', arguments: {} })
+    expect(prResult.isError).toBe(true)
 
     const wikiPageResult = await client.callTool({ name: 'get_wiki_page', arguments: { pageId: 'overview' } })
     expect(JSON.parse(getTextResult(wikiPageResult))).toMatchObject({

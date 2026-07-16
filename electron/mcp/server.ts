@@ -7,7 +7,6 @@ import {
   MCP_RESOURCE_URIS,
   type MemoryQueryOptions,
   getCurrentGitState,
-  getFileOutline,
   getAgentActivity,
   getAgentRuns,
   getAgentRunDetail,
@@ -17,16 +16,18 @@ import {
   getPromptText,
   getRecentCommits,
   getResourcePayload,
-  getSymbolContext,
   getWikiPage,
-  searchFiles,
-  searchSymbols,
+  recordSessionNote,
   toJsonText
 } from './memoryQueries.js'
 import {
   REPOSITORY_RESOURCE_URIS,
+  getCiStatus,
   getCommitDetails,
   getFileHistory,
+  getLiveOverview,
+  getPullRequest,
+  listPullRequests,
   getRepositoryBlame,
   getRepositoryDiff,
   getRepositoryResourcePayload,
@@ -34,28 +35,18 @@ import {
   listRepositoryFiles,
   listRepositoryRefs,
   readRepositoryFile,
-  searchCommitHistory,
-  searchRepositoryText
+  searchCommitHistory
 } from './repositoryQueries.js'
 
 const SERVER_VERSION = '0.1.0'
 const SERVER_INSTRUCTIONS = [
-  'BranchPilot exposes read-only Project Memory and live repository context for a local Git repository.',
-  'Use this server for indexed repo summary, health, wiki, file, symbol, import, commit, branch, diff, and working tree context.',
+  'BranchPilot exposes read-only live repository context and locally indexed Project Memory for a Git repository.',
+  'Use it for live Git status, diff, history, blame, commit details, refs, working-tree and revision file reads, plus Project Memory summary, file-level health, Project Wiki, and the BranchPilot activity/agent-run log.',
+  'For code-structure work — symbol graph, who-calls/who-imports, regex or full-text code search, and clone detection — use the repo-lens MCP server when it is attached; BranchPilot intentionally does not duplicate those.',
   'Project Memory can be stale: every memory/wiki result includes scannedAt. Live repository tools read the current local worktree and run read-only Git commands.',
-  'This server never writes files, edits Git state, pushes, fetches, pulls, or stores credentials.'
+  'This server never writes repository files, edits Git state, pushes, fetches, pulls, or stores credentials. Its only write is record_session_note, which appends an assistant note to BranchPilot\'s own activity ledger (outside the repository) so interrupted sessions can see what earlier work was already started.'
 ].join(' ')
 
-const symbolKinds = [
-  'function',
-  'class',
-  'method',
-  'component',
-  'constant',
-  'type',
-  'interface',
-  'export'
-] as const
 const activityTypes = [
   'repository_opened',
   'repository_cloned',
@@ -98,6 +89,7 @@ const activityTypes = [
   'merge_resolved',
   'assistant_commit_generated',
   'assistant_codex_agent_ran',
+  'assistant_session_note',
   'assistant_linkedin_generated',
   'assistant_pr_generated',
   'assistant_review_generated',
@@ -109,7 +101,9 @@ const activityTypes = [
 const activityActors = ['user', 'branchpilot', 'assistant', 'provider'] as const
 const activityStatuses = ['success', 'failure'] as const
 const healthSeverities = ['critical', 'warning', 'notice', 'healthy'] as const
+const sessionNotePhases = ['started', 'completed', 'failed'] as const
 const diffModes = ['all', 'staged', 'unstaged'] as const
+const diffFormats = ['patch', 'stat', 'name-only'] as const
 
 export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServer {
   const server = new McpServer({
@@ -136,49 +130,6 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     annotations: readOnlyAnnotations()
   }, async (args) => toolJson(await getProjectHealth({ ...options, ...args })))
 
-  server.registerTool('search_files', {
-    title: 'Search Files',
-    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'search_files')?.description,
-    inputSchema: {
-      query: z.string().optional().describe('Case-insensitive path or language query.'),
-      language: z.string().optional().describe('Optional language or extension filter.'),
-      limit: z.number().int().min(1).max(100).optional().describe('Maximum number of files to return.')
-    },
-    annotations: readOnlyAnnotations()
-  }, async (args) => toolJson(await searchFiles({ ...options, ...args })))
-
-  server.registerTool('search_symbols', {
-    title: 'Search Symbols',
-    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'search_symbols')?.description,
-    inputSchema: {
-      query: z.string().optional().describe('Case-insensitive symbol name query.'),
-      kind: z.enum(symbolKinds).optional().describe('Optional symbol kind filter.'),
-      path: z.string().optional().describe('Optional indexed file path filter.'),
-      limit: z.number().int().min(1).max(100).optional().describe('Maximum number of symbols to return.')
-    },
-    annotations: readOnlyAnnotations()
-  }, async (args) => toolJson(await searchSymbols({ ...options, ...args })))
-
-  server.registerTool('get_file_outline', {
-    title: 'Get File Outline',
-    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_file_outline')?.description,
-    inputSchema: {
-      path: z.string().min(1).describe('Indexed repository-relative file path.')
-    },
-    annotations: readOnlyAnnotations()
-  }, async (args) => toolJson(await getFileOutline({ ...options, path: args.path })))
-
-  server.registerTool('get_symbol_context', {
-    title: 'Get Symbol Context',
-    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_symbol_context')?.description,
-    inputSchema: {
-      symbolId: z.string().optional().describe('Exact Project Memory symbol id.'),
-      name: z.string().optional().describe('Symbol name query when symbolId is not available.'),
-      path: z.string().optional().describe('Optional repository-relative file path filter.')
-    },
-    annotations: readOnlyAnnotations()
-  }, async (args) => toolJson(await getSymbolContext({ ...options, ...args })))
-
   server.registerTool('get_recent_commits', {
     title: 'Get Recent Commits',
     description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_recent_commits')?.description,
@@ -199,6 +150,12 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_repository_status')?.description,
     annotations: readOnlyAnnotations()
   }, async () => toolJson(await getRepositoryStatus(options)))
+
+  server.registerTool('get_live_overview', {
+    title: 'Get Live Overview',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_live_overview')?.description,
+    annotations: readOnlyAnnotations()
+  }, async () => toolJson(await getLiveOverview(options)))
 
   server.registerTool('list_repository_refs', {
     title: 'List Repository Refs',
@@ -231,38 +188,64 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     annotations: readOnlyAnnotations()
   }, async (args) => toolJson(await readRepositoryFile({ ...options, ...args })))
 
-  server.registerTool('search_repository_text', {
-    title: 'Search Repository Text',
-    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'search_repository_text')?.description,
-    inputSchema: {
-      query: z.string().min(1).describe('Literal text to search in non-ignored repository files.'),
-      path: z.string().optional().describe('Optional file or directory path filter.'),
-      extension: z.string().optional().describe('Optional extension filter, such as ts or .tsx.'),
-      caseSensitive: z.boolean().optional().describe('Use case-sensitive matching. Defaults to false.'),
-      contextLines: z.number().int().min(0).max(5).optional().describe('Context lines before and after each match.'),
-      limit: z.number().int().min(1).max(200).optional().describe('Maximum matches to return.')
-    },
-    annotations: readOnlyAnnotations()
-  }, async (args) => toolJson(await searchRepositoryText({ ...options, ...args })))
-
   server.registerTool('get_repository_diff', {
     title: 'Get Repository Diff',
     description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_repository_diff')?.description,
     inputSchema: {
       mode: z.enum(diffModes).optional().describe('Diff mode when base/head are omitted. all means HEAD vs working tree.'),
+      format: z.enum(diffFormats).optional().describe('Output shape: patch (stat + full patch, default), stat (summary only), or name-only (changed files).'),
       path: z.string().optional().describe('Optional repository-relative path filter.'),
       base: z.string().optional().describe('Optional base Git ref for comparing refs.'),
       head: z.string().optional().describe('Optional head Git ref for comparing refs.'),
+      mergeBase: z.boolean().optional().describe('Compare head against the merge-base of base and head (three-dot), for PR-style review.'),
+      contextLines: z.number().int().min(0).max(50).optional().describe('Unified context lines around each hunk in patch format.'),
       maxBytes: z.number().int().min(4000).max(1000000).optional().describe('Maximum bytes of stat/diff text to return.')
     },
     annotations: readOnlyAnnotations()
   }, async (args) => toolJson(await getRepositoryDiff({ ...options, ...args })))
+
+  server.registerTool('get_ci_status', {
+    title: 'Get CI Status',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_ci_status')?.description,
+    inputSchema: {
+      ref: z.string().optional().describe('Branch to inspect. Defaults to the current branch.'),
+      prNumber: z.number().int().min(1).optional().describe('Inspect the head branch of this PR instead.'),
+      runLimit: z.number().int().min(1).max(20).optional().describe('Maximum workflow runs to list. Default 5.'),
+      failedLogBytes: z.number().int().min(2000).max(60000).optional().describe('Tail bytes of each failed job log. Default 12000.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getCiStatus({ ...options, ...args })))
+
+  server.registerTool('get_pull_request', {
+    title: 'Get Pull Request',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'get_pull_request')?.description,
+    inputSchema: {
+      number: z.number().int().min(1).optional().describe('PR number. Omit to use the current branch\'s PR.'),
+      includeDiff: z.boolean().optional().describe('Include the PR diff text (bounded by maxBytes).'),
+      maxBytes: z.number().int().min(4000).max(1000000).optional().describe('Maximum bytes of diff text to return.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await getPullRequest({ ...options, ...args })))
+
+  server.registerTool('list_pull_requests', {
+    title: 'List Pull Requests',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'list_pull_requests')?.description,
+    inputSchema: {
+      state: z.enum(['open', 'closed', 'merged', 'all']).optional().describe('PR state filter. Defaults to open.'),
+      base: z.string().optional().describe('Only PRs targeting this base branch.'),
+      limit: z.number().int().min(1).max(50).optional().describe('Maximum PRs to return. Default 20.')
+    },
+    annotations: readOnlyAnnotations()
+  }, async (args) => toolJson(await listPullRequests({ ...options, ...args })))
 
   server.registerTool('search_commit_history', {
     title: 'Search Commit History',
     description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'search_commit_history')?.description,
     inputSchema: {
       query: z.string().optional().describe('Optional case-insensitive grep over commit subjects/bodies.'),
+      author: z.string().optional().describe('Optional author name/email pattern (git --author).'),
+      since: z.string().optional().describe('Only commits after this date (git --since, e.g. 2026-07-01 or "2 weeks ago").'),
+      until: z.string().optional().describe('Only commits before this date (git --until).'),
       path: z.string().optional().describe('Optional repository-relative path filter.'),
       limit: z.number().int().min(1).max(200).optional().describe('Maximum commits to return.')
     },
@@ -308,6 +291,8 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
       types: z.array(z.enum(activityTypes)).optional().describe('Optional event type filters.'),
       actor: z.enum(activityActors).optional().describe('Optional actor filter.'),
       status: z.enum(activityStatuses).optional().describe('Optional success/failure filter.'),
+      since: z.string().optional().describe('Only entries at or after this ISO date/datetime.'),
+      until: z.string().optional().describe('Only entries at or before this ISO date/datetime.'),
       limit: z.number().int().min(1).max(100).optional().describe('Maximum number of activity entries to return.')
     },
     annotations: readOnlyAnnotations()
@@ -330,6 +315,23 @@ export function createBranchPilotMcpServer(options: MemoryQueryOptions): McpServ
     },
     annotations: readOnlyAnnotations()
   }, async (args) => toolJson(await getAgentRunDetail({ ...options, id: args.id })))
+
+  server.registerTool('record_session_note', {
+    title: 'Record Session Note',
+    description: BRANCHPILOT_MCP_TOOLS.find((tool) => tool.name === 'record_session_note')?.description,
+    inputSchema: {
+      title: z.string().min(1).max(200).describe('Short description of the work, e.g. "Full vitest run".'),
+      detail: z.string().max(300).optional().describe('Optional context: command, scope, outcome.'),
+      phase: z.enum(sessionNotePhases).optional().describe('started before long work; completed or failed after it. Defaults to completed.')
+    },
+    // The one non-read-only tool: appends to BranchPilot's own activity ledger, never the repository.
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false
+    }
+  }, async (args) => toolJson(await recordSessionNote({ ...options, ...args })))
 
   server.registerTool('get_project_wiki', {
     title: 'Get Project Wiki',

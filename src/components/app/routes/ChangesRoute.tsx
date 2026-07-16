@@ -5,7 +5,7 @@ import { StashView } from '../../views/StashView'
 import { ToolModal } from '../../ToolModal'
 import { useController } from '../../../hooks/AppControllerContext'
 import { CHANGE_LIST_ITEM_HEIGHT } from '../../../lib/listMetrics'
-import type { ChangesTool } from '../AppWorkspace'
+import type { ChangesTool } from '../changesTool'
 import { AssistantPolicyPanelHost } from '../hosts/AssistantPolicyPanelHost'
 
 const api = window.branchPilot

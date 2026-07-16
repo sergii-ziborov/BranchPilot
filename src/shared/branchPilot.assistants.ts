@@ -83,6 +83,7 @@ export type ActivityLogEventType =
   | 'assistant_file_beautified'
   | 'assistant_review_generated'
   | 'assistant_codex_agent_ran'
+  | 'assistant_session_note'
   | 'daily_review_generated'
   | 'github_pr_created'
   | 'github_repository_created'

@@ -319,6 +319,22 @@
   font-size: 13px;
 }
 
+/* Windowed tag list: rows must share a fixed pitch (88px card + 10px gap = TAG_ROW_HEIGHT)
+   so translateY placement stays exact. Scoped here so the shared .tag-row elsewhere is
+   untouched, and the row stays inline even at the narrow breakpoint that would column it. */
+.tag-list-scroll .tag-row {
+  height: 88px;
+  box-sizing: border-box;
+  flex-direction: row;
+  align-items: center;
+}
+
+.tag-list-scroll .tag-row p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .config-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

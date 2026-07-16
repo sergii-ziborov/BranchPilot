@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { expect } from 'vitest'
-import { CommandRunner, type CommandRunOptions, type CommandRunResult } from '../../electron/lib/commandRunner'
+import { CommandExecutionError, CommandRunner, type CommandRunOptions, type CommandRunResult } from '../../electron/lib/commandRunner'
 import { GIT_EXECUTABLE } from '../../electron/lib/platformExecutables'
 import { RepositoryService } from '../../electron/lib/repositoryService'
 import { SettingsStore } from '../../electron/lib/settingsStore'
@@ -129,6 +129,36 @@ export class RecordingCommandRunner extends CommandRunner {
 
   reset() {
     this.calls = []
+  }
+}
+
+/**
+ * Simulates git rejecting one un-stageable path (e.g. a Windows reserved name
+ * like NUL.css). Any batched staging command whose stdin includes `poisonPath`
+ * fails with a fatal exit code; every other command delegates to real git.
+ */
+export class PoisonPathCommandRunner extends CommandRunner {
+  constructor(private readonly poisonPath: string) {
+    super()
+  }
+
+  async run(command: string, args: string[], options: CommandRunOptions = {}): Promise<CommandRunResult> {
+    const isBatchedStage = args.includes('--pathspec-from-file=-') || args.includes('--stdin')
+
+    if (isBatchedStage && options.input?.includes(this.poisonPath)) {
+      const result: CommandRunResult = {
+        command,
+        args,
+        cwd: options.cwd,
+        exitCode: 128,
+        stdout: '',
+        stderr: `error: Invalid path '${this.poisonPath}'`,
+        durationMs: 0
+      }
+      throw new CommandExecutionError(`${command} failed with exit code 128`, result)
+    }
+
+    return super.run(command, args, options)
   }
 }
 

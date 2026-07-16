@@ -1,9 +1,9 @@
-import { promises as fs } from 'node:fs'
+import { createReadStream, promises as fs } from 'node:fs'
+import { createInterface } from 'node:readline'
 import path from 'node:path'
 import type {
   RepositoryFileListOptions,
-  RepositoryFileReadOptions,
-  RepositoryTextSearchOptions
+  RepositoryFileReadOptions
 } from './types.js'
 import { git, requireRepositoryPath } from './gitCommand.js'
 import {
@@ -17,7 +17,6 @@ import {
   truncateText
 } from './normalization.js'
 
-const MAX_TEXT_FILE_BYTES = 900_000
 const DEFAULT_MAX_LINES = 400
 const MAX_LINES = 2_000
 const SKIPPED_DIRECTORIES = new Set([
@@ -74,72 +73,24 @@ export async function readRepositoryFile(options: RepositoryFileReadOptions) {
   const repoPath = await requireRepositoryPath(options)
   const relativePath = normalizeRepositoryRelativePath(options.path)
   const maxBytes = normalizeMaxBytes(options.maxBytes)
-  const text = options.revision
-    ? await readGitFile(repoPath, options.revision, relativePath, maxBytes)
-    : await readWorkingTreeFile(repoPath, relativePath, maxBytes)
+  const startLine = Math.max(1, Math.floor(options.startLine ?? 1))
+  const maxLines = Math.min(MAX_LINES, Math.max(1, Math.floor(options.maxLines ?? DEFAULT_MAX_LINES)))
 
-  return sliceTextLines({
+  // The working-tree reader streams line by line so a deep startLine stays reachable in large
+  // files (the old byte window started at offset 0, so lines past the cap were unreachable).
+  const window = options.revision
+    ? sliceRevisionLines(await readGitFile(repoPath, options.revision, relativePath, maxBytes), startLine, maxLines)
+    : await readWorkingTreeLineWindow(repoPath, relativePath, startLine, maxLines, maxBytes)
+
+  return {
     repository: { rootPath: repoPath },
     path: relativePath,
     revision: options.revision ?? 'working-tree',
-    text,
-    startLine: options.startLine,
-    maxLines: options.maxLines
-  })
-}
-
-export async function searchRepositoryText(options: RepositoryTextSearchOptions) {
-  const repoPath = await requireRepositoryPath(options)
-  const query = options.query.trim()
-
-  if (!query) {
-    throw new Error('Search query is required.')
-  }
-
-  const basePath = options.path ? normalizeRepositoryRelativePath(options.path) : ''
-  const extension = normalizeExtension(options.extension)
-  const limit = normalizeLimit(options.limit)
-  const contextLines = Math.min(5, Math.max(0, Math.floor(options.contextLines ?? 1)))
-  const matcher = options.caseSensitive
-    ? (line: string) => line.includes(query)
-    : (line: string) => line.toLowerCase().includes(query.toLowerCase())
-  const files = (await getRepositoryFilePaths(repoPath, true))
-    .filter((filePath) => !basePath || filePath === basePath || filePath.startsWith(`${basePath}/`))
-    .filter((filePath) => !extension || path.posix.extname(filePath).toLowerCase() === extension)
-  const matches: Array<{ path: string; line: number; text: string; before: string[]; after: string[] }> = []
-
-  for (const filePath of files) {
-    if (matches.length >= limit) break
-
-    const absolutePath = resolveRepositoryFilePath(repoPath, filePath)
-    const stat = await fs.stat(absolutePath).catch(() => null)
-
-    if (!stat || stat.size > MAX_TEXT_FILE_BYTES || !(await looksTextFile(absolutePath))) continue
-
-    const text = await fs.readFile(absolutePath, 'utf8').catch(() => '')
-    const lines = text.split(/\r?\n/)
-
-    for (let index = 0; index < lines.length; index += 1) {
-      if (!matcher(lines[index])) continue
-
-      matches.push({
-        path: filePath,
-        line: index + 1,
-        text: lines[index],
-        before: lines.slice(Math.max(0, index - contextLines), index),
-        after: lines.slice(index + 1, Math.min(lines.length, index + 1 + contextLines))
-      })
-
-      if (matches.length >= limit) break
-    }
-  }
-
-  return {
-    repository: {
-      rootPath: repoPath
-    },
-    query,
-    matches
+    startLine: window.startLine,
+    endLine: window.startLine + window.lines.length - 1,
+    lineCount: window.lines.length,
+    hasMore: window.hasMore,
+    text: truncateText(window.lines.join('\n'), maxBytes)
   }
 }
 
@@ -188,7 +139,22 @@ async function walkRepositoryFiles(repoPath: string): Promise<string[]> {
   return files.sort((left, right) => left.localeCompare(right))
 }
 
-async function readWorkingTreeFile(repoPath: string, relativePath: string, maxBytes: number): Promise<string> {
+interface LineWindow {
+  startLine: number
+  lines: string[]
+  hasMore: boolean
+}
+
+// Stream the working-tree file and keep only the [startLine, startLine+maxLines) window, stopping as
+// soon as one line past the window is seen (hasMore) or the byte budget for the window is exhausted.
+// Bounded memory, and any depth is reachable without reading the whole file into memory.
+async function readWorkingTreeLineWindow(
+  repoPath: string,
+  relativePath: string,
+  startLine: number,
+  maxLines: number,
+  byteBudget: number
+): Promise<LineWindow> {
   const absolutePath = resolveRepositoryFilePath(repoPath, relativePath)
   const stat = await fs.stat(absolutePath)
 
@@ -196,18 +162,43 @@ async function readWorkingTreeFile(repoPath: string, relativePath: string, maxBy
     throw new Error(`Repository path is not a file: ${relativePath}`)
   }
 
-  if (stat.size > maxBytes) {
-    const handle = await fs.open(absolutePath, 'r')
-    try {
-      const buffer = Buffer.alloc(maxBytes)
-      const { bytesRead } = await handle.read(buffer, 0, maxBytes, 0)
-      return buffer.subarray(0, bytesRead).toString('utf8')
-    } finally {
-      await handle.close()
+  const stream = createReadStream(absolutePath, { encoding: 'utf8' })
+  const reader = createInterface({ input: stream, crlfDelay: Infinity })
+  const endLine = startLine + maxLines - 1
+  const lines: string[] = []
+  let lineNumber = 0
+  let collectedBytes = 0
+  let hasMore = false
+
+  try {
+    for await (const line of reader) {
+      lineNumber += 1
+
+      if (lineNumber < startLine) {
+        continue
+      }
+
+      if (lineNumber > endLine) {
+        hasMore = true
+        break
+      }
+
+      const lineBytes = Buffer.byteLength(line) + 1
+
+      if (lines.length > 0 && collectedBytes + lineBytes > byteBudget) {
+        hasMore = true
+        break
+      }
+
+      lines.push(line)
+      collectedBytes += lineBytes
     }
+  } finally {
+    reader.close()
+    stream.destroy()
   }
 
-  return fs.readFile(absolutePath, 'utf8')
+  return { startLine, lines, hasMore }
 }
 
 async function readGitFile(repoPath: string, revision: string, relativePath: string, maxBytes: number): Promise<string> {
@@ -216,42 +207,14 @@ async function readGitFile(repoPath: string, revision: string, relativePath: str
   return truncateText(result.stdout, maxBytes)
 }
 
-function sliceTextLines(input: {
-  repository: { rootPath: string }
-  path: string
-  revision: string
-  text: string
-  startLine?: number
-  maxLines?: number
-}) {
-  const lines = input.text.split(/\r?\n/)
-  const startLine = Math.max(1, Math.floor(input.startLine ?? 1))
-  const maxLines = Math.min(MAX_LINES, Math.max(1, Math.floor(input.maxLines ?? DEFAULT_MAX_LINES)))
+function sliceRevisionLines(text: string, startLine: number, maxLines: number): LineWindow {
+  const lines = text.split(/\r?\n/)
   const selected = lines.slice(startLine - 1, startLine - 1 + maxLines)
 
   return {
-    repository: input.repository,
-    path: input.path,
-    revision: input.revision,
     startLine,
-    endLine: startLine + selected.length - 1,
-    totalLines: lines.length,
-    truncated: startLine + selected.length - 1 < lines.length,
-    text: selected.join('\n')
-  }
-}
-
-async function looksTextFile(filePath: string): Promise<boolean> {
-  const handle = await fs.open(filePath, 'r').catch(() => null)
-
-  if (!handle) return false
-
-  try {
-    const buffer = Buffer.alloc(512)
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
-    return !buffer.subarray(0, bytesRead).includes(0)
-  } finally {
-    await handle.close()
+    lines: selected,
+    hasMore: startLine - 1 + selected.length < lines.length
   }
 }
 

@@ -162,7 +162,19 @@ export abstract class RepositoryServiceSnapshotQueries extends RepositoryService
 
     if (missingStagedAdds.length === 0) return false
 
-    await this.git(rootPath, ['restore', '--staged', '--', ...missingStagedAdds])
-    return true
+    // This runs on the always-on status path, so it must never fail a snapshot
+    // read. Feed paths via NUL stdin (not argv — a large "select all" set would
+    // overflow the Windows command line) and treat the prune as advisory: if git
+    // can't restore some phantom staged-add, keep the un-pruned status instead of
+    // throwing.
+    try {
+      await this.git(rootPath, ['restore', '--staged', '--pathspec-from-file=-', '--pathspec-file-nul'], {
+        input: `${missingStagedAdds.join('\0')}\0`,
+        allowedExitCodes: [0, 1]
+      })
+      return true
+    } catch {
+      return false
+    }
   }
 }

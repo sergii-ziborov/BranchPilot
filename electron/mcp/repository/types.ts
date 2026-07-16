@@ -23,25 +23,22 @@ export interface RepositoryFileReadOptions extends MemoryQueryOptions {
   maxBytes?: number
 }
 
-export interface RepositoryTextSearchOptions extends MemoryQueryOptions {
-  query: string
-  path?: string
-  extension?: string
-  caseSensitive?: boolean
-  contextLines?: number
-  limit?: number
-}
-
 export interface RepositoryDiffOptions extends MemoryQueryOptions {
   mode?: 'all' | 'staged' | 'unstaged'
+  format?: 'patch' | 'stat' | 'name-only'
   path?: string
   base?: string
   head?: string
+  mergeBase?: boolean
+  contextLines?: number
   maxBytes?: number
 }
 
 export interface CommitSearchOptions extends MemoryQueryOptions {
   query?: string
+  author?: string
+  since?: string
+  until?: string
   path?: string
   limit?: number
 }

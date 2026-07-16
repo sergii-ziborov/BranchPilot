@@ -39,6 +39,43 @@ function sortFileTreeFolder(folder: MutableFileTreeFolder) {
   folder.children.forEach(sortFileTreeFolder)
 }
 
+export type EditorTreeRow =
+  | { kind: 'folder'; folder: FileTreeFolder; depth: number; key: string }
+  | { kind: 'file'; file: RepositoryFileEntry; displayName: string; depth: number; key: string }
+
+// Flatten the folder tree into the exact visual row order that a recursive render would
+// produce (root files, then each folder header followed by its files, then its children).
+// A flat list is what the windowing hook needs so only the visible rows are ever mounted.
+export function flattenFileTree(tree: FileTreeFolder): EditorTreeRow[] {
+  const rows: EditorTreeRow[] = []
+
+  for (const file of tree.files) {
+    rows.push({ kind: 'file', file, displayName: file.path, depth: 0, key: `file:${file.path}` })
+  }
+
+  const walk = (folder: FileTreeFolder, depth: number) => {
+    rows.push({ kind: 'folder', folder, depth, key: `folder:${folder.path}` })
+    for (const file of folder.files) {
+      rows.push({
+        kind: 'file',
+        file,
+        displayName: fileDisplayName(file.path, folder.path),
+        depth: depth + 1,
+        key: `file:${file.path}`
+      })
+    }
+    for (const child of folder.children) {
+      walk(child, depth + 1)
+    }
+  }
+
+  for (const child of tree.children) {
+    walk(child, 0)
+  }
+
+  return rows
+}
+
 export function buildRepositoryFileTree(files: RepositoryFileEntry[]): FileTreeFolder {
   const root = createFileTreeFolder('', '')
 

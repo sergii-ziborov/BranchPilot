@@ -20,6 +20,38 @@
   margin-right: 8px;
 }
 
+.history-commit-title {
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.history-commit-title.clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.history-commit-title-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.history-commit-title-toggle:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
 .history-commit-inline-copy {
   display: inline-flex;
   align-items: center;

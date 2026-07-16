@@ -2,7 +2,6 @@ import type {
   ActivityLogActor,
   ActivityLogEventType,
   ActivityLogStatus,
-  ProjectMemorySymbolKind,
   ProjectWikiPageId
 } from '../../../src/shared/branchPilot.js'
 
@@ -22,29 +21,6 @@ export interface AgentRunDetailOptions extends MemoryQueryOptions {
   id: string
 }
 
-export interface SearchFilesOptions extends MemoryQueryOptions {
-  query?: string
-  language?: string
-  limit?: number
-}
-
-export interface SearchSymbolsOptions extends MemoryQueryOptions {
-  query?: string
-  kind?: ProjectMemorySymbolKind
-  path?: string
-  limit?: number
-}
-
-export interface FileOutlineOptions extends MemoryQueryOptions {
-  path: string
-}
-
-export interface SymbolContextOptions extends MemoryQueryOptions {
-  symbolId?: string
-  name?: string
-  path?: string
-}
-
 export interface RecentCommitsOptions extends MemoryQueryOptions {
   limit?: number
 }
@@ -55,9 +31,17 @@ export interface AgentActivityOptions extends MemoryQueryOptions {
   types?: ActivityLogEventType[]
   actor?: ActivityLogActor
   status?: ActivityLogStatus
+  since?: string
+  until?: string
   limit?: number
 }
 
 export interface WikiPageOptions extends MemoryQueryOptions {
   pageId: ProjectWikiPageId
+}
+
+export interface SessionNoteOptions extends MemoryQueryOptions {
+  title: string
+  detail?: string
+  phase?: 'started' | 'completed' | 'failed'
 }

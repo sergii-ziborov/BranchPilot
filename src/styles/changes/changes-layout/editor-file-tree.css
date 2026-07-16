@@ -172,6 +172,33 @@
   white-space: nowrap;
 }
 
+/* Windowed file tree: the list is a flex column, so pin the spacer to its computed height
+   (otherwise flex-shrink collapses it and scrolling breaks), and give every file row a
+   fixed height that stays under EDITOR_TREE_ROW_HEIGHT so translateY placement is exact. */
+.changes-editor-file-list > .virtual-list-spacer {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.changes-editor-file-list .virtual-list-item .changes-editor-file-row {
+  height: 34px;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.changes-editor-file-namecell {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.changes-editor-file-namecell .changes-editor-file-content-match {
+  grid-column: auto;
+  flex: 0 1 auto;
+}
+
 .changes-editor-file-row.changed {
   background: var(--tint-warn);
 }

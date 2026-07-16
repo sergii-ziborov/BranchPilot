@@ -83,27 +83,27 @@ export function McpSetupView({
       detail: 'Live Git diff/stat for current uncommitted work.'
     },
     {
-      title: 'Code index',
-      uri: 'branchpilot://repo/current/tree + symbols',
-      detail: 'Indexed file tree, imports, and exported/local symbols for fast code navigation.'
+      title: 'File tree',
+      uri: 'branchpilot://repo/current/tree',
+      detail: 'Indexed repository file tree from Project Memory for fast orientation.'
     }
   ]
   const mcpToolGroups = [
     {
       title: 'Orient',
-      tools: ['project_summary', 'get_project_health', 'get_repository_status', 'list_repository_refs', 'get_project_wiki']
+      tools: ['get_live_overview', 'project_summary', 'get_project_health', 'get_repository_status', 'get_project_wiki']
     },
     {
       title: 'Browse repo',
-      tools: ['list_repository_files', 'read_repository_file', 'search_repository_text', 'search_files', 'search_symbols']
+      tools: ['list_repository_files', 'read_repository_file']
     },
     {
       title: 'Review changes',
-      tools: ['get_repository_diff', 'get_commit_details', 'search_commit_history', 'get_file_history', 'get_repository_blame']
+      tools: ['get_repository_diff', 'list_pull_requests', 'get_pull_request', 'get_ci_status', 'get_commit_details', 'get_file_history', 'get_repository_blame']
     },
     {
       title: 'Trace work',
-      tools: ['get_recent_commits', 'get_agent_activity', 'get_file_outline', 'get_symbol_context', 'get_wiki_page']
+      tools: ['get_recent_commits', 'get_agent_activity', 'list_agent_runs', 'get_agent_run', 'record_session_note', 'get_wiki_page']
     }
   ]
   const mcpPrompts = ['review-current-work', 'prepare-change-plan', 'explain-module', 'summarize-recent-work']
@@ -129,7 +129,7 @@ export function McpSetupView({
     {
       title: 'Read-only server',
       detail: projectMemoryMcpConfig.serverExists ? 'Server build found' : 'Run npm run build',
-      meta: 'No file writes or Git mutation',
+      meta: 'No repo writes or Git mutation',
       ready: projectMemoryMcpConfig.serverExists
     }
   ]
@@ -257,12 +257,14 @@ function mcpConnectionPrompt(
     '1. branchpilot://repo/current/live-status and branchpilot://repo/current/diff for current local work.',
     '2. branchpilot://repo/current/health to spot risky files before planning edits.',
     '3. branchpilot://repo/current/wiki for architecture and workflow intent.',
-    '4. branchpilot://repo/current/worktree plus list_repository_files/read_repository_file/search_repository_text for GitHub-like browsing.',
+    '4. branchpilot://repo/current/worktree plus list_repository_files/read_repository_file for GitHub-like browsing.',
     '5. branchpilot://repo/current/refs, search_commit_history, get_commit_details, get_file_history, and get_repository_blame for history and ownership context.',
     '6. branchpilot://repo/current/activity and branchpilot://repo/current/commits for BranchPilot timeline context.',
-    '7. branchpilot://repo/current/tree and branchpilot://repo/current/symbols to narrow indexed exploration.',
+    '7. branchpilot://repo/current/tree to narrow indexed file exploration.',
     '',
-    'Available workflow prompts: review-current-work, prepare-change-plan, explain-module, summarize-recent-work. Useful tools include project_summary, get_project_health, get_repository_status, list_repository_refs, list_repository_files, read_repository_file, search_repository_text, get_repository_diff, search_commit_history, get_commit_details, get_file_history, get_repository_blame, search_files, search_symbols, get_file_outline, get_symbol_context.',
+    'Available workflow prompts: review-current-work, prepare-change-plan, explain-module, summarize-recent-work. Start with get_live_overview for one-call session orientation. Other useful tools include project_summary, get_project_health, get_repository_status, list_repository_refs, list_repository_files, read_repository_file, get_repository_diff, search_commit_history, get_commit_details, get_file_history, get_repository_blame, get_agent_activity, list_agent_runs, get_agent_run.',
+    'Before long or expensive work (full test runs, builds, migrations), check get_agent_activity for an assistant_session_note that says it already ran, and record your own via record_session_note (phase started/completed/failed) so an interrupted session never redoes it.',
+    'For code-structure work — symbol graph, who-calls/who-imports, regex or full-text code search, and clone detection — use the repo-lens MCP server if it is attached; BranchPilot does not duplicate those.',
     '',
     'Treat this as a read-only BranchPilot repository bridge. It may read local files and run read-only Git commands, but it must not write files, push, pull, fetch, commit, or mutate Git state.',
     `Generic server command: ${config.serverCommand}`,

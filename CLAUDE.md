@@ -7,7 +7,8 @@ Source files are the authority when docs and code disagree.
 ## What this is
 
 BranchPilot is a local-first desktop Git client (Electron · React 19 · TypeScript ·
-Vite) for local repositories and hosted providers (GitHub via the `gh` CLI). The
+Vite) for local repositories and hosted providers (GitHub via the `gh` CLI or Git
+Credential Manager — the MCP's GitHub tools need no gh at all). The
 renderer never touches Git or the filesystem directly — it calls the Electron main
 process over a typed IPC bridge (`window.branchPilot`). Assistants are **read-only by
 default**; every destructive Git action is gated behind explicit confirmation. See
@@ -80,8 +81,10 @@ never edited by hand — it is rebuilt.
 
 ## Safety model
 
-Assistants receive explicit local context only — no file writes, no shell writes, no
-silent approval expansion. Destructive Git operations (delete, discard, force) each
-require their own confirmation. Credentials are never handled by the app; it relies on
-your existing Git and `gh` setup. Preserve the activity-log and policy gates when
-touching assistant, provider, or memory workflows.
+Assistants receive explicit local context only — no repository file writes, no shell
+writes, no silent approval expansion. The MCP's single write tool, `record_session_note`,
+appends to BranchPilot's own activity ledger only. Destructive Git operations (delete,
+discard, force) each require their own confirmation. Credentials are never stored by the
+app; it relies on your existing Git setup (Git Credential Manager) and, optionally, `gh`.
+Preserve the activity-log and policy gates when touching assistant, provider, or memory
+workflows.

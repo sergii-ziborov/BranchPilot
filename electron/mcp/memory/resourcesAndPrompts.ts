@@ -7,7 +7,6 @@ export const MCP_RESOURCE_URIS = [
   'branchpilot://repo/current/summary',
   'branchpilot://repo/current/health',
   'branchpilot://repo/current/tree',
-  'branchpilot://repo/current/symbols',
   'branchpilot://repo/current/commits',
   'branchpilot://repo/current/activity',
   'branchpilot://repo/current/wiki'
@@ -34,14 +33,6 @@ export async function getResourcePayload(options: MemoryQueryOptions, uri: strin
     }
   }
 
-  if (uri === 'branchpilot://repo/current/symbols') {
-    return {
-      scannedAt: snapshot.scannedAt,
-      repository: snapshot.repository,
-      symbols: snapshot.symbols.slice(0, MAX_RESOURCE_ITEMS)
-    }
-  }
-
   if (uri === 'branchpilot://repo/current/commits') {
     return {
       scannedAt: snapshot.scannedAt,
@@ -64,23 +55,26 @@ export async function getResourcePayload(options: MemoryQueryOptions, uri: strin
 export function getPromptText(name: string): string {
   if (name === 'review-current-work') {
     return [
-      'Use BranchPilot Project Memory to understand the repository structure before reviewing changes.',
-      'Start with project_summary, get_project_health, get_repository_status, and get_repository_diff, then search_symbols/search_files for affected modules.',
+      'Use BranchPilot to understand current local work before reviewing changes.',
+      'Start with project_summary, get_project_health, get_repository_status, and get_repository_diff, then read affected modules with list_repository_files/read_repository_file.',
+      'If the repo-lens MCP is attached, use its graph tools and code search to trace symbols, callers, and dependents.',
       'Focus on consistency, security, correctness, and maintainability. Do not mutate files from MCP.'
     ].join('\n')
   }
 
   if (name === 'prepare-change-plan') {
     return [
-      'Use BranchPilot Project Memory to map relevant files, symbols, imports, and recent commits.',
-      'Use get_project_health and live repository tools to identify high-risk files, diffs, refs, and current worktree state.',
+      'Use BranchPilot Project Memory and live repository tools to map relevant files, health, recent commits, and current worktree state.',
+      'Use get_project_health and get_repository_diff to identify high-risk files and current changes; list_repository_refs for branch context.',
+      'If the repo-lens MCP is attached, use it to trace who imports/calls the code you plan to change.',
       'Return a concise implementation plan with risks, tests, and files likely to change.'
     ].join('\n')
   }
 
   if (name === 'explain-module') {
     return [
-      'Use get_file_outline and search_symbols to explain the requested module.',
+      'Use list_repository_files and read_repository_file to inspect the requested module, and get_file_history/get_repository_blame for how it evolved.',
+      'If the repo-lens MCP is attached, use get_node/get_neighbors and read_source for symbol structure, callers, and dependents.',
       'Summarize responsibilities, important symbols, dependencies, and likely extension points.',
       'Mention Project Memory scannedAt so the user understands freshness.'
     ].join('\n')

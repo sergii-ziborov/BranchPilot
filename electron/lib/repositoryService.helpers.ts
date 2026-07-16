@@ -314,6 +314,31 @@ export function resolveRepositoryPath(rootPath: string, relativePath: string): s
   return fullPath
 }
 
+const WINDOWS_RESERVED_NAMES = new Set([
+  'CON', 'PRN', 'AUX', 'NUL',
+  'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+  'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+])
+
+/**
+ * True when any segment of `relativePath` is a Windows reserved device name
+ * (CON, PRN, AUX, NUL, COM1–9, LPT1–9), with or without an extension. Such files
+ * can end up on disk (created by tools that bypass Win32 name parsing, e.g. an
+ * agent writing `NUL.css`) but Git opens them through the Win32 layer and cannot
+ * index or `clean` them — every stage/commit fails with a generic error. Node's
+ * `fs`, by contrast, can read and delete them, so callers branch on this.
+ */
+export function isWindowsReservedPath(relativePath: string): boolean {
+  return relativePath.split(/[\\/]/).some(isWindowsReservedSegment)
+}
+
+function isWindowsReservedSegment(segment: string): boolean {
+  // Windows strips trailing dots/spaces, then matches the reserved name against
+  // the text before the first remaining dot: NUL, NUL.css, and NUL. all collide.
+  const base = segment.replace(/[. ]+$/, '').split('.')[0].toUpperCase()
+  return WINDOWS_RESERVED_NAMES.has(base)
+}
+
 export async function readFilePrefix(filePath: string, maxBytes: number): Promise<Buffer> {
   const file = await fs.open(filePath, 'r')
 

@@ -179,6 +179,13 @@ function classifyGitError(output: string): { code: string; message: string } {
     }
   }
 
+  if (normalized.includes('unable to index file') || normalized.includes('adding files failed')) {
+    return {
+      code: 'git_unindexable_file',
+      message: 'Git could not read a file to stage it. On Windows this usually means a reserved device name (NUL, CON, COM1…) or an unreadable path — rename or remove it.'
+    }
+  }
+
   return {
     code: 'git_command_failed',
     message: 'Git command failed. See details for the original Git output.'

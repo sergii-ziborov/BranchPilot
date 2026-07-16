@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useController } from '../../hooks/AppControllerContext'
-import type { ChangesTool } from './AppWorkspace'
+import type { ChangesTool } from './changesTool'
 import { BranchesRoute } from './routes/BranchesRoute'
 import { ChangesRoute } from './routes/ChangesRoute'
 import { ConfigRoute } from './routes/ConfigRoute'

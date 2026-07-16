@@ -11,7 +11,8 @@ import {
   repositorySyncOperationLabel
 } from '../../lib/repositoryOperationLabels'
 import { AppDialogs } from './AppDialogs'
-import { AppWorkspace, type ChangesTool } from './AppWorkspace'
+import { AppWorkspace } from './AppWorkspace'
+import type { ChangesTool } from './changesTool'
 
 const api = window.branchPilot
 

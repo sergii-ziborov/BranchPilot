@@ -42,6 +42,9 @@ import {
   type LocalAgentProvider
 } from './localAgentSupport'
 
+/** Everything the local-agent panel needs, passed around as one unit. */
+export type LocalAgentPanelState = ReturnType<typeof useLocalAgentPanel>
+
 interface UseLocalAgentPanelOptions {
   api: BranchPilotApi | undefined
   currentRepoPath: string | undefined
@@ -264,9 +267,7 @@ export function useLocalAgentPanel({
   const runCodexAgentPanel = async (promptOverride?: string) => {
     if (!api || !currentRepoPath || codexAgentRunning) return
     const providerLabel = localAgentLabel(codexAgentProvider)
-    // promptOverride is a string only when the queue drives a run; DOM onClick
-    // passes a MouseEvent (non-string), which correctly falls back to state.
-    const prompt = (typeof promptOverride === 'string' ? promptOverride : codexAgentPrompt).trim()
+    const prompt = (promptOverride ?? codexAgentPrompt).trim()
     if (!prompt && !selectedPath && codexAgentAttachments.length === 0) {
       setCodexAgentError('Enter a prompt, select a file, or attach a file.')
       return

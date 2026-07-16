@@ -3,10 +3,9 @@ import { ConflictBanner } from '../ConflictBanner'
 import { EmptyState, RepositoryLoadingState } from '../EmptyState'
 import { useController } from '../../hooks/AppControllerContext'
 import { MainViewRouter } from './MainViewRouter'
+import type { ChangesTool } from './changesTool'
 
 const api = window.branchPilot
-
-export type ChangesTool = 'review' | 'stash' | null
 
 interface AppWorkspaceProps {
   changesTool: ChangesTool

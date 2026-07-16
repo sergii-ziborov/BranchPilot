@@ -54,9 +54,21 @@ export async function publishLocalGitHubRepositoryWithAuth(
     allowedExitCodes: [0, 2],
     timeoutMs: 10_000
   })
+  const existingRemoteUrl = existingRemote.exitCode === 0 ? existingRemote.stdout.trim() : ''
 
-  if (existingRemote.exitCode === 0) {
-    throw new BranchPilotUserError('git_remote_exists', `Remote "${remoteName}" is already configured.`)
+  // A remote already pointing at the repo we're about to create is the signature of
+  // a half-finished publish ("origin set, but the GitHub repo was never created" —
+  // e.g. an earlier publish that errored after `git remote add`). Reuse it and just
+  // push, repairing the state, instead of dead-ending on git_remote_exists. Only a
+  // remote pointing at a *different* repository is a genuine conflict.
+  const reuseExistingRemote = existingRemoteUrl.length > 0 &&
+    remoteMatchesRepository(existingRemoteUrl, normalized.owner, normalized.name)
+
+  if (existingRemoteUrl.length > 0 && !reuseExistingRemote) {
+    throw new BranchPilotUserError(
+      'git_remote_exists',
+      `Remote "${remoteName}" already points to a different repository (${existingRemoteUrl}).`
+    )
   }
 
   if (normalized.gitUserName?.trim() || normalized.gitUserEmail?.trim()) {
@@ -69,18 +81,23 @@ export async function publishLocalGitHubRepositoryWithAuth(
 
   const repository = await createGitHubRepositoryWithAuth(runner, normalized, credentialProvider, apiClient)
   const protocol = normalized.remoteProtocol === 'ssh' ? 'ssh' : 'https'
-  const remoteUrl = protocol === 'ssh'
+  const createdRemoteUrl = protocol === 'ssh'
     ? repository.sshUrl
     : `https://github.com/${repository.owner}/${repository.name}.git`
+  // Repairing a half-finished publish keeps the remote the user already had;
+  // a fresh publish uses the URL of the repository we just created.
+  const remoteUrl = reuseExistingRemote ? existingRemoteUrl : createdRemoteUrl
 
   if (!remoteUrl) {
     throw new BranchPilotUserError('github_repo_create_failed', 'GitHub did not return a usable remote URL.')
   }
 
-  await runner.run(GIT_EXECUTABLE, ['remote', 'add', remoteName, remoteUrl], {
-    cwd: rootPath,
-    timeoutMs: 10_000
-  })
+  if (!reuseExistingRemote) {
+    await runner.run(GIT_EXECUTABLE, ['remote', 'add', remoteName, remoteUrl], {
+      cwd: rootPath,
+      timeoutMs: 10_000
+    })
+  }
 
   const starterFilesWritten = await writeRepositoryStarterFiles(rootPath, normalized)
 
@@ -259,4 +276,18 @@ async function writeRepositoryStarterFiles(rootPath: string, request: CreateGitH
 
 function ensureTrailingNewline(content: string): string {
   return content.endsWith('\n') ? content : `${content}\n`
+}
+
+/**
+ * True when `remoteUrl` refers to `owner/name` on GitHub, across the URL forms git
+ * uses: `https://github.com/owner/name(.git)` and `git@github.com:owner/name(.git)`.
+ * Used to recognize a dangling remote left by a half-finished publish so it can be
+ * reused instead of blocking a fresh create.
+ */
+export function remoteMatchesRepository(remoteUrl: string, owner: string, name: string): boolean {
+  const normalized = remoteUrl.trim().replace(/\.git$/i, '').replace(/\/+$/, '').toLowerCase()
+  const target = `${owner}/${name}`.toLowerCase()
+
+  // The separator before the owner is `/` for https and `:` for scp-style SSH.
+  return normalized.endsWith(`/${target}`) || normalized.endsWith(`:${target}`)
 }

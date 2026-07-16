@@ -3,12 +3,9 @@ export type {
   AgentRunListOptions,
   AgentRunDetailOptions,
   CurrentGitStateOptions,
-  FileOutlineOptions,
   MemoryQueryOptions,
   RecentCommitsOptions,
-  SearchFilesOptions,
-  SearchSymbolsOptions,
-  SymbolContextOptions,
+  SessionNoteOptions,
   WikiPageOptions
 } from './memory/queryOptions.js'
 export { loadProjectMemorySnapshot, loadProjectWikiSnapshot } from './memory/snapshotStore.js'
@@ -16,12 +13,9 @@ export { getAgentRuns, getAgentRunDetail } from './memory/agentRunQueries.js'
 export {
   getAgentActivity,
   getCurrentGitState,
-  getFileOutline,
   getProjectSummary,
   getRecentCommits,
-  getSymbolContext,
-  searchFiles,
-  searchSymbols
+  recordSessionNote
 } from './memory/memoryLookups.js'
 export type {
   ProjectHealthFileReport,

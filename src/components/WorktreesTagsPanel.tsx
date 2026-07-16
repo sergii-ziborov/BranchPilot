@@ -6,6 +6,11 @@ import type {
 import { worktreeSummaryLabel } from '../lib/gitEntityLabels'
 import { formatDate } from '../lib/format'
 import { IconButton } from './IconButton'
+import { useVirtualList } from '../hooks/useVirtualList'
+
+// Fixed tag row pitch (88px row + 10px gap), kept in sync with .tag-list-scroll .tag-row in
+// worktrees-config.css, so the tag list is windowed instead of mounting every row.
+const TAG_ROW_HEIGHT = 98
 
 /** Worktrees + local tags management, surfaced inside Settings. */
 export function WorktreesTagsPanel({
@@ -59,6 +64,8 @@ export function WorktreesTagsPanel({
   const filteredTags = query
     ? tags.filter((tag) => [tag.name, tag.subject].filter(Boolean).some((v) => v!.toLowerCase().includes(query)))
     : tags
+  const { containerRef: tagsContainerRef, onScroll: tagsScroll, window: tagsWindow, items: tagsItems } =
+    useVirtualList(filteredTags, TAG_ROW_HEIGHT, query)
 
   useEffect(() => {
     if (!baseRefMenuOpen) return
@@ -237,24 +244,38 @@ export function WorktreesTagsPanel({
             ) : filteredTags.length === 0 ? (
               <div className="quiet-box">No tags match this search.</div>
             ) : (
-              filteredTags.map((tag) => (
-                <article className="tag-row" key={tag.name}>
-                  <div>
-                    <strong>{tag.name}</strong>
-                    <span>{tag.targetShortSha}{tag.createdAt ? ` · ${formatDate(tag.createdAt)}` : ''}</span>
-                    {tag.subject && <p>{tag.subject}</p>}
-                  </div>
-                  <div className="panel-actions">
-                    <IconButton
-                      icon={<Trash2 size={16} />}
-                      label="Delete tag"
-                      tone="danger"
-                      onClick={() => deleteTag(tag)}
-                      disabled={busy}
-                    />
-                  </div>
-                </article>
-              ))
+              <div
+                className="tag-list-scroll virtual-list-viewport"
+                ref={tagsContainerRef}
+                onScroll={tagsScroll}
+              >
+                <div className="virtual-list-spacer" style={{ height: tagsWindow.totalHeight }}>
+                  {tagsItems.map(({ item: tag, index }) => (
+                    <div
+                      className="virtual-list-item"
+                      key={tag.name}
+                      style={{ transform: `translateY(${index * TAG_ROW_HEIGHT}px)` }}
+                    >
+                      <article className="tag-row">
+                        <div>
+                          <strong>{tag.name}</strong>
+                          <span>{tag.targetShortSha}{tag.createdAt ? ` · ${formatDate(tag.createdAt)}` : ''}</span>
+                          {tag.subject && <p title={tag.subject}>{tag.subject}</p>}
+                        </div>
+                        <div className="panel-actions">
+                          <IconButton
+                            icon={<Trash2 size={16} />}
+                            label="Delete tag"
+                            tone="danger"
+                            onClick={() => deleteTag(tag)}
+                            disabled={busy}
+                          />
+                        </div>
+                      </article>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </section>

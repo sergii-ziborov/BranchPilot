@@ -43,6 +43,8 @@ Index: [folders/README.md](folders/README.md).
 
 - [Private beta smoke checklist](beta-smoke.md)
 - [Frontend dedup audit](frontend-dedup-audit.md)
+- [MCP agent skill](mcp-skill.md) — recipes and troubleshooting for assistants driving the
+  BranchPilot MCP server (install as `~/.claude/skills/branchpilot/SKILL.md`).
 
 ## Design sync
 

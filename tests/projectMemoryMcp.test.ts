@@ -3,12 +3,9 @@ import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ProjectMemoryStore } from '../electron/lib/projectMemoryService'
 import {
-  getFileOutline,
   getProjectHealth,
   getProjectWiki,
-  loadProjectMemorySnapshot,
-  searchFiles,
-  searchSymbols
+  loadProjectMemorySnapshot
 } from '../electron/mcp/memoryQueries'
 import type { ProjectMemorySnapshot } from '../src/shared/branchPilot'
 import {
@@ -22,7 +19,7 @@ describe('BranchPilot MCP Project Memory bridge', () => {
     cleanupTempRoots()
   })
 
-  it('loads Project Memory snapshots and searches indexed files and symbols', async () => {
+  it('loads Project Memory snapshots', async () => {
     const { memoryDir, repoPath } = await createStoredSnapshot()
 
     await expect(loadProjectMemorySnapshot({ memoryDir, repoPath })).resolves.toMatchObject({
@@ -30,24 +27,6 @@ describe('BranchPilot MCP Project Memory bridge', () => {
         rootPath: repoPath,
         currentBranch: 'main'
       }
-    })
-
-    await expect(searchFiles({ memoryDir, repoPath, query: 'app', limit: 10 })).resolves.toMatchObject({
-      files: [
-        expect.objectContaining({ path: 'src/App.tsx' })
-      ]
-    })
-    await expect(searchSymbols({ memoryDir, repoPath, query: 'scanner' })).resolves.toMatchObject({
-      symbols: expect.arrayContaining([
-        expect.objectContaining({ name: 'ProjectScanner', kind: 'class' }),
-        expect.objectContaining({ name: 'createScanner', kind: 'function' })
-      ])
-    })
-    await expect(getFileOutline({ memoryDir, repoPath, path: 'src/service.ts' })).resolves.toMatchObject({
-      symbols: expect.arrayContaining([
-        expect.objectContaining({ name: 'ProjectScanner' }),
-        expect.objectContaining({ name: 'scan', parentName: 'ProjectScanner' })
-      ])
     })
   })
 

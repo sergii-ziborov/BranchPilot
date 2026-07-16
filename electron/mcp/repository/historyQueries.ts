@@ -26,6 +26,18 @@ export async function searchCommitHistory(options: CommitSearchOptions) {
     args.push('--regexp-ignore-case', `--grep=${options.query.trim()}`)
   }
 
+  if (options.author?.trim()) {
+    args.push(`--author=${options.author.trim()}`)
+  }
+
+  if (options.since?.trim()) {
+    args.push(`--since=${options.since.trim()}`)
+  }
+
+  if (options.until?.trim()) {
+    args.push(`--until=${options.until.trim()}`)
+  }
+
   if (options.path) {
     args.push('--', normalizeRepositoryRelativePath(options.path))
   }

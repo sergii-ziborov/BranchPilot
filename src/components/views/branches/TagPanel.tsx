@@ -1,6 +1,12 @@
 import { Plus, Search, Trash2, X } from 'lucide-react'
 import type { TagSummary } from '../../../shared/branchPilot'
 import { formatDate } from '../../../lib/format'
+import { useVirtualList } from '../../../hooks/useVirtualList'
+
+// Fixed row pitch (88px row + 10px gap, kept in sync with .tag-list-scroll .tag-row in
+// worktrees-config.css) so the list can be windowed; a repository can hold tens of
+// thousands of tags and mounting every row at once freezes the renderer.
+const TAG_ROW_HEIGHT = 98
 
 export function TagPanel({
   tags, busy, tagFilter, setTagFilter,
@@ -26,6 +32,8 @@ export function TagPanel({
         .some((value) => value.toLowerCase().includes(tagQuery))
     )
     : tags
+  const { containerRef: tagsContainerRef, onScroll: tagsScroll, window: tagsWindow, items: tagsItems } =
+    useVirtualList(filteredTags, TAG_ROW_HEIGHT, tagQuery)
 
   return (
     <details className="branch-collapsible">
@@ -81,27 +89,41 @@ export function TagPanel({
           ) : filteredTags.length === 0 ? (
             <div className="quiet-box">No tags match this search.</div>
           ) : (
-            filteredTags.map((tag) => (
-              <article className="tag-row" key={tag.name}>
-                <div>
-                  <strong>{tag.name}</strong>
-                  <span>{tag.targetShortSha}{tag.createdAt ? ` · ${formatDate(tag.createdAt)}` : ''}</span>
-                  {tag.subject && <p>{tag.subject}</p>}
-                </div>
-                <div className="panel-actions">
-                  <button
-                    className="danger-button icon-button"
-                    type="button"
-                    title="Delete tag"
-                    aria-label="Delete tag"
-                    onClick={() => deleteTag(tag)}
-                    disabled={busy}
+            <div
+              className="tag-list-scroll virtual-list-viewport"
+              ref={tagsContainerRef}
+              onScroll={tagsScroll}
+            >
+              <div className="virtual-list-spacer" style={{ height: tagsWindow.totalHeight }}>
+                {tagsItems.map(({ item: tag, index }) => (
+                  <div
+                    className="virtual-list-item"
+                    key={tag.name}
+                    style={{ transform: `translateY(${index * TAG_ROW_HEIGHT}px)` }}
                   >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </article>
-            ))
+                    <article className="tag-row">
+                      <div>
+                        <strong>{tag.name}</strong>
+                        <span>{tag.targetShortSha}{tag.createdAt ? ` · ${formatDate(tag.createdAt)}` : ''}</span>
+                        {tag.subject && <p title={tag.subject}>{tag.subject}</p>}
+                      </div>
+                      <div className="panel-actions">
+                        <button
+                          className="danger-button icon-button"
+                          type="button"
+                          title="Delete tag"
+                          aria-label="Delete tag"
+                          onClick={() => deleteTag(tag)}
+                          disabled={busy}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </article>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </section>

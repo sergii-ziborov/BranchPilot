@@ -1,140 +1,87 @@
-import type {
-  ChangeEvent as ReactChangeEvent,
-  ClipboardEvent as ReactClipboardEvent,
-  DragEvent as ReactDragEvent
-} from 'react'
 import { BrainCircuit, ChevronDown, ChevronUp, FileCode2, History, ListPlus, Paperclip, PauseCircle, PlayCircle, RefreshCw, SendHorizontal, Square, Trash2, X } from 'lucide-react'
-import type { AssistantId, CodexAgentEvent, CodexAgentReasoning, CodexAgentResult, CodexAgentSandbox } from '../../../shared/branchPilot'
+import type { AssistantId, CodexAgentReasoning, CodexAgentSandbox } from '../../../shared/branchPilot'
 import { assistantSelectionLabel } from '../../../lib/assistantLabels'
 import { SignalStatus } from '../../SignalStatus'
 import { AgentSessionSummary } from './AgentSessionSummary'
-import type { AgentSessionSummary as AgentSessionSummaryData } from './agentSessionSummaryData'
 import { LocalAgentBrandIcon } from './LocalAgentBrandIcon'
 import { useLocalAgentComposerResize } from './useLocalAgentComposerResize'
+import type { LocalAgentPanelState } from './useLocalAgentPanel'
 import {
   CODEX_AGENT_ATTACHMENT_LIMIT,
   CODEX_AGENT_REASONING_OPTIONS,
   CODEX_AGENT_SANDBOX_OPTIONS,
   liveAgentEventLabel,
   localAgentLabel,
-  localAgentModelOptions,
-  type CodexAgentAttachmentDraft,
-  type LocalAgentCommand,
-  type LocalAgentProvider,
-  type QueuedAgentPrompt
+  localAgentModelOptions
 } from './localAgentSupport'
 
 interface LocalAgentPanelProps {
-  codexAgentProvider: LocalAgentProvider
+  agent: LocalAgentPanelState
   selectedPath: string
   apiReady: boolean
-  codexAgentAssistant: AssistantId
-  setCodexAgentAssistant: (assistant: AssistantId) => void
-  codexAgentReasoning: CodexAgentReasoning
-  setCodexAgentReasoning: (reasoning: CodexAgentReasoning) => void
-  codexAgentSandbox: CodexAgentSandbox
-  setCodexAgentSandbox: (sandbox: CodexAgentSandbox) => void
-  codexAgentStatusLabel: string
-  codexAgentStatusMessage: string
-  codexAgentUsageText: string
   assistantsChecking: boolean
   checkAssistants: () => void | Promise<void>
-  codexAgentResult: CodexAgentResult | null
-  codexAgentError: string | null
-  codexAgentRunning: boolean
-  codexAgentLiveEvents: CodexAgentEvent[]
-  codexAgentStopping: boolean
-  codexAgentStopped: boolean
-  stopCodexAgent: () => void
-  codexAgentPrompt: string
-  setCodexAgentPrompt: (prompt: string) => void
-  setCodexAgentPromptFocused: (focused: boolean) => void
-  codexAgentTextareaRef: { current: HTMLTextAreaElement | null }
-  codexAgentCommandSuggestions: LocalAgentCommand[]
-  applyCodexAgentCommand: (command: LocalAgentCommand) => void
-  codexAgentAttachments: CodexAgentAttachmentDraft[]
-  codexAgentPreviewAttachment: CodexAgentAttachmentDraft | null
-  setCodexAgentPreviewAttachment: (attachment: CodexAgentAttachmentDraft | null) => void
-  removeCodexAgentAttachment: (id: string) => void
-  addCodexAgentAttachments: (event: ReactChangeEvent<HTMLInputElement>) => Promise<void>
-  handleCodexAgentPaste: (event: ReactClipboardEvent<HTMLElement>) => void
-  handleCodexAgentDragOver: (event: ReactDragEvent<HTMLElement>) => void
-  handleCodexAgentDrop: (event: ReactDragEvent<HTMLElement>) => void
-  runCodexAgentPanel: () => Promise<void>
-  codexAgentQueue: QueuedAgentPrompt[]
-  codexAgentQueueCount: number
-  codexAgentQueuePaused: boolean
-  codexAgentQueuePauseReason: string | null
-  queueCurrentPrompt: () => void
-  removeCodexAgentQueueItem: (id: string) => void
-  clearCodexAgentQueue: () => void
-  moveCodexAgentQueueItem: (id: string, direction: 'up' | 'down') => void
-  pauseCodexAgentQueue: () => void
-  resumeCodexAgentQueue: () => void
-  agentSessionSummaryOpen: boolean
-  toggleAgentSessionSummary: () => void
-  refreshAgentSessionSummary: () => void
-  agentSessionSummary: AgentSessionSummaryData
-  agentSessionSummaryLoading: boolean
-  agentSessionSummaryError: string | null
   onClose: () => void
 }
 
 export function LocalAgentPanel({
-  codexAgentProvider,
+  agent,
   selectedPath,
   apiReady,
-  codexAgentAssistant,
-  setCodexAgentAssistant,
-  codexAgentReasoning,
-  setCodexAgentReasoning,
-  codexAgentSandbox,
-  setCodexAgentSandbox,
-  codexAgentStatusLabel,
-  codexAgentStatusMessage,
-  codexAgentUsageText,
   assistantsChecking,
   checkAssistants,
-  codexAgentResult,
-  codexAgentError,
-  codexAgentRunning,
-  codexAgentLiveEvents,
-  codexAgentStopping,
-  codexAgentStopped,
-  stopCodexAgent,
-  codexAgentPrompt,
-  setCodexAgentPrompt,
-  setCodexAgentPromptFocused,
-  codexAgentTextareaRef,
-  codexAgentCommandSuggestions,
-  applyCodexAgentCommand,
-  codexAgentAttachments,
-  codexAgentPreviewAttachment,
-  setCodexAgentPreviewAttachment,
-  removeCodexAgentAttachment,
-  addCodexAgentAttachments,
-  handleCodexAgentPaste,
-  handleCodexAgentDragOver,
-  handleCodexAgentDrop,
-  runCodexAgentPanel,
-  codexAgentQueue,
-  codexAgentQueueCount,
-  codexAgentQueuePaused,
-  codexAgentQueuePauseReason,
-  queueCurrentPrompt,
-  removeCodexAgentQueueItem,
-  clearCodexAgentQueue,
-  moveCodexAgentQueueItem,
-  pauseCodexAgentQueue,
-  resumeCodexAgentQueue,
-  agentSessionSummaryOpen,
-  toggleAgentSessionSummary,
-  refreshAgentSessionSummary,
-  agentSessionSummary,
-  agentSessionSummaryLoading,
-  agentSessionSummaryError,
   onClose
 }: LocalAgentPanelProps) {
+  const {
+    codexAgentProvider,
+    codexAgentAssistant,
+    setCodexAgentAssistant,
+    codexAgentReasoning,
+    setCodexAgentReasoning,
+    codexAgentSandbox,
+    setCodexAgentSandbox,
+    codexAgentStatusLabel,
+    codexAgentStatusMessage,
+    codexAgentUsageText,
+    codexAgentResult,
+    codexAgentError,
+    codexAgentRunning,
+    codexAgentLiveEvents,
+    codexAgentStopping,
+    codexAgentStopped,
+    stopCodexAgent,
+    codexAgentPrompt,
+    setCodexAgentPrompt,
+    setCodexAgentPromptFocused,
+    codexAgentTextareaRef,
+    codexAgentCommandSuggestions,
+    applyCodexAgentCommand,
+    codexAgentAttachments,
+    codexAgentPreviewAttachment,
+    setCodexAgentPreviewAttachment,
+    removeCodexAgentAttachment,
+    addCodexAgentAttachments,
+    handleCodexAgentPaste,
+    handleCodexAgentDragOver,
+    handleCodexAgentDrop,
+    runCodexAgentPanel,
+    codexAgentQueue,
+    codexAgentQueueCount,
+    codexAgentQueuePaused,
+    codexAgentQueuePauseReason,
+    queueCurrentPrompt,
+    removeCodexAgentQueueItem,
+    clearCodexAgentQueue,
+    moveCodexAgentQueueItem,
+    pauseCodexAgentQueue,
+    resumeCodexAgentQueue,
+    agentSessionSummaryOpen,
+    toggleAgentSessionSummary,
+    refreshAgentSessionSummary,
+    agentSessionSummary,
+    agentSessionSummaryLoading,
+    agentSessionSummaryError
+  } = agent
   const {
     bodyRef,
     composerWidth,
@@ -310,7 +257,7 @@ export function LocalAgentPanel({
             <button
               type="button"
               className="changes-editor-codex-run"
-              onClick={runCodexAgentPanel}
+              onClick={() => void runCodexAgentPanel()}
               disabled={codexAgentRunning || !apiReady}
             >
               {codexAgentRunning ? <RefreshCw className="spin" size={15} /> : <SendHorizontal size={15} />}

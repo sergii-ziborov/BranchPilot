@@ -1,18 +1,17 @@
 export type BranchPilotMcpToolName =
   | 'project_summary'
   | 'get_project_health'
-  | 'search_files'
-  | 'search_symbols'
-  | 'get_file_outline'
-  | 'get_symbol_context'
+  | 'get_live_overview'
   | 'get_recent_commits'
   | 'get_current_git_state'
   | 'get_repository_status'
   | 'list_repository_refs'
   | 'list_repository_files'
   | 'read_repository_file'
-  | 'search_repository_text'
   | 'get_repository_diff'
+  | 'get_ci_status'
+  | 'get_pull_request'
+  | 'list_pull_requests'
   | 'search_commit_history'
   | 'get_commit_details'
   | 'get_file_history'
@@ -20,6 +19,7 @@ export type BranchPilotMcpToolName =
   | 'get_agent_activity'
   | 'list_agent_runs'
   | 'get_agent_run'
+  | 'record_session_note'
   | 'get_project_wiki'
   | 'get_wiki_page'
 
@@ -38,24 +38,12 @@ export const BRANCHPILOT_MCP_TOOLS: BranchPilotMcpToolDefinition[] = [
     description: 'Return file-level health signals from Project Memory, including large files, dense modules, import pressure, configs, and entrypoints.'
   },
   {
-    name: 'search_files',
-    description: 'Search indexed Project Memory files by path, language, or extension.'
-  },
-  {
-    name: 'search_symbols',
-    description: 'Search indexed functions, classes, methods, components, types, interfaces, and exports.'
-  },
-  {
-    name: 'get_file_outline',
-    description: 'Return symbols and imports for one indexed file path.'
-  },
-  {
-    name: 'get_symbol_context',
-    description: 'Return one symbol plus nearby symbols and imports from the same file.'
+    name: 'get_live_overview',
+    description: 'One-call session orientation: live branch/status/changed files, refs summary, recent commits, and top health-risk files. Start here instead of calling status, refs, history, and health separately.'
   },
   {
     name: 'get_recent_commits',
-    description: 'Return recent commits stored in Project Memory.'
+    description: 'Return recent commits from the indexed Project Memory snapshot (works without git installed). Prefer search_commit_history for live history when git is available.'
   },
   {
     name: 'get_current_git_state',
@@ -78,16 +66,24 @@ export const BRANCHPILOT_MCP_TOOLS: BranchPilotMcpToolDefinition[] = [
     description: 'Read a repository file from the working tree or a Git revision with line and byte limits.'
   },
   {
-    name: 'search_repository_text',
-    description: 'Search literal text across non-ignored repository files with optional path, extension, and context filters.'
+    name: 'get_repository_diff',
+    description: 'Return live Git diff for the working tree, staged changes, one path, or a base/head comparison — as a full patch, stat summary, or changed-file list, with optional merge-base (three-dot) comparison and unified context control. Working-tree modes also list untracked files, which git diff alone never shows.'
   },
   {
-    name: 'get_repository_diff',
-    description: 'Return live Git diff/stat for the working tree, staged changes, one path, or a base/head comparison.'
+    name: 'get_ci_status',
+    description: 'One-call CI triage: workflow runs for a branch or PR, the failed jobs of the newest failed run, and a bounded TAIL of each failed log. Uses your existing GitHub credentials (GH_TOKEN/GITHUB_TOKEN or Git Credential Manager — no gh CLI needed); read-only.'
+  },
+  {
+    name: 'get_pull_request',
+    description: 'One-call PR context: metadata, changed files, review decision, recent comments, unresolved review threads, optional bounded diff. Defaults to the current branch\'s PR. Uses your existing GitHub credentials (GH_TOKEN or Git Credential Manager); read-only. For the impact of those changes feed the file list into the repo-lens change_impact tool (works without checking the PR out).'
+  },
+  {
+    name: 'list_pull_requests',
+    description: 'List pull requests with CI check rollup (passed/failed/pending + failed check names) and review state in one call. For review priority or merge risk, feed a candidate\'s files from get_pull_request into repo-lens change_impact. Uses your existing GitHub credentials (GH_TOKEN or Git Credential Manager); read-only.'
   },
   {
     name: 'search_commit_history',
-    description: 'Search live Git commit history by grep query and optional path filter.'
+    description: 'Search live Git commit history by grep query, author, since/until dates, and optional path filter.'
   },
   {
     name: 'get_commit_details',
@@ -103,7 +99,7 @@ export const BRANCHPILOT_MCP_TOOLS: BranchPilotMcpToolDefinition[] = [
   },
   {
     name: 'get_agent_activity',
-    description: 'Return recent BranchPilot activity for this repository from the local Activity Log.'
+    description: 'Return recent BranchPilot activity for this repository from the local Activity Log, filterable by event type, actor, status, and since/until dates.'
   },
   {
     name: 'list_agent_runs',
@@ -112,6 +108,10 @@ export const BRANCHPILOT_MCP_TOOLS: BranchPilotMcpToolDefinition[] = [
   {
     name: 'get_agent_run',
     description: 'Return the full stored record for one local-agent run by id, including prompt, output, events, and verdict.'
+  },
+  {
+    name: 'record_session_note',
+    description: 'Append a durable assistant note to the BranchPilot Activity Log (actor "assistant"): record long or expensive work you start and finish (test runs, builds, migrations) so a crashed or new session can check get_agent_activity instead of redoing it. Writes only BranchPilot\'s own ledger — never repository files or Git state.'
   },
   {
     name: 'get_project_wiki',

@@ -4,6 +4,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { toBranchPilotError } from '../electron/lib/errors'
 import { registerRepositoryOverviewSpecs } from './repositoryService.overviewSpecs'
+import { registerRepositoryStagingSpecs } from './repositoryService.stagingSpecs'
 import {
   cleanupTempRoots,   createService, createTempRepository,
   git, RecordingCommandRunner, tempRoots
@@ -17,6 +18,7 @@ describe('RepositoryService', () => {
   afterEach(cleanupTempRoots)
 
   registerRepositoryOverviewSpecs()
+  registerRepositoryStagingSpecs()
 
   it('stages all changes through explicit pathspecs instead of a full-tree add', async () => {
     const repoPath = createTempRepository()
