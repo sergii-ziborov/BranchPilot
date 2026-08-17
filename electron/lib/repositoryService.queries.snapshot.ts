@@ -6,10 +6,8 @@ import type {
   RepositoryStatus,
   RepositorySummary
 } from '../../src/shared/branchPilot.js'
-import { deriveConflicts, deriveCounts, parseGitStatus } from './gitStatusParser.js'
+import { parseGitStatus } from './gitStatusParser.js'
 import type { ParsedGitStatus } from './gitStatusParser.js'
-import { BuiltinGitReadBackend } from './gitReadBackend/index.js'
-import type { GitReadBackend } from './gitReadBackend/index.js'
 import { NativeGitStatusReader, SidecarClient } from './nativeBackend/index.js'
 import {
   normalizeRelativePath,
@@ -18,7 +16,6 @@ import {
 import { RepositoryServiceBase } from './repositoryService.base.js'
 
 export abstract class RepositoryServiceSnapshotQueries extends RepositoryServiceBase {
-  private readonly builtinGitReadBackend: GitReadBackend = new BuiltinGitReadBackend()
   private readonly nativeSidecar = new SidecarClient()
   private readonly nativeStatusReader = new NativeGitStatusReader(this.nativeSidecar)
 
@@ -129,10 +126,8 @@ export abstract class RepositoryServiceSnapshotQueries extends RepositoryService
    * built to refuse rather than approximate, so any error (including its
    * `unsupported` signal) falls through to the console path below.
    *
-   * For 'console' and 'builtin' the console read always runs: it supplies branch
-   * metadata and is the fallback for the change list. 'builtin' then replaces
-   * the change list with isomorphic-git's, re-deriving counts and conflicts to
-   * stay consistent.
+   * The 'console' backend runs `git status --porcelain=v2` and is also the
+   * fallback whenever the native read cannot answer.
    */
   private async readWorkingTreeStatus(rootPath: string): Promise<ParsedGitStatus> {
     const backend = await this.settings.getGitBackendSettings()
@@ -147,26 +142,8 @@ export abstract class RepositoryServiceSnapshotQueries extends RepositoryService
     }
 
     const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'])
-    const parsedStatus = parseGitStatus(statusOutput.stdout)
 
-    if (backend.preference !== 'builtin') {
-      return parsedStatus
-    }
-
-    try {
-      const changes = await this.builtinGitReadBackend.readWorkingTreeStatus(rootPath)
-      const conflicts = deriveConflicts(changes)
-      return {
-        ...parsedStatus,
-        changes,
-        conflicts,
-        counts: deriveCounts(changes, conflicts)
-      }
-    } catch {
-      // Built-in backend cannot faithfully represent this repo state (or errored);
-      // fall back to the accurate console result.
-      return parsedStatus
-    }
+    return parseGitStatus(statusOutput.stdout)
   }
 
   private async pruneMissingStagedAdds(rootPath: string, changes: FileChange[]): Promise<boolean> {

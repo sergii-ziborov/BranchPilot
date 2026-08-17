@@ -40,14 +40,14 @@ export function terminalPreferenceLabel(preference: TerminalPreference): string 
 
 /** Display label for a Git read-backend preference. */
 export function gitBackendPreferenceLabel(preference: GitBackendPreference): string {
-  return preference === 'builtin' ? 'Built-in git' : 'Console git'
+  return preference === 'native' ? 'Native git' : 'Console git'
 }
 
 /** Short capability summary shown under each Git backend option. */
 export function gitBackendPreferenceDescription(preference: GitBackendPreference): string {
-  return preference === 'builtin'
-    ? 'Portable. Works without a system git install. Limited: some statuses fall back to console.'
-    : 'Accurate. Default. Uses your installed git.'
+  return preference === 'native'
+    ? 'Fast. Default. Reads the repository in-process and falls back to console git when it cannot answer exactly.'
+    : 'Accurate. Runs your installed git once per read.'
 }
 
 /** Human-readable command shape shown in Settings for built-in terminal presets. */

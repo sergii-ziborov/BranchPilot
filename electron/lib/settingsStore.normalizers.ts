@@ -214,7 +214,7 @@ export function normalizeGitBackendPreference(value: unknown): GitBackendPrefere
 }
 
 function isGitBackendPreference(value: unknown): value is GitBackendPreference {
-  return value === 'console' || value === 'builtin' || value === 'native'
+  return value === 'native' || value === 'console'
 }
 
 const GIT_MONITOR_MIN_INTERVAL_SECONDS = 20

@@ -46,11 +46,10 @@ export interface TerminalSettingsUpdate {
 /**
  * Which engine serves Git reads.
  *
- * - `console` shells out to the `git` CLI (always correct, one process per read)
- * - `builtin` uses isomorphic-git for working-tree status only
  * - `native` uses the Rust core (weavatrix-git in-process, no Git process)
+ * - `console` shells out to the `git` CLI (one process per read)
  */
-export type GitBackendPreference = 'console' | 'builtin' | 'native'
+export type GitBackendPreference = 'native' | 'console'
 
 export interface GitBackendSettings {
   preference: GitBackendPreference

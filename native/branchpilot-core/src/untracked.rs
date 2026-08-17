@@ -12,6 +12,8 @@ use crate::error::Result;
 /// and only those: no `.ignore` files, no built-in skip list, no hidden-file
 /// filtering, so the result matches `git status`, not a scanner's opinion.
 pub fn untracked_paths(root: &Path, tracked: &BTreeSet<String>) -> Result<Vec<String>> {
+    // Walking the worktree dominates a status read on large repositories; a
+    // parallel runtime was measured here and did not beat the serial walk.
     let report = Scanner::new(root)
         .options(status_scan_options())
         .scan_compact()?;

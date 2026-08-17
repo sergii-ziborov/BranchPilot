@@ -41,6 +41,16 @@ pull requests — quick and legible, without hiding what Git is actually doing.
 - **Themes** — a built-in picker with popular editor themes (GitHub, One Dark, Dracula,
   Nord, Night Owl, Tokyo Night, Monokai, Solarized).
 
+## Screenshots
+
+Staging and reviewing local changes, with the diff for the selected file:
+
+![Changes view](docs/screenshots/changes.png)
+
+History with the commit graph, commit details, and a word-level diff:
+
+![History view](docs/screenshots/history.png)
+
 ## Tech stack
 
 Electron · React 19 · TypeScript · Vite · Rust. The renderer talks to a Git engine in the
@@ -58,13 +68,36 @@ Git's own ignore sources.
 Working-tree status follows Git's algorithm: an entry whose cached `size` and `mtime`
 still match the index is clean without reading the file, and only genuinely changed paths
 are read and compared through the checkout's conversion rules (`core.autocrlf`, and the
-`text`, `eol`, `binary` and `filter=` attributes). Warm status is **1.5×–4× faster** than
-`git status --porcelain=v2` and byte-identical to it.
+`text`, `eol`, `binary` and `filter=` attributes). Every result is byte-identical to
+`git status --porcelain=v2`, verified entry by entry.
+
+### Measured
+
+Warm median of 7 runs per repository, Windows 11, one working developer machine under
+normal load. `native` reuses a running sidecar; `console` spawns `git` per read, which is
+what the app did before.
+
+| Repository | Tracked files | native | console (`git`) | speedup |
+| --- | ---: | ---: | ---: | ---: |
+| weavatrix-rust | 267 | **16.8 ms** | 50.9 ms | 3.0× |
+| a service repo | 379 | **18.6 ms** | 54.4 ms | 2.9× |
+| BranchPilot | 777 | **31.6 ms** | 54.8 ms | 1.7× |
+| a REST API repo | 1 110 | **50.6 ms** | 73.7 ms | 1.5× |
+| a frontend monorepo | 2 069 | 82.7 ms | **78.1 ms** | 0.9× |
+
+The win comes from never paying process startup and from keeping packs, commit-graphs and
+the index snapshot warm. It shrinks as the worktree grows: untracked discovery walks the
+tree on every read, while Git has an untracked cache — on the largest repository measured
+the two are level. Caching that walk between reads is the obvious next step.
+
+The same benchmark retired the previous experimental `builtin` backend
+(isomorphic-git): 203 ms on BranchPilot, 1 129 ms on the REST API repo, and it refused the
+frontend monorepo outright. It is gone, along with its dependency.
 
 The core refuses rather than approximates. Submodule worktrees, per-directory
 `.gitattributes`, clean filters such as Git LFS, ambiguous renames and non-UTF-8 paths all
 report `unsupported`, and the caller silently falls back to the `git` CLI. Choose the
-engine in Settings (`native`, `console`, `builtin`); `native` is the default.
+engine in Settings (`native` or `console`); `native` is the default.
 
 ```sh
 npm run build:native   # cargo build --release
