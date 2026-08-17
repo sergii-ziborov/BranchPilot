@@ -71,18 +71,6 @@ export interface ProjectMemoryScanResult {
   skippedFileCount: number
 }
 
-export interface ProjectMemoryMcpConfig {
-  memoryDir: string
-  activityDir: string
-  wikiDir: string
-  serverPath: string
-  repoPath: string
-  serverCommand: string
-  codexCommand: string
-  codexToml: string
-  serverExists: boolean
-}
-
 export type ProjectWikiPageId = string
 
 export interface ProjectWikiPage {

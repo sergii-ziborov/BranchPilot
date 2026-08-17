@@ -11,6 +11,5 @@ export type ViewMode =
   | 'providers'
   | 'memory'
   | 'wiki'
-  | 'mcp'
   | 'daily'
   | 'linkedin'

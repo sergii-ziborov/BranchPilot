@@ -12,8 +12,9 @@
     "dev:main": "tsc -p tsconfig.electron.json --watch --preserveWatchOutput",
     "dev:electron": "wait-on tcp:5174 dist-electron/electron/main.js && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5174 node scripts/run-electron.cjs --watch .",
     "electron:dev": "tsc -p tsconfig.electron.json && node scripts/run-electron.cjs .",
-    "mcp:dev": "tsc -p tsconfig.electron.json && node dist-electron/electron/mcp/server.js",
-    "build": "tsc -b && vite build && tsc -p tsconfig.electron.json",
+    "build": "npm run build:native && tsc -b && vite build && tsc -p tsconfig.electron.json",
+    "build:native": "cargo build --release --manifest-path native/Cargo.toml",
+    "test:native": "cargo test --release --manifest-path native/Cargo.toml",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:mac:run": "npm run dist:mac && npm run start:mac",
@@ -32,6 +33,16 @@
       "dist",
       "dist-electron",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "native/target/release",
+        "to": ".",
+        "filter": [
+          "branchpilot-sidecar",
+          "branchpilot-sidecar.exe"
+        ]
+      }
     ],
     "directories": {
       "buildResources": "build",
@@ -68,7 +79,6 @@
     }
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "isomorphic-git": "^1.38.6",
     "lucide-react": "^1.17.0",
     "react": "^19.2.6",

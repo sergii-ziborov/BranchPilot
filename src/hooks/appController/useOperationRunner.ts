@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import type { ApiResult, GitOperationResult } from '../../shared/branchPilot'
+import type { ApiResult, BranchPilotError, GitOperationResult } from '../../shared/branchPilot'
 import { branchPilotErrorText } from '../../shared/branchPilot'
+import { friendlyIpcErrorMessage } from '../../lib/ipcErrorMessage'
 import { progressLabelFromSuccess } from '../../lib/progressLabels'
 
 /** Owns the busy/progress state and the shared runners that wrap API calls. */
@@ -40,7 +41,7 @@ export function useOperationRunner({
         return true
       }
 
-      setError(result.error.message)
+      setError(errorText(result.error))
       setNotice(branchPilotErrorText(result.error))
       return false
     })
@@ -58,11 +59,20 @@ export function useOperationRunner({
         setNotice(result.data.message || label)
         setError(null)
       } else {
-        setError(result.error.message)
+        setError(errorText(result.error))
         setNotice(branchPilotErrorText(result.error))
       }
     })
   }
 
   return { busy, setBusy, operationLabel, setOperationLabel, runBusyOperation, runApiAction, runOperationAction }
+}
+
+/**
+ * The headline alone often hides the only actionable part of a failure (a CLI
+ * asking for sign-in, Git naming the rejected ref), so surface the details the
+ * main process already collected.
+ */
+function errorText(error: BranchPilotError): string {
+  return friendlyIpcErrorMessage(error.message, 'Action failed.', error.details)
 }

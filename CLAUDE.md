@@ -8,7 +8,9 @@ Source files are the authority when docs and code disagree.
 
 BranchPilot is a local-first desktop Git client (Electron · React 19 · TypeScript ·
 Vite) for local repositories and hosted providers (GitHub via the `gh` CLI or Git
-Credential Manager — the MCP's GitHub tools need no gh at all). The
+Credential Manager). Git reads are served by a Rust core (`native/`, built on
+weavatrix-git) that falls back to the `git` CLI whenever it cannot prove a result; writes
+always go through the CLI. The
 renderer never touches Git or the filesystem directly — it calls the Electron main
 process over a typed IPC bridge (`window.branchPilot`). Assistants are **read-only by
 default**; every destructive Git action is gated behind explicit confirmation. See
@@ -41,7 +43,7 @@ This codebase follows a **modular component architecture** in the spirit of POOD
 - **Modules live next to what they compose:** large components split into a sibling
   directory (e.g. `src/components/changes/internal-editor/`, `.../views/memory/`,
   `src/hooks/appController/`); large services into a dotted-suffix set or a
-  subdirectory (e.g. `electron/lib/repositoryService.*.ts`, `electron/mcp/memory/`);
+  subdirectory (e.g. `electron/lib/repositoryService.*.ts`, `electron/lib/nativeBackend/`);
   large stylesheets into a folder of partials aggregated by the original file.
 
 ### Import conventions (two compilers)
@@ -81,9 +83,8 @@ never edited by hand — it is rebuilt.
 
 ## Safety model
 
-Assistants receive explicit local context only — no repository file writes, no shell
-writes, no silent approval expansion. The MCP's single write tool, `record_session_note`,
-appends to BranchPilot's own activity ledger only. Destructive Git operations (delete,
+Assistants receive explicit local context only and produce drafted text — no repository
+file writes, no shell writes, no silent approval expansion. Destructive Git operations (delete,
 discard, force) each require their own confirmation. Credentials are never stored by the
 app; it relies on your existing Git setup (Git Credential Manager) and, optionally, `gh`.
 Preserve the activity-log and policy gates when touching assistant, provider, or memory

@@ -1,5 +1,5 @@
 import {
-  Cable, CheckCircle2, ChevronDown, Database, FileCode2, FolderOpen, History, Trash2
+  Cable, CheckCircle2, Database, FileCode2, FolderOpen, History, Trash2
 } from 'lucide-react'
 import { useMemo } from 'react'
 import { SegmentedControl } from '../SegmentedControl'
@@ -16,12 +16,9 @@ import {
   summarizeMemoryFolders
 } from '../../lib/projectMemorySignals'
 import { MemoryCellHeading, MemoryChipGroup, MemoryPanelHeading } from './memory/MemoryPanelChrome'
-import { AgentRunDetails } from './memory/AgentRunDetails'
 import { compactMemoryImports, compactMemorySymbols, formatLines } from './memory/memoryFileOutline'
-import { useAgentRunDetails } from '../../hooks/useAgentRunDetails'
 
 export { ProjectWikiView } from './memory/ProjectWikiView'
-export { McpSetupView } from './memory/McpSetupView'
 
 interface MemoryViewProps {
   projectMemory: ProjectMemorySnapshot | null
@@ -35,7 +32,6 @@ interface MemoryViewProps {
   activityCategory: ActivityCategory
   setActivityCategory: (category: ActivityCategory) => void
   filteredActivityEntries: ActivityLogEntry[]
-  currentRepoPath?: string | null
   selectedMemoryFilePath: string | null
   setSelectedMemoryFilePath: (path: string) => void
   selectedMemoryFile: ProjectMemorySnapshot['files'][number] | null
@@ -55,14 +51,12 @@ export function MemoryView({
   activityCategory,
   setActivityCategory,
   filteredActivityEntries,
-  currentRepoPath,
   selectedMemoryFilePath,
   setSelectedMemoryFilePath,
   selectedMemoryFile,
   selectedMemorySymbols,
   selectedMemoryImports
 }: MemoryViewProps) {
-  const agentRuns = useAgentRunDetails(currentRepoPath)
   const files = projectMemory?.files ?? []
   const symbols = projectMemory?.symbols ?? []
   const visibleActivitySource = useMemo(
@@ -229,41 +223,15 @@ export function MemoryView({
                   {visibleActivity.length === 0 ? (
                     <div className="quiet-box">No BranchPilot activity for this filter.</div>
                   ) : (
-                    visibleActivity.map((entry) => {
-                      const runId = activityRunId(entry)
-                      const expanded = runId !== null && agentRuns.expandedId === runId
-
-                      return (
-                        <div className="activity-row-shell" key={entry.id}>
-                          {runId ? (
-                            <button
-                              type="button"
-                              className={`activity-row activity-${entry.status} activity-row-expandable${expanded ? ' expanded' : ''}`}
-                              aria-expanded={expanded}
-                              onClick={() => agentRuns.toggle(runId)}
-                            >
-                              <div>
-                                <strong>{activityTypeLabel(entry.type)}</strong>
-                                <span>{entry.actor} - {entry.status} - {formatDate(entry.createdAt)}</span>
-                              </div>
-                              <code>{activityMetadataLabel(entry)}</code>
-                              <ChevronDown className="activity-row-caret" size={15} aria-hidden="true" />
-                            </button>
-                          ) : (
-                            <article className={`activity-row activity-${entry.status}`}>
-                              <div>
-                                <strong>{activityTypeLabel(entry.type)}</strong>
-                                <span>{entry.actor} - {entry.status} - {formatDate(entry.createdAt)}</span>
-                              </div>
-                              <code>{activityMetadataLabel(entry)}</code>
-                            </article>
-                          )}
-                          {expanded && (
-                            <AgentRunDetails record={agentRuns.record} loading={agentRuns.loading} error={agentRuns.error} />
-                          )}
+                    visibleActivity.map((entry) => (
+                      <article className={`activity-row activity-${entry.status}`} key={entry.id}>
+                        <div>
+                          <strong>{activityTypeLabel(entry.type)}</strong>
+                          <span>{entry.actor} - {entry.status} - {formatDate(entry.createdAt)}</span>
                         </div>
-                      )
-                    })
+                        <code>{activityMetadataLabel(entry)}</code>
+                      </article>
+                    ))
                   )}
                 </div>
               </section>
@@ -301,11 +269,4 @@ export function MemoryView({
 
 function isUsefulMemoryActivity(entry: ActivityLogEntry): boolean {
   return entry.type !== 'repository_opened' && entry.type !== 'repository_refreshed'
-}
-
-/** Read the recorded agent run id from an activity entry's metadata, if present. */
-function activityRunId(entry: ActivityLogEntry): string | null {
-  const raw = entry.metadata.run_id ?? entry.metadata.runId
-
-  return typeof raw === 'string' && raw.length > 0 ? raw : null
 }

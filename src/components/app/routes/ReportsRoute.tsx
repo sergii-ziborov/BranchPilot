@@ -1,9 +1,9 @@
-import { BookOpen, Cable, CalendarDays, Database } from 'lucide-react'
+import { BookOpen, CalendarDays, Database } from 'lucide-react'
 import { LinkedinIcon } from '../../BrandIcons'
 import { BackToChanges } from '../../BackToChanges'
 import { DailyView, ReportScopeMenu } from '../../views/DailyView'
 import { LinkedInView } from '../../views/LinkedInView'
-import { McpSetupView, MemoryView, ProjectWikiView } from '../../views/MemoryView'
+import { MemoryView, ProjectWikiView } from '../../views/MemoryView'
 import { useController } from '../../../hooks/AppControllerContext'
 
 export function ReportsRoute() {
@@ -58,8 +58,6 @@ export function ReportsRoute() {
     scanProjectMemory,
     openRepoInEditor,
     activityLog,
-    projectMemoryMcpConfig,
-    copyProjectMemoryText,
     projectWiki,
     wikiLoading,
     generateProjectWiki,
@@ -130,16 +128,6 @@ export function ReportsRoute() {
           >
             <BookOpen size={15} />
             Project Wiki
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === 'mcp'}
-            className={viewMode === 'mcp' ? 'active' : ''}
-            onClick={() => setViewMode('mcp')}
-          >
-            <Cable size={15} />
-            MCP
           </button>
         </div>
         {viewMode === 'daily' && (
@@ -218,7 +206,6 @@ export function ReportsRoute() {
           activityCategory={activityCategory}
           setActivityCategory={setActivityCategory}
           filteredActivityEntries={filteredActivityEntries}
-          currentRepoPath={currentRepoPath}
           selectedMemoryFilePath={selectedMemoryFilePath}
           setSelectedMemoryFilePath={setSelectedMemoryFilePath}
           selectedMemoryFile={selectedMemoryFile}
@@ -244,15 +231,6 @@ export function ReportsRoute() {
           assistants={assistants}
           assistantsChecking={assistantsChecking}
           checkAssistants={checkAssistants}
-        />
-      )}
-      {viewMode === 'mcp' && (
-        <McpSetupView
-          projectMemoryMcpConfig={projectMemoryMcpConfig}
-          projectMemory={projectMemory}
-          projectWiki={projectWiki}
-          activityLog={activityLog}
-          copyProjectMemoryText={copyProjectMemoryText}
         />
       )}
     </div>

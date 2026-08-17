@@ -2,7 +2,6 @@ export { listAssistantStatuses, checkAssistantStatuses } from './runner/assistan
 export { generateCommitMessage } from './runner/commitMessage.js'
 export { generatePullRequestText } from './runner/pullRequestText.js'
 export { beautifyFileWithAssistant } from './runner/fileBeautify.js'
-export { runCodexAgent } from './runner/codexAgent.js'
 export { generateBranchDraft } from './runner/branchDraft.js'
 export { generateBranchDescription } from './runner/branchDescription.js'
 export { generateLinkedInProject } from './runner/linkedInProject.js'

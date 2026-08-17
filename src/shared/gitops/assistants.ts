@@ -1,4 +1,4 @@
-export type InstalledAssistantId = 'claude' | 'codex'
+﻿export type InstalledAssistantId = 'claude' | 'codex'
 export type AssistantModelId =
   | 'claude:opus'
   | 'claude:sonnet'
@@ -112,108 +112,6 @@ export interface BeautifiedFile {
   content: string
   assistant: InstalledAssistantId
   truncated: boolean
-}
-
-export type CodexAgentSandbox = 'read-only' | 'workspace-write' | 'danger-full-access'
-export type CodexAgentReasoning = 'light' | 'medium' | 'high' | 'extra-high'
-
-export interface CodexAgentImageAttachment {
-  name: string
-  mimeType: string
-  dataUrl: string
-}
-
-export type CodexAgentAttachmentKind = 'image' | 'text'
-
-export interface CodexAgentAttachment {
-  kind: CodexAgentAttachmentKind
-  name: string
-  mimeType: string
-  dataUrl?: string
-  text?: string
-  sizeBytes?: number
-}
-
-export interface CodexAgentDiagnostic {
-  lineNumber: number
-  column: number
-  message: string
-  source: string
-}
-
-export interface CodexAgentRequest {
-  repoPath: string
-  assistant: AssistantId
-  prompt: string
-  filePath?: string
-  fileText?: string
-  diagnostics?: CodexAgentDiagnostic[]
-  sandbox: CodexAgentSandbox
-  reasoning: CodexAgentReasoning
-  attachments?: CodexAgentAttachment[]
-  images?: CodexAgentImageAttachment[]
-  runId?: string
-}
-
-export interface CodexAgentEvent {
-  type: string
-  text: string
-}
-
-export interface CodexAgentStreamBatch {
-  runId: string
-  events: CodexAgentEvent[]
-}
-
-export interface CodexAgentResult {
-  assistant: InstalledAssistantId
-  modelLabel?: string
-  output: string
-  events: CodexAgentEvent[]
-  sandbox: CodexAgentSandbox
-  reasoning: CodexAgentReasoning
-  imageCount: number
-  attachmentCount?: number
-  durationMs: number
-  generatedAt: string
-  runId?: string
-}
-
-export type AgentRunStatus = 'completed' | 'cancelled' | 'failed'
-
-export interface AgentRunRecord {
-  id: string
-  repoPath: string
-  assistant: InstalledAssistantId
-  modelLabel?: string
-  prompt: string
-  output: string
-  events: CodexAgentEvent[]
-  sandbox: CodexAgentSandbox
-  reasoning: CodexAgentReasoning
-  filePath?: string
-  imageCount: number
-  attachmentCount: number
-  durationMs: number
-  status: AgentRunStatus
-  verdict?: string
-  createdAt: string
-}
-
-export interface AgentRunSummary {
-  id: string
-  assistant: InstalledAssistantId
-  status: AgentRunRecord['status']
-  prompt: string
-  verdict?: string
-  filePath?: string
-  durationMs: number
-  createdAt: string
-}
-
-export interface AgentRunDetailRequest {
-  repoPath: string
-  id: string
 }
 
 export type ReviewMode = 'consistency' | 'security' | 'quality' | 'knip' | 'depcheck' | 'osv' | 'gitleaks'

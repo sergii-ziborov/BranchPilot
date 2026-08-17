@@ -2,12 +2,9 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
 const { app, BrowserWindow } = require('electron') as typeof import('electron')
-// ESM module: `__dirname` is not defined, so derive it from the module URL.
-const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 import type {
   ActivityLogQuery,
   AssistantPolicyUpdate,
@@ -37,7 +34,6 @@ import type {
   RepositorySearchRequest,
   RepositoryPinRequest
 } from '../../../src/shared/branchPilot.js'
-import { createProjectMemoryMcpConfig } from '../../mcp/config.js'
 import { withProjectMemoryRefresh } from '../ipcTypes.js'
 import type { createIpcHelpers } from '../ipcHelpers.js'
 import type { RegisterIpcHandlersServices } from '../ipcTypes.js'
@@ -56,7 +52,7 @@ export function registerRepositoryHandlers(
   services: RegisterIpcHandlersServices
 ) {
   const { handle, handleLogged, handleUnwrapped, repoPathArg, requestRepoPath, snapshotRepoPath, chooseRepositoryPath, chooseCloneParentPath } = helpers
-  const { repositoryService, assistantPolicyService, activityLogService, projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService, projectMemoryDir, projectWikiDir, activityLogDir, agentRunDir } = services
+  const { repositoryService, assistantPolicyService, activityLogService, projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService } = services
 
   handleUnwrapped('app:version', () => app.getVersion())
   handleUnwrapped('app:setChromeTheme', (request: ChromeThemeRequest) => {
@@ -235,16 +231,6 @@ export function registerRepositoryHandlers(
   )
   handle('repository:pushProjectWikiToGitHub', (repoPath: string) =>
     projectWikiService.pushToGitHubWiki(repoPath)
-  )
-  handle('repository:projectMemoryMcpConfig', (repoPath: string) =>
-    createProjectMemoryMcpConfig({
-      memoryDir: projectMemoryDir,
-      activityDir: activityLogDir,
-      wikiDir: projectWikiDir,
-      agentRunDir,
-      repoPath,
-      serverPath: path.join(moduleDir, '../../mcp/server.js')
-    })
   )
   handle('assistants:getPolicy', (repoPath: string) => assistantPolicyService.getAssistantPolicy(repoPath))
   handleLogged('assistants:setPolicy', {

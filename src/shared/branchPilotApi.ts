@@ -1,8 +1,6 @@
-import type {
+﻿import type {
   ActivityLogQuery,
   ActivityLogSnapshot,
-  AgentRunRecord,
-  AgentRunSummary,
   ApiResult,
   ApplyPatchRequest,
   AssistantPolicyStatus,
@@ -12,9 +10,6 @@ import type {
   BranchComparison,
   BranchDescriptionGenerationRequest,
   BranchDraftGenerationRequest,
-  CodexAgentRequest,
-  CodexAgentResult,
-  CodexAgentStreamBatch,
   CloneRepositoryRequest,
   CommitCard,
   CommitDetails,
@@ -97,7 +92,6 @@ import type {
   InstalledAssistantId,
   LinkedInProjectGenerationRequest,
   MergeBranchRequest,
-  ProjectMemoryMcpConfig,
   ProjectMemoryScanResult,
   ProjectMemorySnapshot,
   ProjectWikiGenerationResult,
@@ -335,7 +329,6 @@ export interface BranchPilotApi {
   getCommitFileCompareDiff: (request: CommitFileCompareRequest) => Promise<ApiResult<DiffResult>>
   getProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemorySnapshot | null>>
   scanProjectMemory: (repoPath: string) => Promise<ApiResult<ProjectMemoryScanResult>>
-  getProjectMemoryMcpConfig: (repoPath: string) => Promise<ApiResult<ProjectMemoryMcpConfig>>
   getProjectWiki: (repoPath: string) => Promise<ApiResult<ProjectWikiSnapshot | null>>
   generateProjectWiki: (repoPath: string) => Promise<ApiResult<ProjectWikiGenerationResult>>
   saveProjectWikiPage: (request: ProjectWikiPageUpdateRequest) => Promise<ApiResult<ProjectWikiSnapshot>>
@@ -420,11 +413,6 @@ export interface BranchPilotApi {
   generateLinkedInProject: (request: LinkedInProjectGenerationRequest) => Promise<ApiResult<GeneratedLinkedInProject>>
   generateRepositoryStarter: (request: RepositoryStarterGenerationRequest) => Promise<ApiResult<GeneratedRepositoryStarter>>
   beautifyFileWithAssistant: (request: FileBeautifyRequest) => Promise<ApiResult<BeautifiedFile>>
-  runCodexAgent: (request: CodexAgentRequest) => Promise<ApiResult<CodexAgentResult>>
-  cancelCodexAgent: (runId: string) => Promise<ApiResult<boolean>>
-  getAgentRuns: (repoPath: string, limit?: number) => Promise<ApiResult<AgentRunSummary[]>>
-  getAgentRunDetail: (request: { repoPath: string; id: string }) => Promise<ApiResult<AgentRunRecord | null>>
-  onCodexAgentEvent: (callback: (batch: CodexAgentStreamBatch) => void) => () => void
   getGitHubCliStatus: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   connectGitHub: (repoPath?: string) => Promise<ApiResult<GitHubCliStatus>>
   generatePullRequestText: (request: PullRequestTextGenerationRequest) => Promise<ApiResult<GeneratedPullRequestText>>

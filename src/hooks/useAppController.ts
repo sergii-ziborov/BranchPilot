@@ -75,7 +75,7 @@ export function useAppController() {
   }, [])
 
   useEffect(() => {
-    if (!snapshot || (viewMode !== 'dashboard' && viewMode !== 'memory' && viewMode !== 'wiki' && viewMode !== 'mcp')) return
+    if (!snapshot || (viewMode !== 'dashboard' && viewMode !== 'memory' && viewMode !== 'wiki')) return
     void loadProjectMemory()
   }, [snapshot?.summary.rootPath, snapshot?.summary.headOid, snapshot?.summary.currentBranch, viewMode])
 
@@ -102,11 +102,11 @@ export function useAppController() {
 
   const currentRepoPath = snapshot?.summary.rootPath
   const {
-    projectMemory, projectMemoryMcpConfig, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId,
+    projectMemory, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId,
     selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading,
     selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports,
     filteredActivityEntries, completedWorkItems,
-    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage,
+    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectWikiPage,
     saveProjectWikiPage, pullProjectWikiFromGitHub, pushProjectWikiToGitHub, clearActivityLog
   } = useProjectMemory({ api, currentRepoPath, setNotice, setError, copyToClipboard, requestConfirmation })
   const assistantsApi = useAssistants({ api, currentRepoPath, viewMode, selectedAssistant, setSelectedAssistant, setNotice, setError, loadProjectMemory })
@@ -298,7 +298,7 @@ export function useAppController() {
     setError(null)
     void silentRefreshDashboard()
 
-    if (viewMode === 'dashboard' || viewMode === 'memory' || viewMode === 'wiki' || viewMode === 'mcp') {
+    if (viewMode === 'dashboard' || viewMode === 'memory' || viewMode === 'wiki') {
       void loadProjectMemory(nextSnapshot.summary.rootPath)
     }
   }
@@ -339,11 +339,11 @@ export function useAppController() {
     setSelectedAssistant,
     ...promptsApi,
     currentRepoPath,
-    projectMemory, projectMemoryMcpConfig, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId,
+    projectMemory, projectWiki, selectedProjectWikiPageId, setSelectedProjectWikiPageId,
     selectedProjectWikiPage, wikiLoading, activityLog, activityCategory, setActivityCategory, memoryLoading,
     selectedMemoryFilePath, setSelectedMemoryFilePath, selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports,
     filteredActivityEntries, completedWorkItems,
-    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectMemoryText, copyProjectWikiPage,
+    loadProjectMemory, generateProjectWiki, scanProjectMemory, copyProjectWikiPage,
     saveProjectWikiPage, pullProjectWikiFromGitHub, pushProjectWikiToGitHub, clearActivityLog,
     ...assistantsApi,
     ...branchesApi,

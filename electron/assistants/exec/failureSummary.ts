@@ -2,6 +2,12 @@ import { BranchPilotUserError } from '../../lib/errors.js'
 
 export function assistantHealthErrorMessage(error: unknown): string {
   if (error instanceof BranchPilotUserError) {
+    // A classified failure already states the actionable part; repeating the raw
+    // CLI line after it only makes the status harder to read.
+    if (error.code !== 'assistant_failed') {
+      return error.message
+    }
+
     const details = error.details ? summarizeAssistantFailure(error.details) : ''
 
     return details
@@ -14,6 +20,60 @@ export function assistantHealthErrorMessage(error: unknown): string {
   }
 
   return 'Assistant health check failed.'
+}
+
+/** Assistant failures a user can act on, in the order they are checked. */
+export const RETRYABLE_ASSISTANT_FAILURE_CODES = [
+  'assistant_failed',
+  'assistant_signed_out',
+  'assistant_usage_limit'
+] as const
+
+export type AssistantFailureCode = (typeof RETRYABLE_ASSISTANT_FAILURE_CODES)[number]
+
+export interface AssistantFailure {
+  code: AssistantFailureCode
+  message: string
+}
+
+/**
+ * Turn raw CLI output into the error the user sees.
+ *
+ * Both CLIs report a signed-out session on stdout with exit code 1, which is
+ * indistinguishable from any other failure unless the text is read. Without
+ * this the only visible message is "… failed to generate text", which tells the
+ * user nothing about the one thing they have to do.
+ */
+export function classifyAssistantFailure(
+  assistant: { label: string; signInHint: string },
+  output: string
+): AssistantFailure {
+  const text = normalizeAssistantOutputText(output)
+
+  if (isSignedOut(text)) {
+    return {
+      code: 'assistant_signed_out',
+      message: `${assistant.label} is not signed in. ${assistant.signInHint}`
+    }
+  }
+
+  const usageLimit = summarizeAssistantUsageLimit(output)
+
+  if (usageLimit) {
+    return {
+      code: 'assistant_usage_limit',
+      message: `${assistant.label}: ${usageLimit}.`
+    }
+  }
+
+  return {
+    code: 'assistant_failed',
+    message: `${assistant.label} failed to generate text.`
+  }
+}
+
+function isSignedOut(text: string): boolean {
+  return /not logged in|please run \/login|not authenticated|run "?codex login|invalid api key|authentication_error|oauth token (?:has )?expired|session (?:has )?expired/i.test(text)
 }
 
 export function summarizeAssistantFailure(output: string): string {

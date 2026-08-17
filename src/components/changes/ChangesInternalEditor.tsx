@@ -10,9 +10,7 @@ import {
 import { useChangesInternalEditor } from './internal-editor/useChangesInternalEditor'
 
 export function ChangesInternalEditor(props: ChangesInternalEditorProps) {
-  const {
-    api, currentRepoPath, onBack, assistantsChecking, checkAssistants
-  } = props
+  const { api, currentRepoPath, onBack } = props
 
   const state = useEditorState(props)
   const {
@@ -41,7 +39,6 @@ export function ChangesInternalEditor(props: ChangesInternalEditorProps) {
     fileLoading, filesError, fileError,
     textUnavailableMessage, diagnostics,
     liveChangesOpen, setLiveChangesOpen,
-    localAgent,
     changeByPath, query, fileContentMatchCount, visibleFiles, visibleFileTree,
     chunkedTextActive, activeEditorText, activeEditorLineBase, editorSourceKey, textDirty,
     liveChanges, liveChangesStale, editedLines, changeKindByLine, draftLines,
@@ -173,7 +170,6 @@ export function ChangesInternalEditor(props: ChangesInternalEditorProps) {
 
       <EditorMainPanel
         header={{ selectedPath, selectedIcon, editorStatusText, renderViewModeTabs }}
-        showLocalAgent={localAgent.codexAgentOpen}
         fileError={fileError}
         selectedPath={selectedPath}
         openFileContextMenu={openFileContextMenu}
@@ -213,10 +209,6 @@ export function ChangesInternalEditor(props: ChangesInternalEditorProps) {
           lintSettings,
           updateLintSettings,
           apiReady: Boolean(api && currentRepoPath),
-          codexAgentOpen: localAgent.codexAgentOpen,
-          codexAgentProvider: localAgent.codexAgentProvider,
-          setCodexAgentOpen: localAgent.setCodexAgentOpen,
-          selectLocalAgentProvider: localAgent.selectLocalAgentProvider,
           beautifyFile,
           beautifyFileWithAi,
           beautifying,
@@ -228,15 +220,6 @@ export function ChangesInternalEditor(props: ChangesInternalEditorProps) {
           parsedHexError: parsedHexDraft.error,
           hexDirty,
           textSaveBlocked
-        }}
-
-        localAgent={{
-          agent: localAgent,
-          selectedPath,
-          apiReady: Boolean(api && currentRepoPath),
-          assistantsChecking,
-          checkAssistants,
-          onClose: () => localAgent.setCodexAgentOpen(false)
         }}
 
         viewSwitch={{

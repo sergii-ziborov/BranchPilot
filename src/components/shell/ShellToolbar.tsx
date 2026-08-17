@@ -27,7 +27,7 @@ export function ShellToolbar({
   return (
     <div className="shell-tabs-tools">
       {TOOL_TABS.filter((tab) => !allReposMode || tab.id === 'daily').map((tab) => {
-        const isActive = viewMode === tab.id || (tab.id === 'daily' && (viewMode === 'linkedin' || viewMode === 'memory' || viewMode === 'wiki' || viewMode === 'mcp'))
+        const isActive = viewMode === tab.id || (tab.id === 'daily' && (viewMode === 'linkedin' || viewMode === 'memory' || viewMode === 'wiki'))
         return (
         <button
           className={isActive ? 'shell-tool active' : 'shell-tool'}

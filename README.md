@@ -34,8 +34,8 @@ pull requests — quick and legible, without hiding what Git is actually doing.
 - **AI assistant (optional)** — draft commit messages, branch names, PR text, and code
   reviews with Claude Code or Codex. Assistants receive explicit local context only —
   no file writes, no shell writes, no silent approval expansion.
-- **MCP server** — a read-only bridge that gives Claude Code / Codex live repo context,
-  GitHub PR + CI triage, and a crash-safe session journal (see below).
+- **Native Git reads** — a Rust core reads the repository in-process, with no `git`
+  process per read (see below).
 - **Auto-refresh** — the working tree refreshes on window focus and a light poll, like
   GitHub Desktop.
 - **Themes** — a built-in picker with popular editor themes (GitHub, One Dark, Dracula,
@@ -43,9 +43,36 @@ pull requests — quick and legible, without hiding what Git is actually doing.
 
 ## Tech stack
 
-Electron · React 19 · TypeScript · Vite. The renderer talks to a Git engine in the
+Electron · React 19 · TypeScript · Vite · Rust. The renderer talks to a Git engine in the
 Electron main process over a typed IPC contract; assistant integrations shell out to
 local CLIs only.
+
+## Native Git backend
+
+Reads are served by a Rust sidecar (`native/`) built on
+[weavatrix-git](https://crates.io/crates/weavatrix-git) — the repository is parsed
+in-process, with no `git` subprocess, no C library, and no network access. Untracked
+files are discovered with [weavatrix-scan](https://crates.io/crates/weavatrix-scan) using
+Git's own ignore sources.
+
+Working-tree status follows Git's algorithm: an entry whose cached `size` and `mtime`
+still match the index is clean without reading the file, and only genuinely changed paths
+are read and compared through the checkout's conversion rules (`core.autocrlf`, and the
+`text`, `eol`, `binary` and `filter=` attributes). Warm status is **1.5×–4× faster** than
+`git status --porcelain=v2` and byte-identical to it.
+
+The core refuses rather than approximates. Submodule worktrees, per-directory
+`.gitattributes`, clean filters such as Git LFS, ambiguous renames and non-UTF-8 paths all
+report `unsupported`, and the caller silently falls back to the `git` CLI. Choose the
+engine in Settings (`native`, `console`, `builtin`); `native` is the default.
+
+```sh
+npm run build:native   # cargo build --release
+npm run test:native    # cargo test --release
+```
+
+Writes still go through the `git` CLI, which keeps hooks, filters, Git LFS and your
+credential manager behaving exactly as they do on the command line.
 
 ## Development
 
@@ -91,31 +118,6 @@ Windows machine or in CI (e.g. a `windows-latest` GitHub Actions runner).
 App icons live in `build/` (`icon.icns` for macOS, `icon.ico` for Windows, `icon.png`
 fallback) and are generated from `build/icon.svg`.
 
-## MCP server (assistants)
-
-BranchPilot ships a read-only MCP server for local assistants — **Reports → MCP** in the
-app generates the ready-to-paste config for Claude Code and Codex. It exposes 23 tools
-scoped to one explicitly granted repository:
-
-- **Orient** — `get_live_overview` (branch/status + refs summary + recent commits + top
-  health-risk files in one call), `project_summary`, `get_project_health`, Project Wiki.
-- **Live Git** — status, refs, diffs (patch / stat / name-only, merge-base ranges,
-  untracked files listed), file reads by revision, commit search with author/date
-  filters, commit details, file history (follows renames), blame.
-- **GitHub** — `list_pull_requests` (CI check rollup per PR), `get_pull_request`
-  (files, review decision, unresolved review threads, optional bounded diff),
-  `get_ci_status` (workflow runs + bounded tails of failed-job logs). Uses your existing
-  credentials — `GH_TOKEN`/`GITHUB_TOKEN` or Git Credential Manager; **no gh CLI needed**.
-- **Session journal** — `get_agent_activity`, `list_agent_runs`, `get_agent_run`, and the
-  single write tool `record_session_note`: assistants log long-running work (test runs,
-  builds) into BranchPilot's own activity ledger so an interrupted session never redoes
-  it. Repository files and Git state are never written.
-
-An agent skill with recipes and troubleshooting ships in
-[docs/mcp-skill.md](docs/mcp-skill.md) (install as `~/.claude/skills/branchpilot/SKILL.md`).
-Code-structure questions (call graphs, blast radius, clones) are deliberately delegated
-to the companion repo-lens MCP rather than duplicated here.
-
 ## Architecture
 
 Start with [ARCHITECTURE.md](ARCHITECTURE.md). It links to smaller, task-focused
@@ -129,8 +131,8 @@ Use [docs/beta-smoke.md](docs/beta-smoke.md) before sharing a build.
 
 ## Safety model
 
-BranchPilot is conservative by design: assistants are read-only (the MCP's only write is
-a note in BranchPilot's own activity ledger — never repository files or Git state),
-destructive Git operations (delete, discard, force) require their own confirmations, and
+BranchPilot is conservative by design: assistants only ever draft text — they receive
+explicit local context and never write repository files, Git state, or a shell.
+Destructive Git operations (delete, discard, force) require their own confirmations, and
 credentials are never stored by the app — it relies on your existing Git setup
 (Git Credential Manager) and, optionally, the `gh` CLI.

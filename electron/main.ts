@@ -4,7 +4,6 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { AssistantPolicyService } from './lib/assistantPolicyService.js'
 import { ActivityLogService } from './lib/activityLogService.js'
-import { AgentRunStore } from './lib/agentRunStore.js'
 import { CommandRunner } from './lib/commandRunner.js'
 import { DailyReviewService } from './lib/dailyReviewService.js'
 import { ExternalEditorService } from './lib/editorService.js'
@@ -69,13 +68,11 @@ const commandRunner = new CommandRunner()
 const projectMemoryDir = path.join(app.getPath('userData'), 'project-memory')
 const projectWikiDir = path.join(app.getPath('userData'), 'project-wiki')
 const activityLogDir = path.join(app.getPath('userData'), 'activity-log')
-const agentRunDir = path.join(app.getPath('userData'), 'agent-runs')
 const settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'branchpilot-settings.json'))
 const repositoryService = new RepositoryService(commandRunner, settingsStore)
 const editorService = new ExternalEditorService(commandRunner)
 const assistantPolicyService = new AssistantPolicyService(settingsStore)
 const activityLogService = new ActivityLogService(activityLogDir)
-const agentRunStore = new AgentRunStore(agentRunDir)
 const projectMemoryService = new ProjectMemoryService(
   commandRunner,
   new ProjectMemoryStore(projectMemoryDir)
@@ -186,8 +183,8 @@ app.whenReady().then(() => {
   const ipcHelpers = createIpcHelpers({ assistantPolicyService, activityLogService })
   registerIpcHandlers(ipcHelpers, {
     repositoryService, editorService, assistantPolicyService, activityLogService,
-    agentRunStore, projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService,
-    settingsStore, commandRunner, projectMemoryDir, projectWikiDir, activityLogDir, agentRunDir
+    projectMemoryService, projectWikiService, dailyReviewService, gitMonitorService,
+    settingsStore, commandRunner, projectMemoryDir, projectWikiDir, activityLogDir
   })
   createMainWindow()
 

@@ -37,6 +37,45 @@ import {
 } from './repositoryService.helpers.js'
 import { readUntrackedFilePreview } from './repositoryService.untrackedPreview.js'
 
+/** Git subcommands that never change repository state. */
+const GIT_READ_ONLY_VERBS = new Set([
+  'blame', 'cat-file', 'check-ref-format', 'diff', 'diff-tree', 'for-each-ref',
+  'log', 'ls-files', 'ls-remote', 'ls-tree', 'merge-base', 'rev-list', 'rev-parse', 'shortlog',
+  'show', 'show-ref', 'status', 'var', 'version'
+])
+
+/**
+ * Subcommands that read or write depending on their arguments, listed with the
+ * argument that makes them a read.
+ */
+const GIT_READ_ONLY_SUBCOMMANDS: Record<string, string[]> = {
+  branch: ['--list', '--format', '--contains', '-r'],
+  config: ['--get', '--get-all', '--get-regexp', '--list'],
+  lfs: ['version', 'ls-files'],
+  remote: ['-v', 'get-url'],
+  stash: ['list', 'show'],
+  submodule: ['status'],
+  'symbolic-ref': ['--quiet'],
+  tag: ['--list'],
+  worktree: ['list']
+}
+
+/**
+ * Anything not provably a read counts as a write, because a stale warm cache is
+ * a wrong answer while an unnecessary cache drop only costs one reopen.
+ */
+function isReadOnlyGitCommand(args: string[]): boolean {
+  const verb = args[0]
+
+  if (GIT_READ_ONLY_VERBS.has(verb)) {
+    return true
+  }
+
+  const readMarkers = GIT_READ_ONLY_SUBCOMMANDS[verb]
+
+  return Boolean(readMarkers?.some((marker) => args.includes(marker)))
+}
+
 export const MAX_DIFF_BYTES = 350_000
 export const MAX_DIFF_OUTPUT_BYTES = MAX_DIFF_BYTES + 1
 export const MAX_BRANCH_COMPARE_SUMMARY_BYTES = 80_000
@@ -586,12 +625,24 @@ export abstract class RepositoryServiceBase {
     args: string[],
     options: { allowedExitCodes?: number[]; input?: string; timeoutMs?: number; maxOutputBytes?: number } = {}
   ) {
-    return this.runner.run(GIT_EXECUTABLE, args, {
+    const result = await this.runner.run(GIT_EXECUTABLE, args, {
       cwd,
       allowedExitCodes: options.allowedExitCodes,
       input: options.input,
       timeoutMs: options.timeoutMs,
       maxOutputBytes: options.maxOutputBytes
     })
+
+    if (!isReadOnlyGitCommand(args)) {
+      this.onRepositoryWrite()
+    }
+
+    return result
   }
+
+  /**
+   * Called after any Git command that was not a pure read. Subclasses that keep
+   * warm caches use it to drop them; the base keeps no state of its own.
+   */
+  protected onRepositoryWrite(): void {}
 }

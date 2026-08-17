@@ -30,7 +30,7 @@ export function MainViewRouter({ changesTool, setChangesTool, onOpenPublishRepos
       {viewMode === 'branches' && snapshot && <BranchesRoute />}
       {viewMode === 'config' && <ConfigRoute />}
       {viewMode === 'providers' && <ProvidersRoute onOpenPublishRepository={onOpenPublishRepository} />}
-      {(viewMode === 'daily' || viewMode === 'linkedin' || viewMode === 'memory' || viewMode === 'wiki' || viewMode === 'mcp') && <ReportsRoute />}
+      {(viewMode === 'daily' || viewMode === 'linkedin' || viewMode === 'memory' || viewMode === 'wiki') && <ReportsRoute />}
     </>
   )
 }

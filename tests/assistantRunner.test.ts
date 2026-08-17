@@ -205,6 +205,33 @@ describe('assistant commit message generation', () => {
   })
 
 
+  it('reports a signed-out CLI with the sign-in step instead of a generic failure', async () => {
+    const repoPath = createStagedRepository()
+    const runner = new AssistantTestRunner({
+      available: ['claude'],
+      failingAssistants: ['claude'],
+      assistantFailureOutput: 'Not logged in · Please run /login'
+    })
+
+    await expect(generateCommitMessage(runner, { repoPath, assistant: 'claude' })).rejects.toMatchObject({
+      code: 'assistant_signed_out',
+      message: 'Claude Code is not signed in. Run "claude" in a terminal and sign in with /login, then try again.'
+    })
+  })
+
+  it('falls back to Codex in auto mode when Claude is signed out', async () => {
+    const repoPath = createStagedRepository()
+    const runner = new AssistantTestRunner({
+      available: ['claude', 'codex'],
+      failingAssistants: ['claude'],
+      assistantFailureOutput: 'Not logged in · Please run /login'
+    })
+
+    const result = await generateCommitMessage(runner, { repoPath, assistant: 'auto' })
+
+    expect(result.assistant).toBe('codex')
+  })
+
   it('returns a parse error for invalid assistant output', async () => {
     const repoPath = createStagedRepository()
     const runner = new AssistantTestRunner({

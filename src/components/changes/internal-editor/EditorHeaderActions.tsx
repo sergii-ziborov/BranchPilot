@@ -9,10 +9,8 @@ import type { EditorDiagnostic } from './editorTypes'
 import type { EditorLintRunState, EditorLintSettings } from './lintSettings'
 import type { FileLineSearchTarget } from './editorStateTypes'
 import type { EditorViewMode } from './editorViewHelpers'
-import { LOCAL_AGENT_PROVIDERS, type LocalAgentProvider } from './localAgentSupport'
 import { EditorFileSearchField } from './EditorFileSearchField'
 import { EditorLintMenu } from './EditorLintMenu'
-import { LocalAgentBrandIcon } from './LocalAgentBrandIcon'
 
 interface EditorHeaderActionsProps {
   fileSearchInputRef: RefObject<HTMLInputElement | null>
@@ -47,10 +45,6 @@ interface EditorHeaderActionsProps {
   lintSettings: EditorLintSettings
   updateLintSettings: (patch: Partial<EditorLintSettings>) => void
   apiReady: boolean
-  codexAgentOpen: boolean
-  codexAgentProvider: LocalAgentProvider
-  setCodexAgentOpen: Dispatch<SetStateAction<boolean>>
-  selectLocalAgentProvider: (provider: LocalAgentProvider, open?: boolean) => void
   beautifyFile: () => void
   beautifyFileWithAi: () => void
   beautifying: boolean
@@ -97,10 +91,6 @@ export function EditorHeaderActions({
   lintSettings,
   updateLintSettings,
   apiReady,
-  codexAgentOpen,
-  codexAgentProvider,
-  setCodexAgentOpen,
-  selectLocalAgentProvider,
   beautifyFile,
   beautifyFileWithAi,
   beautifying,
@@ -162,33 +152,6 @@ export function EditorHeaderActions({
         lintSettings={lintSettings}
         updateLintSettings={updateLintSettings}
       />
-      {LOCAL_AGENT_PROVIDERS.map((provider) => (
-        <button
-          type="button"
-          className={[
-            'changes-editor-tool-button',
-            'compact-icon',
-            'changes-editor-codex-toggle',
-            `agent-${provider.value}`,
-            codexAgentOpen && codexAgentProvider === provider.value ? 'active' : ''
-          ].filter(Boolean).join(' ')}
-          onClick={() => {
-            if (codexAgentOpen && codexAgentProvider === provider.value) {
-              setCodexAgentOpen(false)
-              return
-            }
-            selectLocalAgentProvider(provider.value)
-          }}
-          disabled={!apiReady}
-          title={codexAgentOpen && codexAgentProvider === provider.value ? `Hide ${provider.label} agent` : `Open ${provider.label} agent`}
-          aria-label={codexAgentOpen && codexAgentProvider === provider.value ? `Hide ${provider.label} agent` : `Open ${provider.label} agent`}
-          aria-pressed={codexAgentOpen && codexAgentProvider === provider.value}
-          key={provider.value}
-        >
-          <LocalAgentBrandIcon provider={provider.value} />
-          <span className="changes-editor-button-label">{provider.label}</span>
-        </button>
-      ))}
       <button
         type="button"
         className="changes-editor-tool-button compact-icon"

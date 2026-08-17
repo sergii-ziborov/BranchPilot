@@ -15,7 +15,11 @@ import {
   ResolvedAssistantRunner
 } from '../assistantRunner.runners.js'
 import { resolveExecutablePath } from './executableResolution.js'
-import { summarizeAssistantFailure } from './failureSummary.js'
+import {
+  RETRYABLE_ASSISTANT_FAILURE_CODES,
+  classifyAssistantFailure,
+  summarizeAssistantFailure
+} from './failureSummary.js'
 
 export async function resolveAssistantCandidates(runner: CommandRunner, requestedAssistant: AssistantId): Promise<ResolvedAssistantRunner[]> {
   const requestedBaseAssistant = assistantBaseId(requestedAssistant)
@@ -66,10 +70,12 @@ export async function runAssistantForRequest(
         output: await runAssistant(runner, assistant, prompt, outputSchema)
       }
     } catch (error) {
+      // In 'auto' mode any assistant-side failure (including a signed-out CLI or
+      // an exhausted quota) is a reason to try the next assistant, not to stop.
       if (
         requestedAssistant !== 'auto' ||
         !(error instanceof BranchPilotUserError) ||
-        error.code !== 'assistant_failed'
+        !isRetryableAssistantFailure(error.code)
       ) {
         throw error
       }
@@ -118,15 +124,20 @@ export async function runAssistant(
     }
 
     if (error instanceof CommandExecutionError) {
-      throw new BranchPilotUserError(
-        'assistant_failed',
-        `${assistant.label} failed to generate text.`,
-        summarizeAssistantFailure([error.result.stderr, error.result.stdout].filter(Boolean).join('\n'))
-      )
+      // Both CLIs report why they refused on stdout, so read it before deciding
+      // what to tell the user.
+      const output = [error.result.stderr, error.result.stdout].filter(Boolean).join('\n')
+      const failure = classifyAssistantFailure(assistant, output)
+
+      throw new BranchPilotUserError(failure.code, failure.message, summarizeAssistantFailure(output))
     }
 
     throw error
   }
+}
+
+function isRetryableAssistantFailure(code: string): boolean {
+  return (RETRYABLE_ASSISTANT_FAILURE_CODES as readonly string[]).includes(code)
 }
 
 function assistantBaseId(assistant: AssistantId): InstalledAssistantId | 'auto' {

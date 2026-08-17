@@ -1,8 +1,6 @@
-export const BRANCH_PILOT_IPC_CHANNELS = [
+﻿export const BRANCH_PILOT_IPC_CHANNELS = [
   'activity:clear',
   'activity:list',
-  'agent:runDetail',
-  'agent:runs',
   'app:version',
   'app:setChromeTheme',
   'assistants:check',
@@ -15,9 +13,7 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'assistants:generateRepositoryStarter',
   'assistants:generateReviewReport',
   'assistants:getPolicy',
-  'assistants:cancelCodexAgent',
   'assistants:list',
-  'assistants:runCodexAgent',
   'assistants:setPolicy',
   'daily:generate',
   'editor:getSettings',
@@ -119,7 +115,6 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
   'repository:init',
   'repository:open',
   'repository:projectMemory',
-  'repository:projectMemoryMcpConfig',
   'repository:projectWiki',
   'repository:pullProjectWikiFromGitHub',
   'repository:pushProjectWikiToGitHub',
@@ -145,9 +140,6 @@ export const BRANCH_PILOT_IPC_CHANNELS = [
 ] as const
 
 export type BranchPilotIpcChannel = typeof BRANCH_PILOT_IPC_CHANNELS[number]
-
-/** Push channel (main -> renderer) for live local-agent stream batches; not an invoke channel. */
-export const CODEX_AGENT_EVENT_CHANNEL = 'assistants:codexAgentEvent'
 
 const branchPilotIpcChannelSet = new Set<string>(BRANCH_PILOT_IPC_CHANNELS)
 

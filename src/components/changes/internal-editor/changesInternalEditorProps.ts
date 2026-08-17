@@ -1,4 +1,4 @@
-import type { ApiResult, AssistantId, AssistantStatus, BranchPilotApi, RepositorySnapshot } from '../../../shared/branchPilot'
+import type { ApiResult, AssistantId, BranchPilotApi, RepositorySnapshot } from '../../../shared/branchPilot'
 import type { ConfirmationOptions } from '../../../lib/prompts'
 
 export interface ChangesInternalEditorProps {
@@ -7,9 +7,6 @@ export interface ChangesInternalEditorProps {
   snapshot: RepositorySnapshot | null
   initialFilePath: string | null
   selectedAssistant: AssistantId
-  assistants: AssistantStatus[]
-  assistantsChecking: boolean
-  checkAssistants: () => void | Promise<void>
   onBack: () => void
   setNotice: (message: string) => void
   requestConfirmation: (message: string, options?: ConfirmationOptions) => Promise<boolean>

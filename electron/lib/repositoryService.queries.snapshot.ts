@@ -10,6 +10,7 @@ import { deriveConflicts, deriveCounts, parseGitStatus } from './gitStatusParser
 import type { ParsedGitStatus } from './gitStatusParser.js'
 import { BuiltinGitReadBackend } from './gitReadBackend/index.js'
 import type { GitReadBackend } from './gitReadBackend/index.js'
+import { NativeGitStatusReader, SidecarClient } from './nativeBackend/index.js'
 import {
   normalizeRelativePath,
   pathExists
@@ -18,6 +19,13 @@ import { RepositoryServiceBase } from './repositoryService.base.js'
 
 export abstract class RepositoryServiceSnapshotQueries extends RepositoryServiceBase {
   private readonly builtinGitReadBackend: GitReadBackend = new BuiltinGitReadBackend()
+  private readonly nativeSidecar = new SidecarClient()
+  private readonly nativeStatusReader = new NativeGitStatusReader(this.nativeSidecar)
+
+  /** Drop warm native caches after a write, so the next read sees it. */
+  protected override onRepositoryWrite(): void {
+    void this.nativeSidecar.invalidateAll()
+  }
 
   async getRecentRepositories(): Promise<RecentRepository[]> {
     return this.settings.getRecentRepositories()
@@ -114,20 +122,33 @@ export abstract class RepositoryServiceSnapshotQueries extends RepositoryService
   }
 
   /**
-   * Read the working-tree status, routing the change list through the selected
-   * git read backend. The console path (`git status --porcelain=v2 --branch`)
-   * always runs — it supplies branch metadata (branch, ahead/behind, upstream,
-   * headOid) and is the fallback for the change list. When the user selected the
-   * built-in backend, its faithful `FileChange[]` replaces the console changes
-   * (with counts/conflicts re-derived to stay consistent); on
-   * {@link BuiltinBackendUnsupported} or any error it silently keeps the console
-   * changes. The default 'console' preference leaves behaviour untouched.
+   * Read the working-tree status through the selected git read backend.
+   *
+   * The 'native' backend answers the whole read — branch, upstream, divergence
+   * and changes — from the Rust core, so no `git` process runs at all. It is
+   * built to refuse rather than approximate, so any error (including its
+   * `unsupported` signal) falls through to the console path below.
+   *
+   * For 'console' and 'builtin' the console read always runs: it supplies branch
+   * metadata and is the fallback for the change list. 'builtin' then replaces
+   * the change list with isomorphic-git's, re-deriving counts and conflicts to
+   * stay consistent.
    */
   private async readWorkingTreeStatus(rootPath: string): Promise<ParsedGitStatus> {
+    const backend = await this.settings.getGitBackendSettings()
+
+    if (backend.preference === 'native' && this.nativeStatusReader.available) {
+      try {
+        return await this.nativeStatusReader.readStatus(rootPath)
+      } catch {
+        // The native core cannot prove this repository state (or is not running);
+        // the console read below is the accurate answer.
+      }
+    }
+
     const statusOutput = await this.git(rootPath, ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'])
     const parsedStatus = parseGitStatus(statusOutput.stdout)
 
-    const backend = await this.settings.getGitBackendSettings()
     if (backend.preference !== 'builtin') {
       return parsedStatus
     }

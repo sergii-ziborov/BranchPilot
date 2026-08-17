@@ -6,8 +6,6 @@ import { EditorHeaderActions } from './EditorHeaderActions'
 import { EditorStatusBar } from './EditorStatusBar'
 import { EditorViewSwitch } from './EditorViewSwitch'
 import { LiveChangesPanel } from './LiveChangesPanel'
-import { LocalAgentPanel } from './LocalAgentPanel'
-import { useAgentPanelResize } from './useAgentPanelResize'
 
 interface EditorMainHeaderInfo {
   selectedPath: string
@@ -19,8 +17,6 @@ interface EditorMainHeaderInfo {
 interface EditorMainPanelProps {
   header: EditorMainHeaderInfo
   headerActions: ComponentProps<typeof EditorHeaderActions>
-  showLocalAgent: boolean
-  localAgent: ComponentProps<typeof LocalAgentPanel>
   fileError: string | null
   selectedPath: string
   openFileContextMenu: (event: MouseEvent, path: string) => void
@@ -35,8 +31,6 @@ interface EditorMainPanelProps {
 export function EditorMainPanel({
   header,
   headerActions,
-  showLocalAgent,
-  localAgent,
   fileError,
   selectedPath,
   openFileContextMenu,
@@ -47,18 +41,8 @@ export function EditorMainPanel({
   showStatusBar,
   statusBar
 }: EditorMainPanelProps) {
-  const {
-    containerRef,
-    agentPanelHeight,
-    agentPanelStyle,
-    startAgentPanelResize,
-    handleAgentPanelResizeKeyDown,
-    minAgentPanelHeight,
-    maxAgentPanelHeight
-  } = useAgentPanelResize()
-
   return (
-    <div className="changes-editor-main" ref={containerRef} style={showLocalAgent ? agentPanelStyle : undefined}>
+    <div className="changes-editor-main">
       <header className="changes-editor-header">
         <div className="changes-editor-header-main">
           <h3>
@@ -75,26 +59,6 @@ export function EditorMainPanel({
         </div>
         <EditorHeaderActions {...headerActions} />
       </header>
-
-      {showLocalAgent && (
-        <>
-          <LocalAgentPanel {...localAgent} />
-          <div
-            className="changes-editor-agent-splitter"
-            role="separator"
-            aria-label="Resize agent panel height"
-            aria-orientation="horizontal"
-            aria-valuemin={minAgentPanelHeight}
-            aria-valuemax={maxAgentPanelHeight}
-            aria-valuenow={agentPanelHeight}
-            tabIndex={0}
-            onPointerDown={startAgentPanelResize}
-            onKeyDown={handleAgentPanelResizeKeyDown}
-          >
-            <span />
-          </div>
-        </>
-      )}
 
       {fileError ? (
         <div className="quiet-box danger-text">{fileError}</div>

@@ -141,6 +141,35 @@ export function deriveCounts(changes: FileChange[], conflicts: ConflictFile[]): 
   }
 }
 
+/**
+ * Build a {@link FileChange} from porcelain-v2 status codes.
+ *
+ * Shared by the console parser and the native backend so a change object is
+ * identical whichever read path produced it.
+ */
+export function fileChangeFromCodes(
+  filePath: string,
+  stagedStatus: string,
+  unstagedStatus: string,
+  originalPath?: string
+): FileChange {
+  if (unstagedStatus === '?') {
+    return {
+      path: filePath,
+      status: 'untracked',
+      staged: false,
+      unstaged: true,
+      untracked: true,
+      conflicted: false,
+      unstagedStatus: '?'
+    }
+  }
+
+  const change = makeChange(filePath, stagedStatus, unstagedStatus, stagedStatus === 'R' ? 'renamed' : undefined)
+
+  return originalPath ? { ...change, originalPath } : change
+}
+
 function parseOrdinaryChange(record: string): FileChange {
   const parts = record.split(' ')
   const xy = parts[1] ?? '..'

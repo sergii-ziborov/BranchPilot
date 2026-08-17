@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import type {
-  ActivityLogEventType, ActivityLogSnapshot, BranchPilotApi, ProjectMemoryMcpConfig,
+  ActivityLogEventType, ActivityLogSnapshot, BranchPilotApi,
   ProjectMemorySnapshot, ProjectWikiPage, ProjectWikiPageId, ProjectWikiSnapshot
 } from '../shared/branchPilot'
 import { branchPilotErrorText } from '../shared/branchPilot'
@@ -38,7 +38,6 @@ export function useProjectMemory({
   requestConfirmation: RequestConfirmation
 }) {
   const [projectMemory, setProjectMemory] = useState<ProjectMemorySnapshot | null>(null)
-  const [projectMemoryMcpConfig, setProjectMemoryMcpConfig] = useState<ProjectMemoryMcpConfig | null>(null)
   const [projectWiki, setProjectWiki] = useState<ProjectWikiSnapshot | null>(null)
   const [selectedProjectWikiPageId, setSelectedProjectWikiPageId] = useState<ProjectWikiPageId>('overview')
   const [wikiLoading, setWikiLoading] = useState(false)
@@ -95,9 +94,8 @@ export function useProjectMemory({
     const requestId = projectMemoryRequestIdRef.current + 1
     projectMemoryRequestIdRef.current = requestId
     setMemoryLoading(true)
-    const [memoryResult, mcpConfigResult, wikiResult, activityResult] = await Promise.all([
+    const [memoryResult, wikiResult, activityResult] = await Promise.all([
       api.getProjectMemory(repoPath),
-      api.getProjectMemoryMcpConfig(repoPath),
       api.getProjectWiki(repoPath),
       api.getActivityLog({ repoPath, limit: 120 })
     ])
@@ -109,13 +107,6 @@ export function useProjectMemory({
     } else {
       setProjectMemory(null)
       setError(memoryResult.error.message)
-    }
-
-    if (mcpConfigResult.ok) {
-      setProjectMemoryMcpConfig(mcpConfigResult.data)
-    } else {
-      setProjectMemoryMcpConfig(null)
-      setError(mcpConfigResult.error.message)
     }
 
     if (wikiResult.ok) {
@@ -265,7 +256,6 @@ export function useProjectMemory({
 
   return {
     projectMemory, setProjectMemory,
-    projectMemoryMcpConfig,
     projectWiki, setProjectWiki,
     selectedProjectWikiPageId, setSelectedProjectWikiPageId, selectedProjectWikiPage,
     wikiLoading,
@@ -276,7 +266,7 @@ export function useProjectMemory({
     selectedMemoryFile, selectedMemorySymbols, selectedMemoryImports,
     filteredActivityEntries, completedWorkItems,
     loadProjectMemory, generateProjectWiki, scanProjectMemory,
-    copyProjectMemoryText, copyProjectWikiPage, saveProjectWikiPage,
+    copyProjectWikiPage, saveProjectWikiPage,
     pullProjectWikiFromGitHub, pushProjectWikiToGitHub,
     clearActivityLog
   }

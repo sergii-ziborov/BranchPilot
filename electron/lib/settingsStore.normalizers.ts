@@ -32,7 +32,9 @@ export const DEFAULT_SETTINGS: PersistedSettings = {
     preference: 'auto'
   },
   gitBackendSettings: {
-    preference: 'console'
+    // The native core answers reads without spawning Git and falls back to the
+    // console path whenever it cannot prove a result, so it is the default.
+    preference: 'native'
   },
   gitMonitorSettings: {
     enabled: false,
@@ -212,7 +214,7 @@ export function normalizeGitBackendPreference(value: unknown): GitBackendPrefere
 }
 
 function isGitBackendPreference(value: unknown): value is GitBackendPreference {
-  return value === 'console' || value === 'builtin'
+  return value === 'console' || value === 'builtin' || value === 'native'
 }
 
 const GIT_MONITOR_MIN_INTERVAL_SECONDS = 20

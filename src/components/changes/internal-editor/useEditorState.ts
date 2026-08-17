@@ -6,7 +6,6 @@ import type { RepositoryContentSearchMatch, RepositoryContentSearchState } from 
 import { useEditorSidebarResize } from './useEditorSidebarResize'
 import { useEditorDerivedViewState } from './useEditorDerivedViewState'
 import { useHexEditor } from './useHexEditor'
-import { useLocalAgentPanel } from './useLocalAgentPanel'
 import { useEditorMultiEdit } from './useEditorMultiEdit'
 import { useEditorTextHistory } from './useEditorTextHistory'
 import { useEditorViewport } from './useEditorViewport'
@@ -16,10 +15,7 @@ import { useEditorLiveDerivedState } from './useEditorLiveDerivedState'
 import type { ChangesInternalEditorProps } from './changesInternalEditorProps'
 
 export function useEditorState(props: ChangesInternalEditorProps) {
-  const {
-    api, currentRepoPath, snapshot, initialFilePath, selectedAssistant, assistants,
-    assistantsChecking, checkAssistants, setNotice, requestConfirmation, runSnapshotAction
-  } = props
+  const { api, currentRepoPath, snapshot, initialFilePath, setNotice } = props
   const editorRef = useRef<HTMLElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileSearchInputRef = useRef<HTMLInputElement | null>(null)
@@ -114,24 +110,6 @@ export function useEditorState(props: ChangesInternalEditorProps) {
   const [gitDiffLoading, setGitDiffLoading] = useState(false)
   const [liveChangesOpen, setLiveChangesOpen] = useState(true)
   const [liveChangesText, setLiveChangesText] = useState<string | null>(null)
-  const localAgent = useLocalAgentPanel({
-    api,
-    currentRepoPath,
-    selectedPath,
-    selectedAssistant,
-    assistants,
-    assistantsChecking,
-    checkAssistants,
-    setNotice,
-    requestConfirmation,
-    runSnapshotAction,
-    viewMode,
-    textUnavailableMessage,
-    fileError,
-    diagnostics,
-    flushActiveEditorDraftText: () => flushActiveEditorDraftText()
-  })
-
   const {
     changeByPath,
     selectedChange,
@@ -386,7 +364,6 @@ export function useEditorState(props: ChangesInternalEditorProps) {
     textUnavailableMessage, setTextUnavailableMessage, diagnostics, setDiagnostics,
     gitLineChanges, setGitLineChanges, gitDiffLoading, setGitDiffLoading,
     liveChangesOpen, setLiveChangesOpen, liveChangesText, setLiveChangesText,
-    localAgent,
     changeByPath, selectedChange, query, fileContentMatchCount, visibleFiles, visibleFileTree,
     chunkedTextActive, activeEditorText, activeEditorLineBase, editorSourceKey, textDirty,
     liveChanges, liveChangesStale, editedLines, changeKindByLine, gitChangedLines, draftLines,
